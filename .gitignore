@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+.next/
+
+# Logs
+logs/
+*.log
+
+# Uploads (runtime user content)
+uploads/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Expo
+.expo/
+
+# Android / iOS
+gobuyme-mobile/android/.gradle/
+gobuyme-mobile/android/app/build/
+gobuyme-mobile/ios/Pods/
+gobuyme-mobile/ios/build/

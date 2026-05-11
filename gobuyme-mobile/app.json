@@ -1,0 +1,70 @@
+{
+  "expo": {
+    "name": "GoBuyMe",
+    "slug": "gobuyme",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "gobuyme",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-notifications",
+        {
+          "color": "#FF521B",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "GoBuyMe needs your location to show nearby vendors and track deliveries.",
+          "locationWhenInUsePermission": "GoBuyMe needs your location to show nearby vendors and track deliveries."
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": "GoBuyMe uses Face ID to keep your account secure."
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "dev.bubblebarrel.gobuyme",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "GoBuyMe needs your location to show nearby vendors and track deliveries.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "GoBuyMe needs your location to track your deliveries."
+      }
+    },
+    "android": {
+      "package": "dev.bubblebarrel.gobuyme",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FF521B"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "newArchEnabled": false
+  }
+}

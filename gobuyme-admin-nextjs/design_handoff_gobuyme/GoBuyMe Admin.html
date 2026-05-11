@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GoBuyMe — Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0E0E0E; font-family:'Plus Jakarta Sans',sans-serif; color:#fff; overflow:hidden; }
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:#1A1A1A; }
+::-webkit-scrollbar-thumb { background:#3A3A3A; border-radius:3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const ADMIN_DARK = {
+  primary:'#FF521B', primaryDark:'#CC3D0E', primaryTint:'rgba(255,82,27,0.1)',
+  bg:'#0E0E0E', surface:'#1A1A1A', surface2:'#222222', surface3:'#2A2A2A',
+  border:'#2E2E2E', text:'#FFFFFF', textSec:'#A0A0A0', textMuted:'#555',
+  success:'#1A9E5F', successBg:'rgba(26,158,95,0.1)',
+  warning:'#F5A623', warningBg:'rgba(245,166,35,0.1)',
+  error:'#E23B3B', errorBg:'rgba(226,59,59,0.1)',
+  info:'#1A6EFF', infoBg:'rgba(26,110,255,0.1)',
+  font:"'Plus Jakarta Sans',sans-serif", isDark:true,
+};
+
+const ADMIN_LIGHT = {
+  primary:'#FF521B', primaryDark:'#CC3D0E', primaryTint:'rgba(255,82,27,0.08)',
+  bg:'#F4F2F0', surface:'#FFFFFF', surface2:'#F0EDEA', surface3:'#E8E4E0',
+  border:'#E2DDD8', text:'#1A1410', textSec:'#6B6560', textMuted:'#ABA49D',
+  success:'#1A9E5F', successBg:'rgba(26,158,95,0.08)',
+  warning:'#F5A623', warningBg:'rgba(245,166,35,0.08)',
+  error:'#E23B3B', errorBg:'rgba(226,59,59,0.08)',
+  info:'#1A6EFF', infoBg:'rgba(26,110,255,0.08)',
+  font:"'Plus Jakarta Sans',sans-serif", isDark:false,
+};
+
+let T = ADMIN_DARK;
+
+// ── Icons ──────────────────────────────────────────────────
+const Ic = {
+  grid:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8"/></svg>,
+  store:   <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 9l1-5h16l1 5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M3 9v11a1 1 0 001 1h16a1 1 0 001-1V9" stroke="currentColor" strokeWidth="1.8"/><rect x="9" y="14" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.8"/><path d="M3 9a3 3 0 006 0 3 3 0 006 0 3 3 0 006 0" stroke="currentColor" strokeWidth="1.8"/></svg>,
+  bike:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="5.5" cy="17.5" r="3.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="18.5" cy="17.5" r="3.5" stroke="currentColor" strokeWidth="1.8"/><path d="M15 6h-4l-3 5.5 2 2 4-3h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 17.5L12 10l3 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  users:   <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M16 3.13a4 4 0 010 7.75M21 21v-2a4 4 0 00-3-3.87" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  package: <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" stroke="currentColor" strokeWidth="1.8"/><polyline points="3.27 6.96 12 12.01 20.73 6.96" stroke="currentColor" strokeWidth="1.8"/><line x1="12" y1="22.08" x2="12" y2="12" stroke="currentColor" strokeWidth="1.8"/></svg>,
+  dollar:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><line x1="12" y1="1" x2="12" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  log:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8"/><polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.8"/><line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" strokeWidth="1.8"/><line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" strokeWidth="1.8"/><polyline points="10 9 9 9 8 9" stroke="currentColor" strokeWidth="1.8"/></svg>,
+  bell:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.8"/><path d="M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" strokeWidth="1.8"/></svg>,
+  chevR:   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  check:   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  x:       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>,
+  trend:   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><polyline points="17 6 23 6 23 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  search:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/><path d="M16.5 16.5L21 21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  settings:<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="1.8"/></svg>,
+};
+
+// ── Mini sparkline ──────────────────────────────────────────
+function Sparkline({ data, color, h=36, w=80 }) {
+  const max = Math.max(...data), min = Math.min(...data);
+  const range = max - min || 1;
+  const pts = data.map((v,i) => {
+    const x = (i / (data.length-1)) * w;
+    const y = h - ((v-min)/range)*(h-4) - 2;
+    return `${x},${y}`;
+  }).join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <polyline points={`0,${h} ${pts} ${w},${h}`} fill={`${color}18`} stroke="none"/>
+    </svg>
+  );
+}
+
+// ── Bar chart ───────────────────────────────────────────────
+function BarChart({ data, labels, color, h=120 }) {
+  const max = Math.max(...data);
+  return (
+    <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:h+20 }}>
+      {data.map((v,i) => (
+        <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:5 }}>
+          <div style={{
+            width:'100%', borderRadius:'4px 4px 0 0',
+            height:`${(v/max)*h}px`,
+            background: i===data.length-1 ? color : `${color}50`,
+            transition:'height 0.6s ease',
+            minHeight:4,
+          }}/>
+          <span style={{ fontSize:10, color:T.textMuted, fontWeight:600 }}>{labels[i]}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Donut chart ──────────────────────────────────────────────
+function DonutChart({ segments, size=100 }) {
+  const r = 36, cx = 50, cy = 50, total = segments.reduce((s,x)=>s+x.value,0);
+  let angle = -Math.PI/2;
+  const paths = segments.map(seg => {
+    const sweep = (seg.value/total)*2*Math.PI;
+    const x1=cx+r*Math.cos(angle), y1=cy+r*Math.sin(angle);
+    angle+=sweep;
+    const x2=cx+r*Math.cos(angle), y2=cy+r*Math.sin(angle);
+    const large=sweep>Math.PI?1:0;
+    return { d:`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`, color:seg.color, label:seg.label, value:seg.value };
+  });
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      {paths.map((p,i) => <path key={i} d={p.d} fill={p.color} opacity="0.9"/>)}
+      <circle cx={50} cy={50} r={24} fill={T.surface}/>
+    </svg>
+  );
+}
+
+// ── Status badge ────────────────────────────────────────────
+function Badge({ status }) {
+  const map = {
+    APPROVED:   { color:T.success, bg:T.successBg, label:'Approved' },
+    PENDING:    { color:T.warning, bg:T.warningBg, label:'Pending' },
+    REJECTED:   { color:T.error,   bg:T.errorBg,   label:'Rejected' },
+    SUSPENDED:  { color:T.error,   bg:T.errorBg,   label:'Suspended' },
+    DELIVERED:  { color:T.success, bg:T.successBg, label:'Delivered' },
+    IN_TRANSIT: { color:T.info,    bg:T.infoBg,    label:'In Transit' },
+    PREPARING:  { color:T.warning, bg:T.warningBg, label:'Preparing' },
+    CANCELLED:  { color:T.error,   bg:T.errorBg,   label:'Cancelled' },
+    CONFIRMED:  { color:T.info,    bg:T.infoBg,    label:'Confirmed' },
+    ONLINE:     { color:T.success, bg:T.successBg, label:'Online' },
+    OFFLINE:    { color:T.textSec, bg:T.surface3,  label:'Offline' },
+  };
+  const m = map[status] || map.PENDING;
+  return (
+    <span style={{
+      fontSize:11, fontWeight:700, color:m.color, background:m.bg,
+      borderRadius:6, padding:'3px 9px', whiteSpace:'nowrap',
+    }}>{m.label}</span>
+  );
+}
+
+// ── Stat card ───────────────────────────────────────────────
+function StatCard({ label, value, delta, deltaUp, sparkData, color, icon }) {
+  return (
+    <div style={{
+      background:T.surface, borderRadius:14, padding:'20px 22px',
+      border:`1px solid ${T.border}`, flex:1,
+      display:'flex', flexDirection:'column', gap:12,
+    }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+        <div>
+          <div style={{ fontSize:12, fontWeight:600, color:T.textSec, textTransform:'uppercase', letterSpacing:0.5, marginBottom:8 }}>{label}</div>
+          <div style={{ fontSize:26, fontWeight:800, color:T.text, letterSpacing:-0.5 }}>{value}</div>
+        </div>
+        <div style={{ fontSize:24, opacity:0.7 }}>{icon}</div>
+      </div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+          <span style={{ color: deltaUp ? T.success : T.error, fontSize:12, fontWeight:700 }}>
+            {deltaUp ? '↑' : '↓'} {delta}
+          </span>
+          <span style={{ fontSize:11, color:T.textMuted }}>vs last week</span>
+        </div>
+        <Sparkline data={sparkData} color={color}/>
+      </div>
+    </div>
+  );
+}
+
+// ── DATA ────────────────────────────────────────────────────
+const VENDORS_DATA = [
+  { id:'V001', name:'Mama Titi Kitchen', owner:'Titi Adaeze', cat:'Restaurant', city:'Owerri', orders:234, revenue:'₦312k', rating:4.8, status:'APPROVED', joined:'Jan 12, 2025' },
+  { id:'V002', name:'Suya Spot Deluxe', owner:'Musa Ibrahim', cat:'Restaurant', city:'Owerri', orders:189, revenue:'₦241k', rating:4.6, status:'APPROVED', joined:'Feb 3, 2025' },
+  { id:'V003', name:'HealthFirst Pharmacy', owner:'Dr. Chidi Obi', cat:'Pharmacy', city:'Owerri', orders:56, revenue:'₦89k', rating:4.9, status:'PENDING', joined:'Apr 15, 2026' },
+  { id:'V004', name:'FreshMart Grocery', owner:'Ngozi Eze', cat:'Grocery', city:'Port Harcourt', orders:0, revenue:'₦0', rating:0, status:'PENDING', joined:'Apr 18, 2026' },
+  { id:'V005', name:'Puff Puff & More', owner:'Amaka Obi', cat:'Restaurant', city:'Owerri', orders:98, revenue:'₦62k', rating:4.4, status:'APPROVED', joined:'Mar 1, 2025' },
+  { id:'V006', name:'Egusi Palace', owner:'Chief Okoro', cat:'Restaurant', city:'Owerri', orders:302, revenue:'₦498k', rating:4.9, status:'APPROVED', joined:'Dec 5, 2024' },
+  { id:'V007', name:'QuickRun Errands', owner:'Segun Bello', cat:'Errand', city:'Lagos', orders:0, revenue:'₦0', rating:0, status:'REJECTED', joined:'Apr 10, 2026' },
+];
+
+const RIDERS_DATA = [
+  { id:'R001', name:'Emeka Okafor', phone:'+234 812 001 0001', vehicle:'Bike', plate:'OW-234-KA', deliveries:312, earned:'₦187k', rating:4.9, status:'APPROVED', online:'ONLINE', joined:'Jan 5, 2025' },
+  { id:'R002', name:'Chukwudi Nwosu', phone:'+234 803 002 0002', vehicle:'Bike', plate:'OW-451-EM', deliveries:201, earned:'₦124k', rating:4.7, status:'APPROVED', online:'OFFLINE', joined:'Feb 14, 2025' },
+  { id:'R003', name:'Bode Adewale', phone:'+234 816 003 0003', vehicle:'Bicycle', plate:'N/A', deliveries:0, earned:'₦0', rating:0, status:'PENDING', online:'OFFLINE', joined:'Apr 17, 2026' },
+  { id:'R004', name:'Fatima Hassan', phone:'+234 705 004 0004', vehicle:'Bike', plate:'OW-892-FH', deliveries:145, earned:'₦89k', rating:4.8, status:'APPROVED', online:'ONLINE', joined:'Mar 8, 2025' },
+  { id:'R005', name:'Kelechi Iro', phone:'+234 811 005 0005', vehicle:'Bike', plate:'OW-120-KI', deliveries:0, earned:'₦0', rating:0, status:'SUSPENDED', online:'OFFLINE', joined:'Jan 20, 2025' },
+];
+
+const ORDERS_DATA = [
+  { id:'GBM-0094', customer:'Chioma A.', vendor:'Mama Titi Kitchen', rider:'Emeka O.', amount:'₦5,500', status:'IN_TRANSIT', time:'2 min ago' },
+  { id:'GBM-0093', customer:'Tunde B.', vendor:'Suya Spot Deluxe', rider:'Fatima H.', amount:'₦3,600', status:'PREPARING', time:'5 min ago' },
+  { id:'GBM-0092', customer:'Ngozi M.', vendor:'Egusi Palace', rider:'Chukwudi N.', amount:'₦2,200', status:'DELIVERED', time:'18 min ago' },
+  { id:'GBM-0091', customer:'Emeka D.', vendor:'Puff Puff & More', rider:'Emeka O.', amount:'₦1,200', status:'DELIVERED', time:'34 min ago' },
+  { id:'GBM-0090', customer:'Amaka O.', vendor:'Mama Titi Kitchen', rider:'Fatima H.', amount:'₦4,800', status:'CANCELLED', time:'1 hr ago' },
+  { id:'GBM-0089', customer:'Victor U.', vendor:'Egusi Palace', rider:'Chukwudi N.', amount:'₦3,100', status:'DELIVERED', time:'2 hr ago' },
+];
+
+const AUDIT_LOGS = [
+  { action:'VENDOR_APPROVED', entity:'Vendor', id:'V002', user:'super_admin', time:'2 min ago', meta:'Mama Titi Kitchen approved' },
+  { action:'ORDER_CANCELLED', entity:'Order', id:'GBM-0090', user:'system', time:'1 hr ago', meta:'Customer requested cancellation' },
+  { action:'RIDER_SUSPENDED', entity:'Rider', id:'R005', user:'super_admin', time:'3 hr ago', meta:'Multiple delivery failures' },
+  { action:'OFFER_CREATED', entity:'Offer', id:'OFF-12', user:'super_admin', time:'5 hr ago', meta:'FIRST50 promo created' },
+  { action:'VENDOR_REGISTERED', entity:'Vendor', id:'V004', user:'system', time:'2 days ago', meta:'FreshMart Grocery pending review' },
+];
+
+// ── Page: Overview ───────────────────────────────────────────
+function OverviewPage() {
+  const monthlyRevenue = [2.1,2.8,3.2,2.9,3.8,4.1,3.7,4.5,4.8,5.2,4.9,5.6];
+  const monthLabels = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+  const ordersByDay = [142,168,134,191,176,214,203];
+  const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  const donutData = [
+    { label:'Restaurant', value:62, color:T.primary },
+    { label:'Grocery', value:18, color:'#1A6EFF' },
+    { label:'Pharmacy', value:12, color:'#1A9E5F' },
+    { label:'Errand', value:8, color:'#F5A623' },
+  ];
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      {/* Stats row */}
+      <div style={{ display:'flex', gap:16 }}>
+        <StatCard label="Total Revenue" value="₦14.2M" delta="18.4%" deltaUp icon="💰" color={T.primary}
+          sparkData={[1.2,1.8,1.5,2.1,1.9,2.4,2.8]}/>
+        <StatCard label="Total Orders" value="8,431" delta="12.1%" deltaUp icon="📦" color="#1A6EFF"
+          sparkData={[120,145,130,160,155,180,190]}/>
+        <StatCard label="Active Vendors" value="142" delta="3 new" deltaUp icon="🏪" color="#1A9E5F"
+          sparkData={[120,124,128,132,136,139,142]}/>
+        <StatCard label="Active Riders" value="67" delta="2 pending" deltaUp={false} icon="🏍️" color="#F5A623"
+          sparkData={[58,62,59,65,63,66,67]}/>
+      </div>
+
+      {/* Charts row */}
+      <div style={{ display:'flex', gap:16 }}>
+        {/* Revenue bar chart */}
+        <div style={{ flex:2, background:T.surface, borderRadius:14, padding:'20px 22px', border:`1px solid ${T.border}` }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+            <div>
+              <div style={{ fontSize:15, fontWeight:700, color:T.text }}>Monthly Revenue</div>
+              <div style={{ fontSize:12, color:T.textSec, marginTop:2 }}>2025 full year + 2026 YTD</div>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:6, background:T.surface3, borderRadius:8, padding:'6px 12px' }}>
+              <span style={{ color:T.primary, fontSize:13 }}>▲</span>
+              <span style={{ fontSize:13, fontWeight:700, color:T.success }}>+22.4% YoY</span>
+            </div>
+          </div>
+          <BarChart data={monthlyRevenue} labels={monthLabels} color={T.primary} h={110}/>
+        </div>
+
+        {/* Category donut */}
+        <div style={{ flex:1, background:T.surface, borderRadius:14, padding:'20px 22px', border:`1px solid ${T.border}` }}>
+          <div style={{ fontSize:15, fontWeight:700, color:T.text, marginBottom:4 }}>Orders by Category</div>
+          <div style={{ fontSize:12, color:T.textSec, marginBottom:16 }}>This month</div>
+          <div style={{ display:'flex', alignItems:'center', gap:20 }}>
+            <DonutChart segments={donutData} size={110}/>
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {donutData.map(d => (
+                <div key={d.label} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <div style={{ width:10, height:10, borderRadius:2, background:d.color, flexShrink:0 }}/>
+                  <span style={{ fontSize:12, color:T.textSec }}>{d.label}</span>
+                  <span style={{ fontSize:12, fontWeight:700, color:T.text, marginLeft:'auto' }}>{d.value}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Orders by day */}
+        <div style={{ flex:1, background:T.surface, borderRadius:14, padding:'20px 22px', border:`1px solid ${T.border}` }}>
+          <div style={{ fontSize:15, fontWeight:700, color:T.text, marginBottom:4 }}>Orders This Week</div>
+          <div style={{ fontSize:12, color:T.textSec, marginBottom:16 }}>Daily breakdown</div>
+          <BarChart data={ordersByDay} labels={dayLabels} color="#1A6EFF" h={100}/>
+        </div>
+      </div>
+
+      {/* Recent orders + pending vendors */}
+      <div style={{ display:'flex', gap:16 }}>
+        {/* Recent orders */}
+        <div style={{ flex:3, background:T.surface, borderRadius:14, border:`1px solid ${T.border}`, overflow:'hidden' }}>
+          <div style={{ padding:'16px 20px', borderBottom:`1px solid ${T.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div style={{ fontSize:15, fontWeight:700, color:T.text }}>Recent Orders</div>
+            <span style={{ fontSize:12, color:T.primary, fontWeight:600, cursor:'pointer' }}>View All</span>
+          </div>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <thead>
+              <tr style={{ background:T.surface2 }}>
+                {['Order ID','Customer','Vendor','Amount','Status','Time'].map(h => (
+                  <th key={h} style={{ padding:'10px 16px', fontSize:11, fontWeight:700, color:T.textSec, textAlign:'left', textTransform:'uppercase', letterSpacing:0.4 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ORDERS_DATA.slice(0,5).map((o,i) => (
+                <tr key={o.id} style={{ borderTop:`1px solid ${T.border}` }}>
+                  <td style={{ padding:'12px 16px', fontSize:13, fontWeight:700, color:T.primary }}>{o.id}</td>
+                  <td style={{ padding:'12px 16px', fontSize:13, color:T.text }}>{o.customer}</td>
+                  <td style={{ padding:'12px 16px', fontSize:13, color:T.textSec }}>{o.vendor}</td>
+                  <td style={{ padding:'12px 16px', fontSize:13, fontWeight:700, color:T.text }}>{o.amount}</td>
+                  <td style={{ padding:'12px 16px' }}><Badge status={o.status}/></td>
+                  <td style={{ padding:'12px 16px', fontSize:12, color:T.textMuted }}>{o.time}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pending approvals */}
+        <div style={{ flex:1.2, background:T.surface, borderRadius:14, border:`1px solid ${T.border}`, overflow:'hidden' }}>
+          <div style={{ padding:'16px 20px', borderBottom:`1px solid ${T.border}`, display:'flex', justifyContent:'space-between' }}>
+            <div style={{ fontSize:15, fontWeight:700, color:T.text }}>Pending Approvals</div>
+            <span style={{
+              background:`${T.warning}20`, color:T.warning, borderRadius:99,
+              padding:'2px 10px', fontSize:12, fontWeight:700,
+            }}>2 new</span>
+          </div>
+          <div style={{ padding:'12px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+            {VENDORS_DATA.filter(v=>v.status==='PENDING').map(v => (
+              <div key={v.id} style={{
+                background:T.surface2, borderRadius:10, padding:'12px',
+                border:`1px solid ${T.border}`,
+              }}>
+                <div style={{ fontSize:13, fontWeight:700, color:T.text }}>{v.name}</div>
+                <div style={{ fontSize:11, color:T.textSec, marginTop:2 }}>{v.cat} · {v.city} · {v.joined}</div>
+                <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                  <button style={{
+                    flex:1, padding:'7px', borderRadius:7, border:'none', cursor:'pointer',
+                    background:T.success, color:'#fff', fontSize:12, fontWeight:700, fontFamily:T.font,
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:4,
+                  }}>{Ic.check} Approve</button>
+                  <button style={{
+                    flex:1, padding:'7px', borderRadius:7, cursor:'pointer', fontFamily:T.font,
+                    background:'none', border:`1px solid ${T.error}`, color:T.error, fontSize:12, fontWeight:700,
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:4,
+                  }}>{Ic.x} Reject</button>
+                </div>
+              </div>
+            ))}
+            {RIDERS_DATA.filter(r=>r.status==='PENDING').map(r => (
+              <div key={r.id} style={{
+                background:T.surface2, borderRadius:10, padding:'12px',
+                border:`1px solid ${T.border}`,
+              }}>
+                <div style={{ fontSize:13, fontWeight:700, color:T.text }}>{r.name}</div>
+                <div style={{ fontSize:11, color:T.textSec, marginTop:2 }}>Rider · {r.vehicle} · {r.joined}</div>
+                <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                  <button style={{
+                    flex:1, padding:'7px', borderRadius:7, border:'none', cursor:'pointer',
+                    background:T.success, color:'#fff', fontSize:12, fontWeight:700, fontFamily:T.font,
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:4,
+                  }}>{Ic.check} Approve</button>
+                  <button style={{
+                    flex:1, padding:'7px', borderRadius:7, cursor:'pointer', fontFamily:T.font,
+                    background:'none', border:`1px solid ${T.error}`, color:T.error, fontSize:12, fontWeight:700,
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:4,
+                  }}>{Ic.x} Reject</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Page: Vendors ────────────────────────────────────────────
+function VendorsPage() {
+  const [vendors, setVendors] = useState(VENDORS_DATA);
+  const [filter, setFilter] = useState('ALL');
+  const [search, setSearch] = useState('');
+
+  const approve = id => setVendors(vs => vs.map(v => v.id===id ? {...v, status:'APPROVED'} : v));
+  const suspend = id => setVendors(vs => vs.map(v => v.id===id ? {...v, status:'SUSPENDED'} : v));
+  const reject  = id => setVendors(vs => vs.map(v => v.id===id ? {...v, status:'REJECTED'} : v));
+
+  const filtered = vendors.filter(v =>
+    (filter==='ALL' || v.status===filter) &&
+    (!search || v.name.toLowerCase().includes(search.toLowerCase()) || v.owner.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const tabs = ['ALL','PENDING','APPROVED','SUSPENDED','REJECTED'];
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <div>
+          <div style={{ fontSize:20, fontWeight:800, color:T.text }}>Vendors</div>
+          <div style={{ fontSize:13, color:T.textSec, marginTop:2 }}>{vendors.length} total vendors</div>
+        </div>
+        <button style={{
+          padding:'10px 20px', borderRadius:9, background:T.primary, border:'none',
+          cursor:'pointer', fontSize:13, fontWeight:700, color:'#fff', fontFamily:T.font,
+        }}>+ Add Vendor</button>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display:'flex', gap:10, alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ display:'flex', gap:6 }}>
+          {tabs.map(t => (
+            <button key={t} onClick={()=>setFilter(t)} style={{
+              padding:'7px 14px', borderRadius:8, border:'none', cursor:'pointer', fontFamily:T.font,
+              background: filter===t ? T.primaryTint : T.surface2,
+              color: filter===t ? T.primary : T.textSec,
+              fontSize:12, fontWeight:700,
+              borderWidth: filter===t ? 1 : 0,
+              borderStyle:'solid', borderColor: T.primary,
+            }}>{t} {t!=='ALL' && <span style={{ marginLeft:4, opacity:0.7 }}>{vendors.filter(v=>v.status===t).length}</span>}</button>
+          ))}
+        </div>
+        <div style={{ position:'relative' }}>
+          <span style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:T.textMuted }}>{Ic.search}</span>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search vendors..." style={{
+            background:T.surface2, border:`1px solid ${T.border}`, borderRadius:9,
+            padding:'8px 14px 8px 32px', color:T.text, fontSize:13, fontFamily:T.font, outline:'none', width:220,
+          }}/>
+        </div>
+      </div>
+
+      <div style={{ background:T.surface, borderRadius:14, border:`1px solid ${T.border}`, overflow:'hidden' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse' }}>
+          <thead>
+            <tr style={{ background:T.surface2 }}>
+              {['Vendor','Owner','Category','City','Orders','Revenue','Rating','Status','Actions'].map(h => (
+                <th key={h} style={{ padding:'11px 16px', fontSize:11, fontWeight:700, color:T.textSec, textAlign:'left', textTransform:'uppercase', letterSpacing:0.4, whiteSpace:'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(v => (
+              <tr key={v.id} style={{ borderTop:`1px solid ${T.border}` }}>
+                <td style={{ padding:'13px 16px' }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:T.text }}>{v.name}</div>
+                  <div style={{ fontSize:11, color:T.textMuted }}>{v.id}</div>
+                </td>
+                <td style={{ padding:'13px 16px', fontSize:13, color:T.textSec }}>{v.owner}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, color:T.textSec }}>{v.cat}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, color:T.textSec }}>{v.city}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, fontWeight:600, color:T.text }}>{v.orders}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, fontWeight:700, color:T.success }}>{v.revenue}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, color:T.text }}>
+                  {v.rating > 0 ? <span>⭐ {v.rating}</span> : <span style={{ color:T.textMuted }}>—</span>}
+                </td>
+                <td style={{ padding:'13px 16px' }}><Badge status={v.status}/></td>
+                <td style={{ padding:'13px 16px' }}>
+                  <div style={{ display:'flex', gap:6 }}>
+                    {v.status==='PENDING' && <>
+                      <button onClick={()=>approve(v.id)} style={{ padding:'5px 10px', borderRadius:6, border:'none', cursor:'pointer', background:T.success, color:'#fff', fontSize:11, fontWeight:700, fontFamily:T.font }}>Approve</button>
+                      <button onClick={()=>reject(v.id)} style={{ padding:'5px 10px', borderRadius:6, cursor:'pointer', background:'none', border:`1px solid ${T.error}`, color:T.error, fontSize:11, fontWeight:700, fontFamily:T.font }}>Reject</button>
+                    </>}
+                    {v.status==='APPROVED' && (
+                      <button onClick={()=>suspend(v.id)} style={{ padding:'5px 10px', borderRadius:6, cursor:'pointer', background:'none', border:`1px solid ${T.warning}`, color:T.warning, fontSize:11, fontWeight:700, fontFamily:T.font }}>Suspend</button>
+                    )}
+                    {(v.status==='SUSPENDED'||v.status==='REJECTED') && (
+                      <button onClick={()=>approve(v.id)} style={{ padding:'5px 10px', borderRadius:6, border:'none', cursor:'pointer', background:T.primary, color:'#fff', fontSize:11, fontWeight:700, fontFamily:T.font }}>Reinstate</button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Page: Orders ─────────────────────────────────────────────
+function OrdersPage() {
+  const [filter, setFilter] = useState('ALL');
+  const orders = filter==='ALL' ? ORDERS_DATA : ORDERS_DATA.filter(o=>o.status===filter);
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div style={{ fontSize:20, fontWeight:800, color:T.text }}>Orders</div>
+      <div style={{ display:'flex', gap:6 }}>
+        {['ALL','IN_TRANSIT','PREPARING','DELIVERED','CANCELLED'].map(s => (
+          <button key={s} onClick={()=>setFilter(s)} style={{
+            padding:'7px 14px', borderRadius:8, border:'none', cursor:'pointer', fontFamily:T.font,
+            background: filter===s ? T.primaryTint : T.surface2,
+            color: filter===s ? T.primary : T.textSec, fontSize:12, fontWeight:700,
+            borderWidth: filter===s?1:0, borderStyle:'solid', borderColor:T.primary,
+          }}>{s.replace('_',' ')}</button>
+        ))}
+      </div>
+      <div style={{ background:T.surface, borderRadius:14, border:`1px solid ${T.border}`, overflow:'hidden' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse' }}>
+          <thead>
+            <tr style={{ background:T.surface2 }}>
+              {['Order ID','Customer','Vendor','Rider','Amount','Status','Time'].map(h => (
+                <th key={h} style={{ padding:'11px 16px', fontSize:11, fontWeight:700, color:T.textSec, textAlign:'left', textTransform:'uppercase', letterSpacing:0.4 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map(o => (
+              <tr key={o.id} style={{ borderTop:`1px solid ${T.border}` }}>
+                <td style={{ padding:'13px 16px', fontSize:13, fontWeight:700, color:T.primary }}>{o.id}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, color:T.text }}>{o.customer}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, color:T.textSec }}>{o.vendor}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, color:T.textSec }}>{o.rider}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, fontWeight:700, color:T.text }}>{o.amount}</td>
+                <td style={{ padding:'13px 16px' }}><Badge status={o.status}/></td>
+                <td style={{ padding:'13px 16px', fontSize:12, color:T.textMuted }}>{o.time}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Page: Riders ─────────────────────────────────────────────
+function RidersPage() {
+  const [riders, setRiders] = useState(RIDERS_DATA);
+  const approve = id => setRiders(rs => rs.map(r => r.id===id ? {...r, status:'APPROVED'} : r));
+  const suspend = id => setRiders(rs => rs.map(r => r.id===id ? {...r, status:'SUSPENDED'} : r));
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div style={{ fontSize:20, fontWeight:800, color:T.text }}>Riders</div>
+      <div style={{ background:T.surface, borderRadius:14, border:`1px solid ${T.border}`, overflow:'hidden' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse' }}>
+          <thead>
+            <tr style={{ background:T.surface2 }}>
+              {['Rider','Phone','Vehicle','Deliveries','Earned','Rating','Status','Online','Actions'].map(h => (
+                <th key={h} style={{ padding:'11px 16px', fontSize:11, fontWeight:700, color:T.textSec, textAlign:'left', textTransform:'uppercase', letterSpacing:0.4, whiteSpace:'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {riders.map(r => (
+              <tr key={r.id} style={{ borderTop:`1px solid ${T.border}` }}>
+                <td style={{ padding:'13px 16px' }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:T.text }}>{r.name}</div>
+                  <div style={{ fontSize:11, color:T.textMuted }}>{r.id}</div>
+                </td>
+                <td style={{ padding:'13px 16px', fontSize:12, color:T.textSec }}>{r.phone}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, color:T.textSec }}>{r.vehicle}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, fontWeight:600, color:T.text }}>{r.deliveries}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, fontWeight:700, color:T.success }}>{r.earned}</td>
+                <td style={{ padding:'13px 16px', fontSize:13, color:T.text }}>
+                  {r.rating > 0 ? `⭐ ${r.rating}` : <span style={{ color:T.textMuted }}>—</span>}
+                </td>
+                <td style={{ padding:'13px 16px' }}><Badge status={r.status}/></td>
+                <td style={{ padding:'13px 16px' }}><Badge status={r.online}/></td>
+                <td style={{ padding:'13px 16px' }}>
+                  <div style={{ display:'flex', gap:6 }}>
+                    {r.status==='PENDING' && <button onClick={()=>approve(r.id)} style={{ padding:'5px 10px', borderRadius:6, border:'none', cursor:'pointer', background:T.success, color:'#fff', fontSize:11, fontWeight:700, fontFamily:T.font }}>Approve</button>}
+                    {r.status==='APPROVED' && <button onClick={()=>suspend(r.id)} style={{ padding:'5px 10px', borderRadius:6, cursor:'pointer', background:'none', border:`1px solid ${T.warning}`, color:T.warning, fontSize:11, fontWeight:700, fontFamily:T.font }}>Suspend</button>}
+                    {r.status==='SUSPENDED' && <button onClick={()=>approve(r.id)} style={{ padding:'5px 10px', borderRadius:6, border:'none', cursor:'pointer', background:T.primary, color:'#fff', fontSize:11, fontWeight:700, fontFamily:T.font }}>Reinstate</button>}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Page: Audit Logs ─────────────────────────────────────────
+function AuditPage() {
+  const actionColors = { VENDOR_APPROVED:T.success, ORDER_CANCELLED:T.error, RIDER_SUSPENDED:T.warning, OFFER_CREATED:T.info, VENDOR_REGISTERED:T.textSec };
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div style={{ fontSize:20, fontWeight:800, color:T.text }}>Audit Logs</div>
+      <div style={{ background:T.surface, borderRadius:14, border:`1px solid ${T.border}`, overflow:'hidden' }}>
+        {AUDIT_LOGS.map((log,i) => (
+          <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:16, padding:'16px 20px', borderTop: i>0?`1px solid ${T.border}`:'none' }}>
+            <div style={{
+              width:8, height:8, borderRadius:4, flexShrink:0, marginTop:5,
+              background: actionColors[log.action] || T.textSec,
+            }}/>
+            <div style={{ flex:1 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <span style={{ fontSize:13, fontWeight:700, color: actionColors[log.action] || T.textSec }}>{log.action}</span>
+                <span style={{ fontSize:12, color:T.textMuted }}>on {log.entity} #{log.id}</span>
+              </div>
+              <div style={{ fontSize:12, color:T.textSec, marginTop:3 }}>{log.meta}</div>
+            </div>
+            <div style={{ textAlign:'right', flexShrink:0 }}>
+              <div style={{ fontSize:11, color:T.textMuted }}>{log.time}</div>
+              <div style={{ fontSize:11, color:T.textSec, marginTop:2 }}>by {log.user}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Sidebar ──────────────────────────────────────────────────
+function Sidebar({ active, onNav, isDark, onToggleTheme }) {
+  const items = [
+    { id:'overview', label:'Overview', icon:Ic.grid },
+    { id:'vendors', label:'Vendors', icon:Ic.store, badge: VENDORS_DATA.filter(v=>v.status==='PENDING').length },
+    { id:'riders', label:'Riders', icon:Ic.bike, badge: RIDERS_DATA.filter(r=>r.status==='PENDING').length },
+    { id:'orders', label:'Orders', icon:Ic.package },
+    { id:'customers', label:'Customers', icon:Ic.users },
+    { id:'payouts', label:'Payouts', icon:Ic.dollar },
+    { id:'audit', label:'Audit Logs', icon:Ic.log },
+    { id:'settings', label:'Settings', icon:Ic.settings },
+  ];
+  return (
+    <div style={{
+      width:220, background:T.surface, borderRight:`1px solid ${T.border}`,
+      display:'flex', flexDirection:'column', height:'100vh', flexShrink:0,
+    }}>
+      {/* Logo */}
+      <div style={{ padding:'22px 20px 18px', borderBottom:`1px solid ${T.border}` }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{
+            width:34, height:34, borderRadius:9,
+            background:`linear-gradient(135deg, ${T.primary}, ${T.primaryDark})`,
+            display:'flex', alignItems:'center', justifyContent:'center', fontSize:16,
+          }}>🏍️</div>
+          <div>
+            <div style={{ fontSize:15, fontWeight:800, color:T.text, letterSpacing:-0.3 }}>GoBuyMe</div>
+            <div style={{ fontSize:10, color:T.textSec, fontWeight:600 }}>Admin Console</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav style={{ flex:1, padding:'12px 10px', display:'flex', flexDirection:'column', gap:2, overflowY:'auto' }}>
+        {items.map(item => (
+          <button key={item.id} onClick={() => onNav(item.id)} style={{
+            display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:9,
+            background: active===item.id ? T.primaryTint : 'none',
+            border: active===item.id ? `1px solid rgba(255,82,27,0.2)` : '1px solid transparent',
+            cursor:'pointer', textAlign:'left', fontFamily:T.font,
+            color: active===item.id ? T.primary : T.textSec,
+            position:'relative',
+          }}>
+            <span style={{ opacity: active===item.id ? 1 : 0.7 }}>{item.icon}</span>
+            <span style={{ fontSize:13, fontWeight: active===item.id ? 700 : 500 }}>{item.label}</span>
+            {item.badge > 0 && (
+              <span style={{
+                marginLeft:'auto', background:T.warning, color:'#fff',
+                borderRadius:99, padding:'1px 7px', fontSize:11, fontWeight:700,
+              }}>{item.badge}</span>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {/* Theme toggle */}
+      <div style={{ padding:'10px 12px', borderTop:`1px solid ${T.border}` }}>
+        <button onClick={onToggleTheme} style={{
+          width:'100%', display:'flex', alignItems:'center', gap:10,
+          background:T.surface2, border:`1px solid ${T.border}`, borderRadius:9,
+          padding:'9px 12px', cursor:'pointer', fontFamily:T.font,
+        }}>
+          <span style={{ fontSize:16 }}>{isDark ? '☀️' : '🌙'}</span>
+          <span style={{ fontSize:12, fontWeight:600, color:T.textSec }}>{isDark ? 'Light mode' : 'Dark mode'}</span>
+        </button>
+      </div>
+
+      {/* User */}
+      <div style={{ padding:'14px 16px', borderTop:`1px solid ${T.border}`, display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{
+          width:32, height:32, borderRadius:16,
+          background:`linear-gradient(135deg,${T.primary},${T.primaryDark})`,
+          display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, flexShrink:0,
+        }}>👤</div>
+        <div style={{ minWidth:0 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>Super Admin</div>
+          <div style={{ fontSize:10, color:T.textMuted }}>admin@gobuyme.shop</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Top Bar ──────────────────────────────────────────────────
+function TopBar({ page }) {
+  const titles = { overview:'Dashboard Overview', vendors:'Vendor Management', riders:'Rider Management', orders:'Order Management', customers:'Customers', payouts:'Payouts & Commissions', audit:'Audit Logs', settings:'Settings' };
+  return (
+    <div style={{
+      height:58, background:T.surface, borderBottom:`1px solid ${T.border}`,
+      display:'flex', alignItems:'center', justifyContent:'space-between',
+      padding:'0 28px', flexShrink:0,
+    }}>
+      <div>
+        <div style={{ fontSize:16, fontWeight:800, color:T.text }}>{titles[page]}</div>
+        <div style={{ fontSize:11, color:T.textSec }}>
+          {new Date().toLocaleDateString('en-NG', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}
+        </div>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+        <div style={{ position:'relative', cursor:'pointer' }}>
+          <span style={{ color:T.textSec, display:'flex' }}>{Ic.bell}</span>
+          <div style={{ position:'absolute', top:-3, right:-3, width:14, height:14, borderRadius:7, background:T.primary, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <span style={{ fontSize:8, fontWeight:700, color:'#fff' }}>3</span>
+          </div>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8, background:T.surface2, borderRadius:9, padding:'6px 12px', cursor:'pointer' }}>
+          <div style={{
+            width:26, height:26, borderRadius:13,
+            background:`linear-gradient(135deg,${T.primary},${T.primaryDark})`,
+            display:'flex', alignItems:'center', justifyContent:'center', fontSize:12,
+          }}>👤</div>
+          <span style={{ fontSize:13, fontWeight:600, color:T.text }}>Super Admin</span>
+          {Ic.chevR}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Root App ─────────────────────────────────────────────────
+function App() {
+  const [page, setPage] = useState(() => {
+    try { return localStorage.getItem('gbm_admin_page') || 'overview'; } catch { return 'overview'; }
+  });
+  const [tweakOpen, setTweakOpen] = useState(false);
+  const [isDark, setIsDark] = useState(() => {
+    try { const v = localStorage.getItem('gbm_admin_dark'); return v === null ? true : v === 'true'; } catch { return true; }
+  });
+
+  T = isDark ? ADMIN_DARK : ADMIN_LIGHT;
+
+  const navigate = p => {
+    setPage(p);
+    try { localStorage.setItem('gbm_admin_page', p); } catch {}
+  };
+
+  useEffect(() => {
+    window.addEventListener('message', e => {
+      if (e.data?.type === '__activate_edit_mode') setTweakOpen(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweakOpen(false);
+    });
+    window.parent.postMessage({ type:'__edit_mode_available' }, '*');
+  }, []);
+
+  const renderPage = () => {
+    switch(page) {
+      case 'vendors': return <VendorsPage/>;
+      case 'orders':  return <OrdersPage/>;
+      case 'riders':  return <RidersPage/>;
+      case 'audit':   return <AuditPage/>;
+      default:        return <OverviewPage/>;
+    }
+  };
+
+  return (
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden', fontFamily:T.font, background:T.bg }}>
+      <Sidebar active={page} onNav={navigate} isDark={isDark} onToggleTheme={() => {
+        const next = !isDark;
+        setIsDark(next);
+        try { localStorage.setItem('gbm_admin_dark', next); } catch {}
+      }}/>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        <TopBar page={page}/>
+        <div style={{ flex:1, overflowY:'auto', padding:'24px 28px', background:T.bg }}>
+          {renderPage()}
+        </div>
+      </div>
+
+      {/* Tweaks */}
+      {tweakOpen && (
+        <div style={{
+          position:'fixed', bottom:20, right:20, zIndex:9999,
+          background:'#1E1E1E', borderRadius:14, padding:18, width:220,
+          border:'1px solid #333', boxShadow:'0 16px 48px rgba(0,0,0,0.6)',
+          fontFamily:T.font,
+        }}>
+          <div style={{ fontSize:13, fontWeight:700, color:'#fff', marginBottom:14 }}>Tweaks</div>
+          <div style={{ fontSize:11, fontWeight:600, color:'#888', marginBottom:8, textTransform:'uppercase', letterSpacing:0.5 }}>Theme</div>
+          <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+            {[['🌑 Dark', true],['☀️ Light', false]].map(([lbl, val]) => (
+              <button key={lbl} onClick={() => { setIsDark(val); try { localStorage.setItem('gbm_admin_dark', val); } catch {} }} style={{
+                flex:1, padding:'7px', borderRadius:7, cursor:'pointer',
+                background: isDark===val ? T.primary : '#2E2E2E',
+                border:'none', fontFamily:T.font, fontSize:11, fontWeight:700, color:'#fff',
+              }}>{lbl}</button>
+            ))}
+          </div>
+          <div style={{ fontSize:11, fontWeight:600, color:'#888', marginBottom:8, textTransform:'uppercase', letterSpacing:0.5 }}>Jump to Page</div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {['overview','vendors','riders','orders','audit'].map(p => (
+              <button key={p} onClick={()=>navigate(p)} style={{
+                padding:'5px 10px', borderRadius:6, cursor:'pointer',
+                background: page===p ? T.primary : '#2E2E2E',
+                border:'none', fontFamily:T.font,
+                fontSize:11, fontWeight:600, color:'#fff', textTransform:'capitalize',
+              }}>{p}</button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

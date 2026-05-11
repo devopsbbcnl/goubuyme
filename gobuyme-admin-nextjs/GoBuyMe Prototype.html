@@ -1,0 +1,2167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GoBuyMe — Interactive Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<meta name="ext-resource-dependency" content="photos/photoJollof.jpg" data-resource-id="photoJollof"/>
+<meta name="ext-resource-dependency" content="photos/photoSuya.jpg" data-resource-id="photoSuya"/>
+<meta name="ext-resource-dependency" content="photos/photoEgusi.jpg" data-resource-id="photoEgusi"/>
+<meta name="ext-resource-dependency" content="photos/photoPuff.jpg" data-resource-id="photoPuff"/>
+<meta name="ext-resource-dependency" content="photos/photoChicken.jpg" data-resource-id="photoChicken"/>
+<meta name="ext-resource-dependency" content="photos/photoRice.jpg" data-resource-id="photoRice"/>
+<meta name="ext-resource-dependency" content="photos/photoGrocery.jpg" data-resource-id="photoGrocery"/>
+<meta name="ext-resource-dependency" content="photos/photoPharmacy.jpg" data-resource-id="photoPharmacy"/>
+<meta name="ext-resource-dependency" content="photos/photoErrand.jpg" data-resource-id="photoErrand"/>
+<meta name="ext-resource-dependency" content="photos/photoBurger.jpg" data-resource-id="photoBurger"/>
+<meta name="ext-resource-dependency" content="photos/photoMango.jpg" data-resource-id="photoMango"/>
+<meta name="ext-resource-dependency" content="photos/photoVendor.jpg" data-resource-id="photoVendor"/>
+<meta name="ext-resource-dependency" content="photos/photoRider.jpg" data-resource-id="photoRider"/>
+<meta name="ext-resource-dependency" content="photos/photoOnboard1.jpg" data-resource-id="photoOnboard1"/>
+<meta name="ext-resource-dependency" content="photos/photoOnboard2.jpg" data-resource-id="photoOnboard2"/>
+<meta name="ext-resource-dependency" content="photos/photoOnboard3.jpg" data-resource-id="photoOnboard3"/>
+<template id="__bundler_thumbnail" data-bg-color="#0E0E0E">
+  <svg viewBox="0 0 400 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="800" fill="#0E0E0E"/>
+    <rect x="80" y="320" width="240" height="240" rx="60" fill="#FF521B" opacity="0.15"/>
+    <rect x="150" y="360" width="100" height="100" rx="24" fill="#FF521B"/>
+    <text x="200" y="428" text-anchor="middle" font-size="48" fill="white">🏍️</text>
+    <text x="200" y="510" text-anchor="middle" font-size="28" font-weight="800" fill="white" font-family="sans-serif">GoBuyMe</text>
+    <text x="200" y="540" text-anchor="middle" font-size="14" fill="#A0A0A0" font-family="sans-serif">Hungry? GoBuyMe. Anything.</text>
+  </svg>
+</template>
+<script src="vendor/react.js"></script>
+<script src="vendor/react-dom.js"></script>
+<script src="vendor/babel.js"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a1a;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  ::-webkit-scrollbar { width: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ─── THEMES ──────────────────────────────────────────────────
+const DARK_T = {
+  primary:      '#FF521B',
+  primaryDark:  '#CC3D0E',
+  primaryLight: '#FF7A4D',
+  primaryTint:  'rgba(255,82,27,0.12)',
+  bg:           '#0E0E0E',
+  surface:      '#1A1A1A',
+  surface2:     '#242424',
+  surface3:     '#2E2E2E',
+  text:         '#FFFFFF',
+  textSec:      '#A0A0A0',
+  textMuted:    '#606060',
+  border:       '#2E2E2E',
+  success:      '#1A9E5F',
+  warning:      '#F5A623',
+  star:         '#F5A623',
+  font:         "'Plus Jakarta Sans', sans-serif",
+  isDark:       true,
+};
+
+const LIGHT_T = {
+  primary:      '#FF521B',
+  primaryDark:  '#CC3D0E',
+  primaryLight: '#FF7A4D',
+  primaryTint:  'rgba(255,82,27,0.09)',
+  bg:           '#F7F5F3',
+  surface:      '#FFFFFF',
+  surface2:     '#F2F0EE',
+  surface3:     '#E8E5E2',
+  text:         '#1A1410',
+  textSec:      '#6B6560',
+  textMuted:    '#B0AAA4',
+  border:       '#E5E0DA',
+  success:      '#1A9E5F',
+  warning:      '#F5A623',
+  star:         '#F5A623',
+  font:         "'Plus Jakarta Sans', sans-serif",
+  isDark:       false,
+};
+
+let T = DARK_T;
+
+// ─── TWEAK DEFAULTS ─────────────────────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#FF521B",
+  "darkMode": false,
+  "startScreen": "splash"
+}/*EDITMODE-END*/;
+
+// ─── PHOTO MAP ───────────────────────────────────────────────
+const PHOTOS = {
+  jollof:   window.__resources?.photoJollof   || 'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=700&q=85',
+  suya:     window.__resources?.photoSuya     || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=700&q=85',
+  egusi:    window.__resources?.photoEgusi    || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=700&q=85',
+  puff:     window.__resources?.photoPuff     || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=700&q=85',
+  chicken:  window.__resources?.photoChicken  || 'https://images.unsplash.com/photo-1598103442097-8b74394b95c3?w=700&q=85',
+  rice:     window.__resources?.photoRice     || 'https://images.unsplash.com/photo-1536304993881-ff86e0c9d7dd?w=700&q=85',
+  grocery:  window.__resources?.photoGrocery  || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=700&q=85',
+  pharmacy: window.__resources?.photoPharmacy || 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=700&q=85',
+  errand:   window.__resources?.photoErrand   || 'https://images.unsplash.com/photo-1526367790999-0150786686a2?w=700&q=85',
+  burger:   window.__resources?.photoBurger   || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=700&q=85',
+  mango:    window.__resources?.photoMango    || 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=700&q=85',
+  vendor:   window.__resources?.photoVendor   || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=700&q=85',
+  rider:    window.__resources?.photoRider    || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=700&q=85',
+};
+
+// ─── FOOD IMAGE ──────────────────────────────────────────────
+function FoodImg({ label, h = 180, radius = 12, overlay = true }) {
+  const src = PHOTOS[label] || PHOTOS.burger;
+  return (
+    <div style={{
+      width:'100%', height:h, borderRadius:radius,
+      position:'relative', overflow:'hidden',
+      backgroundColor:'#1A1A1A',
+    }}>
+      <img src={src} alt={label} style={{
+        width:'100%', height:'100%', objectFit:'cover', display:'block',
+      }}/>
+      {overlay && <div style={{position:'absolute',inset:0,background:'linear-gradient(180deg,transparent 40%,rgba(0,0,0,0.75) 100%)'}}/>}
+    </div>
+  );
+}
+
+// ─── ICON SVGs ───────────────────────────────────────────────
+const Icon = {
+  home: (c='#fff',s=22) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/><path d="M9 21V12h6v9" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  search: (c='#fff',s=22) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke={c} strokeWidth="1.8"/><path d="M16.5 16.5L21 21" stroke={c} strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  heart: (c='#fff',s=22,fill='none') => <svg width={s} height={s} viewBox="0 0 24 24" fill={fill}><path d="M12 21C12 21 3 15 3 9a5 5 0 019-3 5 5 0 019 3c0 6-9 12-9 12z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  user: (c='#fff',s=22) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke={c} strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={c} strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  cart: (c='#fff',s=22) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/><line x1="3" y1="6" x2="21" y2="6" stroke={c} strokeWidth="1.8"/><path d="M16 10a4 4 0 01-8 0" stroke={c} strokeWidth="1.8"/></svg>,
+  pin: (c='#fff',s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke={c} strokeWidth="1.8"/><circle cx="12" cy="9" r="2.5" stroke={c} strokeWidth="1.8"/></svg>,
+  chevDown: (c='#fff',s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  chevRight: (c='#fff',s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  chevLeft: (c='#fff',s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  star: (c='#F5A623',s=13,fill=true) => <svg width={s} height={s} viewBox="0 0 24 24" fill={fill?c:'none'}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke={c} strokeWidth="1.5"/></svg>,
+  bolt: (c='#fff',s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill={c}><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>,
+  plus: (c='#fff',s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke={c} strokeWidth="2.5" strokeLinecap="round"/></svg>,
+  minus: (c='#fff',s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke={c} strokeWidth="2.5" strokeLinecap="round"/></svg>,
+  check: (c='#fff',s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  filter: (c='#fff',s=18) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  bike: (c='#fff',s=22) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><circle cx="5.5" cy="17.5" r="3.5" stroke={c} strokeWidth="1.8"/><circle cx="18.5" cy="17.5" r="3.5" stroke={c} strokeWidth="1.8"/><path d="M15 6h-4l-3 5.5 2 2 4-3h4" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 17.5L12 10l3 7.5" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  store: (c='#fff',s=22) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M3 9l1-5h16l1 5" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/><path d="M3 9v11a1 1 0 001 1h16a1 1 0 001-1V9" stroke={c} strokeWidth="1.8"/><rect x="9" y="14" width="6" height="6" rx="1" stroke={c} strokeWidth="1.8"/><path d="M3 9a3 3 0 006 0 3 3 0 006 0 3 3 0 006 0" stroke={c} strokeWidth="1.8"/></svg>,
+  bell: (c='#fff',s=22) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/><path d="M13.73 21a2 2 0 01-3.46 0" stroke={c} strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  map: (c='#fff',s=22) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/><line x1="8" y1="2" x2="8" y2="18" stroke={c} strokeWidth="1.8"/><line x1="16" y1="6" x2="16" y2="22" stroke={c} strokeWidth="1.8"/></svg>,
+};
+
+// ─── BOTTOM NAV ──────────────────────────────────────────────
+function BottomNav({ active, onNav }) {
+  const tabs = [
+    { id:'home', icon: Icon.home, label:'Home' },
+    { id:'search', icon: Icon.search, label:'Search' },
+    { id:'favorites', icon: Icon.heart, label:'Saved' },
+    { id:'profile', icon: Icon.user, label:'Profile' },
+  ];
+  return (
+    <div style={{
+      position:'absolute', bottom:0, left:0, right:0, zIndex:50,
+      background: T.surface,
+      borderTop:`1px solid ${T.border}`,
+      display:'flex', paddingBottom:28, paddingTop:12,
+    }}>
+      {tabs.map(t => {
+        const isActive = active === t.id;
+        return (
+          <button key={t.id} onClick={() => onNav(t.id)} style={{
+            flex:1, background:'none', border:'none', cursor:'pointer',
+            display:'flex', flexDirection:'column', alignItems:'center', gap:4,
+            padding:0,
+          }}>
+            {t.icon(isActive ? T.primary : T.textMuted, 22)}
+            <span style={{
+              fontSize:10, fontWeight:600, color: isActive ? T.primary : T.textMuted,
+              fontFamily: T.font,
+            }}>{t.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── SCREEN: SPLASH ──────────────────────────────────────────
+function SplashScreen({ onDone }) {
+  useEffect(() => { const t = setTimeout(onDone, 2200); return () => clearTimeout(t); }, []);
+  return (
+    <div style={{
+      height:'100%', background: T.bg,
+      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+      gap:16, paddingTop:60,
+    }}>
+      <div style={{
+        width:80, height:80, borderRadius:20,
+        background:`linear-gradient(135deg, ${T.primary}, ${T.primaryDark})`,
+        display:'flex', alignItems:'center', justifyContent:'center',
+        boxShadow:`0 12px 40px ${T.primary}55`,
+      }}>
+        {Icon.bike('#fff', 40)}
+      </div>
+      <div style={{ textAlign:'center' }}>
+        <div style={{ fontSize:34, fontWeight:800, color:T.text, letterSpacing:-1 }}>GoBuyMe</div>
+        <div style={{ fontSize:14, color:T.textSec, marginTop:4, fontWeight:500 }}>Hungry? GoBuyMe. Anything.</div>
+      </div>
+      <div style={{
+        marginTop:40, width:40, height:40,
+        border:`3px solid ${T.border}`, borderTopColor: T.primary,
+        borderRadius:'50%', animation:'spin 0.9s linear infinite',
+      }}/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+
+// ─── SCREEN: ONBOARDING ──────────────────────────────────────
+const slides = [
+  {
+    photo: window.__resources?.photoOnboard1 || 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=800&q=90',
+    accent: '#FF521B',
+    tag: '🍛 Food · Grocery · Pharmacy',
+    headline: 'Jollof in\n25 minutes.',
+    sub: 'Order from your favourite spots — food, groceries, pharmacy, and more.',
+  },
+  {
+    photo: window.__resources?.photoOnboard2 || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=90',
+    accent: '#1A9E5F',
+    tag: '🏪 Vendors · Restaurants · Shops',
+    headline: 'Sell to thousands.\nStress less.',
+    sub: 'List your store, accept orders, and get paid daily. We handle delivery.',
+  },
+  {
+    photo: window.__resources?.photoOnboard3 || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=90',
+    accent: '#1A6EFF',
+    tag: '🏍️ Riders · Flexible Hours',
+    headline: 'Ride. Earn.\nRepeat.',
+    sub: 'Flexible hours. Weekly cash-out. Top riders earn ₦150k+ per month.',
+  },
+];
+
+function OnboardingScreen({ onDone }) {
+  const [idx, setIdx] = useState(0);
+  const [animating, setAnimating] = useState(false);
+  const s = slides[idx];
+
+  const next = () => {
+    if (animating) return;
+    if (idx < slides.length - 1) {
+      setAnimating(true);
+      setTimeout(() => { setIdx(i => i+1); setAnimating(false); }, 300);
+    } else {
+      onDone();
+    }
+  };
+
+  return (
+    <div style={{ height:'100%', position:'relative', overflow:'hidden', background:'#000' }}>
+      {/* Full-bleed photo */}
+      <img
+        key={idx}
+        src={s.photo}
+        alt="slide"
+        style={{
+          position:'absolute', inset:0, width:'100%', height:'100%',
+          objectFit:'cover', objectPosition:'center',
+          opacity: animating ? 0 : 1,
+          transition:'opacity 0.35s ease',
+        }}
+      />
+
+      {/* Multi-layer dark gradient */}
+      <div style={{
+        position:'absolute', inset:0,
+        background:'linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.05) 35%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.92) 100%)',
+      }}/>
+
+      {/* Colour tint layer at bottom */}
+      <div style={{
+        position:'absolute', bottom:0, left:0, right:0, height:'55%',
+        background:`linear-gradient(180deg, transparent, ${s.accent}18 60%, ${s.accent}28 100%)`,
+        transition:'background 0.4s ease',
+      }}/>
+
+      {/* Skip button */}
+      <button onClick={onDone} style={{
+        position:'absolute', top:72, right:20, zIndex:10,
+        background:'rgba(255,255,255,0.15)', backdropFilter:'blur(8px)',
+        border:'1px solid rgba(255,255,255,0.2)', borderRadius:99,
+        padding:'6px 16px', cursor:'pointer', fontFamily:T.font,
+        fontSize:13, fontWeight:600, color:'rgba(255,255,255,0.9)',
+      }}>Skip</button>
+
+      {/* Slide counter top-left */}
+      <div style={{
+        position:'absolute', top:76, left:20, zIndex:10,
+        display:'flex', alignItems:'center', gap:6,
+      }}>
+        <span style={{ fontSize:13, fontWeight:700, color:'rgba(255,255,255,0.5)', fontFamily:T.font }}>
+          {idx+1}<span style={{ color:'rgba(255,255,255,0.25)' }}>/{slides.length}</span>
+        </span>
+      </div>
+
+      {/* Bottom content */}
+      <div style={{
+        position:'absolute', bottom:0, left:0, right:0, zIndex:10,
+        padding:'0 24px 40px',
+      }}>
+        {/* Tag pill */}
+        <div style={{
+          display:'inline-flex', alignItems:'center',
+          background:'rgba(255,255,255,0.12)', backdropFilter:'blur(12px)',
+          border:'1px solid rgba(255,255,255,0.18)',
+          borderRadius:99, padding:'6px 14px', marginBottom:16,
+        }}>
+          <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,0.9)', fontFamily:T.font }}>{s.tag}</span>
+        </div>
+
+        {/* Headline */}
+        <div style={{
+          fontSize:42, fontWeight:800, color:'#fff', lineHeight:1.1,
+          letterSpacing:-1.5, whiteSpace:'pre-line', marginBottom:14,
+          textShadow:'0 2px 20px rgba(0,0,0,0.5)',
+        }}>{s.headline}</div>
+
+        {/* Sub */}
+        <div style={{
+          fontSize:15, color:'rgba(255,255,255,0.75)', lineHeight:1.6,
+          marginBottom:32, maxWidth:300,
+          textShadow:'0 1px 8px rgba(0,0,0,0.5)',
+        }}>{s.sub}</div>
+
+        {/* Dots + CTA row */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div style={{ display:'flex', gap:7, alignItems:'center' }}>
+            {slides.map((_,i) => (
+              <div key={i} onClick={() => setIdx(i)} style={{
+                height:5, borderRadius:3, transition:'all 0.3s',
+                width: i===idx ? 32 : 5,
+                background: i===idx ? '#fff' : 'rgba(255,255,255,0.3)',
+                cursor:'pointer',
+              }}/>
+            ))}
+          </div>
+
+          <button onClick={next} style={{
+            height:54, borderRadius:27,
+            padding: idx === slides.length-1 ? '0 28px' : '0',
+            width: idx === slides.length-1 ? 'auto' : 54,
+            background: s.accent,
+            border:'none', cursor:'pointer', display:'flex',
+            alignItems:'center', justifyContent:'center', gap:8,
+            boxShadow:`0 8px 28px ${s.accent}66`,
+            transition:'all 0.3s ease', fontFamily:T.font,
+          }}>
+            {idx === slides.length-1
+              ? <span style={{ fontSize:15, fontWeight:700, color:'#fff' }}>Get Started</span>
+              : Icon.chevRight('#fff', 22)
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SCREEN: ROLE SELECT ────────────────────────────────────
+function RoleSelectScreen({ onSelect }) {
+  const roles = [
+    { id:'customer', icon:'🍛', label:'I want to eat', sub:'Order food & more' },
+    { id:'vendor', icon:'🏪', label:'I want to sell', sub:'List your business' },
+    { id:'rider', icon:'🏍️', label:'I want to ride', sub:'Earn on your terms' },
+  ];
+  return (
+    <div style={{
+      height:'100%', background: T.bg,
+      display:'flex', flexDirection:'column', paddingTop:80, paddingBottom:40,
+    }}>
+      <div style={{ padding:'0 24px 32px' }}>
+        <div style={{ fontSize:30, fontWeight:800, color:T.text, lineHeight:1.2, letterSpacing:-0.5 }}>
+          How would you{'\n'}like to use GoBuyMe?
+        </div>
+        <div style={{ fontSize:14, color:T.textSec, marginTop:8 }}>Pick your role to get started</div>
+      </div>
+      <div style={{ padding:'0 20px', display:'flex', flexDirection:'column', gap:12, flex:1 }}>
+        {roles.map(r => (
+          <button key={r.id} onClick={() => onSelect(r.id)} style={{
+            background: T.surface, border:`1px solid ${T.border}`,
+            borderRadius:4, padding:'20px 24px', cursor:'pointer',
+            display:'flex', alignItems:'center', gap:16, textAlign:'left',
+            transition:'all 0.15s',
+          }}>
+            <div style={{
+              width:56, height:56, borderRadius:4,
+              background: T.primaryTint,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:28,
+            }}>{r.icon}</div>
+            <div>
+              <div style={{ fontSize:17, fontWeight:700, color:T.text, fontFamily:T.font }}>{r.label}</div>
+              <div style={{ fontSize:13, color:T.textSec, marginTop:2 }}>{r.sub}</div>
+            </div>
+            <div style={{ marginLeft:'auto' }}>{Icon.chevRight(T.textMuted, 16)}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── SCREEN: LOGIN ───────────────────────────────────────────
+function LoginScreen({ onLogin, onRegister }) {
+  const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
+  return (
+    <div style={{
+      height:'100%', background: T.bg,
+      display:'flex', flexDirection:'column', paddingTop:80,
+    }}>
+      <div style={{ padding:'0 24px 40px' }}>
+        <div style={{ fontSize:30, fontWeight:800, color:T.text, letterSpacing:-0.5 }}>Welcome back 👋</div>
+        <div style={{ fontSize:14, color:T.textSec, marginTop:6 }}>Sign in to continue</div>
+      </div>
+      <div style={{ padding:'0 20px', display:'flex', flexDirection:'column', gap:14 }}>
+        <AppInput label="Email address" value={email} onChange={setEmail} placeholder="you@example.com" type="email"/>
+        <AppInput label="Password" value={pass} onChange={setPass} placeholder="••••••••" type="password"/>
+        <div style={{ textAlign:'right' }}>
+          <span style={{ fontSize:13, color:T.primary, fontWeight:600 }}>Forgot password?</span>
+        </div>
+        <PrimaryBtn onPress={onLogin}>Sign In</PrimaryBtn>
+        {/* Google */}
+        <button style={{
+          background:T.surface, border:`1px solid ${T.border}`, borderRadius:4,
+          padding:'14px 20px', display:'flex', alignItems:'center', justifyContent:'center',
+          gap:10, cursor:'pointer', fontFamily:T.font,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          <span style={{ fontSize:14, fontWeight:600, color:T.text }}>Continue with Google</span>
+        </button>
+      </div>
+      <div style={{ marginTop:'auto', padding:'20px', textAlign:'center' }}>
+        <span style={{ fontSize:14, color:T.textSec }}>Don't have an account? </span>
+        <span onClick={onRegister} style={{ fontSize:14, color:T.primary, fontWeight:700, cursor:'pointer' }}>Sign Up</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── SHARED COMPONENTS ──────────────────────────────────────
+function AppInput({ label, value, onChange, placeholder, type='text' }) {
+  return (
+    <div>
+      <div style={{ fontSize:12, fontWeight:600, color:T.textSec, marginBottom:6, textTransform:'uppercase', letterSpacing:0.5 }}>{label}</div>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          width:'100%', background:T.surface, border:`1.5px solid ${T.border}`,
+          borderRadius:4, padding:'14px 16px', color:T.text,
+          fontSize:15, fontFamily:T.font, outline:'none',
+        }}
+      />
+    </div>
+  );
+}
+
+function PrimaryBtn({ onPress, children, disabled=false, style={} }) {
+  return (
+    <button onClick={onPress} disabled={disabled} style={{
+      width:'100%', padding:'16px', borderRadius:4,
+      background: disabled ? T.surface3 : T.primary,
+      border:'none', cursor: disabled ? 'default' : 'pointer',
+      fontSize:16, fontWeight:700, color:'#fff',
+      fontFamily:T.font,
+      boxShadow: disabled ? 'none' : `0 8px 24px ${T.primary}44`,
+      ...style,
+    }}>{children}</button>
+  );
+}
+
+// ─── SCREEN: HOME ────────────────────────────────────────────
+const VENDORS = [
+  { id:1, name:'Mama Titi Kitchen', cat:'🍛 Nigerian', rating:4.8, time:'20–30', minOrder:1200, img:'jollof', tag:'Popular', open:true },
+  { id:2, name:'Suya Spot Deluxe', cat:'🍢 Suya & Grills', rating:4.6, time:'15–25', minOrder:800, img:'suya', tag:'Fast', open:true },
+  { id:3, name:'Egusi Palace', cat:'🥘 Soups & Stews', rating:4.9, time:'25–35', minOrder:1500, img:'egusi', tag:'Top Rated', open:true },
+  { id:4, name:'Puff Puff & More', cat:'🍩 Snacks', rating:4.4, time:'10–20', minOrder:500, img:'puff', tag:'New', open:false },
+  { id:5, name:'ChickenRepublic+', cat:'🍗 Chicken & Sides', rating:4.7, time:'20–30', minOrder:1000, img:'chicken', tag:null, open:true },
+  { id:6, name:'Rice Corner', cat:'🍚 Rice Dishes', rating:4.5, time:'15–25', minOrder:900, img:'rice', tag:null, open:true },
+];
+
+const CATEGORIES = [
+  { id:'all', label:'All', icon:'🍽️' },
+  { id:'restaurant', label:'Food', icon:'🍛' },
+  { id:'grocery', label:'Grocery', icon:'🛒' },
+  { id:'pharmacy', label:'Pharmacy', icon:'💊' },
+  { id:'errand', label:'Errand', icon:'📦' },
+];
+
+function HomeScreen({ onVendor, onCart, cartCount, onSearch }) {
+  const [activeCat, setActiveCat] = useState('all');
+  return (
+    <div style={{
+      height:'100%', background:T.bg, overflowY:'auto', paddingBottom:80,
+      paddingTop:60,
+    }}>
+      {/* header */}
+      <div style={{ padding:'16px 20px 0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div>
+          <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+            {Icon.pin(T.primary,14)}
+            <span style={{ fontSize:12, color:T.textSec, fontWeight:500 }}>Deliver to</span>
+            {Icon.chevDown(T.textSec,12)}
+          </div>
+          <div style={{ fontSize:16, fontWeight:700, color:T.text, marginTop:1 }}>Owerri, Rivers State</div>
+        </div>
+        <div style={{ position:'relative' }}>
+          <button onClick={onCart} style={{
+            width:40, height:40, borderRadius:4, background:T.surface,
+            border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+          }}>
+            {Icon.cart(T.text, 20)}
+          </button>
+          {cartCount > 0 && (
+            <div style={{
+              position:'absolute', top:-4, right:-4, width:18, height:18,
+              borderRadius:4, background:T.primary,
+              display:'flex', alignItems:'center', justifyContent:'center',
+            }}>
+              <span style={{ fontSize:10, fontWeight:700, color:'#fff' }}>{cartCount}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* search bar */}
+      <div style={{ padding:'16px 20px 0', display:'flex', gap:10 }}>
+        <button onClick={onSearch} style={{
+          flex:1, background:T.surface, border:`1px solid ${T.border}`,
+          borderRadius:4, padding:'12px 16px', display:'flex', alignItems:'center',
+          gap:10, cursor:'pointer', textAlign:'left',
+        }}>
+          {Icon.search(T.textMuted, 18)}
+          <span style={{ fontSize:14, color:T.textMuted, fontFamily:T.font }}>Search for food or restaurant...</span>
+        </button>
+        <button style={{
+          width:46, height:46, borderRadius:4, background:T.surface,
+          border:`1px solid ${T.border}`, cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          {Icon.filter(T.text, 18)}
+        </button>
+      </div>
+
+      {/* promo banner */}
+      <div style={{ padding:'16px 20px 0' }}>
+        <div style={{
+          borderRadius:4, overflow:'hidden', height:110, position:'relative',
+          background:`linear-gradient(135deg, ${T.primaryDark} 0%, ${T.primary} 60%, #FF9D5C 100%)`,
+          padding:'20px 24px', display:'flex', flexDirection:'column', justifyContent:'center',
+        }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.7)', letterSpacing:1, textTransform:'uppercase' }}>Limited time</div>
+          <div style={{ fontSize:22, fontWeight:800, color:'#fff', lineHeight:1.2, marginTop:2 }}>Get 50% off{'\n'}your first order!</div>
+          <div style={{ position:'absolute', right:20, top:'50%', transform:'translateY(-50%)', fontSize:60, opacity:0.2 }}>🎉</div>
+          <div style={{
+            position:'absolute', bottom:16, right:16, background:'rgba(255,255,255,0.25)',
+            borderRadius:4, padding:'6px 14px',
+            fontSize:12, fontWeight:700, color:'#fff',
+          }}>Use: FIRST50</div>
+        </div>
+      </div>
+
+      {/* categories */}
+      <div style={{ padding:'20px 20px 0' }}>
+        <div style={{ fontSize:17, fontWeight:700, color:T.text, marginBottom:12 }}>Categories</div>
+        <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:4 }}>
+          {CATEGORIES.map(c => (
+            <button key={c.id} onClick={() => setActiveCat(c.id)} style={{
+              flexShrink:0, padding:'8px 14px', borderRadius:99,
+              background: activeCat===c.id ? T.primary : T.surface,
+              border: activeCat===c.id ? 'none' : `1px solid ${T.border}`,
+              cursor:'pointer', display:'flex', alignItems:'center', gap:6,
+              fontFamily:T.font,
+            }}>
+              <span style={{ fontSize:15 }}>{c.icon}</span>
+              <span style={{ fontSize:13, fontWeight:600, color: activeCat===c.id ? '#fff' : T.textSec }}>{c.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* vendors */}
+      <div style={{ padding:'20px 20px 0' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+          <div style={{ fontSize:17, fontWeight:700, color:T.text }}>Nearby Restaurants</div>
+          <span style={{ fontSize:13, color:T.primary, fontWeight:600 }}>See All</span>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          {VENDORS.map(v => (
+            <VendorCard key={v.id} vendor={v} onClick={() => onVendor(v)}/>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VendorCard({ vendor: v, onClick }) {
+  return (
+    <div onClick={onClick} style={{
+      background:T.surface, borderRadius:4, overflow:'hidden', cursor:'pointer',
+      border:`1px solid ${T.border}`,
+    }}>
+      <div style={{ position:'relative' }}>
+        <FoodImg label={v.img} h={150} radius={0}/>
+        {v.tag && (
+          <div style={{
+            position:'absolute', top:12, left:12,
+            background:T.primary, borderRadius:4,
+            padding:'4px 10px', fontSize:11, fontWeight:700, color:'#fff',
+          }}>{v.tag}</div>
+        )}
+        {!v.open && (
+          <div style={{
+            position:'absolute', inset:0, background:'rgba(0,0,0,0.6)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}>
+            <span style={{ fontSize:14, fontWeight:700, color:'#fff' }}>Closed</span>
+          </div>
+        )}
+        <button style={{
+          position:'absolute', bottom:12, right:12,
+          width:36, height:36, borderRadius:18,
+          background:T.primary, border:'none', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          {Icon.chevRight('#fff', 14)}
+        </button>
+      </div>
+      <div style={{ padding:'12px 14px 14px' }}>
+        <div style={{ fontSize:15, fontWeight:700, color:T.text }}>{v.name}</div>
+        <div style={{ fontSize:12, color:T.textSec, marginTop:2 }}>{v.cat}</div>
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:8 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+            {Icon.star(T.star,12)}
+            <span style={{ fontSize:12, fontWeight:600, color:T.text }}>{v.rating}</span>
+          </div>
+          <div style={{ width:3, height:3, borderRadius:2, background:T.border }}/>
+          <div style={{ display:'flex', alignItems:'center', gap:3 }}>
+            {Icon.bolt(T.textSec,12)}
+            <span style={{ fontSize:12, color:T.textSec }}>{v.time} min</span>
+          </div>
+          <div style={{ width:3, height:3, borderRadius:2, background:T.border }}/>
+          <span style={{ fontSize:12, color:T.textSec }}>Min ₦{v.minOrder.toLocaleString()}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SCREEN: VENDOR DETAIL ───────────────────────────────────
+const MENU_ITEMS = [
+  { id:1, name:'Jollof Rice + Chicken', desc:'Party-style jollof with grilled chicken thigh, side of coleslaw', price:2500, img:'jollof', cat:'Rice Dishes', featured:true },
+  { id:2, name:'Egusi Soup + Semovita', desc:'Rich egusi with stockfish and assorted meat', price:2200, img:'egusi', cat:'Soups', featured:true },
+  { id:3, name:'Puff Puff (10 pcs)', desc:'Soft and fluffy deep-fried dough balls, lightly sweetened', price:500, img:'puff', cat:'Snacks', featured:false },
+  { id:4, name:'Fried Rice + Turkey', desc:'Special fried rice with glazed turkey pieces', price:2800, img:'rice', cat:'Rice Dishes', featured:false },
+  { id:5, name:'Suya Wrap', desc:'Spicy beef suya wrapped in flatbread with veggies', price:1200, img:'suya', cat:'Specials', featured:false },
+];
+
+function VendorDetailScreen({ vendor, onBack, onAddToCart, cartItems }) {
+  const [activeTab, setActiveTab] = useState('menu');
+  const getQty = id => (cartItems.find(i=>i.id===id)||{qty:0}).qty;
+  return (
+    <div style={{ height:'100%', background:T.bg, overflowY:'auto', paddingBottom:100, paddingTop:60 }}>
+      {/* header img */}
+      <div style={{ position:'relative', height:200 }}>
+        <FoodImg label={vendor.img} h={200} radius={0}/>
+        <div style={{ position:'absolute', inset:0, background:'linear-gradient(180deg,rgba(0,0,0,0.3) 0%,transparent 50%)' }}/>
+        <button onClick={onBack} style={{
+          position:'absolute', top:12, left:16, width:36, height:36, borderRadius:18,
+          background:'rgba(0,0,0,0.5)', border:'none', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          {Icon.chevLeft('#fff',16)}
+        </button>
+        <button style={{
+          position:'absolute', top:12, right:16, width:36, height:36, borderRadius:18,
+          background:'rgba(0,0,0,0.5)', border:'none', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          {Icon.heart('#fff',16)}
+        </button>
+      </div>
+
+      {/* info */}
+      <div style={{ padding:'16px 20px 0' }}>
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
+          <div>
+            <div style={{ fontSize:22, fontWeight:800, color:T.text, letterSpacing:-0.5 }}>{vendor.name}</div>
+            <div style={{ fontSize:13, color:T.textSec, marginTop:2 }}>{vendor.cat}</div>
+          </div>
+          <div style={{
+            background: vendor.open ? 'rgba(26,158,95,0.15)' : 'rgba(226,59,59,0.15)',
+            borderRadius:4, padding:'4px 10px',
+          }}>
+            <span style={{ fontSize:12, fontWeight:700, color: vendor.open ? T.success : '#E23B3B' }}>
+              {vendor.open ? '● Open' : '● Closed'}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display:'flex', gap:16, marginTop:12 }}>
+          {[
+            [Icon.star(T.star,14), `${vendor.rating} Rating`],
+            [Icon.bolt(T.textSec,14), `${vendor.time} min`],
+            [null, `Min ₦${vendor.minOrder.toLocaleString()}`],
+          ].map(([icon, text], i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:4 }}>
+              {icon}
+              <span style={{ fontSize:12, color: i===0 ? T.text : T.textSec, fontWeight: i===0 ? 600 : 400 }}>{text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* tabs */}
+      <div style={{ display:'flex', padding:'16px 20px 0', gap:8, borderBottom:`1px solid ${T.border}`, marginTop:8 }}>
+        {['menu','info'].map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{
+            padding:'8px 20px', borderRadius:4,
+            background: activeTab===tab ? T.primaryTint : 'none',
+            border:'none', cursor:'pointer', fontFamily:T.font,
+            fontSize:14, fontWeight:700,
+            color: activeTab===tab ? T.primary : T.textSec,
+            textTransform:'capitalize',
+          }}>{tab === 'menu' ? 'Menu' : 'Info'}</button>
+        ))}
+      </div>
+
+      {/* menu list */}
+      <div style={{ padding:'12px 20px 0', display:'flex', flexDirection:'column', gap:12 }}>
+        {MENU_ITEMS.map(item => {
+          const qty = getQty(item.id);
+          return (
+            <div key={item.id} style={{
+              background:T.surface, borderRadius:4, overflow:'hidden',
+              display:'flex', alignItems:'center', border:`1px solid ${T.border}`,
+            }}>
+              <div style={{ width:90, height:90, flexShrink:0 }}>
+                <FoodImg label={item.img} h={90} radius={0} overlay={false}/>
+              </div>
+              <div style={{ flex:1, padding:'12px', minWidth:0 }}>
+                <div style={{ fontSize:14, fontWeight:700, color:T.text }}>{item.name}</div>
+                <div style={{ fontSize:11, color:T.textSec, marginTop:2, lineHeight:1.4,
+                  overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2,
+                  WebkitBoxOrient:'vertical'
+                }}>{item.desc}</div>
+                <div style={{ fontSize:16, fontWeight:800, color:T.primary, marginTop:6 }}>₦{item.price.toLocaleString()}</div>
+              </div>
+              <div style={{ padding:'0 12px' }}>
+                {qty === 0 ? (
+                  <button onClick={() => onAddToCart(item, 1)} style={{
+                    width:32, height:32, borderRadius:4,
+                    background:T.primary, border:'none', cursor:'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                  }}>
+                    {Icon.plus('#fff',14)}
+                  </button>
+                ) : (
+                  <div style={{ display:'flex', alignItems:'center', gap:8, flexDirection:'column' }}>
+                    <button onClick={() => onAddToCart(item, -1)} style={{
+                      width:28, height:28, borderRadius:4, background:T.surface3,
+                      border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                    }}>{Icon.minus(T.text,12)}</button>
+                    <span style={{ fontSize:14, fontWeight:700, color:T.text }}>{qty}</span>
+                    <button onClick={() => onAddToCart(item, 1)} style={{
+                      width:28, height:28, borderRadius:4, background:T.primary,
+                      border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                    }}>{Icon.plus('#fff',12)}</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── SCREEN: CART ────────────────────────────────────────────
+function CartScreen({ cartItems, onUpdateCart, onBack, onCheckout, vendor }) {
+  const subtotal = cartItems.reduce((sum,i) => sum + i.price*i.qty, 0);
+  const delivery = 800;
+  const total = subtotal + delivery;
+  if (cartItems.length === 0) return (
+    <div style={{ height:'100%', background:T.bg, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:60 }}>
+      <div style={{ fontSize:60 }}>🛒</div>
+      <div style={{ fontSize:20, fontWeight:700, color:T.text, marginTop:16 }}>Your cart is empty</div>
+      <div style={{ fontSize:14, color:T.textSec, marginTop:8 }}>Add items to get started</div>
+      <button onClick={onBack} style={{
+        marginTop:24, padding:'14px 32px', borderRadius:4, background:T.primary,
+        border:'none', cursor:'pointer', fontSize:15, fontWeight:700, color:'#fff', fontFamily:T.font,
+      }}>Browse Restaurants</button>
+    </div>
+  );
+  return (
+    <div style={{ height:'100%', background:T.bg, display:'flex', flexDirection:'column', paddingTop:60 }}>
+      {/* header */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 20px 16px', borderBottom:`1px solid ${T.border}` }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', display:'flex' }}>
+          {Icon.chevLeft(T.text, 22)}
+        </button>
+        <div style={{ fontSize:20, fontWeight:800, color:T.text }}>Your Cart</div>
+        {vendor && <div style={{ marginLeft:'auto', fontSize:12, color:T.textSec }}>{vendor.name}</div>}
+      </div>
+
+      {/* items */}
+      <div style={{ flex:1, overflowY:'auto', padding:'16px 20px', display:'flex', flexDirection:'column', gap:12 }}>
+        {cartItems.map(item => (
+          <div key={item.id} style={{
+            background:T.surface, borderRadius:4, padding:'14px',
+            display:'flex', alignItems:'center', gap:12, border:`1px solid ${T.border}`,
+          }}>
+            <div style={{ width:60, height:60, borderRadius:4, overflow:'hidden', flexShrink:0 }}>
+              <FoodImg label={item.img} h={60} radius={0} overlay={false}/>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:600, color:T.text }}>{item.name}</div>
+              <div style={{ fontSize:14, fontWeight:800, color:T.primary, marginTop:4 }}>₦{(item.price*item.qty).toLocaleString()}</div>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <button onClick={() => onUpdateCart(item, -1)} style={{
+                width:28, height:28, borderRadius:4, background:T.surface3,
+                border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+              }}>{Icon.minus(T.text,12)}</button>
+              <span style={{ fontSize:15, fontWeight:700, color:T.text, minWidth:16, textAlign:'center' }}>{item.qty}</span>
+              <button onClick={() => onUpdateCart(item, 1)} style={{
+                width:28, height:28, borderRadius:4, background:T.primary,
+                border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+              }}>{Icon.plus('#fff',12)}</button>
+            </div>
+          </div>
+        ))}
+
+        {/* delivery note input */}
+        <div style={{ background:T.surface, borderRadius:4, padding:'14px', border:`1px solid ${T.border}` }}>
+          <div style={{ fontSize:13, fontWeight:600, color:T.textSec, marginBottom:8 }}>Delivery note (optional)</div>
+          <input placeholder="E.g. gate code, floor number..." style={{
+            width:'100%', background:'none', border:'none', color:T.text, fontSize:13, fontFamily:T.font, outline:'none',
+          }}/>
+        </div>
+      </div>
+
+      {/* summary + checkout */}
+      <div style={{
+        background:T.surface, borderTop:`1px solid ${T.border}`,
+        padding:'16px 20px 32px',
+      }}>
+        {[['Subtotal', subtotal],['Delivery', delivery]].map(([l,v]) => (
+          <div key={l} style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+            <span style={{ fontSize:14, color:T.textSec }}>{l}</span>
+            <span style={{ fontSize:14, fontWeight:600, color:T.text }}>₦{v.toLocaleString()}</span>
+          </div>
+        ))}
+        <div style={{ height:1, background:T.border, margin:'10px 0' }}/>
+        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}>
+          <span style={{ fontSize:16, fontWeight:700, color:T.text }}>Total</span>
+          <span style={{ fontSize:16, fontWeight:800, color:T.primary }}>₦{total.toLocaleString()}</span>
+        </div>
+        <PrimaryBtn onPress={onCheckout}>Proceed to Checkout</PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
+// ─── SCREEN: CHECKOUT ────────────────────────────────────────
+function CheckoutScreen({ onBack, onPay, total }) {
+  const [method, setMethod] = useState('card');
+  const methods = [
+    { id:'card', icon:'💳', label:'Debit Card', sub:'Visa/Mastercard via Paystack' },
+    { id:'transfer', icon:'🏦', label:'Bank Transfer', sub:'Instant bank transfer' },
+    { id:'cash', icon:'💵', label:'Cash on Delivery', sub:'Pay when your order arrives' },
+  ];
+  return (
+    <div style={{ height:'100%', background:T.bg, display:'flex', flexDirection:'column', paddingTop:60 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 20px 16px', borderBottom:`1px solid ${T.border}` }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', display:'flex' }}>
+          {Icon.chevLeft(T.text, 22)}
+        </button>
+        <div style={{ fontSize:20, fontWeight:800, color:T.text }}>Checkout</div>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:'16px 20px', display:'flex', flexDirection:'column', gap:16 }}>
+        {/* address */}
+        <div>
+          <div style={{ fontSize:13, fontWeight:700, color:T.textSec, marginBottom:10, textTransform:'uppercase', letterSpacing:0.5 }}>Delivery Address</div>
+          <div style={{
+            background:T.surface, borderRadius:4, padding:'14px 16px',
+            display:'flex', alignItems:'center', gap:12, border:`1px solid ${T.border}`,
+          }}>
+            <div style={{ width:40, height:40, borderRadius:4, background:T.primaryTint, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              {Icon.pin(T.primary,16)}
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:600, color:T.text }}>Home</div>
+              <div style={{ fontSize:12, color:T.textSec }}>12 Douglas Road, Owerri, Rivers State</div>
+            </div>
+            {Icon.chevRight(T.textSec, 14)}
+          </div>
+        </div>
+
+        {/* payment methods */}
+        <div>
+          <div style={{ fontSize:13, fontWeight:700, color:T.textSec, marginBottom:10, textTransform:'uppercase', letterSpacing:0.5 }}>Payment Method</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            {methods.map(m => (
+              <button key={m.id} onClick={() => setMethod(m.id)} style={{
+                background:T.surface, borderRadius:4, padding:'14px 16px',
+                display:'flex', alignItems:'center', gap:12,
+                border: method===m.id ? `2px solid ${T.primary}` : `1px solid ${T.border}`,
+                cursor:'pointer', fontFamily:T.font, textAlign:'left',
+              }}>
+                <span style={{ fontSize:24 }}>{m.icon}</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:14, fontWeight:600, color:T.text }}>{m.label}</div>
+                  <div style={{ fontSize:11, color:T.textSec }}>{m.sub}</div>
+                </div>
+                <div style={{
+                  width:20, height:20, borderRadius:4,
+                  border: method===m.id ? `2px solid ${T.primary}` : `2px solid ${T.border}`,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  background: method===m.id ? T.primary : 'none',
+                }}>
+                  {method===m.id && Icon.check('#fff',10)}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{ background:T.surface, borderTop:`1px solid ${T.border}`, padding:'16px 20px 32px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:14 }}>
+          <span style={{ fontSize:16, fontWeight:700, color:T.text }}>Total to Pay</span>
+          <span style={{ fontSize:18, fontWeight:800, color:T.primary }}>₦{total.toLocaleString()}</span>
+        </div>
+        <PrimaryBtn onPress={onPay}>Pay ₦{total.toLocaleString()}</PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
+// ─── SCREEN: ORDER TRACKING ──────────────────────────────────
+function OrderTrackingScreen({ onBack, onDone }) {
+  const statuses = ['confirmed','preparing','ready','picked_up','delivered'];
+  const labels = ['Order Confirmed','Preparing Food','Ready for Pickup','Rider on the way','Delivered!'];
+  const [step, setStep] = useState(0);
+  const [eta, setEta] = useState(22);
+
+  useEffect(() => {
+    if (step < statuses.length - 1) {
+      const t = setTimeout(() => { setStep(s => s+1); setEta(e => Math.max(0, e-5)); }, 3000);
+      return () => clearTimeout(t);
+    }
+  }, [step]);
+
+  const statusColors = ['#F5A623','#F5A623','#1A9E5F','#1A6EFF','#1A9E5F'];
+  const done = step === statuses.length - 1;
+
+  return (
+    <div style={{ height:'100%', background:T.bg, display:'flex', flexDirection:'column', paddingTop:60 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 20px 16px' }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', display:'flex' }}>
+          {Icon.chevLeft(T.text, 22)}
+        </button>
+        <div style={{ fontSize:20, fontWeight:800, color:T.text }}>Order Tracking</div>
+      </div>
+
+      {/* map placeholder */}
+      <div style={{
+        margin:'0 20px', borderRadius:4, height:200, overflow:'hidden',
+        background:`linear-gradient(145deg, #1A2A1A 0%, #0A1A2A 100%)`,
+        position:'relative', border:`1px solid ${T.border}`,
+        display:'flex', alignItems:'center', justifyContent:'center',
+      }}>
+        {/* grid lines */}
+        {[...Array(8)].map((_,i) => (
+          <div key={i} style={{
+            position:'absolute', left: `${i*14}%`, top:0, bottom:0,
+            borderLeft:`1px solid rgba(255,255,255,0.04)`,
+          }}/>
+        ))}
+        {[...Array(6)].map((_,i) => (
+          <div key={i} style={{
+            position:'absolute', top: `${i*18}%`, left:0, right:0,
+            borderTop:`1px solid rgba(255,255,255,0.04)`,
+          }}/>
+        ))}
+        {/* route line */}
+        <svg style={{ position:'absolute', inset:0 }} width="100%" height="100%" viewBox="0 0 300 200">
+          <path d="M40 160 Q80 120 120 100 Q160 80 200 70 Q240 60 260 40"
+            stroke={T.primary} strokeWidth="2.5" fill="none" strokeDasharray="6,4" opacity="0.7"/>
+          <circle cx="40" cy="160" r="6" fill={T.primary}/>
+          <circle cx="260" cy="40" r="6" fill="#1A9E5F"/>
+          {/* rider */}
+          <circle cx={step < 3 ? 120 : 210} cy={step < 3 ? 100 : 65} r="12" fill={T.primary} opacity="0.9"/>
+          <text x={step < 3 ? 120 : 210} y={step < 3 ? 105 : 70} textAnchor="middle" fontSize="12" fill="white">🏍</text>
+        </svg>
+        <div style={{
+          position:'absolute', bottom:12, right:12,
+          background:'rgba(0,0,0,0.7)', borderRadius:4, padding:'6px 12px',
+          display:'flex', alignItems:'center', gap:6,
+        }}>
+          {Icon.bolt(T.primary,12)}
+          <span style={{ fontSize:13, fontWeight:700, color:'#fff' }}>{eta} min away</span>
+        </div>
+        <div style={{
+          position:'absolute', bottom:0, left:0, right:0, height:40,
+          background:'linear-gradient(transparent, rgba(0,0,0,0.5))',
+          borderRadius:'0 0 16px 16px',
+        }}/>
+        <span style={{ fontSize:10, color:'rgba(255,255,255,0.2)', fontFamily:'monospace', letterSpacing:2 }}>LIVE MAP</span>
+      </div>
+
+      {/* status card */}
+      <div style={{ margin:'16px 20px 0', background:T.surface, borderRadius:4, padding:'20px', border:`1px solid ${T.border}` }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
+          <div style={{
+            width:44, height:44, borderRadius:4,
+            background: `${statusColors[step]}22`,
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}>
+            <span style={{ fontSize:22 }}>{done ? '✅' : '⏱️'}</span>
+          </div>
+          <div>
+            <div style={{ fontSize:17, fontWeight:700, color:T.text }}>{labels[step]}</div>
+            <div style={{ fontSize:12, color:T.textSec, marginTop:2 }}>Order #GBM-20260420-0042</div>
+          </div>
+        </div>
+
+        {/* progress steps */}
+        <div style={{ display:'flex', alignItems:'center' }}>
+          {statuses.map((s, i) => (
+            <React.Fragment key={s}>
+              <div style={{
+                width:24, height:24, borderRadius:4, flexShrink:0,
+                background: i <= step ? T.primary : T.surface3,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                border: i === step ? `2px solid ${T.primaryLight}` : 'none',
+                transition:'all 0.4s',
+              }}>
+                {i < step && Icon.check('#fff',10)}
+                {i === step && <div style={{ width:8, height:8, borderRadius:4, background:'#fff' }}/>}
+              </div>
+              {i < statuses.length-1 && (
+                <div style={{
+                  flex:1, height:2,
+                  background: i < step ? T.primary : T.surface3,
+                  transition:'all 0.4s',
+                }}/>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      {/* rider info */}
+      <div style={{ margin:'12px 20px 0', background:T.surface, borderRadius:4, padding:'14px 16px', display:'flex', alignItems:'center', gap:12, border:`1px solid ${T.border}` }}>
+        <div style={{
+          width:46, height:46, borderRadius:23, background:T.surface3,
+          display:'flex', alignItems:'center', justifyContent:'center', fontSize:22,
+        }}>👨🏿</div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:14, fontWeight:700, color:T.text }}>Emeka O.</div>
+          <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+            {Icon.star(T.star,12)}
+            <span style={{ fontSize:12, color:T.textSec }}>4.9 · Honda CB150</span>
+          </div>
+        </div>
+        <button style={{
+          width:40, height:40, borderRadius:4, background:T.primaryTint,
+          border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          <span style={{ fontSize:18 }}>💬</span>
+        </button>
+        <button style={{
+          width:40, height:40, borderRadius:4, background:T.primaryTint,
+          border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          <span style={{ fontSize:18 }}>📞</span>
+        </button>
+      </div>
+
+      {done && (
+        <div style={{ padding:'16px 20px', marginTop:'auto' }}>
+          <PrimaryBtn onPress={onDone}>Rate Your Order ⭐</PrimaryBtn>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── RIDER FLOW ──────────────────────────────────────────────
+const AVAILABLE_JOBS = [
+  { id:'GBM-0094', vendor:'Mama Titi Kitchen', vendorImg:'jollof', customer:'Chioma A.', address:'12 Douglas Rd, Owerri', distance:'1.2 km', fee:620, eta:'8 min', items:3 },
+  { id:'GBM-0092', vendor:'Suya Spot Deluxe', vendorImg:'suya', customer:'Emeka D.', address:'45 Wetheral Rd, Owerri', distance:'2.7 km', fee:770, eta:'14 min', items:2 },
+  { id:'GBM-0090', vendor:'Egusi Palace', vendorImg:'egusi', customer:'Ngozi M.', address:'7 Port Harcourt Rd', distance:'3.4 km', fee:840, eta:'18 min', items:4 },
+];
+
+function RiderDashboardScreen({ onAvailableOrders, onActiveDelivery }) {
+  const [online, setOnline] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [pulseAnim, setPulseAnim] = useState(false);
+
+  const toggleOnline = () => {
+    setOnline(o => !o);
+    setPulseAnim(true);
+    setTimeout(() => setPulseAnim(false), 600);
+  };
+
+  const todayStats = [
+    { label:'Deliveries', value:'12', icon:'📦', color:'#1A6EFF' },
+    { label:'Earned', value:'₦7,440', icon:'💰', color:'#1A9E5F' },
+    { label:'Rating', value:'4.9', icon:'⭐', color:'#F5A623' },
+    { label:'Online hrs', value:'6.2h', icon:'⏱️', color:T.primary },
+  ];
+
+  const weekEarnings = [4200,5800,3900,7100,6500,8200,7440];
+  const maxE = Math.max(...weekEarnings);
+  const weekLabels = ['M','T','W','T','F','S','S'];
+
+  return (
+    <div style={{ height:'100%', background:T.bg, overflowY:'auto', paddingBottom:20, paddingTop:60 }}>
+      {/* Header */}
+      <div style={{ padding:'12px 20px 0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div>
+          <div style={{ fontSize:12, color:T.textSec }}>Rider Dashboard</div>
+          <div style={{ fontSize:20, fontWeight:800, color:T.text, letterSpacing:-0.5 }}>Emeka Okafor</div>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ position:'relative' }}>
+            {online && <div style={{
+              position:'absolute', inset:-4, borderRadius:99,
+              background:'rgba(26,158,95,0.25)',
+              animation: pulseAnim ? 'none' : 'ripple 1.8s ease-out infinite',
+            }}/>}
+            <button onClick={toggleOnline} style={{
+              display:'flex', alignItems:'center', gap:8,
+              background: online ? 'rgba(26,158,95,0.15)' : T.surface2,
+              border:`1.5px solid ${online ? '#1A9E5F' : T.border}`,
+              borderRadius:99, padding:'7px 16px', cursor:'pointer', fontFamily:T.font,
+              position:'relative', zIndex:1,
+            }}>
+              <div style={{
+                width:8, height:8, borderRadius:4,
+                background: online ? '#1A9E5F' : T.textMuted,
+                boxShadow: online ? '0 0 8px #1A9E5F' : 'none',
+              }}/>
+              <span style={{ fontSize:13, fontWeight:700, color: online ? '#1A9E5F' : T.textSec }}>
+                {online ? 'Online' : 'Offline'}
+              </span>
+            </button>
+          </div>
+          <div style={{
+            width:36, height:36, borderRadius:18,
+            background:`linear-gradient(135deg,#1A6EFF,#0040CC)`,
+            display:'flex', alignItems:'center', justifyContent:'center', fontSize:16,
+          }}>🏍️</div>
+        </div>
+      </div>
+
+      {/* Online/Offline hero */}
+      {online ? (
+        <div onClick={onAvailableOrders} style={{
+          margin:'16px 20px 0', borderRadius:4, overflow:'hidden',
+          background:`linear-gradient(135deg, #0D2B1A 0%, #0A1A2A 100%)`,
+          padding:'20px', cursor:'pointer', position:'relative',
+          border:`1px solid rgba(26,158,95,0.3)`,
+        }}>
+          <div style={{ position:'absolute', right:20, top:16, opacity:0.15, fontSize:60 }}>🗺️</div>
+          <div style={{
+            display:'inline-flex', alignItems:'center', gap:6,
+            background:'rgba(26,158,95,0.2)', borderRadius:99, padding:'4px 12px', marginBottom:10,
+          }}>
+            <div style={{ width:6, height:6, borderRadius:3, background:'#1A9E5F', animation:'blink 1s infinite' }}/>
+            <span style={{ fontSize:11, fontWeight:700, color:'#1A9E5F' }}>3 orders nearby</span>
+          </div>
+          <div style={{ fontSize:18, fontWeight:800, color:'#fff', letterSpacing:-0.3 }}>New jobs available!</div>
+          <div style={{ fontSize:13, color:'rgba(255,255,255,0.6)', marginTop:4 }}>Tap to see available deliveries</div>
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:14 }}>
+            <span style={{ fontSize:12, fontWeight:700, color:'#1A9E5F' }}>View orders</span>
+            {Icon.chevRight('#1A9E5F', 12)}
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          margin:'16px 20px 0', borderRadius:4,
+          background:T.surface, padding:'20px', textAlign:'center',
+          border:`1px solid ${T.border}`,
+        }}>
+          <div style={{ fontSize:36, marginBottom:8 }}>😴</div>
+          <div style={{ fontSize:16, fontWeight:700, color:T.text }}>You're offline</div>
+          <div style={{ fontSize:13, color:T.textSec, marginTop:4 }}>Go online to start receiving delivery jobs</div>
+          <button onClick={toggleOnline} style={{
+            marginTop:14, padding:'12px 32px', borderRadius:4,
+            background:T.primary, border:'none', cursor:'pointer',
+            fontSize:14, fontWeight:700, color:'#fff', fontFamily:T.font,
+            boxShadow:`0 8px 20px ${T.primary}44`,
+          }}>Go Online</button>
+        </div>
+      )}
+
+      {/* Today stats */}
+      <div style={{ padding:'16px 20px 0', display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+        {todayStats.map(s => (
+          <div key={s.label} style={{
+            background:T.surface, borderRadius:4, padding:'14px',
+            border:`1px solid ${T.border}`,
+          }}>
+            <div style={{ fontSize:20 }}>{s.icon}</div>
+            <div style={{ fontSize:20, fontWeight:800, color:s.color, marginTop:6, letterSpacing:-0.5 }}>{s.value}</div>
+            <div style={{ fontSize:11, color:T.textSec, marginTop:1 }}>{s.label} today</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Weekly earnings chart */}
+      <div style={{ margin:'14px 20px 0', background:T.surface, borderRadius:4, padding:'14px', border:`1px solid ${T.border}` }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:T.text }}>Weekly Earnings</div>
+          <span style={{ fontSize:12, fontWeight:700, color:'#1A9E5F' }}>₦43,580 total</span>
+        </div>
+        <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:56 }}>
+          {weekEarnings.map((v,i) => (
+            <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+              <div style={{
+                width:'100%', borderRadius:'4px 4px 0 0',
+                height:`${(v/maxE)*48}px`,
+                background: i===6 ? '#1A9E5F' : 'rgba(26,158,95,0.3)',
+                transition:'height 0.5s ease',
+              }}/>
+              <span style={{ fontSize:9, color: i===6 ? T.text : T.textMuted, fontWeight:600 }}>{weekLabels[i]}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent deliveries */}
+      <div style={{ padding:'16px 20px 0' }}>
+        <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:10 }}>Recent Deliveries</div>
+        {[
+          { id:'GBM-0088', vendor:'ChickenRepublic+', amount:620, time:'2h ago', rating:5 },
+          { id:'GBM-0085', vendor:'Mama Titi Kitchen', amount:740, time:'4h ago', rating:5 },
+          { id:'GBM-0081', vendor:'Puff Puff & More', amount:500, time:'6h ago', rating:4 },
+        ].map(d => (
+          <div key={d.id} style={{
+            display:'flex', alignItems:'center', gap:12, padding:'12px 0',
+            borderBottom:`1px solid ${T.border}`,
+          }}>
+            <div style={{ width:40, height:40, borderRadius:4, background:T.surface2, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>📦</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13, fontWeight:600, color:T.text }}>{d.vendor}</div>
+              <div style={{ fontSize:11, color:T.textSec }}>{d.id} · {d.time}</div>
+            </div>
+            <div style={{ textAlign:'right' }}>
+              <div style={{ fontSize:14, fontWeight:800, color:'#1A9E5F' }}>+₦{d.amount}</div>
+              <div style={{ display:'flex', alignItems:'center', gap:2, justifyContent:'flex-end', marginTop:2 }}>
+                {[...Array(d.rating)].map((_,i) => Icon.star(T.star,10,true))}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <style>{`
+        @keyframes ripple { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(2.5);opacity:0} }
+        @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:0.3} }
+      `}</style>
+    </div>
+  );
+}
+
+// ─── AVAILABLE ORDERS ────────────────────────────────────────
+function AvailableOrdersScreen({ onBack, onAccept }) {
+  const [jobs, setJobs] = useState(AVAILABLE_JOBS);
+  const [accepting, setAccepting] = useState(null);
+
+  const accept = (job) => {
+    setAccepting(job.id);
+    setTimeout(() => onAccept(job), 800);
+  };
+
+  return (
+    <div style={{ height:'100%', background:T.bg, display:'flex', flexDirection:'column', paddingTop:60 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 20px 16px', borderBottom:`1px solid ${T.border}` }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', display:'flex' }}>
+          {Icon.chevLeft(T.text, 22)}
+        </button>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:20, fontWeight:800, color:T.text }}>Available Jobs</div>
+          <div style={{ fontSize:12, color:'#1A9E5F' }}>● {jobs.length} orders near you</div>
+        </div>
+        <div style={{
+          background:T.primaryTint, borderRadius:4, padding:'5px 12px',
+          fontSize:12, fontWeight:700, color:T.primary,
+        }}>Refresh</div>
+      </div>
+
+      <div style={{ flex:1, overflowY:'auto', padding:'12px 20px', display:'flex', flexDirection:'column', gap:12 }}>
+        {jobs.map(job => (
+          <div key={job.id} style={{
+            background:T.surface, borderRadius:4, overflow:'hidden',
+            border:`1px solid ${T.border}`,
+            opacity: accepting && accepting !== job.id ? 0.5 : 1,
+            transition:'opacity 0.3s',
+          }}>
+            {/* Vendor image strip */}
+            <div style={{ height:80, position:'relative' }}>
+              <FoodImg label={job.vendorImg} h={80} radius={0}/>
+              <div style={{ position:'absolute', inset:0, background:'linear-gradient(90deg,rgba(0,0,0,0.7) 0%,transparent 60%)' }}/>
+              <div style={{ position:'absolute', top:12, left:14 }}>
+                <div style={{ fontSize:14, fontWeight:800, color:'#fff' }}>{job.vendor}</div>
+                <div style={{ fontSize:11, color:'rgba(255,255,255,0.7)', marginTop:1 }}>{job.items} items</div>
+              </div>
+              <div style={{
+                position:'absolute', top:12, right:14,
+                background:T.primary, borderRadius:4, padding:'4px 10px',
+                fontSize:12, fontWeight:800, color:'#fff',
+              }}>₦{job.fee}</div>
+            </div>
+
+            <div style={{ padding:'12px 14px' }}>
+              {/* Route */}
+              <div style={{ display:'flex', gap:10, alignItems:'flex-start', marginBottom:12 }}>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, paddingTop:3 }}>
+                  <div style={{ width:8, height:8, borderRadius:4, background:T.primary }}/>
+                  <div style={{ width:1.5, height:20, background:T.border }}/>
+                  <div style={{ width:8, height:8, borderRadius:4, background:'#1A9E5F' }}/>
+                </div>
+                <div style={{ flex:1, display:'flex', flexDirection:'column', gap:10 }}>
+                  <div>
+                    <div style={{ fontSize:11, color:T.textSec, fontWeight:600 }}>PICK UP</div>
+                    <div style={{ fontSize:13, color:T.text, fontWeight:600 }}>{job.vendor}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11, color:T.textSec, fontWeight:600 }}>DELIVER TO</div>
+                    <div style={{ fontSize:13, color:T.text, fontWeight:600 }}>{job.address}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Meta row */}
+              <div style={{ display:'flex', gap:16, marginBottom:14 }}>
+                {[
+                  [Icon.bolt(T.textSec,13), `${job.eta}`],
+                  [Icon.map(T.textSec,13), `${job.distance}`],
+                  [null, `For: ${job.customer}`],
+                ].map(([icon,text],i) => (
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:4 }}>
+                    {icon}
+                    <span style={{ fontSize:12, color:T.textSec }}>{text}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Accept */}
+              <button
+                onClick={() => accept(job)}
+                disabled={!!accepting}
+                style={{
+                  width:'100%', padding:'13px', borderRadius:4,
+                  background: accepting===job.id ? '#1A9E5F' : T.primary,
+                  border:'none', cursor:'pointer', fontFamily:T.font,
+                  fontSize:15, fontWeight:700, color:'#fff',
+                  boxShadow:`0 6px 20px ${T.primary}44`,
+                  transition:'background 0.3s',
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                }}>
+                {accepting===job.id ? <>{Icon.check('#fff',16)} Accepted!</> : <>Accept · ₦{job.fee}</>}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── ACTIVE DELIVERY ─────────────────────────────────────────
+function ActiveDeliveryScreen({ job, onBack, onComplete }) {
+  const deliverySteps = [
+    { id:'heading', label:'Heading to vendor', sub:'ETA 3 min', icon:'🏍️', cta:'Arrived at Vendor', next:'picked' },
+    { id:'picked',  label:'Order picked up', sub:'Heading to customer', icon:'📦', cta:'Mark as Delivered', next:'delivered' },
+    { id:'delivered', label:'Delivered! 🎉', sub:'Great job!', icon:'✅', cta:'Done', next:null },
+  ];
+  const [stepIdx, setStepIdx] = useState(0);
+  const step = deliverySteps[stepIdx];
+  const progress = (stepIdx / (deliverySteps.length - 1)) * 100;
+
+  const activeJob = job || AVAILABLE_JOBS[0];
+
+  return (
+    <div style={{ height:'100%', background:T.bg, display:'flex', flexDirection:'column', paddingTop:60 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 20px 16px' }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', display:'flex' }}>
+          {Icon.chevLeft(T.text, 22)}
+        </button>
+        <div style={{ fontSize:20, fontWeight:800, color:T.text }}>Active Delivery</div>
+        <div style={{
+          marginLeft:'auto', background:T.primaryTint, borderRadius:4, padding:'5px 12px',
+          fontSize:12, fontWeight:700, color:T.primary,
+        }}>{activeJob.id}</div>
+      </div>
+
+      {/* Live map */}
+      <div style={{
+        margin:'0 20px', borderRadius:4, height:190, position:'relative',
+        background:'linear-gradient(145deg, #0D1F0D 0%, #0A1420 100%)',
+        border:`1px solid ${T.border}`, overflow:'hidden',
+      }}>
+        {[...Array(10)].map((_,i) => <div key={i} style={{ position:'absolute', left:`${i*11}%`, top:0, bottom:0, borderLeft:'1px solid rgba(255,255,255,0.03)' }}/>)}
+        {[...Array(7)].map((_,i) => <div key={i} style={{ position:'absolute', top:`${i*16}%`, left:0, right:0, borderTop:'1px solid rgba(255,255,255,0.03)' }}/>)}
+        <svg style={{ position:'absolute', inset:0 }} width="100%" height="100%" viewBox="0 0 340 190">
+          <path d="M30 150 C60 130 100 110 150 90 C200 70 250 55 310 35"
+            stroke={T.primary} strokeWidth="2.5" fill="none" strokeDasharray="6,4" opacity="0.8"/>
+          {/* Vendor pin */}
+          <circle cx="150" cy="90" r="10" fill="rgba(255,82,27,0.3)" stroke={T.primary} strokeWidth="2"/>
+          <text x="150" y="95" textAnchor="middle" fontSize="11">📍</text>
+          {/* Customer pin */}
+          <circle cx="310" cy="35" r="10" fill="rgba(26,158,95,0.3)" stroke="#1A9E5F" strokeWidth="2"/>
+          <text x="310" y="40" textAnchor="middle" fontSize="11">🏠</text>
+          {/* Rider (animated along path) */}
+          <circle cx={stepIdx===0 ? 80 : 220} cy={stepIdx===0 ? 122 : 68} r="14" fill={T.primary} opacity="0.95"/>
+          <text x={stepIdx===0 ? 80 : 220} y={stepIdx===0 ? 127 : 73} textAnchor="middle" fontSize="13">🏍</text>
+        </svg>
+        <div style={{
+          position:'absolute', bottom:10, right:12,
+          background:'rgba(0,0,0,0.75)', borderRadius:4, padding:'5px 10px',
+          display:'flex', alignItems:'center', gap:5,
+        }}>
+          {Icon.bolt(T.primary,11)}
+          <span style={{ fontSize:12, fontWeight:700, color:'#fff' }}>{stepIdx===0 ? '3 min' : '8 min'} away</span>
+        </div>
+      </div>
+
+      {/* Status card */}
+      <div style={{ margin:'12px 20px 0', background:T.surface, borderRadius:4, padding:'16px', border:`1px solid ${T.border}` }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14 }}>
+          <div style={{
+            width:48, height:48, borderRadius:4, background:`${T.primary}1A`,
+            display:'flex', alignItems:'center', justifyContent:'center', fontSize:24,
+          }}>{step.icon}</div>
+          <div>
+            <div style={{ fontSize:16, fontWeight:800, color:T.text }}>{step.label}</div>
+            <div style={{ fontSize:12, color:T.textSec }}>{step.sub}</div>
+          </div>
+        </div>
+        {/* Progress bar */}
+        <div style={{ height:5, background:T.surface3, borderRadius:3, marginBottom:14, overflow:'hidden' }}>
+          <div style={{
+            height:'100%', background:T.primary, borderRadius:3,
+            width:`${progress}%`, transition:'width 0.5s ease',
+          }}/>
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between' }}>
+          {deliverySteps.map((s,i) => (
+            <div key={s.id} style={{ fontSize:10, fontWeight:600, color: i<=stepIdx ? T.primary : T.textMuted }}>
+              {['Pickup','Transit','Done'][i]}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Customer info */}
+      <div style={{ margin:'10px 20px 0', background:T.surface, borderRadius:4, padding:'14px 16px', border:`1px solid ${T.border}`, display:'flex', alignItems:'center', gap:12 }}>
+        <div style={{ width:44, height:44, borderRadius:22, background:T.surface3, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>👩🏿</div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:14, fontWeight:700, color:T.text }}>{activeJob.customer}</div>
+          <div style={{ fontSize:12, color:T.textSec }}>{activeJob.address}</div>
+        </div>
+        <button style={{ width:38, height:38, borderRadius:4, background:T.primaryTint, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ fontSize:16 }}>📞</span>
+        </button>
+        <button style={{ width:38, height:38, borderRadius:4, background:T.primaryTint, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ fontSize:16 }}>💬</span>
+        </button>
+      </div>
+
+      {/* Earning badge */}
+      <div style={{ margin:'10px 20px 0', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', background:T.surface, borderRadius:4, border:`1px solid ${T.border}` }}>
+        <div style={{ fontSize:13, color:T.textSec }}>Your earnings for this delivery</div>
+        <div style={{ fontSize:18, fontWeight:800, color:'#1A9E5F' }}>+₦{activeJob.fee}</div>
+      </div>
+
+      {/* CTA */}
+      <div style={{ padding:'12px 20px', marginTop:'auto' }}>
+        <PrimaryBtn onPress={() => {
+          if (step.next) setStepIdx(i => i+1);
+          else onComplete();
+        }}>{step.cta}</PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
+// ─── VENDOR DASHBOARD ───────────────────────────────────────
+const INCOMING_ORDERS = [
+  { id:'GBM-0091', customer:'Chioma A.', items:['Jollof Rice x2','Puff Puff x1'], total:5500, time:'2 min ago', status:'new' },
+  { id:'GBM-0089', customer:'Emeka D.', items:['Egusi Soup x1','Semovita x1'], total:2200, time:'8 min ago', status:'preparing' },
+  { id:'GBM-0087', customer:'Amaka O.', items:['Fried Rice x1','Turkey x1'], total:2800, time:'14 min ago', status:'ready' },
+];
+const STATUS_META = {
+  new:       { label:'New Order',  color:'#F5A623', bg:'rgba(245,166,35,0.12)' },
+  preparing: { label:'Preparing', color:'#1A6EFF', bg:'rgba(26,110,255,0.12)' },
+  ready:     { label:'Ready',     color:'#1A9E5F', bg:'rgba(26,158,95,0.12)' },
+};
+
+function VendorDashboardScreen({ onBack }) {
+  const [storeOpen, setStoreOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState('orders');
+  const [orders, setOrders] = useState(INCOMING_ORDERS);
+  const [notification, setNotification] = useState(null);
+
+  // Simulate a new order arriving
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setOrders(prev => [{
+        id:'GBM-0093', customer:'Tunde B.', items:['Suya Wrap x3'], total:3600, time:'just now', status:'new'
+      }, ...prev]);
+      setNotification('New order from Tunde B.!');
+      setTimeout(() => setNotification(null), 3000);
+    }, 4000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const updateStatus = (id, next) => {
+    setOrders(prev => prev.map(o => o.id===id ? {...o, status:next} : o));
+  };
+
+  const stats = [
+    { label:"Today's Orders", value:'24', delta:'+3', icon:'📦', color:'#1A6EFF' },
+    { label:"Today's Revenue", value:'₦48.2k', delta:'+₦6k', icon:'💰', color:'#1A9E5F' },
+    { label:'Avg Rating', value:'4.8', delta:'↑0.1', icon:'⭐', color:'#F5A623' },
+    { label:'Pending', value: orders.filter(o=>o.status==='new').length.toString(), delta:'live', icon:'🔔', color:T.primary },
+  ];
+
+  const weekData = [32,28,45,38,52,41,48];
+  const weekLabels = ['M','T','W','T','F','S','S'];
+  const maxVal = Math.max(...weekData);
+
+  return (
+    <div style={{ height:'100%', background:T.bg, display:'flex', flexDirection:'column', paddingTop:60 }}>
+      {/* Toast notification */}
+      {notification && (
+        <div style={{
+          position:'absolute', top:72, left:16, right:16, zIndex:200,
+          background:T.primary, borderRadius:4, padding:'12px 16px',
+          display:'flex', alignItems:'center', gap:10,
+          boxShadow:`0 8px 24px ${T.primary}55`,
+          animation:'slideDown 0.3s ease',
+        }}>
+          <span style={{ fontSize:18 }}>🔔</span>
+          <span style={{ fontSize:14, fontWeight:700, color:'#fff', fontFamily:T.font }}>{notification}</span>
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={{ padding:'12px 20px 0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div>
+          <div style={{ fontSize:12, color:T.textSec, fontWeight:500 }}>Good afternoon 👋</div>
+          <div style={{ fontSize:20, fontWeight:800, color:T.text, letterSpacing:-0.5 }}>Mama Titi Kitchen</div>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          {/* store toggle */}
+          <button onClick={() => setStoreOpen(o => !o)} style={{
+            display:'flex', alignItems:'center', gap:8,
+            background: storeOpen ? 'rgba(26,158,95,0.15)' : 'rgba(226,59,59,0.12)',
+            border: `1.5px solid ${storeOpen ? '#1A9E5F' : '#E23B3B'}`,
+            borderRadius:99, padding:'6px 14px', cursor:'pointer', fontFamily:T.font,
+          }}>
+            <div style={{
+              width:8, height:8, borderRadius:4,
+              background: storeOpen ? '#1A9E5F' : '#E23B3B',
+            }}/>
+            <span style={{ fontSize:12, fontWeight:700, color: storeOpen ? '#1A9E5F' : '#E23B3B' }}>
+              {storeOpen ? 'Open' : 'Closed'}
+            </span>
+          </button>
+          <div style={{ width:36, height:36, borderRadius:18, overflow:'hidden' }}>
+            <div style={{
+              width:36, height:36, background:`linear-gradient(135deg,${T.primary},${T.primaryDark})`,
+              display:'flex', alignItems:'center', justifyContent:'center', fontSize:16,
+            }}>🍛</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats grid */}
+      <div style={{ padding:'16px 20px 0', display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+        {stats.map(s => (
+          <div key={s.label} style={{
+            background:T.surface, borderRadius:4, padding:'14px',
+            border:`1px solid ${T.border}`,
+          }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+              <span style={{ fontSize:20 }}>{s.icon}</span>
+              <span style={{
+                fontSize:11, fontWeight:700,
+                color: s.delta==='live' ? T.primary : s.color,
+                background: s.delta==='live' ? T.primaryTint : `${s.color}18`,
+                borderRadius:4, padding:'2px 7px',
+              }}>{s.delta}</span>
+            </div>
+            <div style={{ fontSize:22, fontWeight:800, color:T.text, marginTop:8, letterSpacing:-0.5 }}>{s.value}</div>
+            <div style={{ fontSize:11, color:T.textSec, marginTop:2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Weekly chart */}
+      <div style={{ margin:'14px 20px 0', background:T.surface, borderRadius:4, padding:'14px', border:`1px solid ${T.border}` }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:T.text }}>Weekly Orders</div>
+          <span style={{ fontSize:11, color:T.textSec }}>This week</span>
+        </div>
+        <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:52 }}>
+          {weekData.map((v,i) => (
+            <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+              <div style={{
+                width:'100%', borderRadius:'4px 4px 0 0',
+                height: `${(v/maxVal)*44}px`,
+                background: i===6 ? T.primary : `${T.primary}44`,
+                transition:'height 0.5s ease',
+              }}/>
+              <span style={{ fontSize:9, color: i===6 ? T.text : T.textMuted, fontWeight:600 }}>{weekLabels[i]}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display:'flex', padding:'12px 20px 0', gap:6 }}>
+        {[['orders','Orders'], ['menu','Menu'], ['earnings','Earnings']].map(([id,label]) => (
+          <button key={id} onClick={() => setActiveTab(id)} style={{
+            flex:1, padding:'9px', borderRadius:4,
+            background: activeTab===id ? T.primaryTint : T.surface,
+            border: activeTab===id ? `1.5px solid ${T.primary}` : `1px solid ${T.border}`,
+            cursor:'pointer', fontFamily:T.font,
+            fontSize:12, fontWeight:700,
+            color: activeTab===id ? T.primary : T.textSec,
+          }}>{label}</button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div style={{ flex:1, overflowY:'auto', padding:'12px 20px', paddingBottom:20 }}>
+        {activeTab === 'orders' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            {orders.map(o => {
+              const meta = STATUS_META[o.status];
+              return (
+                <div key={o.id} style={{
+                  background:T.surface, borderRadius:4, padding:'14px',
+                  border:`1px solid ${T.border}`,
+                }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                    <div>
+                      <span style={{ fontSize:13, fontWeight:800, color:T.text }}>{o.id}</span>
+                      <span style={{ fontSize:12, color:T.textSec, marginLeft:8 }}>{o.customer}</span>
+                    </div>
+                    <span style={{
+                      fontSize:11, fontWeight:700,
+                      color:meta.color, background:meta.bg,
+                      borderRadius:4, padding:'3px 9px',
+                    }}>{meta.label}</span>
+                  </div>
+                  <div style={{ fontSize:12, color:T.textSec, marginBottom:10 }}>
+                    {o.items.join(' · ')}
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <div>
+                      <span style={{ fontSize:16, fontWeight:800, color:T.primary }}>₦{o.total.toLocaleString()}</span>
+                      <span style={{ fontSize:11, color:T.textMuted, marginLeft:8 }}>{o.time}</span>
+                    </div>
+                    <div style={{ display:'flex', gap:8 }}>
+                      {o.status === 'new' && <>
+                        <button onClick={() => updateStatus(o.id,'preparing')} style={{
+                          padding:'7px 14px', borderRadius:4, border:'none', cursor:'pointer',
+                          background:T.primary, fontFamily:T.font, fontSize:12, fontWeight:700, color:'#fff',
+                        }}>Accept</button>
+                        <button onClick={() => setOrders(prev => prev.filter(x=>x.id!==o.id))} style={{
+                          padding:'7px 14px', borderRadius:4, border:`1px solid ${T.border}`, cursor:'pointer',
+                          background:'none', fontFamily:T.font, fontSize:12, fontWeight:700, color:'#E23B3B',
+                        }}>Reject</button>
+                      </>}
+                      {o.status === 'preparing' && (
+                        <button onClick={() => updateStatus(o.id,'ready')} style={{
+                          padding:'7px 14px', borderRadius:4, border:'none', cursor:'pointer',
+                          background:'#1A6EFF', fontFamily:T.font, fontSize:12, fontWeight:700, color:'#fff',
+                        }}>Mark Ready</button>
+                      )}
+                      {o.status === 'ready' && (
+                        <div style={{
+                          padding:'7px 14px', borderRadius:4,
+                          background:'rgba(26,158,95,0.15)',
+                          fontSize:12, fontWeight:700, color:'#1A9E5F', fontFamily:T.font,
+                        }}>Awaiting Rider</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {activeTab === 'menu' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            {MENU_ITEMS.map(item => (
+              <div key={item.id} style={{
+                background:T.surface, borderRadius:4, overflow:'hidden',
+                display:'flex', alignItems:'center', border:`1px solid ${T.border}`,
+              }}>
+                <div style={{ width:70, height:70, flexShrink:0 }}>
+                  <FoodImg label={item.img} h={70} radius={0} overlay={false}/>
+                </div>
+                <div style={{ flex:1, padding:'10px 12px' }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:T.text }}>{item.name}</div>
+                  <div style={{ fontSize:14, fontWeight:800, color:T.primary, marginTop:3 }}>₦{item.price.toLocaleString()}</div>
+                </div>
+                <div style={{ padding:'0 14px', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+                  <div style={{
+                    width:36, height:20, borderRadius:4, cursor:'pointer',
+                    background: item.isAvailable!==false ? T.primary : T.surface3,
+                    position:'relative', transition:'background 0.2s',
+                  }}>
+                    <div style={{
+                      position:'absolute', top:2, width:16, height:16, borderRadius:4, background:'#fff',
+                      left: item.isAvailable!==false ? 18 : 2, transition:'left 0.2s',
+                    }}/>
+                  </div>
+                  <span style={{ fontSize:9, color:T.textSec, fontWeight:600 }}>
+                    {item.isAvailable!==false ? 'ON' : 'OFF'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'earnings' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            {/* Summary cards */}
+            {[
+              { label:'This Month', value:'₦312,400', sub:'89 orders completed', color:'#1A9E5F' },
+              { label:'Pending Payout', value:'₦48,200', sub:'Pays out Friday', color:'#F5A623' },
+              { label:'All Time', value:'₦1.84M', sub:'Since Jan 2025', color:T.primary },
+            ].map(e => (
+              <div key={e.label} style={{
+                background:T.surface, borderRadius:4, padding:'16px',
+                border:`1px solid ${T.border}`, display:'flex', justifyContent:'space-between', alignItems:'center',
+              }}>
+                <div>
+                  <div style={{ fontSize:12, color:T.textSec, marginBottom:4 }}>{e.label}</div>
+                  <div style={{ fontSize:24, fontWeight:800, color:e.color, letterSpacing:-0.5 }}>{e.value}</div>
+                  <div style={{ fontSize:11, color:T.textMuted, marginTop:3 }}>{e.sub}</div>
+                </div>
+                <div style={{
+                  width:48, height:48, borderRadius:4,
+                  background:`${e.color}18`,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:22,
+                }}>💳</div>
+              </div>
+            ))}
+            <button style={{
+              padding:'14px', borderRadius:4, border:'none', cursor:'pointer',
+              background:T.primary, fontFamily:T.font, fontSize:15, fontWeight:700, color:'#fff',
+              boxShadow:`0 8px 24px ${T.primary}44`,
+            }}>Request Payout</button>
+          </div>
+        )}
+      </div>
+      <style>{`@keyframes slideDown{from{transform:translateY(-20px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+    </div>
+  );
+}
+
+// ─── SCREEN: SEARCH ──────────────────────────────────────────
+function SearchScreen({ onBack, onVendor }) {
+  const [q, setQ] = useState('');
+  const filtered = VENDORS.filter(v =>
+    !q || v.name.toLowerCase().includes(q.toLowerCase()) || v.cat.toLowerCase().includes(q.toLowerCase())
+  );
+  const trending = ['Jollof Rice', 'Suya', 'Puff Puff', 'Egusi Soup', 'Fried Plantain'];
+  return (
+    <div style={{ height:'100%', background:T.bg, paddingTop:60 }}>
+      <div style={{ padding:'12px 20px', display:'flex', alignItems:'center', gap:10 }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', display:'flex' }}>
+          {Icon.chevLeft(T.text, 22)}
+        </button>
+        <div style={{ flex:1, position:'relative' }}>
+          <div style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)' }}>
+            {Icon.search(T.textMuted, 16)}
+          </div>
+          <input
+            autoFocus
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Search food, restaurant..."
+            style={{
+              width:'100%', background:T.surface, border:`1.5px solid ${T.border}`,
+              borderRadius:4, padding:'12px 12px 12px 40px',
+              color:T.text, fontSize:14, fontFamily:T.font, outline:'none',
+            }}
+          />
+        </div>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:'0 20px' }}>
+        {!q && (
+          <div>
+            <div style={{ fontSize:13, fontWeight:700, color:T.textSec, marginBottom:10, textTransform:'uppercase', letterSpacing:0.5 }}>Trending</div>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:20 }}>
+              {trending.map(t => (
+                <button key={t} onClick={() => setQ(t)} style={{
+                  background:T.surface, border:`1px solid ${T.border}`, borderRadius:99,
+                  padding:'8px 14px', cursor:'pointer', fontFamily:T.font,
+                  fontSize:13, color:T.text,
+                }}>🔥 {t}</button>
+              ))}
+            </div>
+          </div>
+        )}
+        {filtered.map(v => (
+          <div key={v.id} onClick={() => onVendor(v)} style={{
+            display:'flex', alignItems:'center', gap:12, padding:'12px 0',
+            borderBottom:`1px solid ${T.border}`, cursor:'pointer',
+          }}>
+            <div style={{ width:56, height:56, borderRadius:4, overflow:'hidden', flexShrink:0 }}>
+              <FoodImg label={v.img} h={56} radius={0} overlay={false}/>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:700, color:T.text }}>{v.name}</div>
+              <div style={{ fontSize:12, color:T.textSec }}>{v.cat} · {v.time} min · ₦{v.minOrder.toLocaleString()} min</div>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:3 }}>
+              {Icon.star(T.star,12)}
+              <span style={{ fontSize:12, fontWeight:600, color:T.text }}>{v.rating}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── SCREEN: PROFILE ─────────────────────────────────────────
+function ProfileScreen() {
+  const items = [
+    ['📦','My Orders','View order history'],
+    ['📍','Saved Addresses','Home, Work, and more'],
+    ['💳','Payment Methods','Cards and bank accounts'],
+    ['🔔','Notifications','Manage alerts'],
+    ['🎁','Offers & Promos','Available deals'],
+    ['⭐','Rate the App','Leave a review'],
+    ['🔐','Privacy & Security','Manage data'],
+    ['🚪','Sign Out', null],
+  ];
+  return (
+    <div style={{ height:'100%', background:T.bg, overflowY:'auto', paddingBottom:80, paddingTop:60 }}>
+      <div style={{ padding:'16px 20px 24px' }}>
+        <div style={{ fontSize:22, fontWeight:800, color:T.text }}>Profile</div>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:16, padding:'0 20px 24px', borderBottom:`1px solid ${T.border}` }}>
+        <div style={{
+          width:64, height:64, borderRadius:32, background:`linear-gradient(135deg, ${T.primary}, ${T.primaryDark})`,
+          display:'flex', alignItems:'center', justifyContent:'center', fontSize:28,
+        }}>👤</div>
+        <div>
+          <div style={{ fontSize:18, fontWeight:800, color:T.text }}>Chioma Adaeze</div>
+          <div style={{ fontSize:13, color:T.textSec }}>chioma@example.com · +234 812 345 6789</div>
+        </div>
+        <button style={{
+          marginLeft:'auto', background:T.primaryTint, border:'none', borderRadius:4, cursor:'pointer',
+          padding:'6px 12px', fontSize:12, fontWeight:700, color:T.primary, fontFamily:T.font,
+        }}>Edit</button>
+      </div>
+      <div style={{ padding:'16px 20px', display:'flex', flexDirection:'column' }}>
+        {items.map(([icon,label,sub],i) => (
+          <div key={i} style={{
+            display:'flex', alignItems:'center', gap:14, padding:'14px 0',
+            borderBottom: i < items.length-1 ? `1px solid ${T.border}` : 'none',
+            cursor:'pointer',
+          }}>
+            <span style={{ fontSize:20, width:24, textAlign:'center' }}>{icon}</span>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:600, color: label==='Sign Out' ? '#E23B3B' : T.text }}>{label}</div>
+              {sub && <div style={{ fontSize:11, color:T.textSec, marginTop:1 }}>{sub}</div>}
+            </div>
+            {label !== 'Sign Out' && Icon.chevRight(T.textMuted, 14)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ────────────────────────────────────────────────
+function App() {
+  const tweaks = { ...TWEAK_DEFAULTS };
+  const [screen, setScreen] = useState(tweaks.startScreen || 'splash');
+  const [nav, setNav] = useState('home');
+  const [selectedVendor, setSelectedVendor] = useState(null);
+  const [cartItems, setCartItems] = useState([]);
+  const [cartVendor, setCartVendor] = useState(null);
+  const [tweakOpen, setTweakOpen] = useState(false);
+  const [isDark, setIsDark] = useState(() => {
+    try { const v = localStorage.getItem('gbm_dark'); return v === null ? true : v === 'true'; } catch { return true; }
+  });
+
+  // Apply theme globally before any render
+  T = isDark ? DARK_T : LIGHT_T;
+
+  // Persist nav position
+  useEffect(() => {
+    try { const s = localStorage.getItem('gbm_screen'); if(s) setScreen(s); } catch(e) {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem('gbm_screen', screen); } catch(e) {}
+  }, [screen]);
+
+  const cartCount = cartItems.reduce((s,i) => s+i.qty, 0);
+  const cartTotal = cartItems.reduce((s,i) => s+i.price*i.qty, 0) + 800;
+
+  const addToCart = (item, delta) => {
+    setCartItems(prev => {
+      const existing = prev.find(i => i.id===item.id);
+      if (!existing) return delta > 0 ? [...prev, {...item, qty:1}] : prev;
+      const newQty = existing.qty + delta;
+      if (newQty <= 0) return prev.filter(i => i.id!==item.id);
+      return prev.map(i => i.id===item.id ? {...i, qty:newQty} : i);
+    });
+    if (selectedVendor) setCartVendor(selectedVendor);
+  };
+
+  const handleNav = id => {
+    setNav(id);
+    setScreen('main');
+  };
+
+  const renderContent = () => {
+    if (screen === 'splash') return <SplashScreen onDone={() => setScreen('onboarding')}/>;
+    if (screen === 'onboarding') return <OnboardingScreen onDone={() => setScreen('role')}/>;
+    if (screen === 'role') return <RoleSelectScreen onSelect={() => setScreen('login')}/>;
+    if (screen === 'login') return <LoginScreen onLogin={() => setScreen('main')} onRegister={() => setScreen('main')}/>;
+    if (screen === 'vendor') return (
+      <VendorDetailScreen
+        vendor={selectedVendor}
+        onBack={() => setScreen('main')}
+        onAddToCart={addToCart}
+        cartItems={cartItems}
+      />
+    );
+    if (screen === 'cart') return (
+      <CartScreen
+        cartItems={cartItems}
+        onUpdateCart={addToCart}
+        onBack={() => setScreen(selectedVendor ? 'vendor' : 'main')}
+        onCheckout={() => setScreen('checkout')}
+        vendor={cartVendor}
+      />
+    );
+    if (screen === 'checkout') return (
+      <CheckoutScreen
+        onBack={() => setScreen('cart')}
+        onPay={() => setScreen('tracking')}
+        total={cartTotal}
+      />
+    );
+    if (screen === 'tracking') return (
+      <OrderTrackingScreen
+        onBack={() => { setScreen('main'); setCartItems([]); }}
+        onDone={() => { setScreen('main'); setCartItems([]); }}
+      />
+    );
+    if (screen === 'vendor_dashboard') return (
+      <VendorDashboardScreen onBack={() => setScreen('main')}/>
+    );
+    if (screen === 'rider_dashboard') return (
+      <RiderDashboardScreen
+        onAvailableOrders={() => setScreen('rider_jobs')}
+        onActiveDelivery={() => setScreen('rider_active')}
+      />
+    );
+    if (screen === 'rider_jobs') return (
+      <AvailableOrdersScreen
+        onBack={() => setScreen('rider_dashboard')}
+        onAccept={job => { setSelectedVendor(job); setScreen('rider_active'); }}
+      />
+    );
+    if (screen === 'rider_active') return (
+      <ActiveDeliveryScreen
+        job={selectedVendor}
+        onBack={() => setScreen('rider_jobs')}
+        onComplete={() => setScreen('rider_dashboard')}
+      />
+    );
+    if (screen === 'search') return (
+      <SearchScreen
+        onBack={() => setScreen('main')}
+        onVendor={v => { setSelectedVendor(v); setScreen('vendor'); }}
+      />
+    );
+    // main
+    if (nav === 'profile') return <ProfileScreen/>;
+    if (nav === 'search') return (
+      <SearchScreen
+        onBack={() => setNav('home')}
+        onVendor={v => { setSelectedVendor(v); setScreen('vendor'); }}
+      />
+    );
+    // home (default)
+    return (
+      <HomeScreen
+        onVendor={v => { setSelectedVendor(v); setScreen('vendor'); }}
+        onCart={() => setScreen('cart')}
+        cartCount={cartCount}
+        onSearch={() => setScreen('search')}
+      />
+    );
+  };
+
+  const showBottomNav = screen === 'main';
+
+  // Tweaks
+  useEffect(() => {
+    window.addEventListener('message', e => {
+      if (e.data?.type === '__activate_edit_mode') setTweakOpen(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweakOpen(false);
+    });
+    window.parent.postMessage({ type:'__edit_mode_available' }, '*');
+  }, []);
+
+  const outerBg = isDark
+    ? 'radial-gradient(ellipse at center, #2A1A0E 0%, #111 60%, #0A0A0A 100%)'
+    : 'radial-gradient(ellipse at center, #F0EBE3 0%, #E8E0D8 60%, #DDD5CC 100%)';
+
+  return (
+    <div style={{
+      width:'100vw', height:'100vh',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      background: outerBg,
+      fontFamily:T.font,
+    }}>
+      <IOSDevice width={390} height={844} dark={isDark}>
+        {/* status bar spacer */}
+        <div style={{ position:'absolute', top:0, left:0, right:0, zIndex:100, pointerEvents:'none' }}>
+          <IOSStatusBar dark={isDark} time="9:41"/>
+        </div>
+        <div style={{
+          position:'absolute', inset:0,
+          background:T.bg,
+          display:'flex', flexDirection:'column',
+          overflow:'hidden',
+        }}>
+          <div style={{ flex:1, position:'relative', overflow:'hidden' }}>
+            {renderContent()}
+            {showBottomNav && (
+              <BottomNav active={nav} onNav={handleNav}/>
+            )}
+          </div>
+        </div>
+      </IOSDevice>
+
+      {/* Tweaks panel */}
+      {tweakOpen && (
+        <div style={{
+          position:'fixed', bottom:20, right:20, zIndex:9999,
+          background:'#1E1E1E', borderRadius:4, padding:20, width:260,
+          border:'1px solid #333', boxShadow:'0 16px 48px rgba(0,0,0,0.6)',
+          fontFamily:T.font,
+        }}>
+          <div style={{ fontSize:14, fontWeight:700, color:'#fff', marginBottom:16 }}>Tweaks</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+            <div>
+              <div style={{ fontSize:11, fontWeight:600, color:'#888', marginBottom:8, textTransform:'uppercase', letterSpacing:0.5 }}>Theme</div>
+              <div style={{ display:'flex', gap:8 }}>
+                {[['🌑 Dark', true], ['☀️ Light', false]].map(([label, val]) => (
+                  <button key={label} onClick={() => {
+                    setIsDark(val);
+                    try { localStorage.setItem('gbm_dark', val); } catch {}
+                    window.parent.postMessage({ type:'__edit_mode_set_keys', edits:{ darkMode: val }}, '*');
+                  }} style={{
+                    flex:1, padding:'7px', borderRadius:4, cursor:'pointer',
+                    background: isDark===val ? T.primary : '#2E2E2E',
+                    border:'none', fontFamily:T.font,
+                    fontSize:12, fontWeight:700, color:'#fff',
+                  }}>{label}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize:11, fontWeight:600, color:'#888', marginBottom:8, textTransform:'uppercase', letterSpacing:0.5 }}>Start Screen</div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                {['splash','onboarding','role','login','main'].map(s => (
+                  <button key={s} onClick={() => setScreen(s)} style={{
+                    padding:'5px 10px', borderRadius:4, cursor:'pointer',
+                    background: screen===s ? T.primary : '#2E2E2E',
+                    border:'none', fontFamily:T.font,
+                    fontSize:11, fontWeight:600, color:'#fff', textTransform:'capitalize',
+                  }}>{s}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize:11, fontWeight:600, color:'#888', marginBottom:8, textTransform:'uppercase', letterSpacing:0.5 }}>Quick Navigate</div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                {[['cart','Cart'],['checkout','Checkout'],['tracking','Live Tracking'],['search','Search'],['vendor_dashboard','Vendor Dash'],['rider_dashboard','Rider Dash'],['rider_jobs','Rider Jobs'],['rider_active','Active Delivery']].map(([s,l]) => (
+                  <button key={s} onClick={() => setScreen(s)} style={{
+                    padding:'5px 10px', borderRadius:4, cursor:'pointer',
+                    background: screen===s ? T.primary : '#2E2E2E',
+                    border:'none', fontFamily:T.font,
+                    fontSize:11, fontWeight:600, color:'#fff',
+                  }}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize:11, fontWeight:600, color:'#888', marginBottom:6, textTransform:'uppercase', letterSpacing:0.5 }}>Fill Demo Cart</div>
+              <button onClick={() => {
+                setCartItems([
+                  {...MENU_ITEMS[0], qty:1},
+                  {...MENU_ITEMS[1], qty:2},
+                ]);
+                setCartVendor(VENDORS[0]);
+              }} style={{
+                padding:'8px 14px', borderRadius:4, cursor:'pointer',
+                background:'#2E2E2E', border:'none', fontFamily:T.font,
+                fontSize:12, fontWeight:600, color:'#fff', width:'100%',
+              }}>Add 2 items to cart</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,1080 @@
+# GoBuyMe — Master Build Prompt
+> Use this prompt as the system context for any AI coding session (Claude, Cursor, Copilot, etc.).
+> It contains the full product specification, technical architecture, design system, and coding standards
+> required to build GoBuyMe to enterprise grade.
+
+---
+
+## 1. Project Identity
+
+**App name:** GoBuyMe
+**Tagline:** Hungry? GoBuyMe. Anything.
+**Company:** Bubble Barrel Commerce Limited
+**Headquarters:** Owerri, Nigeria
+**Website:** https://gobuyme.shop
+**Platform:** iOS + Android (React Native / Expo)
+**Type:** On-demand delivery super-app for the Nigerian market
+
+GoBuyMe is a single mobile app that serves three distinct user types — Customers, Vendors, and Riders —
+selected at onboarding. It delivers food, groceries, pharmacy items, and errands across Nigerian cities
+in 25 minutes or less. It is not three separate apps; it is one unified app with role-based navigation.
+
+---
+
+## 2. Brand & Design System
+
+### Colors
+```
+Primary:       #FF521B  (burnt orange — main CTAs, active states, highlights)
+Primary Dark:  #CC3D0E  (pressed states, hover)
+Primary Light: #FF7A4D  (tints, backgrounds)
+Primary Tint:  #FFF0EB  (subtle backgrounds)
+
+Neutral 900:   #111111  (headings, primary text)
+Neutral 700:   #3D3D3D  (body text)
+Neutral 500:   #767676  (secondary text, placeholders)
+Neutral 300:   #C2C2C2  (borders, dividers)
+Neutral 100:   #F5F5F5  (card backgrounds)
+White:         #FFFFFF
+
+Success:       #1A9E5F
+Warning:       #F5A623
+Error:         #E23B3B
+Info:          #1A6EFF
+
+Dark mode background:  #0E0E0E
+Dark mode surface:     #1A1A1A
+Dark mode surface 2:   #242424
+```
+
+### Typography
+**Font:** Plus Jakarta Sans (Google Font)
+- Import weights: 400 (Regular), 500 (Medium), 600 (SemiBold), 700 (Bold), 800 (ExtraBold)
+- Heading 1: 32px / ExtraBold / -0.5 letter-spacing
+- Heading 2: 26px / Bold
+- Heading 3: 20px / Bold
+- Heading 4: 17px / SemiBold
+- Body Large: 16px / Regular / 1.6 line-height
+- Body: 14px / Regular / 1.5 line-height
+- Caption: 12px / Medium
+- Label: 11px / SemiBold / 0.5 letter-spacing / UPPERCASE
+
+### Design Language
+Bold and expressive — large typography, vibrant colors, high contrast.
+Reference aesthetic: Glovo. Every screen should feel energetic and confident.
+
+### Component Principles
+- Border radius: 4px (inputs), 8px (cards, buttons), 12px (bottom sheets), 16px (modals), 999px (pills/chips)
+- Elevation: Use shadow sparingly — one level per surface layer
+- Spacing scale: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64 (multiples of 4)
+- Icons: react-native-vector-icons (Feather set as primary, Ionicons as secondary)
+- Haptic feedback on all primary CTAs
+- Skeleton loaders — never blank states during loading
+- Empty states — always illustrated, never just text
+
+---
+
+## 3. Tech Stack
+
+### Mobile App
+```
+Framework:       React Native 0.74+ (Expo SDK 51+)
+Language:        JavaScript (JSX) — no TypeScript for now, but structure for easy migration
+Navigation:      React Navigation v6 (Stack + Bottom Tab + Drawer)
+State:           Redux Toolkit + RTK Query (for server state)
+Styling:         StyleSheet API — no styled-components; use a central theme object
+Font loading:    expo-google-fonts/plus-jakarta-sans
+Maps:            react-native-maps + Google Maps API
+Location:        expo-location
+Notifications:   expo-notifications
+Camera/Image:    expo-image-picker
+Auth (Google):   expo-auth-session + Google OAuth
+Storage:         expo-secure-store (tokens), @react-native-async-storage (non-sensitive)
+Real-time:       socket.io-client
+Payments:        Paystack React Native SDK (@paystack/react-native-sdk)
+Error tracking:  @sentry/react-native
+i18n:            i18next + react-i18next (English first)
+HTTP:            Axios (with interceptors for JWT refresh)
+```
+
+### Backend
+```
+Runtime:         Node.js 20+
+Framework:       Express.js
+Language:        JavaScript (CommonJS)
+ORM:             Prisma 5+
+Database:        PostgreSQL 15+ (local via pgAdmin; cloud on Railway or Supabase later)
+Auth:            JWT (access token: 15min, refresh token: 30 days) + Google OAuth (passport-google-oauth20)
+Real-time:       Socket.io 4+
+Payments:        Paystack Node.js SDK
+Email:           Nodemailer (SMTP — Brevo/Resend for prod)
+Push:            Expo Server SDK (@expo/server-sdk)
+Validation:      Joi (route-level schema validation)
+Security:        helmet, cors, express-rate-limit, bcryptjs (salt rounds: 12)
+Logging:         winston (file + console), morgan (HTTP)
+Error tracking:  @sentry/node
+Env:             dotenv
+File uploads:    multer + Cloudinary
+```
+
+### Admin Dashboard (Web — separate project)
+```
+Framework:       React (Vite)
+UI Library:      Shadcn/ui + Tailwind CSS
+Charts:          Recharts
+Auth:            Same JWT system — SUPER_ADMIN role guard
+State:           Zustand
+```
+
+---
+
+## 4. Repository Structure
+
+```
+gobuyme/                          ← monorepo root
+├── app/                          ← React Native (Expo) mobile app
+│   ├── assets/
+│   │   ├── fonts/
+│   │   ├── images/
+│   │   └── onboarding/           ← illustrated slide images (3 PNGs)
+│   ├── src/
+│   │   ├── navigation/
+│   │   │   ├── AppNavigator.jsx        ← root: checks auth + role → routes to correct navigator
+│   │   │   ├── OnboardingNavigator.jsx
+│   │   │   ├── AuthNavigator.jsx       ← shared: Login, Register, ForgotPassword
+│   │   │   ├── CustomerNavigator.jsx   ← Bottom tabs + nested stacks
+│   │   │   ├── VendorNavigator.jsx
+│   │   │   └── RiderNavigator.jsx
+│   │   ├── screens/
+│   │   │   ├── onboarding/
+│   │   │   │   ├── SplashScreen.jsx
+│   │   │   │   ├── OnboardingSlides.jsx   ← 3 swipeable illustrated slides
+│   │   │   │   └── RoleSelectScreen.jsx   ← "I want to eat / sell / ride"
+│   │   │   ├── auth/
+│   │   │   │   ├── LoginScreen.jsx
+│   │   │   │   ├── RegisterScreen.jsx     ← receives role as route param
+│   │   │   │   ├── ForgotPasswordScreen.jsx
+│   │   │   │   └── ResetPasswordScreen.jsx
+│   │   │   ├── customer/
+│   │   │   │   ├── HomeScreen.jsx          ← categories, featured vendors, banners
+│   │   │   │   ├── SearchScreen.jsx
+│   │   │   │   ├── VendorListScreen.jsx    ← filtered by category
+│   │   │   │   ├── VendorDetailScreen.jsx
+│   │   │   │   ├── MenuItemScreen.jsx
+│   │   │   │   ├── CartScreen.jsx
+│   │   │   │   ├── CheckoutScreen.jsx
+│   │   │   │   ├── PaymentScreen.jsx       ← Paystack integration
+│   │   │   │   ├── OrderTrackingScreen.jsx ← live map + Socket.io status
+│   │   │   │   ├── OrderHistoryScreen.jsx
+│   │   │   │   ├── OrderDetailScreen.jsx
+│   │   │   │   ├── FavoritesScreen.jsx
+│   │   │   │   ├── OffersScreen.jsx
+│   │   │   │   ├── ProfileScreen.jsx
+│   │   │   │   ├── AddressesScreen.jsx
+│   │   │   │   └── NotificationsScreen.jsx
+│   │   │   ├── vendor/
+│   │   │   │   ├── VendorDashboardScreen.jsx  ← stats: orders, earnings, rating
+│   │   │   │   ├── IncomingOrdersScreen.jsx   ← real-time via Socket.io
+│   │   │   │   ├── OrderDetailScreen.jsx      ← accept / reject / mark ready
+│   │   │   │   ├── MenuManagementScreen.jsx
+│   │   │   │   ├── AddEditMenuItemScreen.jsx
+│   │   │   │   ├── EarningsScreen.jsx
+│   │   │   │   ├── StoreSettingsScreen.jsx
+│   │   │   │   └── VendorProfileScreen.jsx
+│   │   │   └── rider/
+│   │   │       ├── RiderDashboardScreen.jsx   ← online/offline toggle, stats
+│   │   │       ├── AvailableOrdersScreen.jsx  ← real-time job broadcast
+│   │   │       ├── ActiveDeliveryScreen.jsx   ← live map, chat customer
+│   │   │       ├── DeliveryHistoryScreen.jsx
+│   │   │       ├── EarningsScreen.jsx
+│   │   │       └── RiderProfileScreen.jsx
+│   │   ├── components/
+│   │   │   ├── common/
+│   │   │   │   ├── Button.jsx            ← variant: primary, secondary, ghost, danger
+│   │   │   │   ├── Input.jsx             ← with validation states
+│   │   │   │   ├── Card.jsx
+│   │   │   │   ├── Badge.jsx
+│   │   │   │   ├── Modal.jsx
+│   │   │   │   ├── BottomSheet.jsx
+│   │   │   │   ├── Skeleton.jsx
+│   │   │   │   ├── EmptyState.jsx
+│   │   │   │   ├── Toast.jsx
+│   │   │   │   ├── Avatar.jsx
+│   │   │   │   ├── StarRating.jsx
+│   │   │   │   └── Divider.jsx
+│   │   │   ├── customer/
+│   │   │   │   ├── VendorCard.jsx
+│   │   │   │   ├── CategoryChip.jsx
+│   │   │   │   ├── CartItem.jsx
+│   │   │   │   ├── OrderStatusBar.jsx
+│   │   │   │   └── PromoBanner.jsx
+│   │   │   ├── vendor/
+│   │   │   │   ├── OrderCard.jsx
+│   │   │   │   ├── MenuItemCard.jsx
+│   │   │   │   └── EarningsWidget.jsx
+│   │   │   └── rider/
+│   │   │       ├── DeliveryCard.jsx
+│   │   │       ├── EarningsCard.jsx
+│   │   │       └── OnlineToggle.jsx
+│   │   ├── store/
+│   │   │   ├── index.js
+│   │   │   └── slices/
+│   │   │       ├── authSlice.js         ← user, token, role
+│   │   │       ├── cartSlice.js
+│   │   │       ├── orderSlice.js
+│   │   │       └── notificationSlice.js
+│   │   ├── services/
+│   │   │   ├── api.js                   ← axios instance, JWT interceptors, refresh logic
+│   │   │   ├── authService.js
+│   │   │   ├── customerService.js
+│   │   │   ├── vendorService.js
+│   │   │   ├── riderService.js
+│   │   │   ├── orderService.js
+│   │   │   ├── paystackService.js
+│   │   │   └── socketService.js         ← singleton socket instance
+│   │   ├── hooks/
+│   │   │   ├── useAuth.js
+│   │   │   ├── useCart.js
+│   │   │   ├── useLocation.js
+│   │   │   ├── useSocket.js
+│   │   │   └── useNotifications.js
+│   │   ├── utils/
+│   │   │   ├── formatCurrency.js        ← always format as ₦
+│   │   │   ├── formatDistance.js
+│   │   │   ├── formatDate.js
+│   │   │   └── validators.js
+│   │   ├── constants/
+│   │   │   ├── theme.js                 ← all colors, fonts, spacing
+│   │   │   ├── routes.js
+│   │   │   ├── orderStatus.js
+│   │   │   └── categories.js
+│   │   └── i18n/
+│   │       ├── index.js
+│   │       └── locales/
+│   │           └── en.json
+│   ├── App.js
+│   └── app.json
+│
+├── backend/                       ← Node.js + Express API
+│   ├── prisma/
+│   │   ├── schema.prisma
+│   │   └── seed.js
+│   ├── src/
+│   │   ├── routes/
+│   │   │   ├── auth.routes.js
+│   │   │   ├── user.routes.js
+│   │   │   ├── vendor.routes.js
+│   │   │   ├── menu.routes.js
+│   │   │   ├── order.routes.js
+│   │   │   ├── rider.routes.js
+│   │   │   ├── payment.routes.js
+│   │   │   ├── upload.routes.js
+│   │   │   └── admin.routes.js
+│   │   ├── controllers/
+│   │   │   ├── auth.controller.js
+│   │   │   ├── vendor.controller.js
+│   │   │   ├── menu.controller.js
+│   │   │   ├── order.controller.js
+│   │   │   ├── rider.controller.js
+│   │   │   ├── payment.controller.js
+│   │   │   └── admin.controller.js
+│   │   ├── middleware/
+│   │   │   ├── auth.middleware.js       ← verifyToken (JWT)
+│   │   │   ├── role.middleware.js       ← requireRole(...roles)
+│   │   │   ├── validate.middleware.js   ← Joi schema validator
+│   │   │   ├── rateLimiter.middleware.js
+│   │   │   ├── audit.middleware.js      ← logs who did what
+│   │   │   └── error.middleware.js      ← global error handler
+│   │   ├── validators/
+│   │   │   ├── auth.validator.js
+│   │   │   ├── order.validator.js
+│   │   │   └── vendor.validator.js
+│   │   ├── sockets/
+│   │   │   ├── index.js                 ← socket.io init + namespace setup
+│   │   │   ├── orderSocket.js           ← order status broadcasts
+│   │   │   └── riderSocket.js           ← rider location + job broadcasts
+│   │   ├── services/
+│   │   │   ├── paystack.service.js
+│   │   │   ├── email.service.js
+│   │   │   ├── push.service.js          ← Expo push notifications
+│   │   │   ├── distance.service.js      ← delivery fee calculator
+│   │   │   └── commission.service.js    ← platform commission logic
+│   │   ├── utils/
+│   │   │   ├── logger.js                ← winston
+│   │   │   ├── apiResponse.js           ← standardised response helpers
+│   │   │   ├── catchAsync.js            ← async error wrapper
+│   │   │   └── generateToken.js
+│   │   └── config/
+│   │       ├── db.js                    ← Prisma client singleton
+│   │       └── passport.js              ← Google OAuth strategy
+│   └── server.js
+│
+└── admin/                         ← React (Vite) web admin dashboard
+    ├── src/
+    │   ├── pages/
+    │   │   ├── Dashboard.jsx
+    │   │   ├── Vendors.jsx
+    │   │   ├── Riders.jsx
+    │   │   ├── Orders.jsx
+    │   │   ├── Customers.jsx
+    │   │   ├── Payouts.jsx
+    │   │   └── Settings.jsx
+    │   └── components/
+    └── vite.config.js
+```
+
+---
+
+## 5. Database Schema (Prisma)
+
+```prisma
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  VENDOR
+  RIDER
+  SUPER_ADMIN
+}
+
+enum VendorCategory {
+  RESTAURANT
+  GROCERY
+  PHARMACY
+  ERRAND
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum OrderStatus {
+  PENDING        // order placed, awaiting vendor confirmation
+  CONFIRMED      // vendor accepted
+  PREPARING      // vendor is preparing
+  READY          // ready for pickup by rider
+  PICKED_UP      // rider collected
+  IN_TRANSIT     // rider on the way
+  DELIVERED      // completed
+  CANCELLED      // cancelled by any party
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  PAYSTACK_USSD
+  CASH_ON_DELIVERY
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id                String       @id @default(uuid())
+  name              String
+  email             String       @unique
+  phone             String?      @unique
+  password          String?      // null for OAuth users
+  googleId          String?      @unique
+  role              Role         @default(CUSTOMER)
+  avatar            String?
+  isEmailVerified   Boolean      @default(false)
+  isPhoneVerified   Boolean      @default(false)
+  isActive          Boolean      @default(true)
+  refreshToken      String?
+  pushToken         String?      // Expo push token
+  preferredLocale   String       @default("en")
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  customer          Customer?
+  vendor            Vendor?
+  rider             Rider?
+  auditLogs         AuditLog[]
+}
+
+model Customer {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addresses Address[]
+  orders    Order[]
+  favorites Favorite[]
+  cart      Cart?
+  createdAt DateTime   @default(now())
+}
+
+model Vendor {
+  id              String         @id @default(uuid())
+  userId          String         @unique
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName    String
+  slug            String         @unique  // URL-friendly name
+  description     String?
+  logo            String?
+  coverImage      String?
+  category        VendorCategory
+  address         String
+  city            String
+  state           String         @default("Rivers")
+  latitude        Float?
+  longitude       Float?
+  isOpen          Boolean        @default(false)
+  approvalStatus  ApprovalStatus @default(PENDING)
+  autoApprove     Boolean        @default(false) // flag for future auto-approval
+  commissionRate  Float          @default(10.0)  // % platform takes
+  rating          Float          @default(0)
+  totalRatings    Int            @default(0)
+  openingTime     String?        // e.g. "08:00"
+  closingTime     String?        // e.g. "22:00"
+  menuItems       MenuItem[]
+  orders          Order[]
+  payoutAccount   PayoutAccount?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model Rider {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleType     String    // bike, bicycle, car
+  plateNumber     String?
+  isAvailable     Boolean   @default(false)
+  isOnline        Boolean   @default(false)
+  latitude        Float?
+  longitude       Float?
+  approvalStatus  ApprovalStatus @default(PENDING)
+  rating          Float     @default(0)
+  totalRatings    Int       @default(0)
+  deliveries      Order[]
+  earnings        Earning[]
+  payoutAccount   PayoutAccount?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model MenuItem {
+  id          String      @id @default(uuid())
+  vendorId    String
+  vendor      Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  price       Float
+  image       String?
+  category    String?
+  isAvailable Boolean     @default(true)
+  isFeatured  Boolean     @default(false)
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Cart {
+  id         String     @id @default(uuid())
+  customerId String     @unique
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vendorId   String?    // cart locked to one vendor at a time
+  items      CartItem[]
+  updatedAt  DateTime   @updatedAt
+}
+
+model CartItem {
+  id         String   @id @default(uuid())
+  cartId     String
+  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  quantity   Int      @default(1)
+  note       String?
+}
+
+model Address {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label      String   // Home, Work, Other
+  address    String
+  city       String
+  state      String   @default("Rivers")
+  latitude   Float?
+  longitude  Float?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Order {
+  id                String        @id @default(uuid())
+  orderNumber       String        @unique  // e.g. GBM-20260419-0001
+  customerId        String
+  customer          Customer      @relation(fields: [customerId], references: [id])
+  vendorId          String
+  vendor            Vendor        @relation(fields: [vendorId], references: [id])
+  riderId           String?
+  rider             Rider?        @relation(fields: [riderId], references: [id])
+  items             OrderItem[]
+  status            OrderStatus   @default(PENDING)
+  subtotal          Float
+  deliveryFee       Float
+  platformFee       Float         // commission deducted
+  totalAmount       Float
+  deliveryAddress   String
+  deliveryLatitude  Float?
+  deliveryLongitude Float?
+  distanceKm        Float?
+  paymentMethod     PaymentMethod
+  paymentStatus     PaymentStatus @default(PENDING)
+  paystackRef       String?
+  paystackVerified  Boolean       @default(false)
+  note              String?
+  estimatedTime     Int?          // minutes
+  cancelReason      String?
+  rating            Int?          // 1-5, set after delivery
+  review            String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  name       String   // snapshot at time of order
+  price      Float    // snapshot at time of order
+  quantity   Int
+}
+
+model Favorite {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vendorId   String
+  createdAt  DateTime @default(now())
+
+  @@unique([customerId, vendorId])
+}
+
+model Earning {
+  id        String   @id @default(uuid())
+  riderId   String
+  rider     Rider    @relation(fields: [riderId], references: [id])
+  orderId   String   @unique
+  amount    Float
+  isPaid    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model PayoutAccount {
+  id            String  @id @default(uuid())
+  vendorId      String? @unique
+  vendor        Vendor? @relation(fields: [vendorId], references: [id])
+  riderId       String? @unique
+  rider         Rider?  @relation(fields: [riderId], references: [id])
+  bankName      String
+  accountNumber String
+  accountName   String
+  paystackRecipientCode String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Offer {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  imageUrl    String?
+  code        String?  @unique
+  discount    Float    // % or flat
+  isPercent   Boolean  @default(true)
+  minOrder    Float    @default(0)
+  vendorId    String?  // null = platform-wide offer
+  expiresAt   DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String   // e.g. "ORDER_CANCELLED", "VENDOR_APPROVED"
+  entity    String   // e.g. "Order", "Vendor"
+  entityId  String
+  meta      Json?    // any extra context
+  ip        String?
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  type      String   // order_update, promo, system
+  isRead    Boolean  @default(false)
+  meta      Json?
+  createdAt DateTime @default(now())
+}
+```
+
+---
+
+## 6. API Design Standards
+
+### Base URL
+```
+Development: http://localhost:5000/api/v1
+Production:  https://api.gobuyme.shop/api/v1
+```
+
+### Standard Response Envelope
+Every API response must use this shape:
+```json
+// Success
+{
+  "status": "success",
+  "message": "Order placed successfully",
+  "data": { ... }
+}
+
+// Error
+{
+  "status": "error",
+  "message": "Vendor not found",
+  "errors": [ ... ]   // optional array for validation errors
+}
+
+// Paginated
+{
+  "status": "success",
+  "data": [ ... ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 134,
+    "totalPages": 7
+  }
+}
+```
+
+### Auth Endpoints
+```
+POST   /api/v1/auth/register          ← { name, email, phone, password, role }
+POST   /api/v1/auth/login             ← { email, password }
+POST   /api/v1/auth/google            ← { idToken, role }
+POST   /api/v1/auth/logout            ← clears refresh token
+POST   /api/v1/auth/refresh           ← { refreshToken } → new access token
+POST   /api/v1/auth/forgot-password
+POST   /api/v1/auth/reset-password
+GET    /api/v1/auth/me                ← returns current user + role profile
+```
+
+### Customer Endpoints
+```
+GET    /api/v1/vendors                ← ?category=&city=&search=&page=&limit=
+GET    /api/v1/vendors/:id            ← vendor detail + menu
+GET    /api/v1/vendors/:id/menu       ← full menu, grouped by category
+GET    /api/v1/cart                   ← get customer cart
+POST   /api/v1/cart/add
+PUT    /api/v1/cart/update/:itemId
+DELETE /api/v1/cart/remove/:itemId
+DELETE /api/v1/cart/clear
+GET    /api/v1/addresses
+POST   /api/v1/addresses
+PUT    /api/v1/addresses/:id
+DELETE /api/v1/addresses/:id
+GET    /api/v1/orders                 ← order history
+POST   /api/v1/orders                 ← place order
+GET    /api/v1/orders/:id             ← order detail + tracking
+POST   /api/v1/orders/:id/cancel
+POST   /api/v1/orders/:id/rate        ← { rating, review }
+GET    /api/v1/favorites
+POST   /api/v1/favorites/:vendorId
+DELETE /api/v1/favorites/:vendorId
+GET    /api/v1/offers
+```
+
+### Vendor Endpoints
+```
+GET    /api/v1/vendor/profile
+PUT    /api/v1/vendor/profile
+PUT    /api/v1/vendor/toggle-open     ← open/close store
+GET    /api/v1/vendor/orders          ← ?status=&page=
+PUT    /api/v1/vendor/orders/:id/status  ← { status: CONFIRMED | PREPARING | READY | CANCELLED }
+GET    /api/v1/vendor/menu
+POST   /api/v1/vendor/menu
+PUT    /api/v1/vendor/menu/:itemId
+DELETE /api/v1/vendor/menu/:itemId
+GET    /api/v1/vendor/earnings        ← ?from=&to=
+GET    /api/v1/vendor/stats           ← dashboard summary
+```
+
+### Rider Endpoints
+```
+GET    /api/v1/rider/profile
+PUT    /api/v1/rider/profile
+POST   /api/v1/rider/toggle-online    ← { isOnline: bool }
+PATCH  /api/v1/rider/location         ← { latitude, longitude } ← called every 10s
+GET    /api/v1/rider/orders/available ← orders with status READY near rider
+POST   /api/v1/rider/orders/:id/accept
+PUT    /api/v1/rider/orders/:id/status ← { status: PICKED_UP | IN_TRANSIT | DELIVERED }
+GET    /api/v1/rider/earnings
+GET    /api/v1/rider/history
+```
+
+### Payment Endpoints
+```
+POST   /api/v1/payments/initialize    ← { orderId } → paystackAuthUrl
+POST   /api/v1/payments/verify        ← { reference } → verify + update order
+POST   /api/v1/payments/webhook       ← Paystack webhook (no auth, verify signature)
+```
+
+### Admin Endpoints
+```
+GET    /api/v1/admin/dashboard
+GET    /api/v1/admin/vendors          ← ?status=PENDING|APPROVED
+PUT    /api/v1/admin/vendors/:id/approve
+PUT    /api/v1/admin/vendors/:id/suspend
+GET    /api/v1/admin/riders
+PUT    /api/v1/admin/riders/:id/approve
+GET    /api/v1/admin/orders
+GET    /api/v1/admin/users
+GET    /api/v1/admin/audit-logs
+POST   /api/v1/admin/offers
+PUT    /api/v1/admin/offers/:id
+```
+
+---
+
+## 7. Socket.io Architecture
+
+### Namespaces & Rooms
+```
+/orders   ← order status updates
+/riders   ← rider location + job dispatch
+
+Rooms:
+  order:{orderId}    ← customer, vendor, rider all join when order is active
+  vendor:{vendorId}  ← vendor's private room for incoming orders
+  rider:{riderId}    ← rider's private room for job broadcasts
+```
+
+### Events
+```
+// Server → Client
+order:new           ← vendor receives new order  { order }
+order:status        ← all parties receive status change  { orderId, status }
+rider:location      ← customer receives rider lat/lng  { riderId, lat, lng }
+order:assigned      ← rider receives job offer  { order, vendor, customer }
+
+// Client → Server
+rider:updateLocation  { latitude, longitude }
+order:accept          { orderId }   (rider)
+order:updateStatus    { orderId, status }
+```
+
+---
+
+## 8. Delivery Fee & Commission Logic
+
+### Delivery Fee
+```
+Base fee:     ₦500
+Per km rate:  ₦100/km
+Formula:      deliveryFee = 500 + (distanceKm * 100)
+Max cap:      ₦3,000
+Min fee:      ₦500
+```
+
+### Platform Commission
+```
+Default rate:  10% of subtotal per order
+Formula:       platformFee = subtotal * (vendor.commissionRate / 100)
+Vendor payout: subtotal - platformFee
+Rider payout:  deliveryFee * 0.85  (platform keeps 15% of delivery fee)
+```
+
+These rates are stored per-vendor on the Vendor model so they can be negotiated individually.
+
+---
+
+## 9. Onboarding Flow (Detailed)
+
+The onboarding is the first impression. It must be polished and fast.
+
+### Slide 1 — For customers
+- Illustrated scene: a bowl of jollof rice with a clock showing "25 MIN"
+- Headline: "Jollof in 25 minutes."
+- Subtext: "Order from your favourite spots. Food, groceries, pharmacy — anything."
+
+### Slide 2 — For vendors
+- Illustrated scene: a buka shop with orders coming in on a phone
+- Headline: "Sell to thousands. Stress less."
+- Subtext: "List your store, accept orders, and get paid daily. We handle delivery."
+
+### Slide 3 — For riders
+- Illustrated scene: a rider on a bike, ₦150k earning badge
+- Headline: "Ride. Earn. Repeat."
+- Subtext: "Flexible hours. Weekly cash-out. Top riders earn ₦150k+ per month."
+
+### Role Select Screen (after slides)
+Three bold cards with icons:
+- 🍛 **I want to eat** → CUSTOMER
+- 🏪 **I want to sell** → VENDOR
+- 🏍️ **I want to ride** → RIDER
+
+Tapping a card stores the selected role in Redux and navigates to Register.
+Role is sent to the backend during registration and stored on the User model.
+
+### First Launch Detection
+Use `expo-secure-store` to persist a `hasOnboarded` flag.
+If `hasOnboarded === true`, skip slides and go directly to Login.
+
+---
+
+## 10. Auth Flow
+
+```
+Register:
+1. User fills form (name, email, phone, password) + role is pre-set from onboarding
+2. POST /auth/register
+3. Backend creates User + role profile (Customer/Vendor/Rider)
+4. Returns { accessToken, refreshToken, user }
+5. Tokens stored in expo-secure-store
+6. Navigate to role-specific home
+
+Login:
+1. POST /auth/login
+2. Returns tokens + user + role
+3. AppNavigator reads role → routes to correct navigator
+
+Google OAuth:
+1. expo-auth-session triggers Google consent
+2. idToken sent to POST /auth/google
+3. Backend verifies with Google, creates or finds user
+4. Returns tokens (role must be confirmed if new user)
+
+Token Refresh:
+- Axios interceptor catches 401
+- Calls POST /auth/refresh with stored refreshToken
+- On success: retries original request with new accessToken
+- On failure: clears tokens, redirects to Login
+```
+
+---
+
+## 11. Enterprise-Grade Requirements
+
+### Security
+- All routes behind `verifyToken` middleware unless explicitly public
+- Role guard via `requireRole(Role.VENDOR)` on all vendor routes
+- Helmet.js for security headers on every response
+- CORS restricted to app origin + admin domain
+- Rate limiting: 100 req/15min per IP on all routes; 10 req/15min on auth routes
+- Paystack webhook signature verification (HMAC-SHA512)
+- Passwords hashed with bcryptjs, salt rounds: 12
+- No sensitive data in JWT payload — only `{ userId, role }`
+- All inputs validated with Joi before reaching controllers
+- SQL injection protected by Prisma parameterised queries
+
+### Error Handling
+- Global error handler middleware catches all unhandled errors
+- `catchAsync` wrapper eliminates try/catch boilerplate in controllers
+- All errors logged to Sentry (`@sentry/node` on backend, `@sentry/react-native` on app)
+- Client never sees raw stack traces — only clean error messages
+- 4xx errors: user-facing messages
+- 5xx errors: generic message + Sentry alert
+
+### Logging
+- Winston logger writes to `logs/error.log` and `logs/combined.log`
+- Morgan logs all HTTP requests in development
+- AuditLog model records all state-changing actions with userId, action, entity, entityId, ip
+
+### Validation
+- Every POST/PUT route has a corresponding Joi schema in `/validators`
+- Validation middleware runs before the controller
+- Errors returned as array: `[{ field, message }]`
+
+### i18n
+- All user-facing strings in the app go through `i18next` (`t('key')`)
+- Translation files in `/i18n/locales/en.json`
+- Never hardcode UI strings in JSX — always use translation keys
+- Backend error messages are translation-key strings the app resolves locally
+
+---
+
+## 12. Coding Standards & Conventions
+
+### General
+- Files: PascalCase for components (`VendorCard.jsx`), camelCase for everything else
+- One component per file
+- No `console.log` in production — use the logger utility
+- No hardcoded URLs, secrets, or magic numbers — use constants or `.env`
+
+### React Native
+- Always use `StyleSheet.create({})` — never inline style objects in JSX
+- All colours from `theme.js` — never hardcode hex values in components
+- All spacing from theme spacing scale
+- Components receive only the data they need (no over-fetching in props)
+- Use `useCallback` and `useMemo` for expensive operations and handlers in lists
+- FlatList for all scrollable lists — never ScrollView with map()
+- Always handle loading, error, and empty states in every screen
+
+### Backend
+- All async route handlers wrapped in `catchAsync`
+- All database calls go through Prisma — no raw SQL unless absolutely necessary
+- Controllers are thin — business logic lives in services
+- Return `apiResponse.success(res, data, message)` or `apiResponse.error(res, message, statusCode)`
+- Never return the full Prisma object — always select only required fields
+
+### Git Conventions
+```
+feat:     new feature
+fix:      bug fix
+refactor: code restructure
+style:    formatting only
+chore:    config, deps, tooling
+docs:     documentation only
+
+Branch naming:
+  feature/onboarding-screens
+  fix/cart-quantity-bug
+  refactor/auth-middleware
+```
+
+---
+
+## 13. Build Phases
+
+### Phase 1 — Foundation (Week 1–2)
+- [ ] Monorepo setup (app + backend + admin folders)
+- [ ] Backend: Express server, Prisma + PostgreSQL connection, env config
+- [ ] Prisma schema migration + seed data
+- [ ] Auth API: register, login, Google OAuth, refresh, logout
+- [ ] JWT middleware + role middleware
+- [ ] App: Expo setup, navigation structure, theme system, i18n scaffold
+- [ ] Onboarding screens (Splash → Slides → Role Select)
+- [ ] Auth screens (Login, Register, Forgot Password)
+
+### Phase 2 — Customer Core (Week 3–4)
+- [ ] Vendor discovery API + HomeScreen
+- [ ] Search + filters
+- [ ] Vendor detail + menu
+- [ ] Cart (add, update, remove, clear)
+- [ ] Checkout + address selection
+- [ ] Paystack payment integration
+- [ ] Order placement + order detail screen
+
+### Phase 3 — Real-time & Tracking (Week 5)
+- [ ] Socket.io setup (namespaces, rooms)
+- [ ] Order status updates (customer + vendor + rider)
+- [ ] Rider location broadcasting
+- [ ] OrderTrackingScreen with live map
+- [ ] Expo push notifications
+
+### Phase 4 — Vendor Flow (Week 6)
+- [ ] Vendor dashboard + stats API
+- [ ] Incoming orders (real-time)
+- [ ] Accept/reject/status update
+- [ ] Menu management (CRUD)
+- [ ] Earnings screen
+- [ ] Store settings + open/close toggle
+
+### Phase 5 — Rider Flow (Week 7)
+- [ ] Rider dashboard + online toggle
+- [ ] Available orders (proximity-based)
+- [ ] Accept delivery + active delivery map
+- [ ] Status updates (picked up, in transit, delivered)
+- [ ] Earnings + history
+
+### Phase 6 — Admin Dashboard (Week 8)
+- [ ] Web admin setup (React + Vite + Tailwind)
+- [ ] Vendor approval/rejection flow
+- [ ] Rider approval
+- [ ] Orders overview
+- [ ] Platform earnings + commission reports
+- [ ] Audit logs view
+
+### Phase 7 — Polish & Enterprise (Week 9–10)
+- [ ] Sentry integration (app + backend)
+- [ ] Audit logging across all key actions
+- [ ] Rate limiting + security headers
+- [ ] Offers + promotions
+- [ ] Favorites
+- [ ] Ratings & reviews
+- [ ] Profile management + avatar upload
+- [ ] i18n — add second language (Pidgin or Yoruba)
+- [ ] Full QA pass: empty states, error states, edge cases
+
+---
+
+## 14. Environment Variables
+
+### Backend `.env`
+```
+DATABASE_URL=postgresql://postgres:password@localhost:5432/gobuyme
+JWT_ACCESS_SECRET=your_access_secret_here
+JWT_REFRESH_SECRET=your_refresh_secret_here
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=30d
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+PAYSTACK_SECRET_KEY=sk_test_...
+PAYSTACK_PUBLIC_KEY=pk_test_...
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SENTRY_DSN=
+CLIENT_URL=http://localhost:8081
+ADMIN_URL=http://localhost:5173
+PORT=5000
+NODE_ENV=development
+DELIVERY_BASE_FEE=500
+DELIVERY_PER_KM_RATE=100
+DELIVERY_MAX_FEE=3000
+PLATFORM_COMMISSION_RATE=10
+RIDER_DELIVERY_CUT=0.85
+```
+
+### App `.env`
+```
+EXPO_PUBLIC_API_URL=http://localhost:5000/api/v1
+EXPO_PUBLIC_SOCKET_URL=http://localhost:5000
+EXPO_PUBLIC_GOOGLE_CLIENT_ID=
+EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_...
+EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=
+EXPO_PUBLIC_SENTRY_DSN=
+```
+
+---
+
+*End of GoBuyMe Master Build Prompt*
+*Version: 1.0 | Last updated: April 2026*
+*Maintained by: Ugochukwu Okonwo — gocitek@gmail.com*
