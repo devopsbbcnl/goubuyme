@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-vendor/
+/vendor/
 
 # Environment files
 .env
@@ -26,8 +26,6 @@ Thumbs.db
 # Expo
 .expo/
 
-# Android / iOS
-gobuyme-mobile/android/.gradle/
-gobuyme-mobile/android/app/build/
-gobuyme-mobile/ios/Pods/
-gobuyme-mobile/ios/build/
+# Android / iOS — let EAS Prebuild (CNG) manage these
+gobuyme-mobile/android/
+gobuyme-mobile/ios/
