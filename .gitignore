@@ -26,6 +26,9 @@ Thumbs.db
 # Expo
 .expo/
 
-# Android / iOS — let EAS Prebuild (CNG) manage these
-gobuyme-mobile/android/
-gobuyme-mobile/ios/
+# Android / iOS — generated files only
+gobuyme-mobile/android/.gradle/
+gobuyme-mobile/android/app/build/
+gobuyme-mobile/android/build/
+gobuyme-mobile/ios/Pods/
+gobuyme-mobile/ios/build/
