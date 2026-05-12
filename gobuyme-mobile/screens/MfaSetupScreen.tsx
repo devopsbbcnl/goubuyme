@@ -15,9 +15,11 @@ import { useTheme } from '@/context/ThemeContext';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MfaSetupScreen() {
 	const { theme: T } = useTheme();
+	const insets = useSafeAreaInsets();
 	const { from } = useLocalSearchParams<{ from?: string }>();
 	const goBack = () => (from ? router.navigate(from as any) : router.back());
 	const [loading, setLoading] = useState(true);
@@ -88,7 +90,7 @@ export default function MfaSetupScreen() {
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
 			<View
-				style={[styles.header, { borderBottomColor: T.border, paddingTop: 16 }]}
+				style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}
 			>
 				<TouchableOpacity
 					onPress={goBack}

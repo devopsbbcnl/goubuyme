@@ -210,7 +210,7 @@ export default function VendorOrdersScreen() {
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
 			{/* Header */}
 			<View
-				style={[styles.header, { borderBottomColor: T.border, paddingTop: 16 }]}
+				style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}
 			>
 				<Text style={[styles.title, { color: T.text }]}>Orders</Text>
 				<View style={[styles.countBadge, { backgroundColor: T.primaryTint }]}>

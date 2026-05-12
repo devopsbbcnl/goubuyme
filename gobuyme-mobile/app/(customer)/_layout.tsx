@@ -1,4 +1,10 @@
 import { Stack } from 'expo-router';
+import { StatusBar } from 'react-native';
 export default function CustomerLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <>
+      <StatusBar translucent backgroundColor="transparent" />
+      <Stack screenOptions={{ headerShown: false }} />
+    </>
+  );
 }

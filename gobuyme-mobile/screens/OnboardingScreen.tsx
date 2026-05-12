@@ -60,12 +60,12 @@ export default function OnboardingScreen() {
         <Text style={styles.skipText}>Skip</Text>
       </TouchableOpacity>
 
-      {/* Slide counter */}
-      <View style={styles.counter}>
-        <Text style={styles.counterText}>
-          {idx + 1}<Text style={styles.counterMuted}>/{SLIDES.length}</Text>
-        </Text>
-      </View>
+      {/* Back button */}
+      {idx > 0 && (
+        <TouchableOpacity onPress={() => setIdx(i => i - 1)} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.9)" />
+        </TouchableOpacity>
+      )}
 
       {/* Bottom content */}
       <View style={styles.bottomContent}>
@@ -125,9 +125,13 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
   skipText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.9)', fontFamily: 'PlusJakartaSans_600SemiBold' },
-  counter: { position: 'absolute', top: 52, left: 20, zIndex: 10 },
-  counterText: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.5)', fontFamily: 'PlusJakartaSans_700Bold' },
-  counterMuted: { color: 'rgba(255,255,255,0.25)' },
+  backBtn: {
+    position: 'absolute', top: 48, left: 20, zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 999, width: 36, height: 36,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+  },
   bottomContent: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24, paddingBottom: 48 },
   tagPill: {
     alignSelf: 'flex-start', marginBottom: 16,

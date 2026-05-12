@@ -257,7 +257,7 @@ export default function ManageMenuScreen() {
 			<View
 				style={[
 					styles.headerRow,
-					{ paddingTop: 16, borderBottomColor: T.border },
+					{ paddingTop: insets.top + 16, borderBottomColor: T.border },
 				]}
 			>
 				<TouchableOpacity

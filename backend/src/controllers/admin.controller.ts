@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { ApprovalStatus, CommissionTier, DocumentStatus, LicenseStatus, OrderStatus, PaymentStatus, PayoutStatus } from '@prisma/client';
+import { ApprovalStatus, CommissionTier, DocumentStatus, DocumentType, LicenseStatus, OrderStatus, PaymentStatus, PayoutStatus, Role, VendorCategory } from '@prisma/client';
 import { updateVendorBadge } from './vendor.controller';
 import { notifyUser } from '../services/notification.service';
+import { generateReferralCode } from '../utils/generateToken';
 import logger from '../utils/logger';
 
 // GET /admin/dashboard
@@ -908,4 +910,276 @@ export const updateRiderDocumentStatus = catchAsync(async (req: AuthRequest, res
   }).catch(() => {});
 
   return apiResponse.success(res, `Rider document ${status.toLowerCase()}.`, updated);
+});
+
+// POST /admin/vendors/create
+export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Response) => {
+  const {
+    name, email, phone, password,
+    businessName, category, address, city, state,
+    description, logo, coverImage, openingTime, closingTime, tier,
+    docType, docNumber, docImageUrl, docImageUrlBack, bvn, selfieUrl,
+  } = req.body;
+
+  if (!name?.trim() || !email?.trim() || !password || !businessName?.trim() || !category || !address?.trim() || !city?.trim()) {
+    return apiResponse.error(res, 'Name, email, password, business name, category, address, and city are required.', 400);
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+  if (existing) return apiResponse.error(res, 'Email already registered.', 409);
+
+  const hashed = await bcrypt.hash(password, 10);
+  const referralCode = generateReferralCode();
+  const slug = businessName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+  const result = await prisma.$transaction(async (tx) => {
+    const newUser = await tx.user.create({
+      data: {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password: hashed,
+        role: 'VENDOR',
+        referralCode,
+        isEmailVerified: true,
+        isActive: true,
+        ...(phone?.trim() ? { phone: phone.trim() } : {}),
+      },
+    });
+
+    const newVendor = await tx.vendor.create({
+      data: {
+        userId: newUser.id,
+        businessName: businessName.trim(),
+        slug: `${slug}-${newUser.id.slice(0, 6)}`,
+        category: category as VendorCategory,
+        address: address.trim(),
+        city: city.trim(),
+        ...(state?.trim() ? { state: state.trim() } : {}),
+        commissionTier: (tier ?? 'TIER_2') as CommissionTier,
+        isPharmacyFlagged: category === 'PHARMACY',
+        ...(description?.trim() ? { description: description.trim() } : {}),
+        ...(logo ? { logo } : {}),
+        ...(coverImage ? { coverImage } : {}),
+        ...(openingTime?.trim() ? { openingTime: openingTime.trim() } : {}),
+        ...(closingTime?.trim() ? { closingTime: closingTime.trim() } : {}),
+      },
+    });
+
+    if (docType && docNumber?.trim() && docImageUrl) {
+      await tx.vendorDocument.create({
+        data: {
+          vendorId: newVendor.id,
+          type: docType as DocumentType,
+          number: docNumber.trim(),
+          imageUrl: docImageUrl,
+          ...(docImageUrlBack ? { imageUrlBack: docImageUrlBack } : {}),
+          ...(bvn?.trim() ? { bvn: bvn.trim() } : {}),
+          ...(selfieUrl ? { selfieUrl } : {}),
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'VENDOR_CREATED',
+        entity: 'Vendor',
+        entityId: newVendor.id,
+        meta: { createdBy: 'admin', vendorEmail: email },
+      },
+    });
+
+    return { vendorId: newVendor.id, businessName: newVendor.businessName };
+  });
+
+  return apiResponse.success(res, 'Vendor account created successfully.', result, 201);
+});
+
+// GET /admin/admins
+export const listAdminUsers = catchAsync(async (_req: Request, res: Response) => {
+  const adminRoles = ['SUPER_ADMIN', 'OPERATIONS_ADMIN', 'SUPPORT_ADMIN'] as unknown as Role[];
+  const admins = await prisma.user.findMany({
+    where: { role: { in: adminRoles } },
+    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  return apiResponse.success(res, 'Admin users fetched.', admins);
+});
+
+// POST /admin/admins
+export const createAdminUser = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { name, email, password, role } = req.body;
+
+  const ADMIN_ROLES = ['OPERATIONS_ADMIN', 'SUPPORT_ADMIN'];
+  if (!name?.trim() || !email?.trim() || !password) {
+    return apiResponse.error(res, 'Name, email, and password are required.', 400);
+  }
+  if (!ADMIN_ROLES.includes(role)) {
+    return apiResponse.error(res, 'Role must be OPERATIONS_ADMIN or SUPPORT_ADMIN.', 400);
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+  if (existing) return apiResponse.error(res, 'Email already registered.', 409);
+
+  const hashed = await bcrypt.hash(password, 10);
+  const referralCode = generateReferralCode();
+
+  const newUser = await prisma.user.create({
+    data: {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      password: hashed,
+      role: role as unknown as Role,
+      referralCode,
+      isEmailVerified: true,
+      isActive: true,
+    },
+    select: { id: true, name: true, email: true, role: true, createdAt: true },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user!.userId,
+      action: 'ADMIN_CREATED',
+      entity: 'User',
+      entityId: newUser.id,
+      meta: { role, createdEmail: email },
+    },
+  });
+
+  return apiResponse.success(res, 'Admin user created.', newUser, 201);
+});
+
+// PATCH /admin/admins/:id/role
+export const updateAdminRole = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { role } = req.body;
+
+  const ADMIN_ROLES = ['OPERATIONS_ADMIN', 'SUPPORT_ADMIN'];
+  if (!ADMIN_ROLES.includes(role)) {
+    return apiResponse.error(res, 'Role must be OPERATIONS_ADMIN or SUPPORT_ADMIN.', 400);
+  }
+
+  const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+  if (!target) return apiResponse.error(res, 'User not found.', 404);
+  if (target.role === Role.SUPER_ADMIN) {
+    return apiResponse.error(res, 'Super admin role cannot be modified.', 403);
+  }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { role: role as unknown as Role },
+    select: { id: true, name: true, email: true, role: true },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user!.userId,
+      action: 'ADMIN_ROLE_CHANGED',
+      entity: 'User',
+      entityId: id,
+      meta: { from: target.role, to: role },
+    },
+  });
+
+  return apiResponse.success(res, 'Admin role updated.', updated);
+});
+
+// DELETE /admin/admins/:id
+export const deactivateAdminUser = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+
+  if (id === req.user!.userId) {
+    return apiResponse.error(res, 'You cannot deactivate your own account.', 400);
+  }
+
+  const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+  if (!target) return apiResponse.error(res, 'User not found.', 404);
+  if (target.role === Role.SUPER_ADMIN) {
+    return apiResponse.error(res, 'Super admin accounts cannot be deactivated.', 403);
+  }
+
+  await prisma.user.update({ where: { id }, data: { isActive: false } });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user!.userId,
+      action: 'ADMIN_DEACTIVATED',
+      entity: 'User',
+      entityId: id,
+    },
+  });
+
+  return apiResponse.success(res, 'Admin user deactivated.');
+});
+
+// POST /admin/riders/create
+export const adminCreateRider = catchAsync(async (req: AuthRequest, res: Response) => {
+  const {
+    name, email, phone, password, vehicleType, plateNumber,
+    ninNumber, ninImageUrl, selfieUrl, vehicleImageUrl,
+    guarantorName, guarantorPhone, guarantorAddress,
+  } = req.body;
+
+  if (!name?.trim() || !email?.trim() || !password || !vehicleType?.trim()) {
+    return apiResponse.error(res, 'Name, email, password, and vehicle type are required.', 400);
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+  if (existing) return apiResponse.error(res, 'Email already registered.', 409);
+
+  const hashed = await bcrypt.hash(password, 10);
+  const referralCode = generateReferralCode();
+
+  const result = await prisma.$transaction(async (tx) => {
+    const newUser = await tx.user.create({
+      data: {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password: hashed,
+        role: 'RIDER',
+        referralCode,
+        isEmailVerified: true,
+        isActive: true,
+        ...(phone?.trim() ? { phone: phone.trim() } : {}),
+      },
+    });
+
+    const newRider = await tx.rider.create({
+      data: {
+        userId: newUser.id,
+        vehicleType: vehicleType.trim(),
+        ...(plateNumber?.trim() ? { plateNumber: plateNumber.trim().toUpperCase() } : {}),
+      },
+    });
+
+    if (ninNumber?.trim()) {
+      await tx.riderDocument.create({
+        data: {
+          riderId: newRider.id,
+          ninNumber: ninNumber.trim(),
+          ...(ninImageUrl      ? { ninImageUrl }                              : {}),
+          ...(selfieUrl        ? { selfieUrl }                                : {}),
+          ...(vehicleImageUrl  ? { vehicleImageUrl }                          : {}),
+          ...(guarantorName?.trim()    ? { guarantorName: guarantorName.trim() }       : {}),
+          ...(guarantorPhone?.trim()   ? { guarantorPhone: guarantorPhone.trim() }     : {}),
+          ...(guarantorAddress?.trim() ? { guarantorAddress: guarantorAddress.trim() } : {}),
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'RIDER_CREATED',
+        entity: 'Rider',
+        entityId: newRider.id,
+        meta: { createdBy: 'admin', riderEmail: email },
+      },
+    });
+
+    return { riderId: newRider.id, name: newUser.name };
+  });
+
+  return apiResponse.success(res, 'Rider account created successfully.', result, 201);
 });

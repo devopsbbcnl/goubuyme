@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { AddVendorModal } from '@/components/vendor/AddVendorModal';
 import { api } from '@/lib/api';
 
 type Status = 'APPROVED' | 'PENDING' | 'REJECTED' | 'SUSPENDED';
@@ -90,6 +91,8 @@ export default function VendorsPage() {
   const [search, setSearch] = useState('');
 
   // Detail modal
+  const [addVendorOpen, setAddVendorOpen] = useState(false);
+
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<VendorDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -189,6 +192,12 @@ export default function VendorsPage() {
 
   return (
     <>
+      <AddVendorModal
+        open={addVendorOpen}
+        onClose={() => setAddVendorOpen(false)}
+        onCreated={() => { setAddVendorOpen(false); fetchVendors(); }}
+      />
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -197,7 +206,7 @@ export default function VendorsPage() {
               {loading ? 'Loading…' : `${vendors.length} total · ${vendors.filter(v => v.approvalStatus === 'PENDING').length} pending`}
             </div>
           </div>
-          <button style={{ padding: '10px 20px', borderRadius: 4, background: T.primary, border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>
+          <button onClick={() => setAddVendorOpen(true)} style={{ padding: '10px 20px', borderRadius: 4, background: T.primary, border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
             + Add Vendor
           </button>
         </div>

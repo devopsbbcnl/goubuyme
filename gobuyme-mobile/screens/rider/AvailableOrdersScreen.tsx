@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { shadows } from '@/theme';
 import api from '@/services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Job {
   orderId: string;
@@ -42,6 +43,7 @@ interface ActiveDelivery {
 
 export default function AvailableOrdersScreen() {
   const { theme: T } = useTheme();
+  const insets = useSafeAreaInsets();
   const [jobs,           setJobs]           = useState<Job[]>([]);
   const [activeDelivery, setActiveDelivery] = useState<ActiveDelivery | null>(null);
   const [loading,        setLoading]        = useState(true);
@@ -109,7 +111,7 @@ export default function AvailableOrdersScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: T.border, paddingTop: 56 }]}>
+      <View style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 12 }]}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: T.text }]}>Available Jobs</Text>
           <Text style={styles.headerSub}>● {jobs.length} order{jobs.length !== 1 ? 's' : ''} near you</Text>

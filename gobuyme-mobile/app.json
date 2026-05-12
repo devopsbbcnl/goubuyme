@@ -50,6 +50,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FF521B"
       },
+      "statusBar": {
+        "translucent": true,
+        "backgroundColor": "#00000000"
+      },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

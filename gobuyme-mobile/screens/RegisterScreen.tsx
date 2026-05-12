@@ -12,6 +12,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { AppInput } from '@/components/ui/AppInput';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import api from '@/services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type RoleParam = 'customer' | 'vendor' | 'rider';
 
@@ -129,6 +130,7 @@ function getRegisterErrors(err: unknown): RegisterErrors {
 
 export default function RegisterScreen() {
 	const { theme: T } = useTheme();
+	const insets = useSafeAreaInsets();
 	const params = useLocalSearchParams<{ role?: string }>();
 	const role = (params.role ?? 'customer') as RoleParam;
 	const meta = ROLE_LABELS[role] ?? ROLE_LABELS.customer;
@@ -250,7 +252,7 @@ export default function RegisterScreen() {
 	return (
 		<ScrollView
 			style={{ flex: 1, backgroundColor: T.bg }}
-			contentContainerStyle={styles.container}
+			contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
 			keyboardShouldPersistTaps="handled"
 		>
 			<TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>

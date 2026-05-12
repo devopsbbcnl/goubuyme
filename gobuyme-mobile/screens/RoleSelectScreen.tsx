@@ -10,6 +10,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { radius, spacing } from '@/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const ROLES = [
 	{
@@ -34,11 +35,12 @@ const ROLES = [
 
 export default function RoleSelectScreen() {
 	const { theme: T } = useTheme();
+	const insets = useSafeAreaInsets();
 
 	return (
 		<ScrollView
 			style={{ flex: 1, backgroundColor: T.bg }}
-			contentContainerStyle={styles.container}
+			contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
 		>
 			<Text style={[styles.headline, { color: T.text }]}>
 				{'How would you\nlike to use GoBuyMe?'}

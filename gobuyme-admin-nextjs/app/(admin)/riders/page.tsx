@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/Badge';
+import { AddRiderModal } from '@/components/rider/AddRiderModal';
 import { api } from '@/lib/api';
 
 type RiderStatus = 'APPROVED' | 'PENDING' | 'SUSPENDED';
@@ -25,6 +26,7 @@ export default function RidersPage() {
   const { theme: T } = useTheme();
   const [riders, setRiders] = useState<Rider[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addRiderOpen, setAddRiderOpen] = useState(false);
   const [filter, setFilter] = useState<'ALL' | RiderStatus>('ALL');
   const [search, setSearch] = useState('');
 
@@ -60,6 +62,12 @@ export default function RidersPage() {
   const onlineCount = riders.filter(r => r.isOnline).length;
 
   return (
+    <>
+    <AddRiderModal
+      open={addRiderOpen}
+      onClose={() => setAddRiderOpen(false)}
+      onCreated={() => { setAddRiderOpen(false); fetchRiders(); }}
+    />
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -68,7 +76,7 @@ export default function RidersPage() {
             {loading ? 'Loading…' : `${riders.length} total · ${riders.filter(r => r.approvalStatus === 'PENDING').length} pending · ${onlineCount} online`}
           </div>
         </div>
-        <button style={{ padding: '10px 20px', borderRadius: 4, background: T.primary, border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
+        <button onClick={() => setAddRiderOpen(true)} style={{ padding: '10px 20px', borderRadius: 4, background: T.primary, border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
           + Add Rider
         </button>
       </div>
@@ -158,5 +166,6 @@ export default function RidersPage() {
         </table>
       </div>
     </div>
+    </>
   );
 }

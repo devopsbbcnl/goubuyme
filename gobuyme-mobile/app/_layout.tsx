@@ -1,4 +1,5 @@
 import { Stack, router } from 'expo-router';
+import { StatusBar } from 'react-native';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -35,7 +36,9 @@ function AppContent() {
   if (authLoading) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <>
+      <StatusBar translucent backgroundColor="transparent" />
+      <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="role-select" />
@@ -48,6 +51,7 @@ function AppContent() {
       <Stack.Screen name="(vendor)" />
       <Stack.Screen name="(rider)" />
     </Stack>
+    </>
   );
 }
 

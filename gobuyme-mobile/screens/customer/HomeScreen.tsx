@@ -17,6 +17,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { radius, spacing, shadows } from '@/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import api from '@/services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Platform-default promo cards (shown when no vendor promos are live)
 const PLATFORM_PROMOS = [
@@ -108,6 +109,7 @@ function VerifBadge({ badge }: { badge: string }) {
 
 export default function HomeScreen() {
   const { theme: T } = useTheme();
+  const insets = useSafeAreaInsets();
   const { count } = useCart();
   const { addresses, selected, selectAddress } = useAddress();
   const [activeCat,    setActiveCat]    = useState('all');
@@ -174,7 +176,7 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 20 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={T.primary} colors={[T.primary]} />

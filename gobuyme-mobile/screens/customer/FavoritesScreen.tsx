@@ -11,6 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type FavoriteVendor = {
 	id: number;
@@ -23,11 +24,12 @@ type FavoriteVendor = {
 
 export default function FavoritesScreen() {
 	const { theme: T } = useTheme();
+	const insets = useSafeAreaInsets();
 	const [saved] = useState<FavoriteVendor[]>([]);
 
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
-			<Text style={[styles.pageTitle, { color: T.text, paddingTop: 16 }]}>
+			<Text style={[styles.pageTitle, { color: T.text, paddingTop: insets.top + 16 }]}>
 				Favorites
 			</Text>
 

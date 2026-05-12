@@ -14,12 +14,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import api from '@/services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
 
 export default function VerifyOTPScreen() {
 	const { theme: T } = useTheme();
+	const insets = useSafeAreaInsets();
 	const params = useLocalSearchParams<{
 		userId?: string;
 		email?: string;
@@ -123,7 +125,7 @@ export default function VerifyOTPScreen() {
 			behavior={Platform.OS === 'ios' ? 'padding' : undefined}
 		>
 			<ScrollView
-				contentContainerStyle={styles.container}
+				contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
 				keyboardShouldPersistTaps="handled"
 			>
 				<TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>

@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomNav } from '@/components/layout/BottomNav';
 import api from '@/services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Vendor {
 	id: string;
@@ -36,6 +37,7 @@ function formatTime(mins: number | null): string {
 
 export default function SearchScreen() {
 	const { theme: T } = useTheme();
+	const insets = useSafeAreaInsets();
 	const [query, setQuery] = useState('');
 	const [vendors, setVendors] = useState<Vendor[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -63,7 +65,7 @@ export default function SearchScreen() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
-			<View style={[styles.searchHeader, { paddingTop: 16 }]}>
+			<View style={[styles.searchHeader, { paddingTop: insets.top + 16 }]}>
 				<View style={[styles.searchField, { backgroundColor: T.surface, borderColor: T.border }]}>
 					<Ionicons name="search-outline" size={16} color={T.textMuted} />
 					<TextInput

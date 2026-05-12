@@ -1,4 +1,5 @@
 import { Tabs, router } from 'expo-router';
+import { StatusBar } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -30,8 +31,10 @@ export default function VendorLayout() {
   if (!ready) return null;
 
   return (
-    <Tabs
-      screenOptions={{
+    <>
+      <StatusBar translucent backgroundColor="transparent" />
+      <Tabs
+        screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: T.primary,
         tabBarInactiveTintColor: T.textMuted,
@@ -94,6 +97,7 @@ export default function VendorLayout() {
       <Tabs.Screen name="promotions" options={{ href: null }} />
       <Tabs.Screen name="business-verification" options={{ href: null }} />
       <Tabs.Screen name="licenses" options={{ href: null }} />
-    </Tabs>
+      </Tabs>
+    </>
   );
 }

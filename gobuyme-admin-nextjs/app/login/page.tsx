@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
@@ -42,12 +43,7 @@ export default function LoginPage() {
       <div style={{ width: '100%', maxWidth: 400, padding: '0 20px' }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 48, height: 48, borderRadius: 4, background: T.primary, marginBottom: 16,
-          }}>
-            <span style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>G</span>
-          </div>
+          <Image src="/icon.png" alt="GoBuyMe" width={64} height={64} style={{ borderRadius: 14, marginBottom: 16 }} />
           <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>GoBuyMe Admin</div>
           <div style={{ fontSize: 13, color: T.textSec, marginTop: 4 }}>Sign in to your admin account</div>
         </div>

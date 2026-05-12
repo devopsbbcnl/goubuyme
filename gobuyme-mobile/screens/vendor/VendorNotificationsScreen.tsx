@@ -10,6 +10,7 @@ import {
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface NotifSetting {
   id: string;
@@ -83,6 +84,7 @@ const INITIAL_SETTINGS: NotifSetting[] = [
 
 export default function VendorNotificationsScreen() {
   const { theme: T } = useTheme();
+  const insets = useSafeAreaInsets();
   const [settings, setSettings] = useState<NotifSetting[]>(INITIAL_SETTINGS);
 
   const toggle = (id: string) =>
@@ -94,7 +96,7 @@ export default function VendorNotificationsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
-      <View style={[styles.header, { borderBottomColor: T.border }]}>
+      <View style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}

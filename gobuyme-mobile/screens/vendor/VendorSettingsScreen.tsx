@@ -11,11 +11,13 @@ import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function VendorSettingsScreen() {
   const { theme: T, isDark, toggleTheme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const SECTIONS = [
     {
@@ -138,7 +140,7 @@ export default function VendorSettingsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
-      <View style={[styles.header, { borderBottomColor: T.border }]}>
+      <View style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}

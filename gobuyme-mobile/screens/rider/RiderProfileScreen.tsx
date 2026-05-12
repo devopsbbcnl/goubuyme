@@ -16,6 +16,7 @@ import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -67,6 +68,7 @@ const MENU_ROWS = [
 
 export default function RiderProfileScreen() {
 	const { theme: T } = useTheme();
+	const insets = useSafeAreaInsets();
 	const { user, logout, updateUser } = useAuth();
 	const [profile, setProfile] = useState<RiderProfile | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -209,7 +211,7 @@ export default function RiderProfileScreen() {
 				keyboardShouldPersistTaps="handled"
 			>
 				{/* Header */}
-				<View style={[styles.headerRow, { paddingTop: 16 }]}>
+				<View style={[styles.headerRow, { paddingTop: insets.top + 16 }]}>
 					{isEditing ? (
 						<TouchableOpacity onPress={cancelEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
 							<Text style={{ color: T.primary, fontSize: 14, fontWeight: '600' }}>Cancel</Text>

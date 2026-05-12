@@ -9,11 +9,13 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { shadows } from '@/theme';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const DELIVERY_FEE = 800;
 
 export default function CartScreen() {
   const { theme: T } = useTheme();
+  const insets = useSafeAreaInsets();
   const { items, addItem, clearCart, total } = useCart();
   const [note, setNote] = useState('');
 
@@ -38,7 +40,7 @@ export default function CartScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: T.border, paddingTop: 16 }]}>
+      <View style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={T.text} />
         </TouchableOpacity>

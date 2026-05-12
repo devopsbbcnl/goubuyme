@@ -8,6 +8,7 @@ import { useAuth, UserRole } from '@/context/AuthContext';
 import { AppInput } from '@/components/ui/AppInput';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import api from '@/services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const ROLE_ROUTE: Record<string, string> = {
   customer: '/(customer)',
@@ -48,6 +49,7 @@ function getLoginErrorMessage(err: unknown): LoginErrors {
 
 export default function LoginScreen() {
   const { theme: T } = useTheme();
+  const insets = useSafeAreaInsets();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -120,7 +122,7 @@ export default function LoginScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: T.bg }}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
       keyboardShouldPersistTaps="handled"
     >
       <Text style={[styles.heading, { color: T.text }]}>Welcome back</Text>

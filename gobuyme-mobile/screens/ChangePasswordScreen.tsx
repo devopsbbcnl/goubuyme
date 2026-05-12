@@ -14,9 +14,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import MfaCodeModal from '@/components/MfaCodeModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ChangePasswordScreen() {
 	const { theme: T } = useTheme();
+	const insets = useSafeAreaInsets();
 	const { from } = useLocalSearchParams<{ from?: string }>();
 	const goBack = () => (from ? router.navigate(from as any) : router.back());
 
@@ -95,7 +97,7 @@ export default function ChangePasswordScreen() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
-			<View style={[styles.header, { borderBottomColor: T.border, paddingTop: 16 }]}>
+			<View style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}>
 				<TouchableOpacity
 					onPress={goBack}
 					style={styles.backBtn}

@@ -141,7 +141,7 @@ export default function VendorProfileScreen() {
 				showsVerticalScrollIndicator={false}
 			>
 				{/* Header */}
-				<View style={[styles.headerRow, { paddingTop: 16 }]}>
+				<View style={[styles.headerRow, { paddingTop: insets.top + 16 }]}>
 					<TouchableOpacity
 						onPress={() => router.back()}
 						style={styles.backBtn}

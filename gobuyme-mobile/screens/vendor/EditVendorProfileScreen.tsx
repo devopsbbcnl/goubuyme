@@ -172,7 +172,7 @@ export default function EditVendorProfileScreen() {
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
 			{/* Header */}
 			<View
-				style={[styles.header, { borderBottomColor: T.border, paddingTop: 16 }]}
+				style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}
 			>
 				<TouchableOpacity
 					onPress={() => router.back()}

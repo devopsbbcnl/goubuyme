@@ -1,4 +1,5 @@
 import { Tabs, router } from 'expo-router';
+import { StatusBar } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -30,9 +31,11 @@ export default function RiderLayout() {
   if (!ready) return null;
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
+    <>
+      <StatusBar translucent backgroundColor="transparent" />
+      <Tabs
+        screenOptions={{
+          headerShown: false,
         tabBarActiveTintColor: T.primary,
         tabBarInactiveTintColor: T.textMuted,
         tabBarStyle: {
@@ -83,6 +86,7 @@ export default function RiderLayout() {
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
       <Tabs.Screen name="document" options={{ href: null }} />
-    </Tabs>
+      </Tabs>
+    </>
   );
 }

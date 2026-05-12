@@ -110,7 +110,7 @@ export default function CheckoutScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: T.border, paddingTop: 16 }]}>
+      <View style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="chevron-back" size={24} color={T.text} />
         </TouchableOpacity>

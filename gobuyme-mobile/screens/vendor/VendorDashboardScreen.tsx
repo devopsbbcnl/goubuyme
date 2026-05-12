@@ -11,6 +11,7 @@ import { shadows } from '@/theme';
 import api from '@/services/api';
 import { connectSockets } from '@/services/socketService';
 import { useAuth } from '@/context/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type OrderStatus = 'new' | 'preparing' | 'ready';
 
@@ -61,6 +62,7 @@ const formatMoney = (n: number) => {
 export default function VendorDashboardScreen() {
   const { theme: T } = useTheme();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [storeOpen,   setStoreOpen]   = useState(false);
   const [storeName,   setStoreName]   = useState('My Store');
@@ -232,7 +234,7 @@ export default function VendorDashboardScreen() {
       )}
 
       <ScrollView
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={T.primary} colors={[T.primary]} />

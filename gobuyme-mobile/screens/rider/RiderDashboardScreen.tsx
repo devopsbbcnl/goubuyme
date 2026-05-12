@@ -14,6 +14,7 @@ import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const WEEK_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -43,6 +44,7 @@ interface RecentDelivery {
 export default function RiderDashboardScreen() {
 	const { theme: T } = useTheme();
 	const { user } = useAuth();
+	const insets = useSafeAreaInsets();
 
 	const [riderName, setRiderName] = useState('');
 	const [online, setOnline] = useState(false);
@@ -171,7 +173,7 @@ export default function RiderDashboardScreen() {
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
 			<ScrollView
-				contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}
+				contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 40 }}
 				showsVerticalScrollIndicator={false}
 				refreshControl={
 					<RefreshControl

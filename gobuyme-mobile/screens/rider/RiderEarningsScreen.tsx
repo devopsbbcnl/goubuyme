@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import MfaCodeModal from '@/components/MfaCodeModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const NIGERIAN_BANKS = [
 	{ name: 'Access Bank', code: '044' },
@@ -77,6 +78,7 @@ interface PayoutRecord {
 
 export default function RiderEarningsScreen() {
 	const { theme: T } = useTheme();
+	const insets = useSafeAreaInsets();
 
 	const [summary, setSummary] = useState<EarningsSummary | null>(null);
 	const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
@@ -207,7 +209,7 @@ export default function RiderEarningsScreen() {
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
 			{/* Header */}
-			<View style={[styles.header, { borderBottomColor: T.border, paddingTop: 16 }]}>
+			<View style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}>
 				<TouchableOpacity
 					onPress={() => router.navigate('/(rider)/profile')}
 					style={styles.backBtn}

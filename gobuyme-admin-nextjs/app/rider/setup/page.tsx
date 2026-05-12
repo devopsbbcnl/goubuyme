@@ -169,7 +169,7 @@ export default function RiderSetupPage() {
     return (
       <PageShell T={T}>
         <div style={{ textAlign: 'center', maxWidth: 440 }}>
-          <Image src="/splash.png" alt="GoBuyMe" width={160} height={160} style={{ objectFit: 'contain', marginBottom: 20 }} />
+          <Image src="/icon.png" alt="GoBuyMe" width={160} height={160} style={{ objectFit: 'contain', marginBottom: 20 }} />
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#1A9E5F20', border: '2px solid #1A9E5F40', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28, color: '#1A9E5F' }}>
             &#10003;
           </div>
@@ -193,7 +193,7 @@ export default function RiderSetupPage() {
         {/* Header */}
         <div style={{ marginBottom: 40 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <Image src="/splash.png" alt="GoBuyMe" width={40} height={40} style={{ objectFit: 'contain' }} />
+            <Image src="/icon.png" alt="GoBuyMe" width={40} height={40} style={{ objectFit: 'contain' }} />
             <span style={{ fontSize: 13, color: T.textSec }}>GoBuyMe Rider Setup</span>
           </div>
           <div style={{ fontSize: 28, fontWeight: 800, color: T.text, letterSpacing: '-0.5px', marginBottom: 6 }}>
@@ -302,7 +302,7 @@ function PageShell({ children, T }: { children: ReactNode; T: Record<string, str
 function PageBrand({ title, sub, T }: { title: string; sub: string; T: Record<string, string> }) {
   return (
     <div style={{ textAlign: 'center', marginBottom: 28 }}>
-      <Image src="/splash.png" alt="GoBuyMe" width={120} height={120} style={{ objectFit: 'contain', marginBottom: 12 }} />
+      <Image src="/icon.png" alt="GoBuyMe" width={120} height={120} style={{ objectFit: 'contain', marginBottom: 12 }} />
       <div style={{ fontSize: 22, fontWeight: 800, color: T.text }}>{title}</div>
       <div style={{ fontSize: 14, color: T.textSec, marginTop: 4 }}>{sub}</div>
     </div>

@@ -15,9 +15,18 @@ interface AuditLog {
   entity: string;
   entityId: string;
   adminId: string;
-  meta: string;
+  meta: Record<string, unknown> | string | null;
   createdAt: string;
 }
+
+const formatMeta = (meta: AuditLog['meta']): string => {
+  if (!meta) return '';
+  if (typeof meta === 'string') return meta;
+  return Object.entries(meta)
+    .filter(([, v]) => v !== null && v !== undefined)
+    .map(([k, v]) => `${k.replace(/([A-Z])/g, ' $1').trim()}: ${v}`)
+    .join(' · ');
+};
 
 const timeAgo = (iso: string) => {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -108,7 +117,7 @@ export default function AuditPage() {
                   {log.entity} <span style={{ color: T.primary, fontWeight: 600 }}>#{log.entityId}</span>
                 </span>
               </div>
-              <div style={{ fontSize: 13, color: T.textSec, marginTop: 5, lineHeight: 1.4 }}>{log.meta}</div>
+              <div style={{ fontSize: 13, color: T.textSec, marginTop: 5, lineHeight: 1.4 }}>{formatMeta(log.meta)}</div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: 11, color: T.textMuted, whiteSpace: 'nowrap' }}>{timeAgo(log.createdAt)}</div>

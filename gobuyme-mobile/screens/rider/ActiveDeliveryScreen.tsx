@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRiderLocation } from '@/hooks/useRiderLocation';
 import { connectSockets } from '@/services/socketService';
 import api from '@/services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
 const MAP_STYLE = MAPTILER_KEY && MAPTILER_KEY !== 'get_free_key_at_maptiler_com'
@@ -28,6 +29,7 @@ const DELIVERY_STEPS = [
 export default function ActiveDeliveryScreen() {
   const { theme: T } = useTheme();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     orderId?: string;
     customerName?: string;
@@ -116,7 +118,7 @@ export default function ActiveDeliveryScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
-      <View style={[styles.header, { paddingTop: 56 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={T.text} />
         </TouchableOpacity>

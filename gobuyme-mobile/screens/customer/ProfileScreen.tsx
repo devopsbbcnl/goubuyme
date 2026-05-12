@@ -44,7 +44,7 @@ export default function ProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.pageTitle, { color: T.text, paddingTop: 16 }]}>Profile</Text>
+        <Text style={[styles.pageTitle, { color: T.text, paddingTop: insets.top + 16 }]}>Profile</Text>
 
         {/* Avatar + info */}
         <View style={[styles.avatarRow, { borderBottomColor: T.border }]}>

@@ -65,7 +65,7 @@ export default function RateAppScreen() {
 				<View
 					style={[
 						styles.header,
-						{ borderBottomColor: T.border, paddingTop: 16 },
+						{ borderBottomColor: T.border, paddingTop: insets.top + 16 },
 					]}
 				>
 					<TouchableOpacity
@@ -101,7 +101,7 @@ export default function RateAppScreen() {
 			<View
 				style={[
 					styles.header,
-					{ borderBottomColor: T.border },
+					{ borderBottomColor: T.border, paddingTop: insets.top + 16 },
 				]}
 			>
 				<TouchableOpacity
