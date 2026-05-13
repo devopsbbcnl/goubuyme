@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { placeOrder, cancelOrder, rateOrder } from '../controllers/order.controller';
+import { placeOrder, cancelOrder, rateOrder, estimateDeliveryFee } from '../controllers/order.controller';
 import { verifyToken } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import { validate } from '../middleware/validate.middleware';
@@ -15,6 +15,7 @@ const router = Router();
 
 router.use(verifyToken);
 
+router.get('/estimate-fee', requireRole('CUSTOMER'), estimateDeliveryFee);
 router.post('/', requireRole('CUSTOMER'), validate(placeOrderSchema), placeOrder);
 router.post('/:id/cancel', requireRole('CUSTOMER'), cancelOrder);
 router.post('/:id/rate', requireRole('CUSTOMER'), rateOrder);

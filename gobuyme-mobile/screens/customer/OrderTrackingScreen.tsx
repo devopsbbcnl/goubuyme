@@ -5,13 +5,14 @@ import {
 	StyleSheet,
 	ScrollView,
 	TouchableOpacity,
-	Animated,
 } from 'react-native';
+import { MapView, Camera, MarkerView } from '@maplibre/maplibre-react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useOrderTracking, OrderStatus } from '@/hooks/useOrderTracking';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
 const MAP_STYLE =
@@ -48,6 +49,7 @@ function statusToStep(status: OrderStatus): number {
 
 export default function OrderTrackingScreen() {
 	const { theme: T } = useTheme();
+	const insets = useSafeAreaInsets();
 	const params = useLocalSearchParams<{
 		orderId?: string;
 		orderNumber?: string;
@@ -83,19 +85,23 @@ export default function OrderTrackingScreen() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
+			<View style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}>
+				<TouchableOpacity
+					onPress={() => router.back()}
+					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+				>
+					<Ionicons name="arrow-back" size={22} color={T.text} />
+				</TouchableOpacity>
+				<Text style={[styles.headerTitle, { color: T.text }]}>
+					Order Tracking
+				</Text>
+				<View style={{ width: 30 }} />
+			</View>
+
 			<ScrollView
 				contentContainerStyle={{ paddingBottom: 100 }}
 				showsVerticalScrollIndicator={false}
 			>
-				<View style={[styles.header, { paddingTop: 16 }]}>
-					<TouchableOpacity onPress={() => router.back()}>
-						<Ionicons name="chevron-back" size={24} color={T.text} />
-					</TouchableOpacity>
-					<Text style={[styles.headerTitle, { color: T.text }]}>
-						Order Tracking
-					</Text>
-				</View>
-
 				<View style={styles.mapContainer}>
 					<TrackingMap
 						cameraRef={cameraRef}
@@ -275,58 +281,26 @@ export default function OrderTrackingScreen() {
 }
 
 function TrackingMap({
-	cameraRef: _cameraRef,
-	riderCoord: _riderCoord,
-	primaryColor: _primaryColor,
+	cameraRef,
+	riderCoord,
+	primaryColor,
 }: {
 	cameraRef: React.RefObject<any>;
 	riderCoord: [number, number];
 	primaryColor: string;
 }) {
-	return <MapFallback />;
-}
-
-function MapFallback() {
-	const pulse = useRef(new Animated.Value(1)).current;
-
-	useEffect(() => {
-		const anim = Animated.loop(
-			Animated.sequence([
-				Animated.timing(pulse, { toValue: 1.35, duration: 750, useNativeDriver: true }),
-				Animated.timing(pulse, { toValue: 1, duration: 750, useNativeDriver: true }),
-			])
-		);
-		anim.start();
-		return () => anim.stop();
-	}, []);
-
 	return (
-		<View style={styles.mapFallback}>
-			{[30, 75, 120, 165, 210].map(top => (
-				<View key={top} style={[styles.roadLine, { top }]} />
-			))}
-
-			<View style={styles.routeRow}>
-				<View style={styles.routePinOrange}>
-					<Ionicons name="storefront" size={15} color="#FF521B" />
+		<MapView style={StyleSheet.absoluteFillObject} styleURL={MAP_STYLE}>
+			<Camera
+				ref={cameraRef}
+				defaultSettings={{ centerCoordinate: riderCoord, zoomLevel: 14 }}
+			/>
+			<MarkerView coordinate={riderCoord}>
+				<View style={[styles.riderPin, { backgroundColor: primaryColor }]}>
+					<Ionicons name="bicycle" size={14} color="#fff" />
 				</View>
-
-				<View style={styles.routeDash} />
-
-				<Animated.View style={[styles.riderBubble, { transform: [{ scale: pulse }] }]}>
-					<Ionicons name="bicycle" size={15} color="#fff" />
-				</Animated.View>
-
-				<View style={styles.routeDash} />
-
-				<View style={styles.routePinGreen}>
-					<Ionicons name="home" size={15} color="#1A9E5F" />
-				</View>
-			</View>
-
-			<Text style={styles.mapFallbackTitle}>Rider is on the way</Text>
-			<Text style={styles.mapFallbackSub}>GPS tracking active · Updates in real time</Text>
-		</View>
+			</MarkerView>
+		</MapView>
 	);
 }
 
@@ -334,9 +308,10 @@ const styles = StyleSheet.create({
 	header: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		gap: 12,
+		justifyContent: 'space-between',
 		paddingHorizontal: 20,
 		paddingBottom: 16,
+		borderBottomWidth: 1,
 	},
 	headerTitle: { fontSize: 20, fontWeight: '800' },
 	mapContainer: {
@@ -345,79 +320,6 @@ const styles = StyleSheet.create({
 		height: 220,
 		overflow: 'hidden',
 		position: 'relative',
-	},
-	mapFallback: {
-		...StyleSheet.absoluteFillObject,
-		backgroundColor: '#0C1525',
-		alignItems: 'center',
-		justifyContent: 'center',
-		overflow: 'hidden',
-	},
-	roadLine: {
-		position: 'absolute',
-		left: 0,
-		right: 0,
-		height: 1,
-		backgroundColor: 'rgba(255,255,255,0.04)',
-	},
-	routeRow: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		marginBottom: 18,
-		paddingHorizontal: 24,
-		width: '100%',
-	},
-	routePinOrange: {
-		width: 38,
-		height: 38,
-		borderRadius: 19,
-		backgroundColor: 'rgba(255,82,27,0.15)',
-		borderWidth: 1,
-		borderColor: 'rgba(255,82,27,0.35)',
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	routePinGreen: {
-		width: 38,
-		height: 38,
-		borderRadius: 19,
-		backgroundColor: 'rgba(26,158,95,0.15)',
-		borderWidth: 1,
-		borderColor: 'rgba(26,158,95,0.35)',
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	routeDash: {
-		flex: 1,
-		height: 2,
-		backgroundColor: 'rgba(255,255,255,0.12)',
-		marginHorizontal: 6,
-		borderRadius: 1,
-	},
-	riderBubble: {
-		width: 42,
-		height: 42,
-		borderRadius: 21,
-		backgroundColor: '#FF521B',
-		alignItems: 'center',
-		justifyContent: 'center',
-		shadowColor: '#FF521B',
-		shadowOffset: { width: 0, height: 0 },
-		shadowOpacity: 0.7,
-		shadowRadius: 10,
-		elevation: 8,
-	},
-	mapFallbackTitle: {
-		color: '#fff',
-		fontSize: 15,
-		fontWeight: '800',
-		marginBottom: 5,
-		textAlign: 'center',
-	},
-	mapFallbackSub: {
-		color: 'rgba(255,255,255,0.45)',
-		fontSize: 11,
-		textAlign: 'center',
 	},
 	riderPin: {
 		width: 30,

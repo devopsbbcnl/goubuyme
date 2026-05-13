@@ -66,7 +66,11 @@ export default function SearchScreen() {
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
 			<View style={[styles.searchHeader, { paddingTop: insets.top + 16 }]}>
-				<View style={[styles.searchField, { backgroundColor: T.surface, borderColor: T.border }]}>
+				<View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+				<TouchableOpacity onPress={() => router.back()} hitSlop={8}>
+					<Ionicons name="arrow-back" size={22} color={T.text} />
+				</TouchableOpacity>
+				<View style={[styles.searchField, { flex: 1, backgroundColor: T.surface, borderColor: T.border }]}>
 					<Ionicons name="search-outline" size={16} color={T.textMuted} />
 					<TextInput
 						ref={inputRef}
@@ -82,6 +86,7 @@ export default function SearchScreen() {
 							<Ionicons name="close-circle" size={16} color={T.textMuted} />
 						</TouchableOpacity>
 					)}
+				</View>
 				</View>
 			</View>
 

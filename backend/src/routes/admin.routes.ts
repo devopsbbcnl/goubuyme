@@ -5,7 +5,7 @@ import {
   adminCreateRider,
   getVendorDetail, updateVendorDocumentStatus,
   updateVendorBusinessVerifStatus, updateVendorLicenseStatus,
-  getAdminRiders, updateRiderStatus, updateRiderDocumentStatus,
+  getAdminRiders, getAdminRiderDetail, updateRiderStatus, updateRiderDocumentStatus,
   getAdminCustomers,
   getAdminOrders,
   getAuditLogs,
@@ -44,6 +44,7 @@ router.patch('/vendors/:id/licenses/:licenseId/status',         ...opsAuth,     
 // Riders
 router.get('/riders',                        ...readAuth, getAdminRiders);
 router.post('/riders/create',                ...opsAuth,  adminCreateRider);
+router.get('/riders/:id',                    ...readAuth, getAdminRiderDetail);
 router.patch('/riders/:id/status',           ...opsAuth,  updateRiderStatus);
 router.patch('/riders/:id/document/status',  ...opsAuth,  updateRiderDocumentStatus);
 

@@ -39,7 +39,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
     name, email, phone, password, role,
     referralCode,
     commissionTier, businessName, category, address, city, state,
-    vehicleType,
+    vehicleType, plateNumber,
   } = req.body;
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -100,7 +100,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
     }
 
     if (role === 'RIDER') {
-      await tx.rider.create({ data: { userId: newUser.id, vehicleType } });
+      await tx.rider.create({ data: { userId: newUser.id, vehicleType, plateNumber } });
     }
 
     if (referredById) {

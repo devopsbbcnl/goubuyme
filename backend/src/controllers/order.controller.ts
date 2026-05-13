@@ -16,6 +16,39 @@ const generateOrderNumber = () => {
   return `GBM-${date}-${rand}`;
 };
 
+export const estimateDeliveryFee = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { addressId } = req.query as { addressId?: string };
+  if (!addressId) return apiResponse.error(res, 'addressId is required.', 400);
+
+  const customer = await prisma.customer.findUnique({
+    where: { userId: req.user!.userId },
+    include: { cart: true },
+  });
+  if (!customer) return apiResponse.error(res, 'Customer not found.', 404);
+
+  const deliveryAddress = await prisma.address.findFirst({
+    where: { id: addressId, customerId: customer.id },
+  });
+  if (!deliveryAddress) return apiResponse.error(res, 'Address not found.', 404);
+
+  let distanceKm = 3;
+  if (customer.cart?.vendorId) {
+    const vendor = await prisma.vendor.findUnique({
+      where: { id: customer.cart.vendorId },
+      select: { latitude: true, longitude: true },
+    });
+    if (vendor?.latitude && vendor?.longitude && deliveryAddress.latitude && deliveryAddress.longitude) {
+      distanceKm = haversineDistance(
+        vendor.latitude, vendor.longitude,
+        deliveryAddress.latitude, deliveryAddress.longitude,
+      );
+    }
+  }
+
+  const fee = calcDeliveryFee(distanceKm);
+  return apiResponse.success(res, 'Delivery fee estimated.', { deliveryFee: fee, distanceKm: Math.round(distanceKm * 100) / 100 });
+});
+
 export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => {
   const { deliveryAddressId, paymentMethod, note } = req.body;
 
@@ -56,7 +89,7 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
   if (!vendor.isOpen) return apiResponse.error(res, 'This vendor is currently closed.', 400);
 
-  const subtotal = cart.items.reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
+  const subtotal = cart.items.reduce((sum, i) => sum + (i.unitPrice ?? i.menuItem.price) * i.quantity, 0);
 
   let distanceKm = 3;
   if (vendor.latitude && vendor.longitude && deliveryAddress.latitude && deliveryAddress.longitude) {

@@ -246,8 +246,9 @@ model MenuItem {
   isAvailable Boolean @default(true)
   isFeatured  Boolean @default(false)
 
-  cartItems  CartItem[]
-  orderItems OrderItem[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  drinkOptions MenuItemDrinkOption[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -255,6 +256,19 @@ model MenuItem {
   @@index([vendorId])
   @@index([isAvailable])
   @@map("menu_items")
+}
+
+model MenuItemDrinkOption {
+  id          String   @id @default(uuid())
+  menuItemId  String
+  menuItem    MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  name        String
+  price       Float
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([menuItemId])
+  @@map("menu_item_drink_options")
 }
 
 model Cart {
@@ -275,6 +289,7 @@ model CartItem {
   menuItemId String
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
   quantity   Int      @default(1)
+  unitPrice  Float?
   note       String?
 
   @@map("cart_items")

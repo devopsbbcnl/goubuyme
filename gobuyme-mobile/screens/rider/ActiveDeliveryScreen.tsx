@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Alert,
 } from 'react-native';
+import { MapView, Camera, MarkerView } from '@maplibre/maplibre-react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
@@ -206,60 +207,30 @@ export default function ActiveDeliveryScreen() {
 }
 
 function DeliveryMap({
-  midCoord: _midCoord,
-  vendorCoord: _vendorCoord,
-  customerCoord: _customerCoord,
-  primaryColor: _primaryColor,
+  midCoord,
+  vendorCoord,
+  customerCoord,
+  primaryColor,
 }: {
   midCoord: [number, number];
   vendorCoord: [number, number];
   customerCoord: [number, number];
   primaryColor: string;
 }) {
-  return <MapFallback />;
-}
-
-function MapFallback() {
-  const pulse = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.35, duration: 750, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 750, useNativeDriver: true }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, []);
-
   return (
-    <View style={styles.mapFallback}>
-      {[25, 65, 105, 145, 185].map(top => (
-        <View key={top} style={[styles.roadLine, { top }]} />
-      ))}
-
-      <View style={styles.routeRow}>
-        <View style={styles.routePinOrange}>
-          <Ionicons name="storefront" size={15} color="#FF521B" />
+    <MapView style={StyleSheet.absoluteFillObject} styleURL={MAP_STYLE}>
+      <Camera defaultSettings={{ centerCoordinate: midCoord, zoomLevel: 13 }} />
+      <MarkerView coordinate={vendorCoord}>
+        <View style={[styles.mapPin, { backgroundColor: primaryColor }]}>
+          <Ionicons name="storefront" size={12} color="#fff" />
         </View>
-
-        <View style={styles.routeDash} />
-
-        <Animated.View style={[styles.riderBubble, { transform: [{ scale: pulse }] }]}>
-          <Ionicons name="bicycle" size={15} color="#fff" />
-        </Animated.View>
-
-        <View style={styles.routeDash} />
-
-        <View style={styles.routePinGreen}>
-          <Ionicons name="person" size={15} color="#1A9E5F" />
+      </MarkerView>
+      <MarkerView coordinate={customerCoord}>
+        <View style={[styles.mapPin, { backgroundColor: '#1A9E5F' }]}>
+          <Ionicons name="person" size={12} color="#fff" />
         </View>
-      </View>
-
-      <Text style={styles.mapFallbackTitle}>Route active</Text>
-      <Text style={styles.mapFallbackSub}>GPS streaming enabled · Stay on track</Text>
-    </View>
+      </MarkerView>
+    </MapView>
   );
 }
 
@@ -269,16 +240,7 @@ const styles = StyleSheet.create({
   jobIdBadge:     { borderRadius: 4, paddingVertical: 5, paddingHorizontal: 12 },
   jobIdText:      { fontSize: 12, fontWeight: '700' },
   mapContainer:   { marginHorizontal: 20, borderRadius: 4, height: 190, overflow: 'hidden', position: 'relative' },
-  mapFallback:    { ...StyleSheet.absoluteFillObject, backgroundColor: '#0C1525', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  roadLine:       { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.04)' },
-  routeRow:       { flexDirection: 'row', alignItems: 'center', marginBottom: 18, paddingHorizontal: 24, width: '100%' },
-  routePinOrange: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,82,27,0.15)', borderWidth: 1, borderColor: 'rgba(255,82,27,0.35)', alignItems: 'center', justifyContent: 'center' },
-  routePinGreen:  { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(26,158,95,0.15)', borderWidth: 1, borderColor: 'rgba(26,158,95,0.35)', alignItems: 'center', justifyContent: 'center' },
-  routeDash:      { flex: 1, height: 2, backgroundColor: 'rgba(255,255,255,0.12)', marginHorizontal: 6, borderRadius: 1 },
-  riderBubble:    { width: 42, height: 42, borderRadius: 21, backgroundColor: '#FF521B', alignItems: 'center', justifyContent: 'center', shadowColor: '#FF521B', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.7, shadowRadius: 10, elevation: 8 },
-  mapFallbackTitle: { color: '#fff', fontSize: 15, fontWeight: '800', marginBottom: 5, textAlign: 'center' },
-  mapFallbackSub: { color: 'rgba(255,255,255,0.45)', fontSize: 11, textAlign: 'center' },
-  mapPin:         { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  mapPin:         { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   etaChip:        { position: 'absolute', bottom: 10, right: 12, backgroundColor: 'rgba(0,0,0,0.75)', borderRadius: 4, paddingVertical: 5, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 5 },
   etaText:        { fontSize: 12, fontWeight: '700', color: '#fff' },
   liveBadge:      { position: 'absolute', top: 12, left: 12, borderRadius: 4, paddingVertical: 4, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 5 },

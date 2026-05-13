@@ -22,6 +22,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 
+interface DrinkOption {
+	id: string;
+	name: string;
+	price: number;
+	isAvailable: boolean;
+}
+
 interface MenuItem {
 	id: string;
 	name: string;
@@ -31,6 +38,7 @@ interface MenuItem {
 	category: string | null;
 	isAvailable: boolean;
 	isFeatured: boolean;
+	drinkOptions: DrinkOption[];
 }
 
 interface FormState {
@@ -104,6 +112,12 @@ export default function ManageMenuScreen() {
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
 	const [saving, setSaving] = useState(false);
 	const [catOpen, setCatOpen] = useState(false);
+
+	// Drink options sheet state
+	const [drinkSheetItem, setDrinkSheetItem] = useState<MenuItem | null>(null);
+	const [drinkName, setDrinkName] = useState('');
+	const [drinkPrice, setDrinkPrice] = useState('');
+	const [drinkSaving, setDrinkSaving] = useState(false);
 
 	const fetchItems = useCallback(async () => {
 		try {
@@ -251,6 +265,78 @@ export default function ManageMenuScreen() {
 		]);
 	};
 
+	const openDrinkSheet = (item: MenuItem) => {
+		setDrinkSheetItem(item);
+		setDrinkName('');
+		setDrinkPrice('');
+	};
+
+	const closeDrinkSheet = () => setDrinkSheetItem(null);
+
+	const handleAddDrink = async () => {
+		if (!drinkSheetItem) return;
+		const name = drinkName.trim();
+		const price = parseFloat(drinkPrice);
+		if (!name) { Alert.alert('Validation', 'Drink name is required.'); return; }
+		if (isNaN(price) || price < 0) { Alert.alert('Validation', 'Enter a valid price (0 or more).'); return; }
+
+		setDrinkSaving(true);
+		try {
+			const res = await api.post(`/vendors/me/menu/${drinkSheetItem.id}/drink-options`, { name, price });
+			const newOption: DrinkOption = res.data.data;
+			setItems(prev => prev.map(it =>
+				it.id === drinkSheetItem.id
+					? { ...it, drinkOptions: [...it.drinkOptions, newOption].sort((a, b) => a.price - b.price) }
+					: it,
+			));
+			setDrinkSheetItem(prev => prev ? { ...prev, drinkOptions: [...prev.drinkOptions, newOption].sort((a, b) => a.price - b.price) } : null);
+			setDrinkName('');
+			setDrinkPrice('');
+		} catch (err: any) {
+			Alert.alert('Error', err?.response?.data?.message ?? 'Could not add drink option.');
+		} finally {
+			setDrinkSaving(false);
+		}
+	};
+
+	const handleToggleDrink = async (item: MenuItem, option: DrinkOption) => {
+		const next = !option.isAvailable;
+		const update = (it: MenuItem) => it.id === item.id
+			? { ...it, drinkOptions: it.drinkOptions.map(d => d.id === option.id ? { ...d, isAvailable: next } : d) }
+			: it;
+		setItems(prev => prev.map(update));
+		setDrinkSheetItem(prev => prev ? update(prev) : null);
+		try {
+			await api.patch(`/vendors/me/menu/${item.id}/drink-options/${option.id}`, { isAvailable: next });
+		} catch {
+			const revert = (it: MenuItem) => it.id === item.id
+				? { ...it, drinkOptions: it.drinkOptions.map(d => d.id === option.id ? { ...d, isAvailable: option.isAvailable } : d) }
+				: it;
+			setItems(prev => prev.map(revert));
+			setDrinkSheetItem(prev => prev ? revert(prev) : null);
+		}
+	};
+
+	const handleDeleteDrink = (item: MenuItem, option: DrinkOption) => {
+		Alert.alert('Remove drink', `Remove "${option.name}" from this item?`, [
+			{ text: 'Cancel', style: 'cancel' },
+			{
+				text: 'Remove', style: 'destructive', onPress: async () => {
+					try {
+						await api.delete(`/vendors/me/menu/${item.id}/drink-options/${option.id}`);
+						const remove = (it: MenuItem) => it.id === item.id
+							? { ...it, drinkOptions: it.drinkOptions.filter(d => d.id !== option.id) }
+							: it;
+						setItems(prev => prev.map(remove));
+						setDrinkSheetItem(prev => prev ? remove(prev) : null);
+					} catch (err: any) {
+						Alert.alert('Error', err?.response?.data?.message ?? 'Could not remove drink option.');
+					}
+				},
+			},
+		]);
+	};
+
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
 			{/* Header */}
@@ -313,10 +399,91 @@ export default function ManageMenuScreen() {
 							onEdit={() => openEdit(item)}
 							onDelete={() => handleDelete(item)}
 							onToggle={() => toggleAvailable(item)}
+							onDrinks={() => openDrinkSheet(item)}
 						/>
 					))}
 				</ScrollView>
 			)}
+
+			{/* Drink options sheet */}
+			<Modal
+				visible={!!drinkSheetItem}
+				animationType="slide"
+				transparent
+				onRequestClose={closeDrinkSheet}
+			>
+				<Pressable style={styles.backdrop} onPress={closeDrinkSheet} />
+				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetWrap}>
+					<View style={[styles.sheet, { backgroundColor: T.surface, borderColor: T.border }]}>
+						<View style={[styles.sheetHeader, { borderBottomColor: T.border }]}>
+							<Text style={[styles.sheetTitle, { color: T.text }]}>Drink Options</Text>
+							<TouchableOpacity onPress={closeDrinkSheet}>
+								<Ionicons name="close" size={22} color={T.textMuted} />
+							</TouchableOpacity>
+						</View>
+						<ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+							{/* Existing options */}
+							{(drinkSheetItem?.drinkOptions ?? []).length === 0 ? (
+								<Text style={[styles.drinkEmpty, { color: T.textMuted }]}>No drink options yet. Add one below.</Text>
+							) : (
+								(drinkSheetItem?.drinkOptions ?? []).map(opt => (
+									<View key={opt.id} style={[styles.drinkRow, { borderColor: T.border }]}>
+										<View style={{ flex: 1 }}>
+											<Text style={[styles.drinkName, { color: T.text }]}>{opt.name}</Text>
+											<Text style={[styles.drinkPrice, { color: T.primary }]}>₦{opt.price.toLocaleString()}</Text>
+										</View>
+										<Switch
+											value={opt.isAvailable}
+											onValueChange={() => { if (drinkSheetItem) handleToggleDrink(drinkSheetItem, opt); }}
+											trackColor={{ false: T.border, true: T.primary }}
+											thumbColor="#fff"
+											style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+										/>
+										<TouchableOpacity
+											onPress={() => drinkSheetItem && handleDeleteDrink(drinkSheetItem, opt)}
+											hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+											style={{ marginLeft: 8 }}
+										>
+											<Ionicons name="trash-outline" size={18} color="#E23B3B" />
+										</TouchableOpacity>
+									</View>
+								))
+							)}
+
+							{/* Add new drink form */}
+							<View style={[styles.drinkAddBox, { borderColor: T.border, backgroundColor: T.bg }]}>
+								<Text style={[styles.fieldLabel, { color: T.textSec, marginTop: 0 }]}>Add a Drink Option</Text>
+								<TextInput
+									value={drinkName}
+									onChangeText={setDrinkName}
+									placeholder="e.g. Can of Coke"
+									placeholderTextColor={T.textMuted}
+									style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text, marginBottom: 8 }]}
+								/>
+								<TextInput
+									value={drinkPrice}
+									onChangeText={setDrinkPrice}
+									placeholder="Price (₦)"
+									placeholderTextColor={T.textMuted}
+									keyboardType="numeric"
+									style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text }]}
+								/>
+								<TouchableOpacity
+									onPress={handleAddDrink}
+									disabled={drinkSaving}
+									style={[styles.saveBtn, { backgroundColor: drinkSaving ? T.textMuted : T.primary, marginTop: 12 }]}
+									activeOpacity={0.8}
+								>
+									{drinkSaving
+										? <ActivityIndicator color="#fff" />
+										: <Text style={styles.saveBtnText}>Add Drink</Text>
+									}
+								</TouchableOpacity>
+							</View>
+						</ScrollView>
+					</View>
+				</KeyboardAvoidingView>
+			</Modal>
 
 			{/* Add / Edit sheet */}
 			<Modal
@@ -546,12 +713,14 @@ function ItemCard({
 	onEdit,
 	onDelete,
 	onToggle,
+	onDrinks,
 }: {
 	item: MenuItem;
 	T: any;
 	onEdit: () => void;
 	onDelete: () => void;
 	onToggle: () => void;
+	onDrinks: () => void;
 }) {
 	return (
 		<View
@@ -568,7 +737,7 @@ function ItemCard({
 				/>
 			) : (
 				<View style={[styles.cardImagePlaceholder, { backgroundColor: T.bg }]}>
-					<Text style={{ fontSize: 28 }}>🍽️</Text>
+					<Ionicons name="restaurant-outline" size={28} color={T.textMuted} />
 				</View>
 			)}
 			<View style={{ flex: 1, paddingLeft: 12 }}>
@@ -619,6 +788,13 @@ function ItemCard({
 						{item.isAvailable ? 'Available' : 'Unavailable'}
 					</Text>
 					<View style={{ flex: 1 }} />
+					<TouchableOpacity
+						onPress={onDrinks}
+						style={styles.iconBtn}
+						hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+					>
+						<Ionicons name="water-outline" size={18} color={item.drinkOptions.length > 0 ? T.primary : T.textSec} />
+					</TouchableOpacity>
 					<TouchableOpacity
 						onPress={onEdit}
 						style={styles.iconBtn}
@@ -735,6 +911,7 @@ const styles = StyleSheet.create({
 		maxHeight: '90%',
 	},
 	sheet: {
+		flex: 1,
 		borderTopLeftRadius: 12,
 		borderTopRightRadius: 12,
 		borderWidth: 1,
@@ -816,4 +993,9 @@ const styles = StyleSheet.create({
 		marginTop: 20,
 	},
 	saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+	drinkEmpty:  { fontSize: 13, textAlign: 'center', marginBottom: 16, marginTop: 4 },
+	drinkRow:    { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, gap: 8 },
+	drinkName:   { fontSize: 14, fontWeight: '600' },
+	drinkPrice:  { fontSize: 12, fontWeight: '700', marginTop: 2 },
+	drinkAddBox: { borderRadius: 4, borderWidth: 1, padding: 12, marginTop: 16 },
 });

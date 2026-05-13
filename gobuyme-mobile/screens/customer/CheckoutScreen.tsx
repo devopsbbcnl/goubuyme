@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, Alert, ActivityIndicator,
@@ -8,27 +8,51 @@ import { useTheme } from '@/context/ThemeContext';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAddress } from '@/context/AddressContext';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
-
-const DELIVERY_FEE = 800;
 
 const TYPE_ICONS: Record<string, any> = { home: 'home', work: 'business', other: 'location-on' };
 
 export default function CheckoutScreen() {
   const { theme: T } = useTheme();
   const insets = useSafeAreaInsets();
-  const { items, total, clearCart } = useCart();
+  const { clearCart, getItems, getTotal } = useCart();
+  const { vendorId } = useLocalSearchParams<{ vendorId: string }>();
+  const vid = vendorId ?? '';
+  const items = getItems(vid);
+  const total = getTotal(vid);
   const { user } = useAuth();
   const { selected, addresses } = useAddress();
   const [loading, setLoading] = useState(false);
+  const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
+  const [feeLoading, setFeeLoading] = useState(false);
 
   const { popup } = usePaystack();
 
   const subtotal   = total;
-  const grandTotal = subtotal + DELIVERY_FEE;
+  const grandTotal = subtotal + (deliveryFee ?? 0);
+
+  const fetchDeliveryFee = useCallback(async (addressId: string) => {
+    setFeeLoading(true);
+    try {
+      const res = await api.get(`/orders/estimate-fee?addressId=${addressId}`);
+      setDeliveryFee(res.data.data.deliveryFee);
+    } catch {
+      setDeliveryFee(null);
+    } finally {
+      setFeeLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selected?.id) {
+      fetchDeliveryFee(selected.id);
+    } else {
+      setDeliveryFee(null);
+    }
+  }, [selected?.id, fetchDeliveryFee]);
 
   const handlePay = async () => {
     if (addresses.length === 0) {
@@ -52,10 +76,10 @@ export default function CheckoutScreen() {
       // 1. Sync in-memory cart to backend
       await api.delete('/cart/clear').catch(() => {});
       await Promise.all(
-        items.map(item => api.post('/cart/add', { menuItemId: item.id, quantity: item.qty })),
+        items.map(item => api.post('/cart/add', { menuItemId: item.id, quantity: item.qty, unitPrice: item.price })),
       );
 
-      // 2. Create the order in the DB
+      // 2. Create the order in the DB — this is the single source of truth for pricing
       const orderRes = await api.post('/orders', {
         deliveryAddressId: selected.id,
         paymentMethod: 'CARD',
@@ -64,16 +88,21 @@ export default function CheckoutScreen() {
       const orderId: string = order.id;
       const orderNumber: string = order.orderNumber;
       const estimatedTime: number | null = order.estimatedTime ?? null;
+      const confirmedTotal: number = order.totalAmount;
+      const confirmedDeliveryFee: number = order.deliveryFee;
+
+      // Sync displayed fee to what the backend actually calculated
+      setDeliveryFee(confirmedDeliveryFee);
 
       // 3. Generate a unique reference locally — popup.checkout() initialises
       //    its own Paystack transaction; calling /payments/initialize first
       //    would create a duplicate reference and Paystack would reject it.
       const reference = `GBM-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-      // 4. Open Paystack popup — library handles client-side initialisation
+      // 4. Open Paystack popup — amount is always the backend-confirmed total
       popup.checkout({
         email: user?.email ?? 'customer@gobuyme.ng',
-        amount: order.totalAmount ?? grandTotal, // naira — library multiplies by 100 internally
+        amount: confirmedTotal, // naira — library multiplies by 100 internally
         reference,
         onSuccess: async (paystackRes) => {
           const ref = paystackRes.reference ?? paystackRes.transaction ?? paystackRes.trans ?? reference;
@@ -84,7 +113,7 @@ export default function CheckoutScreen() {
           } catch {
             // network hiccup — backend webhook will reconcile
           }
-          clearCart();
+          clearCart(vid);
           setLoading(false);
           router.replace({
             pathname: '/tracking',
@@ -178,10 +207,23 @@ export default function CheckoutScreen() {
           {/* Totals */}
           <View style={[styles.totalsBlock, { borderTopColor: T.border }]}>
             <TotalRow label="Subtotal" value={`₦${subtotal.toLocaleString()}`} T={T} />
-            <TotalRow label="Delivery Fee" value={`₦${DELIVERY_FEE.toLocaleString()}`} T={T} />
+            <View style={styles.totalRow}>
+              <Text style={[styles.totalLabel, { color: T.textSec }]}>Delivery Fee</Text>
+              {feeLoading ? (
+                <ActivityIndicator size="small" color={T.primary} />
+              ) : deliveryFee !== null ? (
+                <Text style={[styles.totalVal, { color: T.text }]}>₦{deliveryFee.toLocaleString()}</Text>
+              ) : (
+                <Text style={[styles.totalVal, { color: T.textMuted, fontStyle: 'italic' }]}>Select an address</Text>
+              )}
+            </View>
             <View style={[styles.grandRow, { borderTopColor: T.border }]}>
               <Text style={[styles.grandLabel, { color: T.text }]}>Total</Text>
-              <Text style={[styles.grandValue, { color: T.primary }]}>₦{grandTotal.toLocaleString()}</Text>
+              {feeLoading || deliveryFee === null ? (
+                <Text style={[styles.grandValue, { color: T.textMuted }]}>—</Text>
+              ) : (
+                <Text style={[styles.grandValue, { color: T.primary }]}>₦{grandTotal.toLocaleString()}</Text>
+              )}
             </View>
           </View>
         </View>
@@ -197,16 +239,18 @@ export default function CheckoutScreen() {
       <View style={[styles.footer, { backgroundColor: T.surface, borderTopColor: T.border }]}>
         <TouchableOpacity
           onPress={handlePay}
-          disabled={loading}
-          style={[styles.payBtn, { backgroundColor: loading ? T.surface3 : T.primary }]}
+          disabled={loading || feeLoading || deliveryFee === null}
+          style={[styles.payBtn, { backgroundColor: loading || feeLoading || deliveryFee === null ? T.surface3 : T.primary }]}
           activeOpacity={0.85}
         >
-          {loading ? (
+          {loading || feeLoading ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
             <>
               <Ionicons name="lock-closed-outline" size={16} color="#fff" />
-              <Text style={styles.payBtnText}>Pay ₦{grandTotal.toLocaleString()}</Text>
+              <Text style={styles.payBtnText}>
+                {deliveryFee === null ? 'Select an address' : `Pay ₦${grandTotal.toLocaleString()}`}
+              </Text>
             </>
           )}
         </TouchableOpacity>

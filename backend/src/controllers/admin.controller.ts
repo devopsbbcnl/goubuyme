@@ -202,6 +202,50 @@ export const getAdminRiders = catchAsync(async (req: Request, res: Response) => 
   });
 });
 
+// GET /admin/riders/:id
+export const getAdminRiderDetail = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const rider = await prisma.rider.findUnique({
+    where: { id },
+    select: {
+      id: true, vehicleType: true, plateNumber: true,
+      isOnline: true, isAvailable: true, approvalStatus: true,
+      rating: true, totalRatings: true,
+      latitude: true, longitude: true,
+      createdAt: true, updatedAt: true,
+      user: {
+        select: {
+          name: true, email: true, phone: true, avatar: true,
+          isEmailVerified: true, isActive: true, createdAt: true,
+        },
+      },
+      document: {
+        select: {
+          id: true, ninNumber: true, ninImageUrl: true, selfieUrl: true,
+          vehicleImageUrl: true, guarantorName: true, guarantorPhone: true,
+          guarantorAddress: true, status: true, reviewNote: true,
+          createdAt: true, updatedAt: true,
+        },
+      },
+      _count: { select: { deliveries: true } },
+    },
+  });
+
+  if (!rider) return apiResponse.error(res, 'Rider not found.', 404);
+
+  const earningAgg = await prisma.earning.aggregate({
+    where: { riderId: id },
+    _sum: { netAmount: true },
+  });
+
+  return apiResponse.success(res, 'Rider detail fetched.', {
+    ...rider,
+    totalDeliveries: rider._count.deliveries,
+    totalEarnings: earningAgg._sum.netAmount ?? 0,
+  });
+});
+
 // PATCH /admin/riders/:id/status
 export const updateRiderStatus = catchAsync(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;

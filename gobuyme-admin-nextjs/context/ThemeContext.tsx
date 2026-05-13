@@ -20,14 +20,32 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
+		const stored = localStorage.getItem('gbm_dark');
+		if (stored !== null) {
+			setIsDark(stored === 'true');
+		} else {
+			setIsDark(window.matchMedia('(prefers-color-scheme: dark)').matches);
+		}
 		setMounted(true);
+
+		const mq = window.matchMedia('(prefers-color-scheme: dark)');
+		const handleChange = (e: MediaQueryListEvent) => {
+			if (localStorage.getItem('gbm_dark') === null) {
+				setIsDark(e.matches);
+			}
+		};
+		mq.addEventListener('change', handleChange);
+		return () => mq.removeEventListener('change', handleChange);
 	}, []);
 
 	const toggleTheme = () => {
-		setIsDark((prev) => !prev);
+		setIsDark((prev) => {
+			const next = !prev;
+			localStorage.setItem('gbm_dark', String(next));
+			return next;
+		});
 	};
 
-	// Avoid hydration mismatch by not rendering theme until mounted
 	if (!mounted) {
 		return (
 			<ThemeContext.Provider value={{ theme: dark, isDark: true, toggleTheme }}>

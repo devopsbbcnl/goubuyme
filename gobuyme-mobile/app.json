@@ -42,13 +42,16 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "GoBuyMe needs your location to show nearby vendors and track deliveries.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "GoBuyMe needs your location to track your deliveries."
+      },
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
     },
     "android": {
       "package": "dev.bubblebarrel.gobuyme",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FF521B"
+        "backgroundColor": "#FFFFFF"
       },
       "statusBar": {
         "translucent": true,
@@ -61,8 +64,16 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
-      ]
+      ],
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "bundler": "metro"
@@ -79,6 +90,9 @@
         "projectId": "79f18436-58d9-4282-bbd3-b5b12030b803"
       }
     },
-    "owner": "8037674195"
+    "owner": "8037674195",
+    "updates": {
+      "url": "https://u.expo.dev/79f18436-58d9-4282-bbd3-b5b12030b803"
+    }
   }
 }

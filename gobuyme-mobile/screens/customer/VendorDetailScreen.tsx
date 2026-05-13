@@ -36,6 +36,12 @@ const BADGE_META: Record<string, { label: string; color: string; icon: string }>
   PREMIUM_VERIFIED:  { label: 'Premium Verified',  color: '#C49A00', icon: 'star' },
 };
 
+interface DrinkOption {
+  id: string;
+  name: string;
+  price: number;
+}
+
 interface MenuItem {
   id: string;
   name: string;
@@ -44,11 +50,12 @@ interface MenuItem {
   image: string | null;
   category: string | null;
   isFeatured: boolean;
+  drinkOptions: DrinkOption[];
 }
 
 export default function VendorDetailScreen() {
   const { theme: T } = useTheme();
-  const { items, addItem, count } = useCart();
+  const { addItem, getItems, getCount } = useCart();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<'menu' | 'info'>('menu');
   const [vendor, setVendor] = useState<VendorDetail | null>(null);
@@ -76,8 +83,10 @@ export default function VendorDetailScreen() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const vendorItems = id ? getItems(id) : [];
+  const vendorCount = id ? getCount(id) : 0;
   const getQty = (itemId: string) =>
-    items.find(i => i.id === itemId)?.qty ?? 0;
+    vendorItems.find(i => i.id === itemId)?.qty ?? 0;
 
   function formatHours(open: string | null, close: string | null): string {
     if (open && close) return `${open} – ${close}`;
@@ -220,26 +229,45 @@ export default function VendorDetailScreen() {
                     key={item.id}
                     style={[styles.menuItem, { backgroundColor: T.surface, borderColor: T.border }]}
                   >
-                    {item.image ? (
-                      <Image source={{ uri: item.image }} style={styles.menuImg} />
-                    ) : (
-                      <View style={[styles.menuImg, { backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' }]}>
-                        <Text style={{ fontSize: 28 }}>🍽️</Text>
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={() => router.push({
+                        pathname: '/menu-item',
+                        params: {
+                          id: item.id,
+                          vendorId: id,
+                          name: item.name,
+                          description: item.description ?? '',
+                          price: String(item.price),
+                          image: item.image ?? '',
+                          category: item.category ?? '',
+                          isFeatured: item.isFeatured ? '1' : '0',
+                          drinkOptions: JSON.stringify(item.drinkOptions ?? []),
+                        },
+                      })}
+                      style={{ flexDirection: 'row', flex: 1 }}
+                    >
+                      {item.image ? (
+                        <Image source={{ uri: item.image }} style={styles.menuImg} />
+                      ) : (
+                        <View style={[styles.menuImg, { backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' }]}>
+                          <Ionicons name="restaurant-outline" size={28} color={T.textMuted} />
+                        </View>
+                      )}
+                      <View style={{ flex: 1, padding: 12 }}>
+                        <Text style={[styles.menuName, { color: T.text }]}>{item.name}</Text>
+                        {item.description ? (
+                          <Text style={[styles.menuDesc, { color: T.textSec }]} numberOfLines={2}>
+                            {item.description}
+                          </Text>
+                        ) : null}
+                        <Text style={[styles.menuPrice, { color: T.primary }]}>₦{item.price.toLocaleString()}</Text>
                       </View>
-                    )}
-                    <View style={{ flex: 1, padding: 12 }}>
-                      <Text style={[styles.menuName, { color: T.text }]}>{item.name}</Text>
-                      {item.description ? (
-                        <Text style={[styles.menuDesc, { color: T.textSec }]} numberOfLines={2}>
-                          {item.description}
-                        </Text>
-                      ) : null}
-                      <Text style={[styles.menuPrice, { color: T.primary }]}>₦{item.price.toLocaleString()}</Text>
-                    </View>
+                    </TouchableOpacity>
                     <View style={{ paddingRight: 12, justifyContent: 'center' }}>
                       {qty === 0 ? (
                         <TouchableOpacity
-                          onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, 1)}
+                          onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, 1, id!)}
                           style={[styles.addBtn, { backgroundColor: T.primary }]}
                         >
                           <Ionicons name="add" size={16} color="#fff" />
@@ -247,14 +275,14 @@ export default function VendorDetailScreen() {
                       ) : (
                         <View style={styles.stepper}>
                           <TouchableOpacity
-                            onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, -1)}
+                            onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, -1, id!)}
                             style={[styles.stepBtn, { backgroundColor: T.surface3 }]}
                           >
                             <Ionicons name="remove" size={12} color={T.text} />
                           </TouchableOpacity>
                           <Text style={[styles.stepQty, { color: T.text }]}>{qty}</Text>
                           <TouchableOpacity
-                            onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, 1)}
+                            onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, 1, id!)}
                             style={[styles.stepBtn, { backgroundColor: T.primary }]}
                           >
                             <Ionicons name="add" size={12} color="#fff" />
@@ -264,6 +292,7 @@ export default function VendorDetailScreen() {
                     </View>
                   </View>
                 );
+
               })
             )}
           </View>
@@ -293,13 +322,13 @@ export default function VendorDetailScreen() {
       </ScrollView>
 
       {/* Cart CTA */}
-      {count > 0 && (
+      {vendorCount > 0 && (
         <View style={[styles.cartBar, { backgroundColor: T.surface, borderTopColor: T.border }]}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.cartBarItems, { color: T.textSec }]}>{count} item{count > 1 ? 's' : ''} in cart</Text>
+            <Text style={[styles.cartBarItems, { color: T.textSec }]}>{vendorCount} item{vendorCount > 1 ? 's' : ''} in cart</Text>
           </View>
           <TouchableOpacity
-            onPress={() => router.push('/cart')}
+            onPress={() => router.push({ pathname: '/cart', params: { vendorId: id } })}
             style={[styles.cartBarBtn, { backgroundColor: T.primary, ...shadows.primaryGlow(T.primary) }]}
           >
             <Text style={styles.cartBarBtnText}>View Cart</Text>

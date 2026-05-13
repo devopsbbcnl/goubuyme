@@ -4,6 +4,7 @@ import {
   getMyVendorProfile, updateMyVendorProfile, toggleStoreStatus,
   getVendorDashboardStats, getMyOrders, updateMyOrderStatus, getMyEarnings,
   getMyMenuItems, createMenuItem, updateMenuItem, deleteMenuItem,
+  getMenuItemDrinkOptions, createMenuItemDrinkOption, updateMenuItemDrinkOption, deleteMenuItemDrinkOption,
   getPayoutAccount, savePayoutAccount, switchMyTier,
   getMyDocument, submitDocument,
   getMyBusinessVerification, submitBusinessVerification,
@@ -38,10 +39,16 @@ router.post('/me/licenses',                        ...vendorAuth, submitLicense)
 router.delete('/me/licenses/:id',                  ...vendorAuth, deleteLicense);
 
 // Menu CRUD
-router.get('/me/menu',                     ...vendorAuth, getMyMenuItems);
-router.post('/me/menu',                    ...vendorAuth, createMenuItem);
-router.patch('/me/menu/:itemId',           ...vendorAuth, updateMenuItem);
-router.delete('/me/menu/:itemId',          ...vendorAuth, deleteMenuItem);
+router.get('/me/menu',                                          ...vendorAuth, getMyMenuItems);
+router.post('/me/menu',                                         ...vendorAuth, createMenuItem);
+router.patch('/me/menu/:itemId',                                ...vendorAuth, updateMenuItem);
+router.delete('/me/menu/:itemId',                               ...vendorAuth, deleteMenuItem);
+
+// Drink options
+router.get('/me/menu/:itemId/drink-options',                    ...vendorAuth, getMenuItemDrinkOptions);
+router.post('/me/menu/:itemId/drink-options',                   ...vendorAuth, createMenuItemDrinkOption);
+router.patch('/me/menu/:itemId/drink-options/:optionId',        ...vendorAuth, updateMenuItemDrinkOption);
+router.delete('/me/menu/:itemId/drink-options/:optionId',       ...vendorAuth, deleteMenuItemDrinkOption);
 
 // Promotion routes (vendor-authenticated)
 router.get('/me/promotions',                   ...vendorAuth, getMyPromotions);

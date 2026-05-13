@@ -30,7 +30,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 type VendorItem = { id: string; businessName: string; city: string; createdAt: string };
-type RiderItem  = { id: string; vehicleType: string; createdAt: string; user: { name: string } };
+type RiderItem  = { id: string; name: string; vehicleType: string; createdAt: string };
 type OrderItem  = { id: string; orderNumber: string; status: string; totalAmount: number; createdAt: string; vendor: { businessName: string } };
 
 const ORDER_COLOR: Record<string, string> = {
@@ -163,7 +163,7 @@ export function TopBar({ pathname }: { pathname: string }) {
                       {pendingRiders.map(r => (
                         <Link key={r.id} href="/riders" style={{ textDecoration: 'none' }} onClick={() => setOpen(false)}>
                           <NotifRow
-                            icon="🏍️" title={r.user.name}
+                            icon="🏍️" title={r.name}
                             sub={`New rider · ${r.vehicleType} · ${timeAgo(r.createdAt)}`}
                             dot T={T}
                           />

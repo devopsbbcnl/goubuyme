@@ -39,7 +39,11 @@
       "Bash(gh auth *)",
       "Bash(git -c credential.helper= push -u origin main)",
       "Bash(git commit *)",
-      "PowerShell(Copy-Item \"C:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-mobile\\\\assets\\\\icon.png\" -Destination \"C:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-admin-nextjs\\\\app\\\\icon.png\" -Force)"
+      "PowerShell(Copy-Item \"C:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-mobile\\\\assets\\\\icon.png\" -Destination \"C:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-admin-nextjs\\\\app\\\\icon.png\" -Force)",
+      "Bash(python3 scripts/search.py \"food delivery menu item detail Nigerian app vibrant\" --design-system -p \"GoBuyMe Menu Detail\")",
+      "Bash(python scripts/search.py \"food delivery menu item detail Nigerian app vibrant\" --design-system -p \"GoBuyMe Menu Detail\")",
+      "PowerShell($ts = Get-Date -Format \"yyyyMMddHHmmss\"; $dir = \"c:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\backend\\\\prisma\\\\migrations\\\\${ts}_fix_cart_item_unit_price_column\"; New-Item -ItemType Directory -Path $dir -Force | Out-Null; Write-Output $dir)",
+      "Bash(dir \"c:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-mobile\\\\services\" /b)"
     ]
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
 	View,
 	Text,
@@ -8,9 +8,12 @@ import {
 	TextInput,
 	Modal,
 	Alert,
+	ActivityIndicator,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { useTheme } from '@/context/ThemeContext';
 import { useAddress, AddressType, Address } from '@/context/AddressContext';
+import { forwardGeocode, reverseGeocode, GeocodeSuggestion } from '@/services/geocoding';
 import { router } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,11 +40,18 @@ export default function SavedAddressesScreen() {
 		city: '',
 		state: '',
 	});
+	const [latLng, setLatLng] = useState<{ lat: number; lng: number } | null>(null);
+	const [suggestions, setSuggestions] = useState<GeocodeSuggestion[]>([]);
+	const [geocoding, setGeocoding] = useState(false);
+	const [locating, setLocating] = useState(false);
 	const [saving, setSaving] = useState(false);
+	const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const openAdd = () => {
 		setEditing(null);
 		setForm({ type: 'home', label: '', address: '', city: '', state: '' });
+		setLatLng(null);
+		setSuggestions([]);
 		setModalVisible(true);
 	};
 
@@ -54,7 +64,79 @@ export default function SavedAddressesScreen() {
 			city: addr.city ?? '',
 			state: addr.state ?? '',
 		});
+		setLatLng(
+			addr.latitude != null && addr.longitude != null
+				? { lat: addr.latitude, lng: addr.longitude }
+				: null,
+		);
+		setSuggestions([]);
 		setModalVisible(true);
+	};
+
+	const handleAddressChange = (v: string) => {
+		setForm(f => ({ ...f, address: v }));
+		setLatLng(null);
+		setSuggestions([]);
+		if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
+		if (v.trim().length >= 3) {
+			setGeocoding(true);
+			geocodeTimer.current = setTimeout(async () => {
+				const results = await forwardGeocode(v);
+				setSuggestions(results);
+				setGeocoding(false);
+			}, 400);
+		} else {
+			setGeocoding(false);
+		}
+	};
+
+	const handlePickSuggestion = (s: GeocodeSuggestion) => {
+		setForm(f => ({
+			...f,
+			address: s.placeName,
+			city: s.city || f.city,
+			state: s.state || f.state,
+		}));
+		setLatLng({ lat: s.lat, lng: s.lng });
+		setSuggestions([]);
+	};
+
+	const handleUseLocation = async () => {
+		setLocating(true);
+		try {
+			const { status } = await Location.requestForegroundPermissionsAsync();
+			if (status !== 'granted') {
+				Alert.alert(
+					'Permission needed',
+					'Enable location access in Settings to use this feature.',
+				);
+				return;
+			}
+			const loc = await Location.getCurrentPositionAsync({
+				accuracy: Location.Accuracy.Balanced,
+			});
+			const result = await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
+			if (result) {
+				setForm(f => ({
+					...f,
+					address: result.address,
+					city: result.city || f.city,
+					state: result.state || f.state,
+				}));
+				setLatLng({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+				setSuggestions([]);
+			} else {
+				setLatLng({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+				Alert.alert(
+					'Location detected',
+					'Could not resolve a street address. Please type or edit the address field.',
+				);
+			}
+		} catch {
+			Alert.alert('Location error', 'Could not get your location. Please type your address.');
+		} finally {
+			setLocating(false);
+		}
 	};
 
 	const handleSave = async () => {
@@ -73,6 +155,8 @@ export default function SavedAddressesScreen() {
 			address: form.address.trim(),
 			city: form.city.trim(),
 			state: form.state.trim(),
+			latitude: latLng?.lat,
+			longitude: latLng?.lng,
 		};
 		try {
 			setSaving(true);
@@ -203,6 +287,9 @@ export default function SavedAddressesScreen() {
 												</Text>
 											</View>
 										)}
+										{addr.latitude != null && (
+											<Ionicons name="location" size={12} color={T.primary} style={{ opacity: 0.6 }} />
+										)}
 									</View>
 									<Text style={[styles.cardAddr, { color: T.textSec }]}>
 										{addr.address}
@@ -328,26 +415,92 @@ export default function SavedAddressesScreen() {
 							]}
 						/>
 
-						<Text style={[styles.fLabel, { color: T.textSec }]}>
-							Full Address
-						</Text>
-						<TextInput
-							value={form.address}
-							onChangeText={(v) => setForm((f) => ({ ...f, address: v }))}
-							placeholder="Street, area, city"
-							placeholderTextColor={T.textMuted}
-							multiline
-							numberOfLines={2}
-							style={[
-								styles.fInput,
-								styles.fTextarea,
-								{
-									backgroundColor: T.surface2,
-									borderColor: T.border,
-									color: T.text,
-								},
-							]}
-						/>
+						{/* Address search */}
+						<View style={styles.addressLabelRow}>
+							<Text style={[styles.fLabel, { color: T.textSec }]}>Full Address</Text>
+							<TouchableOpacity
+								onPress={handleUseLocation}
+								disabled={locating}
+								style={styles.useLocationBtn}
+							>
+								{locating ? (
+									<ActivityIndicator size="small" color={T.primary} />
+								) : (
+									<Ionicons name="locate" size={13} color={T.primary} />
+								)}
+								<Text style={[styles.useLocationText, { color: T.primary }]}>
+									Use my location
+								</Text>
+							</TouchableOpacity>
+						</View>
+
+						<View>
+							<View style={{ position: 'relative' }}>
+								<TextInput
+									value={form.address}
+									onChangeText={handleAddressChange}
+									placeholder="Search or type your address…"
+									placeholderTextColor={T.textMuted}
+									style={[
+										styles.fInput,
+										styles.fAddressInput,
+										{
+											backgroundColor: T.surface2,
+											borderColor: latLng ? T.primary : T.border,
+											color: T.text,
+											paddingRight: 36,
+										},
+									]}
+								/>
+								{geocoding && (
+									<ActivityIndicator
+										size="small"
+										color={T.primary}
+										style={styles.geocodeSpinner}
+									/>
+								)}
+								{!geocoding && latLng && (
+									<Ionicons
+										name="checkmark-circle"
+										size={16}
+										color={T.primary}
+										style={styles.geocodeSpinner}
+									/>
+								)}
+							</View>
+
+							{suggestions.length > 0 && (
+								<View
+									style={[
+										styles.suggestionsBox,
+										{ backgroundColor: T.surface, borderColor: T.border },
+									]}
+								>
+									{suggestions.slice(0, 4).map((s, i) => (
+										<TouchableOpacity
+											key={s.id}
+											onPress={() => handlePickSuggestion(s)}
+											style={[
+												styles.suggestionRow,
+												{
+													borderBottomColor: T.border,
+													borderBottomWidth: i < Math.min(suggestions.length, 4) - 1 ? 1 : 0,
+												},
+											]}
+											activeOpacity={0.7}
+										>
+											<Ionicons name="location-outline" size={14} color={T.primary} style={{ flexShrink: 0, marginTop: 1 }} />
+											<Text
+												style={[styles.suggestionText, { color: T.text }]}
+												numberOfLines={2}
+											>
+												{s.placeName}
+											</Text>
+										</TouchableOpacity>
+									))}
+								</View>
+							)}
+						</View>
 
 						<View style={styles.locationRow}>
 							<View style={styles.locationField}>
@@ -509,6 +662,17 @@ const styles = StyleSheet.create({
 		textTransform: 'uppercase',
 		letterSpacing: 0.5,
 	},
+	addressLabelRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+	},
+	useLocationBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+	},
+	useLocationText: { fontSize: 11, fontWeight: '600' },
 	fInput: {
 		height: 44,
 		borderRadius: 4,
@@ -516,7 +680,26 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 12,
 		fontSize: 14,
 	},
-	fTextarea: { height: 72, paddingTop: 10, textAlignVertical: 'top' },
+	fAddressInput: { height: 44 },
+	geocodeSpinner: {
+		position: 'absolute',
+		right: 12,
+		top: 14,
+	},
+	suggestionsBox: {
+		borderRadius: 4,
+		borderWidth: 1,
+		marginTop: 4,
+		overflow: 'hidden',
+	},
+	suggestionRow: {
+		flexDirection: 'row',
+		alignItems: 'flex-start',
+		gap: 8,
+		paddingVertical: 10,
+		paddingHorizontal: 12,
+	},
+	suggestionText: { fontSize: 13, flex: 1, lineHeight: 18 },
 	locationRow: { flexDirection: 'row', gap: 12 },
 	locationField: { flex: 1, gap: 6 },
 	modalSaveBtn: {

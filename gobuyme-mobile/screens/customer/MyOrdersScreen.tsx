@@ -12,6 +12,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BottomNav } from '@/components/layout/BottomNav';
 import api from '@/services/api';
 
 type OrderStatus =
@@ -160,15 +161,7 @@ export default function MyOrdersScreen() {
 			<View
 				style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}
 			>
-				<TouchableOpacity
-					onPress={() => router.back()}
-					style={styles.backBtn}
-					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-				>
-					<Ionicons name="arrow-back" size={22} color={T.text} />
-				</TouchableOpacity>
 				<Text style={[styles.title, { color: T.text }]}>My Orders</Text>
-				<View style={{ width: 38 }} />
 			</View>
 
 			{/* Tabs */}
@@ -322,6 +315,16 @@ export default function MyOrdersScreen() {
 					)}
 				</ScrollView>
 			)}
+
+			<BottomNav
+				active="orders"
+				onPress={(tab) => {
+					if (tab === 'home') router.replace('/(customer)');
+					if (tab === 'orders') router.push('/orders');
+					if (tab === 'favorites') router.push('/favorites');
+					if (tab === 'profile') router.push('/profile');
+				}}
+			/>
 		</View>
 	);
 }
@@ -334,12 +337,6 @@ const styles = StyleSheet.create({
 		paddingBottom: 16,
 		paddingHorizontal: 20,
 		borderBottomWidth: 1,
-	},
-	backBtn: {
-		width: 38,
-		height: 38,
-		alignItems: 'center',
-		justifyContent: 'center',
 	},
 	title: { fontSize: 17, fontWeight: '700' },
 	tabsWrapper: { height: 56, borderBottomWidth: 1 },
@@ -359,7 +356,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 	},
 	tabText: { fontSize: 13, fontWeight: '600' },
-	scroll: { padding: 20, gap: 12, paddingBottom: 40 },
+	scroll: { padding: 20, gap: 12, paddingBottom: 100 },
 	centered: {
 		flex: 1,
 		alignItems: 'center',

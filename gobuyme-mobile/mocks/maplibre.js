@@ -41,4 +41,4 @@ const Camera = () => null;
 
 const Marker = () => null;
 
-module.exports = { Map, Camera, Marker };
+module.exports = { Map, MapView: Map, Camera, Marker, MarkerView: Marker };

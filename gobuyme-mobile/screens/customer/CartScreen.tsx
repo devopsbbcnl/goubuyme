@@ -5,21 +5,22 @@ import {
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useCart } from '@/context/CartContext';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { shadows } from '@/theme';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const DELIVERY_FEE = 800;
-
 export default function CartScreen() {
   const { theme: T } = useTheme();
   const insets = useSafeAreaInsets();
-  const { items, addItem, clearCart, total } = useCart();
+  const { addItem, clearCart, getItems, getTotal } = useCart();
+  const { vendorId } = useLocalSearchParams<{ vendorId: string }>();
   const [note, setNote] = useState('');
 
-  const grandTotal = total + DELIVERY_FEE;
+  const vid = vendorId ?? '';
+  const items = getItems(vid);
+  const total = getTotal(vid);
 
   if (items.length === 0) {
     return (
@@ -65,14 +66,14 @@ export default function CartScreen() {
             </View>
             <View style={styles.qtyRow}>
               <TouchableOpacity
-                onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.img }, -1)}
+                onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.img }, -1, vid)}
                 style={[styles.qtyBtn, { backgroundColor: T.surface3 }]}
               >
                 <Ionicons name="remove" size={12} color={T.text} />
               </TouchableOpacity>
               <Text style={[styles.qtyText, { color: T.text }]}>{item.qty}</Text>
               <TouchableOpacity
-                onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.img }, 1)}
+                onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.img }, 1, vid)}
                 style={[styles.qtyBtn, { backgroundColor: T.primary }]}
               >
                 <Ionicons name="add" size={12} color="#fff" />
@@ -102,14 +103,14 @@ export default function CartScreen() {
         </View>
         <View style={styles.summaryRow}>
           <Text style={[styles.summaryLabel, { color: T.textSec }]}>Delivery</Text>
-          <Text style={[styles.summaryVal, { color: T.text }]}>₦{DELIVERY_FEE.toLocaleString()}</Text>
+          <Text style={[styles.summaryVal, { color: T.textMuted, fontStyle: 'italic' }]}>Calculated at checkout</Text>
         </View>
         <View style={[styles.divider, { backgroundColor: T.border }]} />
         <View style={[styles.summaryRow, { marginBottom: 16 }]}>
-          <Text style={[styles.totalLabel, { color: T.text }]}>Total</Text>
-          <Text style={[styles.totalVal, { color: T.primary }]}>₦{grandTotal.toLocaleString()}</Text>
+          <Text style={[styles.totalLabel, { color: T.text }]}>Subtotal</Text>
+          <Text style={[styles.totalVal, { color: T.primary }]}>₦{total.toLocaleString()}</Text>
         </View>
-        <PrimaryButton onPress={() => router.push('/checkout')}>
+        <PrimaryButton onPress={() => router.push({ pathname: '/checkout', params: { vendorId: vid } })}>
           Proceed to Checkout
         </PrimaryButton>
       </View>

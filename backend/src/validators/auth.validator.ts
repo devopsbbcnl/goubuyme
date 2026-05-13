@@ -42,6 +42,11 @@ export const registerSchema = Joi.object({
     then: Joi.string().required(),
     otherwise: Joi.forbidden(),
   }),
+  plateNumber: Joi.when('role', {
+    is: 'RIDER',
+    then: Joi.string().min(1).required(),
+    otherwise: Joi.forbidden(),
+  }),
 });
 
 export const loginSchema = Joi.object({

@@ -35,7 +35,7 @@ export const addToCart = catchAsync(async (req: AuthRequest, res: Response) => {
   const customerId = await getCustomerId(req.user!.userId);
   if (!customerId) return apiResponse.error(res, 'Customer not found.', 404);
 
-  const { menuItemId, quantity = 1, note } = req.body;
+  const { menuItemId, quantity = 1, note, unitPrice } = req.body;
 
   const menuItem = await prisma.menuItem.findUnique({
     where: { id: menuItemId },
@@ -59,10 +59,10 @@ export const addToCart = catchAsync(async (req: AuthRequest, res: Response) => {
   if (existing) {
     await prisma.cartItem.update({
       where: { id: existing.id },
-      data: { quantity: existing.quantity + quantity },
+      data: { quantity: existing.quantity + quantity, ...(unitPrice != null ? { unitPrice } : {}) },
     });
   } else {
-    await prisma.cartItem.create({ data: { cartId: cart.id, menuItemId, quantity, note } });
+    await prisma.cartItem.create({ data: { cartId: cart.id, menuItemId, quantity, note, unitPrice } });
   }
 
   return apiResponse.success(res, 'Item added to cart.');

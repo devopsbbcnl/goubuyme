@@ -12,6 +12,8 @@ export interface Address {
   address: string;
   city?: string;
   state?: string;
+  latitude?: number;
+  longitude?: number;
   isDefault: boolean;
 }
 
@@ -56,6 +58,8 @@ function normalizeAddress(raw: any): Address | null {
     address: String(raw.address),
     city: raw.city ? String(raw.city) : undefined,
     state: raw.state ? String(raw.state) : undefined,
+    latitude: typeof raw.latitude === 'number' ? raw.latitude : undefined,
+    longitude: typeof raw.longitude === 'number' ? raw.longitude : undefined,
     isDefault: Boolean(raw.isDefault),
   };
 }
@@ -74,11 +78,14 @@ function normalizeAddresses(raw: any): Address[] {
 }
 
 function toAddressPayload(address: Address | AddressInput | AddressPatch) {
+  const a = address as any;
   return {
-    label: address.label,
-    address: address.address,
-    city: address.city,
-    state: address.state,
+    label: a.label,
+    address: a.address,
+    city: a.city,
+    state: a.state,
+    latitude: a.latitude,
+    longitude: a.longitude,
     isDefault: 'isDefault' in address ? address.isDefault : undefined,
   };
 }
