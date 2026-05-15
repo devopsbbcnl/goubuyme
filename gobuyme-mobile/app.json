@@ -51,7 +51,7 @@
       "package": "dev.bubblebarrel.gobuyme",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#FF521B"
       },
       "statusBar": {
         "translucent": true,

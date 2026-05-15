@@ -2,15 +2,25 @@ import React, { useEffect } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
+
+const ROLE_ROUTE = {
+  customer: '/(customer)',
+  vendor: '/(vendor)',
+  rider: '/(rider)',
+} as const;
 
 export default function SplashScreen() {
   const { theme: T } = useTheme();
+  const { user, role, loading } = useAuth();
 
   useEffect(() => {
-    const timer = setTimeout(() => router.replace('/onboarding'), 3000);
+    if (loading) return;
+    const target = user && role && ROLE_ROUTE[role] ? ROLE_ROUTE[role] : '/onboarding';
+    const timer = setTimeout(() => router.replace(target), 3000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [loading, role, user]);
 
   if (T.isDark) {
     return (

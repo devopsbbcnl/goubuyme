@@ -4,7 +4,9 @@ type Status =
   | 'APPROVED' | 'PENDING' | 'REJECTED' | 'SUSPENDED'
   | 'DELIVERED' | 'IN_TRANSIT' | 'PREPARING' | 'CANCELLED'
   | 'CONFIRMED' | 'READY' | 'PICKED_UP'
-  | 'ONLINE'   | 'OFFLINE';
+  | 'PAID' | 'FAILED' | 'REFUNDED'
+  | 'ONLINE' | 'OFFLINE'
+  | 'AVAILABLE' | 'UNAVAILABLE';
 
 export function Badge({ status }: { status: Status }) {
   const { theme: T } = useTheme();
@@ -21,8 +23,13 @@ export function Badge({ status }: { status: Status }) {
     CONFIRMED:  { color: T.info,    bg: T.infoBg,    label: 'Confirmed' },
     READY:      { color: T.info,    bg: T.infoBg,    label: 'Ready' },
     PICKED_UP:  { color: T.info,    bg: T.infoBg,    label: 'Picked Up' },
+    PAID:       { color: T.success, bg: T.successBg, label: 'Paid' },
+    FAILED:     { color: T.error,   bg: T.errorBg,   label: 'Failed' },
+    REFUNDED:   { color: T.info,    bg: T.infoBg,    label: 'Refunded' },
     ONLINE:     { color: T.success, bg: T.successBg, label: 'Online' },
     OFFLINE:    { color: T.textSec, bg: T.surface3,  label: 'Offline' },
+    AVAILABLE:  { color: T.success, bg: T.successBg, label: 'Available' },
+    UNAVAILABLE:{ color: T.textSec, bg: T.surface3,  label: 'Unavailable' },
   };
 
   const cfg = map[status] ?? map.PENDING;

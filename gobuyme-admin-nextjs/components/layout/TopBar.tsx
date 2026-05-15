@@ -31,7 +31,15 @@ const ROLE_LABEL: Record<string, string> = {
 
 type VendorItem = { id: string; businessName: string; city: string; createdAt: string };
 type RiderItem  = { id: string; name: string; vehicleType: string; createdAt: string };
-type OrderItem  = { id: string; orderNumber: string; status: string; totalAmount: number; createdAt: string; vendor: { businessName: string } };
+type OrderItem = {
+  id: string;
+  orderNumber: string;
+  status: string;
+  totalAmount: number;
+  createdAt: string;
+  vendorName?: string;
+  vendor?: { businessName?: string };
+};
 
 const ORDER_COLOR: Record<string, string> = {
   PENDING: '#F59E0B', CONFIRMED: '#3B82F6', PREPARING: '#8B5CF6',
@@ -179,6 +187,7 @@ export function TopBar({ pathname }: { pathname: string }) {
                       </div>
                       {recentOrders.map(o => {
                         const col = ORDER_COLOR[o.status] ?? '#888';
+                        const vendorName = o.vendorName ?? o.vendor?.businessName ?? 'Unknown vendor';
                         return (
                           <Link key={o.id} href="/orders" style={{ textDecoration: 'none' }} onClick={() => setOpen(false)}>
                             <NotifRow
@@ -190,7 +199,7 @@ export function TopBar({ pathname }: { pathname: string }) {
                                   {o.status}
                                 </span>
                               }
-                              sub={`${o.vendor.businessName} · ₦${o.totalAmount.toLocaleString()} · ${timeAgo(o.createdAt)}`}
+                              sub={`${vendorName} · ₦${o.totalAmount.toLocaleString()} · ${timeAgo(o.createdAt)}`}
                               T={T}
                             />
                           </Link>

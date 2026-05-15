@@ -33,6 +33,7 @@ import { setupSockets } from './sockets';
 import { startPayoutJob } from './jobs/payoutJob';
 import { errorHandler } from './middleware/error.middleware';
 import { globalLimiter } from './middleware/rateLimiter.middleware';
+import { maintenanceGuard } from './middleware/maintenance.middleware';
 import authRoutes from './routes/auth.routes';
 import vendorRoutes from './routes/vendor.routes';
 import customerRoutes from './routes/customer.routes';
@@ -64,6 +65,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 app.use(globalLimiter);
+app.use(maintenanceGuard);
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/vendors', vendorRoutes);

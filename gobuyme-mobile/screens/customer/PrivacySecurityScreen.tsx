@@ -161,7 +161,7 @@ export default function PrivacySecurityScreen() {
 										/* proceed with local logout even if backend fails */
 									}
 									await logout();
-									router.replace('/login');
+									router.replace('/onboarding');
 								},
 							},
 						]);
@@ -228,10 +228,10 @@ export default function PrivacySecurityScreen() {
 									text: 'Sign Out All',
 									style: 'destructive',
 									onPress: async () => {
-										await logout();
-										router.replace('/login');
-									},
+									await logout();
+									router.replace('/onboarding');
 								},
+							},
 							],
 						),
 				},

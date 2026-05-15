@@ -181,7 +181,7 @@ export default function RiderProfileScreen() {
 	const handleRow = (label: string) => {
 		if (label === 'Sign Out') {
 			logout();
-			router.replace('/login');
+			router.replace('/onboarding');
 		} else if (label === 'Earnings') {
 			router.push('/(rider)/earnings');
 		} else if (label === 'Identity Documents') {

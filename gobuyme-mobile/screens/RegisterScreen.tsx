@@ -86,6 +86,17 @@ function validationMessage(field: string, message: string) {
 	return message;
 }
 
+const PASSWORD_RULES = [
+	{ key: 'length', label: 'At least 8 characters', test: (v: string) => v.length >= 8 },
+	{ key: 'upper', label: 'One uppercase letter', test: (v: string) => /[A-Z]/.test(v) },
+	{ key: 'lower', label: 'One lowercase letter', test: (v: string) => /[a-z]/.test(v) },
+	{ key: 'number', label: 'One number', test: (v: string) => /[0-9]/.test(v) },
+	{ key: 'symbol', label: 'One symbol', test: (v: string) => /[^A-Za-z0-9]/.test(v) },
+];
+
+const isStrongPassword = (value: string) =>
+	PASSWORD_RULES.every(rule => rule.test(value));
+
 function getRegisterErrors(err: unknown): RegisterErrors {
 	const axiosErr = err as {
 		response?: {
@@ -181,8 +192,8 @@ export default function RegisterScreen() {
 		}
 
 		if (!password) next.password = 'Create a password.';
-		else if (password.length < 8)
-			next.password = 'Password must be at least 8 characters.';
+		else if (!isStrongPassword(password))
+			next.password = 'Use a stronger password that meets all rules.';
 
 		if (role === 'vendor') {
 			if (!bizName.trim()) next.businessName = 'Enter your business name.';
@@ -302,10 +313,29 @@ export default function RegisterScreen() {
 					setPassword(v);
 					clearError('password');
 				}}
-				placeholder="Min 8 characters"
+				placeholder="Create a strong password"
 				secureTextEntry
 				error={errors.password}
 			/>
+			{password.length > 0 && (
+				<View style={[styles.passwordHint, { backgroundColor: T.surface, borderColor: T.border }]}>
+					{PASSWORD_RULES.map(rule => {
+						const ok = rule.test(password);
+						return (
+							<View key={rule.key} style={styles.passwordRule}>
+								<Ionicons
+									name={ok ? 'checkmark-circle' : 'ellipse-outline'}
+									size={14}
+									color={ok ? T.success : T.textMuted}
+								/>
+								<Text style={[styles.passwordRuleText, { color: ok ? T.success : T.textSec }]}>
+									{rule.label}
+								</Text>
+							</View>
+						);
+					})}
+				</View>
+			)}
 
 			{role === 'vendor' && (
 				<>
@@ -540,6 +570,23 @@ const styles = StyleSheet.create({
 		fontSize: 13,
 		marginBottom: 12,
 		fontFamily: 'PlusJakartaSans_400Regular',
+	},
+	passwordHint: {
+		borderRadius: 4,
+		borderWidth: 1,
+		padding: 12,
+		gap: 7,
+		marginTop: -8,
+		marginBottom: 16,
+	},
+	passwordRule: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+	},
+	passwordRuleText: {
+		fontSize: 12,
+		fontFamily: 'PlusJakartaSans_500Medium',
 	},
 	loginLink: { alignItems: 'center', marginTop: 24 },
 	termsRow: {

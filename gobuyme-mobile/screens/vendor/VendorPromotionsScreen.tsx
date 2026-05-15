@@ -15,6 +15,8 @@ import api from '@/services/api';
 // Recommended dimensions for graphic designers — matches the customer homescreen
 // carousel card at ~1.86:1 aspect ratio.
 const PROMO_DIMENSIONS = { width: 1080, height: 580 };
+const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
 interface Vendor {
   commissionTier: 'TIER_1' | 'TIER_2';
@@ -31,10 +33,14 @@ interface Promo {
 }
 
 async function uploadToCloudinary(uri: string): Promise<string> {
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    throw new Error('Cloudinary configuration is missing.');
+  }
+
   const formData = new FormData();
   formData.append('file', { uri, type: 'image/jpeg', name: 'promo.jpg' } as any);
-  formData.append('upload_preset', 'gobuyme_unsigned');
-  const res = await fetch('https://api.cloudinary.com/v1_1/gobuyme/image/upload', {
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
     method: 'POST',
     body: formData,
   });

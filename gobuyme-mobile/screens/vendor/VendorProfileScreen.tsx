@@ -111,7 +111,7 @@ export default function VendorProfileScreen() {
 	const handleRow = (row: MenuRow) => {
 		if (row.label === 'Sign Out') {
 			logout();
-			router.replace('/login');
+			router.replace('/onboarding');
 			return;
 		}
 		if (row.route) router.push(row.route as any);

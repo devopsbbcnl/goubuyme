@@ -14,10 +14,16 @@ export const haversineDistance = (
   return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-export const calcDeliveryFee = (distanceKm: number): number => {
-  const base = parseFloat(process.env.DELIVERY_BASE_FEE || '500');
-  const perKm = parseFloat(process.env.DELIVERY_PER_KM_RATE || '100');
-  const max = parseFloat(process.env.DELIVERY_MAX_FEE || '3000');
+export interface DeliveryPricing {
+  deliveryBaseFee: number;
+  deliveryPerKmRate: number;
+  deliveryMaxFee: number;
+}
+
+export const calcDeliveryFee = (distanceKm: number, pricing?: Partial<DeliveryPricing>): number => {
+  const base = pricing?.deliveryBaseFee ?? parseFloat(process.env.DELIVERY_BASE_FEE || '500');
+  const perKm = pricing?.deliveryPerKmRate ?? parseFloat(process.env.DELIVERY_PER_KM_RATE || '100');
+  const max = pricing?.deliveryMaxFee ?? parseFloat(process.env.DELIVERY_MAX_FEE || '3000');
   return Math.min(Math.ceil(base + distanceKm * perKm), max);
 };
 

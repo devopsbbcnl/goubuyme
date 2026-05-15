@@ -1,10 +1,22 @@
 import Joi from 'joi';
 
+const strongPassword = Joi.string()
+  .min(8)
+  .pattern(/[A-Z]/, 'uppercase letter')
+  .pattern(/[a-z]/, 'lowercase letter')
+  .pattern(/[0-9]/, 'number')
+  .pattern(/[^A-Za-z0-9]/, 'symbol')
+  .required()
+  .messages({
+    'string.min': 'Password must be at least 8 characters.',
+    'string.pattern.name': 'Password must include at least one {#name}.',
+  });
+
 export const registerSchema = Joi.object({
   name: Joi.string().min(2).max(100).required(),
   email: Joi.string().email().required(),
   phone: Joi.string().pattern(/^\+?[0-9]{10,15}$/).optional().allow(''),
-  password: Joi.string().min(8).required(),
+  password: strongPassword,
   role: Joi.string().valid('CUSTOMER', 'VENDOR', 'RIDER').required(),
   referralCode: Joi.string().optional(),
   commissionTier: Joi.when('role', {

@@ -8,6 +8,7 @@ import { ApprovalStatus, CommissionTier, DocumentStatus, DocumentType, LicenseSt
 import { updateVendorBadge } from './vendor.controller';
 import { notifyUser } from '../services/notification.service';
 import { generateReferralCode } from '../utils/generateToken';
+import { getPlatformSettings, updatePlatformSettings, PlatformSettingsPatch } from '../services/settings.service';
 import logger from '../utils/logger';
 
 // GET /admin/dashboard
@@ -62,6 +63,78 @@ export const getDashboardStats = catchAsync(async (_req: Request, res: Response)
       riderName: o.rider?.user.name ?? null,
     })),
   });
+});
+
+// GET /admin/settings
+export const getAdminSettings = catchAsync(async (_req: Request, res: Response) => {
+  const settings = await getPlatformSettings();
+  return apiResponse.success(res, 'Settings fetched.', settings);
+});
+
+// PATCH /admin/settings
+export const updateAdminSettings = catchAsync(async (req: AuthRequest, res: Response) => {
+  const body = req.body as Record<string, unknown>;
+  const patch: PlatformSettingsPatch = {};
+
+  if ('platformName' in body) {
+    const platformName = String(body.platformName ?? '').trim();
+    if (!platformName) return apiResponse.error(res, 'Platform name is required.', 400);
+    patch.platformName = platformName;
+  }
+
+  if ('supportEmail' in body) {
+    const supportEmail = String(body.supportEmail ?? '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supportEmail)) {
+      return apiResponse.error(res, 'A valid support email is required.', 400);
+    }
+    patch.supportEmail = supportEmail;
+  }
+
+  type NumericSettingKey =
+    | 'deliveryBaseFee'
+    | 'deliveryPerKmRate'
+    | 'deliveryMaxFee'
+    | 'maxDeliveryRadiusKm'
+    | 'cancellationWindowMinutes';
+
+  const numericFields: Array<[NumericSettingKey, string, number, number]> = [
+    ['deliveryBaseFee', 'Delivery base fee', 0, 100_000],
+    ['deliveryPerKmRate', 'Delivery per km rate', 0, 100_000],
+    ['deliveryMaxFee', 'Delivery max fee', 0, 1_000_000],
+    ['maxDeliveryRadiusKm', 'Max delivery radius', 1, 500],
+    ['cancellationWindowMinutes', 'Cancellation window', 0, 240],
+  ];
+
+  for (const [key, label, min, max] of numericFields) {
+    if (!(key in body)) continue;
+    const value = asFiniteNumber(body[key]);
+    if (value === null || value < min || value > max) {
+      return apiResponse.error(res, `${label} must be between ${min} and ${max}.`, 400);
+    }
+    if (key === 'cancellationWindowMinutes') {
+      patch[key] = Math.round(value);
+    } else {
+      patch[key] = value;
+    }
+  }
+
+  if ('maintenanceMode' in body) {
+    patch.maintenanceMode = Boolean(body.maintenanceMode);
+  }
+
+  const settings = await updatePlatformSettings(patch);
+
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user!.userId,
+      action: 'UPDATE_SETTINGS',
+      entity: 'PlatformSetting',
+      entityId: settings.id,
+      meta: patch,
+    },
+  }).catch(() => {});
+
+  return apiResponse.success(res, 'Settings updated.', settings);
 });
 
 // GET /admin/vendors
@@ -411,6 +484,130 @@ export const getAdminOrders = catchAsync(async (req: Request, res: Response) => 
   });
 });
 
+// GET /admin/orders/:id
+export const getAdminOrderDetail = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const order = await prisma.order.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      paymentStatus: true,
+      paymentMethod: true,
+      subtotal: true,
+      deliveryFee: true,
+      originalDeliveryFee: true,
+      platformFee: true,
+      totalAmount: true,
+      freeDeliveryUsed: true,
+      deliveryAddress: true,
+      deliveryLatitude: true,
+      deliveryLongitude: true,
+      distanceKm: true,
+      paystackRef: true,
+      paystackVerified: true,
+      note: true,
+      estimatedTime: true,
+      cancelReason: true,
+      rating: true,
+      review: true,
+      createdAt: true,
+      updatedAt: true,
+      customer: {
+        select: {
+          id: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              avatar: true,
+              isEmailVerified: true,
+              isPhoneVerified: true,
+              isActive: true,
+              createdAt: true,
+            },
+          },
+        },
+      },
+      vendor: {
+        select: {
+          id: true,
+          businessName: true,
+          slug: true,
+          category: true,
+          address: true,
+          city: true,
+          state: true,
+          latitude: true,
+          longitude: true,
+          isOpen: true,
+          approvalStatus: true,
+          commissionTier: true,
+          rating: true,
+          totalRatings: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              isActive: true,
+            },
+          },
+        },
+      },
+      rider: {
+        select: {
+          id: true,
+          vehicleType: true,
+          plateNumber: true,
+          isAvailable: true,
+          isOnline: true,
+          latitude: true,
+          longitude: true,
+          approvalStatus: true,
+          rating: true,
+          totalRatings: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              avatar: true,
+              isActive: true,
+            },
+          },
+        },
+      },
+      items: {
+        select: {
+          id: true,
+          menuItemId: true,
+          name: true,
+          price: true,
+          quantity: true,
+          menuItem: {
+            select: {
+              image: true,
+              category: true,
+              isAvailable: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!order) return apiResponse.error(res, 'Order not found.', 404);
+
+  return apiResponse.success(res, 'Order detail fetched.', order);
+});
+
 // GET /admin/payouts
 export const getAdminPayouts = catchAsync(async (_req: Request, res: Response) => {
   const [vendorPending, vendorCompleted, riderPending, riderCompleted] = await Promise.all([
@@ -641,6 +838,11 @@ const TIER_COOLDOWN_DAYS = 14;
 const TIER_RATE_LABELS: Record<CommissionTier, string> = {
   TIER_1: '3%',
   TIER_2: '7.5%',
+};
+
+const asFiniteNumber = (value: unknown): number | null => {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  return Number.isFinite(n) ? n : null;
 };
 
 // PATCH /admin/vendors/:id/tier

@@ -35,7 +35,7 @@ export default function ProfileScreen() {
   const handleItem = (item: MenuItem) => {
     if (item.label === 'Sign Out') {
       logout();
-      router.replace('/login');
+      router.replace('/onboarding');
       return;
     }
     if (item.route) router.push(item.route as any);

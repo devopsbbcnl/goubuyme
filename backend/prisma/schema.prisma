@@ -606,3 +606,19 @@ model EmailOtp {
 
   @@map("email_otps")
 }
+
+model PlatformSetting {
+  id                        String   @id @default("default")
+  platformName              String   @default("GoBuyMe")
+  supportEmail              String   @default("support@gobuyme.shop")
+  deliveryBaseFee           Float    @default(500)
+  deliveryPerKmRate         Float    @default(100)
+  deliveryMaxFee            Float    @default(3000)
+  maxDeliveryRadiusKm       Float    @default(25)
+  cancellationWindowMinutes Int      @default(10)
+  maintenanceMode           Boolean  @default(false)
+  updatedAt                 DateTime @updatedAt
+  createdAt                 DateTime @default(now())
+
+  @@map("platform_settings")
+}

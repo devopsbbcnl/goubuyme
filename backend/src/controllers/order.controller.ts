@@ -6,6 +6,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { haversineDistance, calcDeliveryFee, estimateDeliveryMinutes } from '../services/distance.service';
 import { calcVendorFee } from '../services/commission.service';
 import { applyFreeDelivery } from '../services/referral.service';
+import { getPlatformSettings } from '../services/settings.service';
 import { getIO } from '../config/socket';
 import { notifyUser } from '../services/notification.service';
 import { PaymentMethod, OrderStatus } from '@prisma/client';
@@ -45,7 +46,16 @@ export const estimateDeliveryFee = catchAsync(async (req: AuthRequest, res: Resp
     }
   }
 
-  const fee = calcDeliveryFee(distanceKm);
+  const settings = await getPlatformSettings();
+  if (distanceKm > settings.maxDeliveryRadiusKm) {
+    return apiResponse.error(
+      res,
+      `Delivery address is outside the ${settings.maxDeliveryRadiusKm} km delivery radius.`,
+      400,
+    );
+  }
+
+  const fee = calcDeliveryFee(distanceKm, settings);
   return apiResponse.success(res, 'Delivery fee estimated.', { deliveryFee: fee, distanceKm: Math.round(distanceKm * 100) / 100 });
 });
 
@@ -99,7 +109,16 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
     );
   }
 
-  const originalDeliveryFee = calcDeliveryFee(distanceKm);
+  const settings = await getPlatformSettings();
+  if (distanceKm > settings.maxDeliveryRadiusKm) {
+    return apiResponse.error(
+      res,
+      `Delivery address is outside the ${settings.maxDeliveryRadiusKm} km delivery radius.`,
+      400,
+    );
+  }
+
+  const originalDeliveryFee = calcDeliveryFee(distanceKm, settings);
   const { fee: deliveryFee, creditUsed } = await applyFreeDelivery(customer.id, originalDeliveryFee);
   const { platformFee, netAmount } = calcVendorFee(subtotal, vendor.commissionTier);
   const totalAmount = subtotal + deliveryFee;
@@ -168,6 +187,12 @@ export const cancelOrder = catchAsync(async (req: AuthRequest, res: Response) =>
 
   if (!['PENDING', 'CONFIRMED'].includes(order.status)) {
     return apiResponse.error(res, 'Order cannot be cancelled at this stage.', 400);
+  }
+
+  const settings = await getPlatformSettings();
+  const cancelUntil = order.createdAt.getTime() + settings.cancellationWindowMinutes * 60_000;
+  if (Date.now() > cancelUntil) {
+    return apiResponse.error(res, `Orders can only be cancelled within ${settings.cancellationWindowMinutes} minutes.`, 400);
   }
 
   await prisma.order.update({

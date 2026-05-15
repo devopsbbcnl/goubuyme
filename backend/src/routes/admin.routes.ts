@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import {
   getDashboardStats,
+  getAdminSettings,
+  updateAdminSettings,
   getAdminVendors, updateVendorStatus, updateVendorTier, adminCreateVendor,
   adminCreateRider,
   getVendorDetail, updateVendorDocumentStatus,
@@ -8,6 +10,7 @@ import {
   getAdminRiders, getAdminRiderDetail, updateRiderStatus, updateRiderDocumentStatus,
   getAdminCustomers,
   getAdminOrders,
+  getAdminOrderDetail,
   getAuditLogs,
   getAdminPayouts,
   processManualPayout,
@@ -30,6 +33,8 @@ const readAuth       = [verifyToken, requireRole('SUPER_ADMIN', 'OPERATIONS_ADMI
 
 // Dashboard
 router.get('/dashboard', ...readAuth, getDashboardStats);
+router.get('/settings', ...readAuth, getAdminSettings);
+router.patch('/settings', ...superAdminAuth, updateAdminSettings);
 
 // Vendors
 router.get('/vendors',                                          ...readAuth,       getAdminVendors);
@@ -51,6 +56,7 @@ router.patch('/riders/:id/document/status',  ...opsAuth,  updateRiderDocumentSta
 // Customers & Orders
 router.get('/customers', ...readAuth, getAdminCustomers);
 router.get('/orders',    ...readAuth, getAdminOrders);
+router.get('/orders/:id', ...readAuth, getAdminOrderDetail);
 
 // Audit logs
 router.get('/audit', ...readAuth, getAuditLogs);

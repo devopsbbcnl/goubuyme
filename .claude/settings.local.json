@@ -43,7 +43,9 @@
       "Bash(python3 scripts/search.py \"food delivery menu item detail Nigerian app vibrant\" --design-system -p \"GoBuyMe Menu Detail\")",
       "Bash(python scripts/search.py \"food delivery menu item detail Nigerian app vibrant\" --design-system -p \"GoBuyMe Menu Detail\")",
       "PowerShell($ts = Get-Date -Format \"yyyyMMddHHmmss\"; $dir = \"c:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\backend\\\\prisma\\\\migrations\\\\${ts}_fix_cart_item_unit_price_column\"; New-Item -ItemType Directory -Path $dir -Force | Out-Null; Write-Output $dir)",
-      "Bash(dir \"c:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-mobile\\\\services\" /b)"
+      "Bash(dir \"c:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-mobile\\\\services\" /b)",
+      "Bash(python -c \"from PIL import Image; img = Image.open\\('icon.png'\\); print\\('icon.png:', img.size, img.mode\\); img2 = Image.open\\('adaptive-icon.png'\\); print\\('adaptive-icon.png:', img2.size, img2.mode\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const buf=fs.readFileSync\\('icon.png'\\); const w=buf.readUInt32BE\\(16\\); const h=buf.readUInt32BE\\(20\\); console.log\\('icon.png:',w+'x'+h\\); const buf2=fs.readFileSync\\('adaptive-icon.png'\\); const w2=buf2.readUInt32BE\\(16\\); const h2=buf2.readUInt32BE\\(20\\); console.log\\('adaptive-icon.png:',w2+'x'+h2\\);\")"
     ]
   }
 }

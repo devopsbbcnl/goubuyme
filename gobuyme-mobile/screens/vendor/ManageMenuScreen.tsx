@@ -71,6 +71,9 @@ const CATEGORIES = [
 	'Other',
 ];
 
+const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
 function formatPrice(n: number) {
 	return (
 		'₦' +
@@ -82,15 +85,19 @@ function formatPrice(n: number) {
 }
 
 async function uploadImage(uri: string): Promise<string> {
+	if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+		throw new Error('Cloudinary configuration is missing.');
+	}
+
 	const formData = new FormData();
 	formData.append('file', {
 		uri,
 		type: 'image/jpeg',
 		name: 'menu-item.jpg',
 	} as any);
-	formData.append('upload_preset', 'gobuyme_unsigned');
+	formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 	const res = await fetch(
-		'https://api.cloudinary.com/v1_1/gobuyme/image/upload',
+		`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
 		{
 			method: 'POST',
 			body: formData,
