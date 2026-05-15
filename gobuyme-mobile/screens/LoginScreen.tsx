@@ -9,6 +9,7 @@ import { AppInput } from '@/components/ui/AppInput';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ROLE_ROUTE: Record<string, string> = {
   customer: '/(customer)',
@@ -116,6 +117,11 @@ export default function LoginScreen() {
       const axiosErr = err as { response?: { status?: number; data?: { errors?: { requiresVerification?: boolean; userId?: string; email?: string; role?: string }[] } } };
       const verificationPayload = axiosErr.response?.data?.errors?.[0];
       if (axiosErr.response?.status === 403 && verificationPayload?.requiresVerification) {
+        await AsyncStorage.setItem('pendingOtp', JSON.stringify({
+          userId: verificationPayload.userId,
+          email: verificationPayload.email,
+          role: verificationPayload.role,
+        }));
         router.replace({
           pathname: '/verify-otp',
           params: {

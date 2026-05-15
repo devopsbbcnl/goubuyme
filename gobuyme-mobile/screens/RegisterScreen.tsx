@@ -13,6 +13,7 @@ import { AppInput } from '@/components/ui/AppInput';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type RoleParam = 'customer' | 'vendor' | 'rider';
 
@@ -254,6 +255,9 @@ export default function RegisterScreen() {
 			const res = await api.post('/auth/register', payload);
 			const { userId, email: verifyEmail, role: verifyRole } = res.data.data;
 
+			await AsyncStorage.setItem('pendingOtp', JSON.stringify({
+				userId, email: verifyEmail, role: verifyRole.toLowerCase(),
+			}));
 			router.replace({
 				pathname: '/verify-otp',
 				params: { userId, email: verifyEmail, role: verifyRole.toLowerCase() },

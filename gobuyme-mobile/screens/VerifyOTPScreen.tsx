@@ -15,6 +15,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
@@ -79,6 +80,7 @@ export default function VerifyOTPScreen() {
 			setBusy(true);
 			setError('');
 			await api.post('/auth/verify-otp', { userId, otp });
+			await AsyncStorage.removeItem('pendingOtp');
 			router.replace({
 				pathname: '/register-success',
 				params: { role },
