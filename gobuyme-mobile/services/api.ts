@@ -57,7 +57,11 @@ api.interceptors.response.use(
       if (!storedRefresh) throw new Error('no_refresh_token');
 
       // Use a plain axios call so it doesn't go through our interceptor again
-      const { data } = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken: storedRefresh });
+      const { data } = await axios.post(
+        `${BASE_URL}/auth/refresh`,
+        { refreshToken: storedRefresh },
+        { timeout: 8000 },
+      );
       const { accessToken: newAccess, refreshToken: newRefresh } = data.data as {
         accessToken: string; refreshToken: string;
       };
@@ -70,12 +74,25 @@ api.interceptors.response.use(
       return api(original);
     } catch (refreshErr) {
       rejectQueue(refreshErr);
-      await Promise.all([
-        SecureStore.deleteItemAsync('accessToken'),
-        SecureStore.deleteItemAsync('refreshToken'),
-        SecureStore.deleteItemAsync('userProfile'),
-      ]);
-      onUnauthorized?.();
+
+      const refreshStatus = (refreshErr as any)?.response?.status;
+      const isHardRejection =
+        (refreshErr as Error)?.message === 'no_refresh_token' ||
+        refreshStatus === 401 ||
+        refreshStatus === 403;
+
+      // Only force-logout when the server explicitly rejects the refresh token.
+      // Network errors (no response) must NOT log the user out — a momentary
+      // connectivity blip should not end the session.
+      if (isHardRejection) {
+        await Promise.all([
+          SecureStore.deleteItemAsync('accessToken'),
+          SecureStore.deleteItemAsync('refreshToken'),
+          SecureStore.deleteItemAsync('userProfile'),
+        ]);
+        onUnauthorized?.();
+      }
+
       return Promise.reject(err);
     } finally {
       isRefreshing = false;

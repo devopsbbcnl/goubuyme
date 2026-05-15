@@ -55,7 +55,8 @@
       "Bash(git checkout *)",
       "Bash(npm uninstall *)",
       "Bash(node -e \"const fs=require\\('fs'\\),buf=fs.readFileSync\\('c:/Users/Okonk/OneDrive/Desktop/BUBBLE BARREL/Gobuyme6/gobuyme-mobile/assets/adaptive-icon.png'\\);console.log\\(buf.readUInt32BE\\(16\\)+'x'+buf.readUInt32BE\\(20\\)\\);\")",
-      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('c:/Users/Okonk/OneDrive/Desktop/BUBBLE BARREL/Gobuyme6/gobuyme-mobile/app.json','utf8'\\)\\); console.log\\('valid'\\)\")"
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('c:/Users/Okonk/OneDrive/Desktop/BUBBLE BARREL/Gobuyme6/gobuyme-mobile/app.json','utf8'\\)\\); console.log\\('valid'\\)\")",
+      "Bash(Select-Object FullName)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"

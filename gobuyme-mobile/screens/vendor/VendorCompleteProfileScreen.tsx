@@ -81,7 +81,7 @@ const PLAN_DETAILS: Record<Tier, {
 };
 
 async function uploadImage(uri: string): Promise<string> {
-  if (!CLOUD_NAME || CLOUD_NAME === 'your_cloud_name') return uri;
+  if (!CLOUD_NAME || !UPLOAD_PRESET) throw new Error('Image upload is not configured. Contact support.');
   const form = new FormData();
   form.append('file', { uri, type: 'image/jpeg', name: 'upload.jpg' } as any);
   form.append('upload_preset', UPLOAD_PRESET);
@@ -89,8 +89,10 @@ async function uploadImage(uri: string): Promise<string> {
     `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
     { method: 'POST', body: form },
   );
-  if (!res.ok) throw new Error('Upload failed');
-  return ((await res.json()) as { secure_url: string }).secure_url;
+  if (!res.ok) throw new Error('Image upload failed. Please try again.');
+  const data = (await res.json()) as { secure_url?: string };
+  if (!data.secure_url) throw new Error('Image upload failed. Please try again.');
+  return data.secure_url;
 }
 
 function freshDraft(): MenuItemDraft {

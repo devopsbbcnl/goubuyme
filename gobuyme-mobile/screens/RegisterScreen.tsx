@@ -21,6 +21,7 @@ type RegisterErrors = {
 	email?: string;
 	phone?: string;
 	password?: string;
+	confirmPassword?: string;
 	businessName?: string;
 	address?: string;
 	city?: string;
@@ -150,6 +151,7 @@ export default function RegisterScreen() {
 	const [email, setEmail] = useState('');
 	const [phone, setPhone] = useState('');
 	const [password, setPassword] = useState('');
+	const [confirmPassword, setConfirmPassword] = useState('');
 	const [referral, setReferral] = useState('');
 
 	const [bizName, setBizName] = useState('');
@@ -195,6 +197,10 @@ export default function RegisterScreen() {
 		else if (!isStrongPassword(password))
 			next.password = 'Use a stronger password that meets all rules.';
 
+		if (!confirmPassword) next.confirmPassword = 'Please confirm your password.';
+		else if (confirmPassword !== password)
+			next.confirmPassword = 'Passwords do not match.';
+
 		if (role === 'vendor') {
 			if (!bizName.trim()) next.businessName = 'Enter your business name.';
 			if (!address.trim()) next.address = 'Enter your street address.';
@@ -204,7 +210,6 @@ export default function RegisterScreen() {
 
 		if (role === 'rider') {
 			if (!vehicle.trim()) next.vehicleType = 'Enter your vehicle type.';
-			if (!plateNumber.trim()) next.plateNumber = 'Enter your vehicle licence plate number.';
 		}
 
 		if (!termsAccepted) {
@@ -243,7 +248,7 @@ export default function RegisterScreen() {
 
 			if (role === 'rider') {
 				payload.vehicleType = vehicle.trim();
-				payload.plateNumber = plateNumber.trim().toUpperCase();
+				if (plateNumber.trim()) payload.plateNumber = plateNumber.trim().toUpperCase();
 			}
 
 			const res = await api.post('/auth/register', payload);
@@ -336,6 +341,17 @@ export default function RegisterScreen() {
 					})}
 				</View>
 			)}
+			<AppInput
+				label="Confirm Password"
+				value={confirmPassword}
+				onChangeText={(v) => {
+					setConfirmPassword(v);
+					clearError('confirmPassword');
+				}}
+				placeholder="Re-enter your password"
+				secureTextEntry
+				error={errors.confirmPassword}
+			/>
 
 			{role === 'vendor' && (
 				<>
@@ -432,14 +448,14 @@ export default function RegisterScreen() {
 						error={errors.vehicleType}
 					/>
 					<AppInput
-						label="Licence Plate Number"
+						label="Licence Plate Number (optional)"
 						value={plateNumber}
 						onChangeText={(v) => {
 							setPlateNumber(v.toUpperCase());
 							clearError('plateNumber');
 						}}
 						placeholder="e.g. ABC 123 DE"
-						autoCapitalize="characters"
+						autoCorrect={false}
 						error={errors.plateNumber}
 					/>
 				</>

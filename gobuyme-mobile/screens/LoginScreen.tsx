@@ -38,7 +38,7 @@ function getLoginErrorMessage(err: unknown): LoginErrors {
   if (fieldError?.field === 'password') return { password: 'Enter your password.' };
   if (status === 404) return { email: 'No account found with this email address.' };
   if (status === 401) return { password: 'Incorrect password. Please try again.' };
-  if (status === 403) return { general: message ?? 'Account suspended. Contact support.' };
+  if (status === 403) return { general: message ?? 'Account access denied. Contact support.' };
   if (status === 429) return { general: 'Too many login attempts. Please wait a moment and try again.' };
   if (axiosErr.request && !axiosErr.response) {
     return { general: 'Cannot reach the server. Check your connection and try again.' };
@@ -113,6 +113,19 @@ export default function LoginScreen() {
       const route = ROLE_ROUTE[role ?? ''] ?? '/(customer)';
       router.replace(route as never);
     } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number; data?: { errors?: { requiresVerification?: boolean; userId?: string; email?: string; role?: string }[] } } };
+      const verificationPayload = axiosErr.response?.data?.errors?.[0];
+      if (axiosErr.response?.status === 403 && verificationPayload?.requiresVerification) {
+        router.replace({
+          pathname: '/verify-otp',
+          params: {
+            userId: verificationPayload.userId,
+            email: verificationPayload.email,
+            role: verificationPayload.role,
+          },
+        } as never);
+        return;
+      }
       setErrors(getLoginErrorMessage(err));
     } finally {
       setBusy(false);

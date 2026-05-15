@@ -170,6 +170,13 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) return apiResponse.error(res, 'Incorrect password. Please try again.', 401);
 
+  if (!user.isEmailVerified) {
+    await createAndDispatchOtp(user.id, user.email, user.name);
+    return apiResponse.error(res, 'Your email is not verified. A new code has been sent to your email.', 403, [
+      { requiresVerification: true, userId: user.id, email: user.email, role: user.role.toLowerCase() },
+    ]);
+  }
+
   const accessToken = generateAccessToken({ userId: user.id, role: user.role });
   const refreshToken = generateRefreshToken({ userId: user.id, role: user.role });
 

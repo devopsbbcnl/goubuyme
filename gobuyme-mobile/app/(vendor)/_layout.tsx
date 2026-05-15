@@ -1,5 +1,5 @@
 import { Tabs, router } from 'expo-router';
-import { StatusBar } from 'react-native';
+import { AppState, StatusBar } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -15,17 +15,34 @@ export default function VendorLayout() {
 
   useEffect(() => {
     if (!user) return;
-    api.get('/auth/activation-status')
-      .then(res => {
-        const { approvalStatus } = res.data.data;
-        updateApprovalStatus(approvalStatus);
-        if (approvalStatus !== 'APPROVED') {
-          router.replace({ pathname: '/account-not-active', params: { role: 'vendor' } } as never);
-        } else {
-          setReady(true);
-        }
-      })
-      .catch(() => setReady(true));
+
+    const checkApproval = () => {
+      api.get('/auth/activation-status')
+        .then(res => {
+          const { approvalStatus } = res.data.data;
+          if (approvalStatus !== user.approvalStatus) updateApprovalStatus(approvalStatus);
+          if (approvalStatus !== 'APPROVED') {
+            router.replace({ pathname: '/account-not-active', params: { role: 'vendor' } } as never);
+          } else {
+            setReady(true);
+          }
+        })
+        .catch(() => {
+          // Network failed — fall back to cached status rather than failing open
+          if (user.approvalStatus === 'APPROVED') {
+            setReady(true);
+          } else {
+            router.replace({ pathname: '/account-not-active', params: { role: 'vendor' } } as never);
+          }
+        });
+    };
+
+    checkApproval();
+
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') checkApproval();
+    });
+    return () => sub.remove();
   }, [user?.id]);
 
   if (!ready) return null;

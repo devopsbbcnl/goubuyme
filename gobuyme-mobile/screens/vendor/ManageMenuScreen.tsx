@@ -86,7 +86,7 @@ function formatPrice(n: number) {
 
 async function uploadImage(uri: string): Promise<string> {
 	if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-		throw new Error('Cloudinary configuration is missing.');
+		throw new Error('Image upload is not configured. Contact support.');
 	}
 
 	const formData = new FormData();
@@ -103,9 +103,10 @@ async function uploadImage(uri: string): Promise<string> {
 			body: formData,
 		},
 	);
-	if (!res.ok) return uri;
+	if (!res.ok) throw new Error('Image upload failed. Please try again.');
 	const data = await res.json();
-	return data.secure_url ?? uri;
+	if (!data.secure_url) throw new Error('Image upload failed. Please try again.');
+	return data.secure_url;
 }
 
 export default function ManageMenuScreen() {
