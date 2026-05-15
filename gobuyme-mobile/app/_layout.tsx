@@ -33,6 +33,10 @@ function AppContent() {
     });
   }, [logout]);
 
+  useEffect(() => {
+    if (!authLoading) SplashScreen.hideAsync();
+  }, [authLoading]);
+
   if (authLoading) return null;
 
   return (
@@ -63,10 +67,6 @@ export default function RootLayout() {
     PlusJakartaSans_700Bold,
     PlusJakartaSans_800ExtraBold,
   });
-
-  useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync();
-  }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;
 
