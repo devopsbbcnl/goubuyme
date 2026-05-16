@@ -140,7 +140,7 @@ export default function RiderSetupPage() {
       <PageShell T={T}>
         <div style={{ width: '100%', maxWidth: 440 }}>
           <PageBrand title="Complete your rider profile" sub="Sign in to your GoBuyMe rider account" T={T} />
-          <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: 28 }}>
+          <div style={{ background: '#fff', border: `1px solid ${T.border}`, borderRadius: 4, padding: 28 }}>
             <form onSubmit={handleLogin}>
               <div style={{ marginBottom: 16 }}>
                 <label style={labelStyle(T)}>Email</label>
@@ -154,7 +154,7 @@ export default function RiderSetupPage() {
               </div>
               {loginError && <ErrorBanner msg={loginError} />}
               <button type="submit" disabled={loginLoading}
-                style={{ width: '100%', padding: '12px', borderRadius: 4, background: loginLoading ? T.surface3 : '#FF521B', border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: loginLoading ? 'not-allowed' : 'pointer' }}>
+                style={{ width: '100%', padding: '12px', borderRadius: 4, background: loginLoading ? '#e8e4de' : '#FF521B', border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: loginLoading ? 'not-allowed' : 'pointer' }}>
                 {loginLoading ? 'Signing in…' : 'Continue'}
               </button>
             </form>
@@ -173,11 +173,11 @@ export default function RiderSetupPage() {
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#1A9E5F20', border: '2px solid #1A9E5F40', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28, color: '#1A9E5F' }}>
             &#10003;
           </div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: T.text, marginBottom: 10 }}>Documents submitted!</div>
-          <div style={{ fontSize: 15, color: T.textSec, lineHeight: 1.7, marginBottom: 24 }}>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#111', marginBottom: 10 }}>Documents submitted!</div>
+          <div style={{ fontSize: 15, color: '#444', lineHeight: 1.7, marginBottom: 24 }}>
             Our team will review your documents and activate your account within 1–2 business days. You&apos;ll receive an email once you&apos;re approved and ready to go.
           </div>
-          <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: 16, fontSize: 13, color: T.textSec }}>
+          <div style={{ background: '#fff', border: `1px solid ${T.border}`, borderRadius: 4, padding: 16, fontSize: 13, color: '#444' }}>
             Download the GoBuyMe app and stay ready to go online once your account is activated.
           </div>
         </div>
@@ -187,19 +187,19 @@ export default function RiderSetupPage() {
 
   // ── FORM ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: '#251605', fontFamily: 'var(--font-jakarta), sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#fbfbf2', fontFamily: 'var(--font-jakarta), sans-serif' }}>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: '40px 24px 100px' }}>
 
         {/* Header */}
         <div style={{ marginBottom: 40 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <Image src="/icon.png" alt="GoBuyMe" width={40} height={40} style={{ objectFit: 'contain' }} />
-            <span style={{ fontSize: 13, color: T.textSec }}>GoBuyMe Rider Setup</span>
+            <span style={{ fontSize: 13, color: '#444' }}>GoBuyMe Rider Setup</span>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: T.text, letterSpacing: '-0.5px', marginBottom: 6 }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#111', letterSpacing: '-0.5px', marginBottom: 6 }}>
             Identity Documents
           </div>
-          <div style={{ fontSize: 14, color: T.textSec, lineHeight: 1.6 }}>
+          <div style={{ fontSize: 14, color: '#444', lineHeight: 1.6 }}>
             Your NIN, a selfie, and vehicle or guarantor details are required before your account can be activated.
           </div>
         </div>
@@ -243,7 +243,7 @@ export default function RiderSetupPage() {
 
         {/* ── GUARANTOR ── */}
         <SectionLabel label="GUARANTOR" T={T} mt={32} />
-        <div style={{ fontSize: 13, color: T.textSec, marginBottom: 18, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 13, color: '#444', marginBottom: 18, lineHeight: 1.5 }}>
           A guarantor vouches for your reliability. Providing one is strongly recommended for faster approval.
         </div>
 
@@ -266,13 +266,13 @@ export default function RiderSetupPage() {
           value={guarantorAddress} onChange={e => setGuarantorAddress(e.target.value)}
           placeholder="Street address"
           rows={3}
-          style={{ width: '100%', boxSizing: 'border-box', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: '10px 14px', color: T.text, fontSize: 14, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
+          style={{ width: '100%', boxSizing: 'border-box', background: '#fff', border: `1px solid ${T.border}`, borderRadius: 4, padding: '10px 14px', color: '#111', fontSize: 14, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
         />
 
         {/* Privacy */}
-        <div style={{ display: 'flex', gap: 8, background: T.surface2, borderRadius: 4, padding: 12, marginTop: 20, marginBottom: 32 }}>
-          <span style={{ color: T.textMuted, flexShrink: 0 }}>&#128274;</span>
-          <span style={{ fontSize: 12, color: T.textMuted, lineHeight: 1.6 }}>
+        <div style={{ display: 'flex', gap: 8, background: '#f0ede6', borderRadius: 4, padding: 12, marginTop: 20, marginBottom: 32 }}>
+          <span style={{ color: '#888', flexShrink: 0 }}>&#128274;</span>
+          <span style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>
             Your documents are encrypted and used only for identity verification. They are never shared with third parties.
           </span>
         </div>
@@ -281,7 +281,7 @@ export default function RiderSetupPage() {
 
         <button
           onClick={handleSubmit} disabled={saving || anyUploading}
-          style={{ width: '100%', padding: '14px', borderRadius: 4, border: 'none', background: (saving || anyUploading) ? T.surface3 : '#FF521B', color: '#fff', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: (saving || anyUploading) ? 'not-allowed' : 'pointer' }}>
+          style={{ width: '100%', padding: '14px', borderRadius: 4, border: 'none', background: (saving || anyUploading) ? '#e8e4de' : '#FF521B', color: '#fff', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: (saving || anyUploading) ? 'not-allowed' : 'pointer' }}>
           {saving ? 'Submitting…' : anyUploading ? 'Waiting for uploads…' : 'Submit Documents'}
         </button>
       </div>
@@ -293,7 +293,7 @@ export default function RiderSetupPage() {
 
 function PageShell({ children, T }: { children: ReactNode; T: Record<string, string> }) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#251605', fontFamily: 'var(--font-jakarta), sans-serif', padding: '20px' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fbfbf2', fontFamily: 'var(--font-jakarta), sans-serif', padding: '20px' }}>
       {children}
     </div>
   );
@@ -303,8 +303,8 @@ function PageBrand({ title, sub, T }: { title: string; sub: string; T: Record<st
   return (
     <div style={{ textAlign: 'center', marginBottom: 28 }}>
       <Image src="/icon.png" alt="GoBuyMe" width={120} height={120} style={{ objectFit: 'contain', marginBottom: 12 }} />
-      <div style={{ fontSize: 22, fontWeight: 800, color: T.text }}>{title}</div>
-      <div style={{ fontSize: 14, color: T.textSec, marginTop: 4 }}>{sub}</div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: '#111' }}>{title}</div>
+      <div style={{ fontSize: 14, color: '#444', marginTop: 4 }}>{sub}</div>
     </div>
   );
 }
@@ -312,17 +312,17 @@ function PageBrand({ title, sub, T }: { title: string; sub: string; T: Record<st
 function SectionLabel({ label, T, mt }: { label: string; T: Record<string, string>; mt?: number }) {
   return (
     <div style={{ marginTop: mt ?? 0, marginBottom: 10 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: T.textSec, letterSpacing: '0.5px' }}>{label}</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: '#444', letterSpacing: '0.5px' }}>{label}</span>
     </div>
   );
 }
 
 function labelStyle(T: Record<string, string>): CSSProperties {
-  return { display: 'block', fontSize: 12, fontWeight: 600, color: T.textSec, marginBottom: 6 };
+  return { display: 'block', fontSize: 12, fontWeight: 600, color: '#444', marginBottom: 6 };
 }
 
 function inputStyle(T: Record<string, string>): CSSProperties {
-  return { width: '100%', boxSizing: 'border-box', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: '10px 14px', color: T.text, fontSize: 14, outline: 'none', fontFamily: 'inherit' };
+  return { width: '100%', boxSizing: 'border-box', background: '#fff', border: `1px solid ${T.border}`, borderRadius: 4, padding: '10px 14px', color: '#111', fontSize: 14, outline: 'none', fontFamily: 'inherit' };
 }
 
 function ImgBox({ preview, uploading, hint, onClick, T }: {
@@ -331,11 +331,11 @@ function ImgBox({ preview, uploading, hint, onClick, T }: {
   return (
     <div
       onClick={onClick}
-      style={{ height: 110, borderRadius: 4, border: `1px dashed ${T.border}`, background: T.surface, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: 6 }}
+      style={{ height: 110, borderRadius: 4, border: `1px dashed ${T.border}`, background: '#fff', cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: 6 }}
     >
       {preview
         ? <img src={preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        : <div style={{ textAlign: 'center', color: T.textMuted }}>
+        : <div style={{ textAlign: 'center', color: '#888' }}>
             <div style={{ fontSize: 22, marginBottom: 6 }}>&#128247;</div>
             <div style={{ fontSize: 12 }}>{hint}</div>
           </div>

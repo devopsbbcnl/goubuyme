@@ -2,9 +2,9 @@ import { Resend } from 'resend';
 import logger from '../utils/logger';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.EMAIL_FROM ?? 'GoBuyMe <noreply@gobuyme.com>';
-const DASHBOARD_URL = process.env.DASHBOARD_URL ?? 'https://dashboard.gobuyme.com';
-const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? 'support@gobuyme.com';
+const FROM = process.env.EMAIL_FROM ?? 'GoBuyMe <noreply@notifications.gobuyme.shop>';
+const DASHBOARD_URL = process.env.DASHBOARD_URL ?? 'https://dashboard.gobuyme.shop';
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? 'support@gobuyme.shop';
 const LOGO_URL = process.env.LOGO_URL ?? '';
 
 // ─── Base ──────────────────────────────────────────────────────────────────

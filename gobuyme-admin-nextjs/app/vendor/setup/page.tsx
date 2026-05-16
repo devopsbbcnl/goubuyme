@@ -235,10 +235,10 @@ export default function VendorSetupPage() {
         <div style={{ width: '100%', maxWidth: 440 }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <Image src="/icon.png" alt="GoBuyMe" width={200} height={200} style={{ objectFit: 'contain', marginBottom: 12 }} />
-            <div style={{ fontSize: 22, fontWeight: 800, color: T.text }}>Set up your store</div>
-            <div style={{ fontSize: 14, color: T.textSec, marginTop: 4 }}>Sign in to your GoBuyMe vendor account</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#111' }}>Set up your store</div>
+            <div style={{ fontSize: 14, color: '#444', marginTop: 4 }}>Sign in to your GoBuyMe vendor account</div>
           </div>
-          <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: 28 }}>
+          <div style={{ background: '#fff', border: `1px solid ${T.border}`, borderRadius: 4, padding: 28 }}>
             <form onSubmit={handleLogin}>
               <Field label="Email" T={T}>
                 <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" required T={T} />
@@ -264,11 +264,11 @@ export default function VendorSetupPage() {
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#1A9E5F20', border: '2px solid #1A9E5F40', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28, color: '#1A9E5F' }}>
             &#10003;
           </div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: T.text, marginBottom: 10 }}>You&apos;re all set!</div>
-          <div style={{ fontSize: 15, color: T.textSec, lineHeight: 1.7, marginBottom: 24 }}>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#111', marginBottom: 10 }}>You&apos;re all set!</div>
+          <div style={{ fontSize: 15, color: '#444', lineHeight: 1.7, marginBottom: 24 }}>
             Your profile has been submitted for review. Our team will activate your account within 1–2 business days and send you an email once approved.
           </div>
-          <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: 16, fontSize: 13, color: T.textSec }}>
+          <div style={{ background: '#fff', border: `1px solid ${T.border}`, borderRadius: 4, padding: 16, fontSize: 13, color: '#444' }}>
             In the meantime, visit our <a href="/vendor/how-to" style={{ color: '#FF521B', fontWeight: 600, textDecoration: 'none' }}>How To</a> pages and learn how to manage your store on the go.
           </div>
         </div>
@@ -278,26 +278,26 @@ export default function VendorSetupPage() {
 
   // ── FORM ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: '#251605', fontFamily: 'var(--font-jakarta), sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#fbfbf2', fontFamily: 'var(--font-jakarta), sans-serif' }}>
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 24px 100px' }}>
 
         {/* Header */}
         <div style={{ marginBottom: 40 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <Image src="/icon.png" alt="GoBuyMe" width={64} height={64} style={{ objectFit: 'contain' }} />
-            <span style={{ fontSize: 13, color: T.textSec }}>GoBuyMe Vendor Setup</span>
+            <span style={{ fontSize: 13, color: '#444' }}>GoBuyMe Vendor Setup</span>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: T.text, letterSpacing: '-0.5px', marginBottom: 6 }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#111', letterSpacing: '-0.5px', marginBottom: 6 }}>
             Set up your store
           </div>
-          <div style={{ fontSize: 14, color: T.textSec, lineHeight: 1.6 }}>
+          <div style={{ fontSize: 14, color: '#444', lineHeight: 1.6 }}>
             Complete your profile and choose a commission plan so we can activate your account.
           </div>
         </div>
 
         {/* ── COVER PHOTO ── */}
         <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: T.textSec, letterSpacing: '0.5px' }}>COVER PHOTO</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#444', letterSpacing: '0.5px' }}>COVER PHOTO</span>
           <button onClick={() => setCoverHint(true)}
             style={{ background: 'none', border: 'none', color: '#FF521B', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', padding: 0 }}>
             Hint
@@ -305,11 +305,11 @@ export default function VendorSetupPage() {
         </div>
         <div
           onClick={() => coverRef.current?.click()}
-          style={{ height: 160, borderRadius: 4, border: `1px solid ${T.border}`, background: T.surface, cursor: 'pointer', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}
+          style={{ height: 160, borderRadius: 4, border: `1px solid ${T.border}`, background: '#fff', cursor: 'pointer', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}
         >
           {coverPreview
             ? <img src={coverPreview} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            : <div style={{ textAlign: 'center', color: T.textMuted }}>
+            : <div style={{ textAlign: 'center', color: '#888' }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>[ + ]</div>
                 <div style={{ fontSize: 13 }}>Click to add cover photo</div>
               </div>
@@ -325,20 +325,20 @@ export default function VendorSetupPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
           <div
             onClick={() => logoRef.current?.click()}
-            style={{ width: 80, height: 80, borderRadius: '50%', border: `2px solid ${T.border}`, background: T.surface, cursor: 'pointer', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+            style={{ width: 80, height: 80, borderRadius: '50%', border: `2px solid ${T.border}`, background: '#fff', cursor: 'pointer', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           >
             {logoPreview
               ? <img src={logoPreview} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ fontSize: 26, color: T.textMuted }}>&#127860;</span>
+              : <span style={{ fontSize: 26, color: '#888' }}>&#127860;</span>
             }
             {uploadingLogo && <UploadOverlay />}
           </div>
           <div>
             <button onClick={() => logoRef.current?.click()}
-              style={{ padding: '8px 16px', borderRadius: 4, border: `1px solid ${T.border}`, background: T.surface2, color: T.text, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+              style={{ padding: '8px 16px', borderRadius: 4, border: `1px solid ${T.border}`, background: '#f0ede6', color: '#111', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
               {logoPreview ? 'Change Logo' : 'Upload Logo'}
             </button>
-            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 4 }}>Square image, at least 200×200 px</div>
+            <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>Square image, at least 200×200 px</div>
           </div>
         </div>
         <input ref={logoRef} type="file" accept="image/*" style={{ display: 'none' }}
@@ -350,7 +350,7 @@ export default function VendorSetupPage() {
           value={description} onChange={e => setDescription(e.target.value)}
           placeholder="Tell customers what makes your store special…"
           rows={4}
-          style={{ width: '100%', boxSizing: 'border-box', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: '12px 14px', color: T.text, fontSize: 14, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, marginBottom: 24 }}
+          style={{ width: '100%', boxSizing: 'border-box', background: '#fff', border: `1px solid ${T.border}`, borderRadius: 4, padding: '12px 14px', color: '#111', fontSize: 14, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, marginBottom: 24 }}
         />
 
         {/* ── OPENING HOURS ── */}
@@ -368,7 +368,7 @@ export default function VendorSetupPage() {
 
         {/* ── COMMISSION PLAN ── */}
         <SectionLabel label="COMMISSION PLAN *" T={T} />
-        <div style={{ fontSize: 13, color: T.textSec, marginBottom: 14 }}>
+        <div style={{ fontSize: 13, color: '#444', marginBottom: 14 }}>
           You can switch plans later from your profile (14-day cooldown applies).
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 32 }}>
@@ -377,10 +377,10 @@ export default function VendorSetupPage() {
             const selected = tier === t;
             return (
               <div key={t} onClick={() => setTier(t)}
-                style={{ padding: 16, borderRadius: 4, cursor: 'pointer', border: `${selected ? 2 : 1}px solid ${selected ? '#FF521B' : T.border}`, background: T.surface }}>
+                style={{ padding: 16, borderRadius: 4, cursor: 'pointer', border: `${selected ? 2 : 1}px solid ${selected ? '#FF521B' : T.border}`, background: '#fff' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: isGrowth ? 4 : 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: isGrowth ? 4 : 0 }}>
                       {isGrowth ? 'Growth Plan' : 'Starter Plan'}
                     </div>
                     {isGrowth && (
@@ -391,10 +391,10 @@ export default function VendorSetupPage() {
                   </div>
                   <RadioDot selected={selected} />
                 </div>
-                <div style={{ fontSize: 13, color: T.textSec, marginBottom: 4 }}>
+                <div style={{ fontSize: 13, color: '#444', marginBottom: 4 }}>
                   {isGrowth ? '✓ 7.5% commission per order' : '✓ 3% commission per order'}
                 </div>
-                <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10 }}>
+                <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
                   {isGrowth ? 'e.g. ₦10k order → you get ₦9,250' : 'e.g. ₦10k order → you get ₦9,700'}
                 </div>
                 <button
@@ -409,13 +409,13 @@ export default function VendorSetupPage() {
 
         {/* ── IDENTITY VERIFICATION ── */}
         <SectionLabel label="IDENTITY VERIFICATION *" T={T} />
-        <div style={{ fontSize: 13, color: T.textSec, marginBottom: 14 }}>
+        <div style={{ fontSize: 13, color: '#444', marginBottom: 14 }}>
           Select a government-issued ID to verify your identity. Required for account activation.
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
           {(Object.keys(DOC_META) as DocType[]).map(dt => (
             <button key={dt} onClick={() => resetDocType(dt)}
-              style={{ padding: '8px 14px', borderRadius: 4, fontFamily: 'inherit', border: `1px solid ${docType === dt ? '#FF521B' : T.border}`, background: docType === dt ? '#FF521B' : T.surface, color: docType === dt ? '#fff' : T.textSec, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              style={{ padding: '8px 14px', borderRadius: 4, fontFamily: 'inherit', border: `1px solid ${docType === dt ? '#FF521B' : T.border}`, background: docType === dt ? '#FF521B' : '#fff', color: docType === dt ? '#fff' : '#444', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
               {DOC_META[dt].label}
             </button>
           ))}
@@ -446,9 +446,9 @@ export default function VendorSetupPage() {
             <input ref={selfieRef} type="file" accept="image/*" style={{ display: 'none' }}
               onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setSelfiePreview, setSelfieUrl, setUploadingSelfie); e.target.value = ''; }} />
 
-            <div style={{ display: 'flex', gap: 8, background: T.surface2, borderRadius: 4, padding: 12, marginTop: 12, marginBottom: 28 }}>
-              <span style={{ color: T.textMuted, flexShrink: 0 }}>&#128274;</span>
-              <span style={{ fontSize: 12, color: T.textMuted, lineHeight: 1.6 }}>
+            <div style={{ display: 'flex', gap: 8, background: '#f0ede6', borderRadius: 4, padding: 12, marginTop: 12, marginBottom: 28 }}>
+              <span style={{ color: '#888', flexShrink: 0 }}>&#128274;</span>
+              <span style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>
                 Your document is encrypted and used only for identity verification. It will never be shared with third parties.
               </span>
             </div>
@@ -459,35 +459,35 @@ export default function VendorSetupPage() {
 
         {/* ── MENU ITEMS ── */}
         <SectionLabel label="MENU ITEMS" T={T} />
-        <div style={{ fontSize: 13, color: T.textSec, marginBottom: 14 }}>
+        <div style={{ fontSize: 13, color: '#444', marginBottom: 14 }}>
           A well-stocked menu gets approved faster. Add a few items with names and prices.
         </div>
 
         {menuItems.length === 0 ? (
-          <div style={{ height: 80, border: `1px dashed ${T.border}`, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.surface, marginBottom: 10 }}>
-            <span style={{ fontSize: 13, color: T.textMuted }}>No items added yet</span>
+          <div style={{ height: 80, border: `1px dashed ${T.border}`, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', marginBottom: 10 }}>
+            <span style={{ fontSize: 13, color: '#888' }}>No items added yet</span>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
             {menuItems.map(item => (
-              <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: '10px 12px' }}>
+              <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', background: '#fff', border: `1px solid ${T.border}`, borderRadius: 4, padding: '10px 12px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
                   <input
                     value={item.name} onChange={e => updateItem(item.id, 'name', e.target.value)}
                     placeholder="Item name (e.g. Jollof Rice)"
-                    style={{ background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 12px', color: T.text, fontSize: 13, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
+                    style={{ background: '#f0ede6', border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 12px', color: '#111', fontSize: 13, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
                   />
-                  <div style={{ display: 'flex', alignItems: 'center', background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4, padding: '0 10px' }}>
-                    <span style={{ fontSize: 13, color: T.textSec, marginRight: 4, flexShrink: 0 }}>&#8358;</span>
+                  <div style={{ display: 'flex', alignItems: 'center', background: '#f0ede6', border: `1px solid ${T.border}`, borderRadius: 4, padding: '0 10px' }}>
+                    <span style={{ fontSize: 13, color: '#444', marginRight: 4, flexShrink: 0 }}>&#8358;</span>
                     <input
                       value={item.price} onChange={e => updateItem(item.id, 'price', e.target.value)}
                       placeholder="0.00" type="number" min="0"
-                      style={{ background: 'transparent', border: 'none', color: T.text, fontSize: 13, outline: 'none', fontFamily: 'inherit', width: '100%' }}
+                      style={{ background: 'transparent', border: 'none', color: '#111', fontSize: 13, outline: 'none', fontFamily: 'inherit', width: '100%' }}
                     />
                   </div>
                 </div>
                 <button onClick={() => removeItem(item.id)}
-                  style={{ background: 'none', border: 'none', color: T.textMuted, cursor: 'pointer', fontSize: 20, padding: '0 4px', lineHeight: 1, fontFamily: 'inherit' }}>
+                  style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 20, padding: '0 4px', lineHeight: 1, fontFamily: 'inherit' }}>
                   &times;
                 </button>
               </div>
@@ -505,7 +505,7 @@ export default function VendorSetupPage() {
         <button
           onClick={handleSave}
           disabled={saving || anyUploading}
-          style={{ width: '100%', padding: '14px', borderRadius: 4, border: 'none', background: (saving || anyUploading) ? T.surface3 : '#FF521B', color: '#fff', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: (saving || anyUploading) ? 'not-allowed' : 'pointer' }}>
+          style={{ width: '100%', padding: '14px', borderRadius: 4, border: 'none', background: (saving || anyUploading) ? '#e8e4de' : '#FF521B', color: '#fff', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: (saving || anyUploading) ? 'not-allowed' : 'pointer' }}>
           {saving ? 'Saving…' : anyUploading ? 'Waiting for uploads…' : 'Save & Continue'}
         </button>
       </div>
@@ -532,7 +532,7 @@ export default function VendorSetupPage() {
       {/* ── PLAN DETAILS MODAL ── */}
       {planModal && (
         <ModalSheet onClose={() => setPlanModal(null)} title={PLAN_DETAILS[planModal].title} T={T}>
-          <p style={{ fontSize: 13, color: T.textSec, margin: '0 0 16px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 13, color: '#444', margin: '0 0 16px', lineHeight: 1.6 }}>
             Best for: {PLAN_DETAILS[planModal].bestFor}
           </p>
           <div style={{ height: 1, background: T.border, margin: '0 0 16px' }} />
@@ -551,7 +551,7 @@ export default function VendorSetupPage() {
 
 function PageShell({ children, T }: { children: ReactNode; T: Record<string, string> }) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#251605', fontFamily: 'var(--font-jakarta), sans-serif', padding: '20px' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fbfbf2', fontFamily: 'var(--font-jakarta), sans-serif', padding: '20px' }}>
       {children}
     </div>
   );
@@ -560,13 +560,13 @@ function PageShell({ children, T }: { children: ReactNode; T: Record<string, str
 function SectionLabel({ label, T, mt }: { label: string; T: Record<string, string>; mt?: number }) {
   return (
     <div style={{ marginTop: mt ?? 0, marginBottom: 8 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: T.textSec, letterSpacing: '0.5px' }}>{label}</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: '#444', letterSpacing: '0.5px' }}>{label}</span>
     </div>
   );
 }
 
 function labelStyle(T: Record<string, string>): CSSProperties {
-  return { display: 'block', fontSize: 12, fontWeight: 600, color: T.textSec, marginBottom: 6 };
+  return { display: 'block', fontSize: 12, fontWeight: 600, color: '#444', marginBottom: 6 };
 }
 
 function Field({ label, children, T, style }: { label: string; children: ReactNode; T: Record<string, string>; style?: CSSProperties }) {
@@ -585,7 +585,7 @@ function Input({ type = 'text', value, onChange, placeholder, required, style, T
   return (
     <input
       type={type} value={value} onChange={onChange} placeholder={placeholder} required={required}
-      style={{ width: '100%', boxSizing: 'border-box', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: '10px 14px', color: T.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', ...style }}
+      style={{ width: '100%', boxSizing: 'border-box', background: '#fff', border: `1px solid ${T.border}`, borderRadius: 4, padding: '10px 14px', color: '#111', fontSize: 14, outline: 'none', fontFamily: 'inherit', ...style }}
     />
   );
 }
@@ -595,14 +595,14 @@ function ImgBox({ label, preview, uploading, hint, onClick, T }: {
 }) {
   return (
     <div>
-      {label && <div style={{ fontSize: 11, fontWeight: 700, color: T.textSec, marginBottom: 4 }}>{label}</div>}
+      {label && <div style={{ fontSize: 11, fontWeight: 700, color: '#444', marginBottom: 4 }}>{label}</div>}
       <div
         onClick={onClick}
-        style={{ height: 110, borderRadius: 4, border: `1px dashed ${T.border}`, background: T.surface, cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
+        style={{ height: 110, borderRadius: 4, border: `1px dashed ${T.border}`, background: '#fff', cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
       >
         {preview
           ? <img src={preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          : <div style={{ textAlign: 'center', color: T.textMuted }}>
+          : <div style={{ textAlign: 'center', color: '#888' }}>
               <div style={{ fontSize: 22, marginBottom: 6 }}>&#128247;</div>
               <div style={{ fontSize: 12 }}>{hint}</div>
             </div>
@@ -649,7 +649,7 @@ function ErrorBanner({ msg }: { msg: string }) {
 function PrimaryBtn({ loading, label, loadingLabel, T }: { loading: boolean; label: string; loadingLabel: string; T: Record<string, string> }) {
   return (
     <button type="submit" disabled={loading}
-      style={{ width: '100%', padding: '12px', borderRadius: 4, background: loading ? T.surface3 : '#FF521B', border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: loading ? 'not-allowed' : 'pointer' }}>
+      style={{ width: '100%', padding: '12px', borderRadius: 4, background: loading ? '#e8e4de' : '#FF521B', border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: loading ? 'not-allowed' : 'pointer' }}>
       {loading ? loadingLabel : label}
     </button>
   );
@@ -664,13 +664,13 @@ function ModalSheet({ children, onClose, title, T }: { children: ReactNode; onCl
       onClick={onClose}
     >
       <div
-        style={{ width: '100%', maxWidth: 600, background: T.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: '20px 24px 36px', maxHeight: '85vh', overflowY: 'auto' }}
+        style={{ width: '100%', maxWidth: 600, background: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: '20px 24px 36px', maxHeight: '85vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ width: 40, height: 4, borderRadius: 2, background: T.border, margin: '0 auto 20px' }} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <span style={{ fontSize: 18, fontWeight: 800, color: T.text }}>{title}</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: T.textSec, lineHeight: 1, fontFamily: 'inherit' }}>&times;</button>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#111' }}>{title}</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#444', lineHeight: 1, fontFamily: 'inherit' }}>&times;</button>
         </div>
         {children}
         <button onClick={onClose}
@@ -683,27 +683,27 @@ function ModalSheet({ children, onClose, title, T }: { children: ReactNode; onCl
 }
 
 function ModalSection({ label, T }: { label: string; T: Record<string, string> }) {
-  return <div style={{ fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 10 }}>{label}</div>;
+  return <div style={{ fontSize: 12, fontWeight: 700, color: '#111', marginBottom: 10 }}>{label}</div>;
 }
 
 function FeatureRow({ text, T }: { text: string; T: Record<string, string> }) {
   return (
     <div style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'flex-start' }}>
       <span style={{ color: '#FF521B', flexShrink: 0, marginTop: 1 }}>&#10003;</span>
-      <span style={{ fontSize: 14, color: T.textSec, lineHeight: 1.5 }}>{text}</span>
+      <span style={{ fontSize: 14, color: '#444', lineHeight: 1.5 }}>{text}</span>
     </div>
   );
 }
 
 function InfoBox({ children, T }: { children: ReactNode; T: Record<string, string> }) {
-  return <div style={{ background: T.surface2, borderRadius: 4, padding: 14, marginTop: 8, marginBottom: 4 }}>{children}</div>;
+  return <div style={{ background: '#f0ede6', borderRadius: 4, padding: 14, marginTop: 8, marginBottom: 4 }}>{children}</div>;
 }
 
 function InfoRow({ label, value, T }: { label: string; value: string; T: Record<string, string> }) {
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, letterSpacing: '0.5px', marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 13, color: T.text, lineHeight: 1.5 }}>{value}</div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: '#888', letterSpacing: '0.5px', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 13, color: '#111', lineHeight: 1.5 }}>{value}</div>
     </div>
   );
 }
