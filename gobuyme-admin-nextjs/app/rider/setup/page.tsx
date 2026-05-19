@@ -178,7 +178,7 @@ export default function RiderSetupPage() {
             Our team will review your documents and activate your account within 1–2 business days. You&apos;ll receive an email once you&apos;re approved and ready to go.
           </div>
           <div style={{ background: '#fff', border: `1px solid ${T.border}`, borderRadius: 4, padding: 16, fontSize: 13, color: '#444' }}>
-            Download the GoBuyMe app and stay ready to go online once your account is activated.
+            If you haven't already, download the GoBuyMe app and stay ready to go online once your account is activated.
           </div>
         </div>
       </PageShell>

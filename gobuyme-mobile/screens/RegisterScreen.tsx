@@ -122,10 +122,15 @@ function getRegisterErrors(err: unknown): RegisterErrors {
 		}, {});
 	}
 
-	if (status === 409 || data?.message === 'Email already registered.') {
+	if (data?.message === 'Email already registered.') {
 		return {
 			email:
 				'An account already exists with this email. Try signing in instead.',
+		};
+	}
+	if (status === 409) {
+		return {
+			phone: 'This phone number is already registered. Use another number.',
 		};
 	}
 	if (status === 429)

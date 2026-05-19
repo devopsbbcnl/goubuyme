@@ -18,7 +18,7 @@ const SUCCESS_MESSAGES: Record<RoleParam, { heading: string; body: string }> = {
   },
   rider: {
     heading: 'Let\'s ride!',
-    body: 'You have registered successfully. Zoom into your daily hustle.',
+    body: 'Your account is currently being set up. Please check your email for further instructions. Then zoom into your daily hustle.',
   },
 };
 
