@@ -63,7 +63,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                placeholder="admin@gobuyme.shop"
+                placeholder="Enter username or email"
                 style={{
                   width: '100%', boxSizing: 'border-box',
                   background: T.surface2, border: `1px solid ${T.border}`,
