@@ -21,6 +21,19 @@ import api from '@/services/api';
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
+function phoneToDisplay(phone: string): string {
+	if (phone.startsWith('+234')) return phone.slice(4);
+	if (phone.startsWith('234')) return phone.slice(3);
+	return phone;
+}
+
+function formatPhoneForApi(suffix: string): string {
+	const digits = suffix.replace(/\D/g, '');
+	if (!digits) return '';
+	const normalized = digits.startsWith('0') ? digits.slice(1) : digits;
+	return `+234${normalized}`;
+}
+
 async function uploadToCloudinary(uri: string): Promise<string> {
 	const form = new FormData();
 	form.append('file', { uri, type: 'image/jpeg', name: 'profile.jpg' } as any);
@@ -43,7 +56,7 @@ export default function EditProfileScreen() {
 	const { user, updateUser } = useAuth();
 
 	const [name, setName] = useState(user?.name ?? '');
-	const [phone, setPhone] = useState(user?.phone ?? '');
+	const [phone, setPhone] = useState(phoneToDisplay(user?.phone ?? ''));
 	const [photoUrl, setPhotoUrl] = useState(user?.photoUrl ?? '');
 	const [uploading, setUploading] = useState(false);
 	const [saving, setSaving] = useState(false);
@@ -91,12 +104,13 @@ export default function EditProfileScreen() {
 		}
 		try {
 			setSaving(true);
+			const formattedPhone = formatPhoneForApi(phone);
 			await api.patch('/auth/profile', {
 				name: name.trim(),
-				phone: phone.trim() || undefined,
+				phone: formattedPhone || undefined,
 				photoUrl: photoUrl || undefined,
 			});
-			await updateUser({ name: name.trim(), phone: phone.trim(), photoUrl });
+			await updateUser({ name: name.trim(), phone: formattedPhone || phone.trim(), photoUrl });
 			router.back();
 		} finally {
 			setSaving(false);
@@ -180,14 +194,22 @@ export default function EditProfileScreen() {
 						placeholder="Your full name"
 						T={T}
 					/>
-					<Field
-						label="Phone Number"
-						value={phone}
-						onChange={setPhone}
-						placeholder="+234 800 000 0000"
-						keyboardType="phone-pad"
-						T={T}
-					/>
+					<View style={styles.fieldWrap}>
+						<Text style={[styles.fieldLabel, { color: T.textSec }]}>Phone Number</Text>
+						<View style={[styles.phoneRow, { backgroundColor: T.surface, borderColor: T.border }]}>
+							<View style={[styles.phonePrefix, { borderRightColor: T.border }]}>
+								<Text style={[styles.phonePrefixText, { color: T.textSec }]}>+234</Text>
+							</View>
+							<TextInput
+								value={phone}
+								onChangeText={setPhone}
+								placeholder="8031234567"
+								placeholderTextColor={T.textMuted}
+								keyboardType="phone-pad"
+								style={[styles.phoneInput, { color: T.text }]}
+							/>
+						</View>
+					</View>
 					<View
 						style={[
 							styles.emailRow,
@@ -321,6 +343,21 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		fontWeight: '500',
 	},
+	phoneRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		height: 48,
+		borderRadius: 4,
+		borderWidth: 1,
+	},
+	phonePrefix: {
+		paddingHorizontal: 12,
+		alignSelf: 'stretch',
+		justifyContent: 'center',
+		borderRightWidth: 1,
+	},
+	phonePrefixText: { fontSize: 14, fontWeight: '500' },
+	phoneInput: { flex: 1, paddingHorizontal: 12, fontSize: 14, fontWeight: '500' },
 	emailRow: { borderRadius: 4, borderWidth: 1, padding: 14, gap: 4 },
 	emailValue: { fontSize: 14, fontWeight: '500' },
 	emailNote: { fontSize: 11, marginTop: 2 },

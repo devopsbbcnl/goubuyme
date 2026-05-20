@@ -474,6 +474,9 @@ export const submitRiderDocument = catchAsync(async (req: AuthRequest, res: Resp
   } = req.body;
 
   if (!ninNumber?.trim()) return apiResponse.error(res, 'NIN number is required.', 400);
+  if (!guarantorName?.trim()) return apiResponse.error(res, 'Guarantor full name is required.', 400);
+  if (!guarantorPhone?.trim()) return apiResponse.error(res, 'Guarantor phone number is required.', 400);
+  if (!guarantorAddress?.trim()) return apiResponse.error(res, 'Guarantor address is required.', 400);
 
   const rider = await resolveRider(req.user!.userId);
   if (!rider) return apiResponse.error(res, 'Rider not found.', 404);

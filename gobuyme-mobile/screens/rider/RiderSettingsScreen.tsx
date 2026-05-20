@@ -14,6 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const comingSoon = (label: string) =>
+	Alert.alert('Coming Soon', `${label} options will be available in a future update.`);
+
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function RiderSettingsScreen() {
@@ -47,8 +50,8 @@ export default function RiderSettingsScreen() {
 					icon: 'bicycle-outline',
 					label: 'Vehicle Type',
 					sub: 'Motorcycle · Change in profile',
-					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-					onPress: () => router.navigate('/(rider)/profile'),
+					control: null,
+					onPress: undefined as (() => void) | undefined,
 				},
 				{
 					icon: 'map-outline',
@@ -74,14 +77,14 @@ export default function RiderSettingsScreen() {
 					label: 'Language',
 					sub: 'English (Nigeria)',
 					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-					onPress: () => {},
+					onPress: () => comingSoon('Language'),
 				},
 				{
 					icon: 'cash-outline',
 					label: 'Currency',
 					sub: 'Nigerian Naira (₦)',
 					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-					onPress: () => {},
+					onPress: () => comingSoon('Currency'),
 				},
 			],
 		},
@@ -119,14 +122,14 @@ export default function RiderSettingsScreen() {
 					label: "What's New",
 					sub: 'See latest updates',
 					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-					onPress: () => {},
+					onPress: () => router.push({ pathname: '/whats-new', params: { from: '/(rider)/settings' } } as any),
 				},
 				{
 					icon: 'chatbubble-ellipses-outline',
 					label: 'Contact Support',
-					sub: 'Chat, email, or call',
+					sub: 'Chat with our support team',
 					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-					onPress: () => {},
+					onPress: () => router.push({ pathname: '/contact-support', params: { from: '/(rider)/settings' } } as any),
 				},
 				{
 					icon: 'globe-outline',

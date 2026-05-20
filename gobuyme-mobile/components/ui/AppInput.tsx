@@ -12,6 +12,7 @@ interface Props extends Pick<TextInputProps, 'autoCapitalize' | 'autoCorrect' | 
   secureTextEntry?: boolean;
   keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
   error?: string;
+  prefix?: string;
 }
 
 export function AppInput({
@@ -22,6 +23,7 @@ export function AppInput({
   secureTextEntry,
   keyboardType = 'default',
   error,
+  prefix,
   autoCapitalize,
   autoCorrect,
   textContentType,
@@ -37,6 +39,11 @@ export function AppInput({
         styles.inputWrap,
         { backgroundColor: T.surface, borderColor: error ? '#E53E3E' : T.border },
       ]}>
+        {prefix && (
+          <View style={[styles.prefixBox, { borderRightColor: error ? '#E53E3E' : T.border }]}>
+            <Text style={[styles.prefixText, { color: T.textSec }]}>{prefix}</Text>
+          </View>
+        )}
         <TextInput
           value={value}
           onChangeText={onChangeText}
@@ -47,7 +54,7 @@ export function AppInput({
           autoCapitalize={isPassword ? 'none' : autoCapitalize}
           autoCorrect={isPassword ? false : autoCorrect}
           textContentType={isPassword ? 'password' : textContentType}
-          style={[styles.input, { color: T.text, paddingRight: isPassword ? 44 : 16 }]}
+          style={[styles.input, { color: T.text, paddingRight: isPassword ? 44 : 16, paddingLeft: prefix ? 12 : 16 }]}
         />
         {isPassword && (
           <TouchableOpacity
@@ -79,8 +86,21 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: radius.md,
     position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  prefixBox: {
+    paddingHorizontal: 12,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    borderRightWidth: 1,
+  },
+  prefixText: {
+    fontSize: 15,
+    fontFamily: 'PlusJakartaSans_500Medium',
   },
   input: {
+    flex: 1,
     paddingVertical: 14,
     paddingLeft: 16,
     fontSize: 15, fontFamily: 'PlusJakartaSans_400Regular',

@@ -420,16 +420,17 @@ export default function ManageMenuScreen() {
 				transparent
 				onRequestClose={closeDrinkSheet}
 			>
-				<Pressable style={styles.backdrop} onPress={closeDrinkSheet} />
-				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetWrap}>
-					<View style={[styles.sheet, { backgroundColor: T.surface, borderColor: T.border }]}>
-						<View style={[styles.sheetHeader, { borderBottomColor: T.border }]}>
-							<Text style={[styles.sheetTitle, { color: T.text }]}>Drink Options</Text>
-							<TouchableOpacity onPress={closeDrinkSheet}>
-								<Ionicons name="close" size={22} color={T.textMuted} />
-							</TouchableOpacity>
-						</View>
-						<ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+				<View style={{ flex: 1 }}>
+					<Pressable style={{ flex: 1 }} onPress={closeDrinkSheet} />
+					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+						<View style={[styles.sheet, { backgroundColor: T.surface, borderColor: T.border }]}>
+							<View style={[styles.sheetHeader, { borderBottomColor: T.border }]}>
+								<Text style={[styles.sheetTitle, { color: T.text }]}>Drink Options</Text>
+								<TouchableOpacity onPress={closeDrinkSheet}>
+									<Ionicons name="close" size={22} color={T.textMuted} />
+								</TouchableOpacity>
+							</View>
+							<ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 							{/* Existing options */}
 							{(drinkSheetItem?.drinkOptions ?? []).length === 0 ? (
 								<Text style={[styles.drinkEmpty, { color: T.textMuted }]}>No drink options yet. Add one below.</Text>
@@ -487,10 +488,11 @@ export default function ManageMenuScreen() {
 										: <Text style={styles.saveBtnText}>Add Drink</Text>
 									}
 								</TouchableOpacity>
-							</View>
-						</ScrollView>
-					</View>
-				</KeyboardAvoidingView>
+								</View>
+							</ScrollView>
+						</View>
+					</KeyboardAvoidingView>
+				</View>
 			</Modal>
 
 			{/* Add / Edit sheet */}
@@ -500,32 +502,33 @@ export default function ManageMenuScreen() {
 				transparent
 				onRequestClose={closeSheet}
 			>
-				<Pressable style={styles.backdrop} onPress={closeSheet} />
-				<KeyboardAvoidingView
-					behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-					style={styles.sheetWrap}
-				>
-					<View
-						style={[
-							styles.sheet,
-							{ backgroundColor: T.surface, borderColor: T.border },
-						]}
+				<View style={{ flex: 1 }}>
+					<Pressable style={{ flex: 1 }} onPress={closeSheet} />
+					<KeyboardAvoidingView
+						behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
 					>
-						{/* Sheet header */}
-						<View style={[styles.sheetHeader, { borderBottomColor: T.border }]}>
-							<Text style={[styles.sheetTitle, { color: T.text }]}>
-								{editing ? 'Edit Item' : 'New Item'}
-							</Text>
-							<TouchableOpacity onPress={closeSheet}>
-								<Ionicons name="close" size={22} color={T.textMuted} />
-							</TouchableOpacity>
-						</View>
-
-						<ScrollView
-							contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
-							showsVerticalScrollIndicator={false}
-							keyboardShouldPersistTaps="handled"
+						<View
+							style={[
+								styles.sheet,
+								{ backgroundColor: T.surface, borderColor: T.border },
+							]}
 						>
+							{/* Sheet header */}
+							<View style={[styles.sheetHeader, { borderBottomColor: T.border }]}>
+								<Text style={[styles.sheetTitle, { color: T.text }]}>
+									{editing ? 'Edit Item' : 'New Item'}
+								</Text>
+								<TouchableOpacity onPress={closeSheet}>
+									<Ionicons name="close" size={22} color={T.textMuted} />
+								</TouchableOpacity>
+							</View>
+
+							<ScrollView
+								style={{ flex: 1 }}
+								contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+								showsVerticalScrollIndicator={false}
+								keyboardShouldPersistTaps="handled"
+							>
 							{/* Image picker */}
 							<TouchableOpacity
 								onPress={pickImage}
@@ -705,10 +708,11 @@ export default function ManageMenuScreen() {
 									</Text>
 								)}
 							</TouchableOpacity>
-						</ScrollView>
+								</ScrollView>
+							</View>
+						</KeyboardAvoidingView>
 					</View>
-				</KeyboardAvoidingView>
-			</Modal>
+				</Modal>
 		</View>
 	);
 }
@@ -910,16 +914,8 @@ const styles = StyleSheet.create({
 	availText: { fontSize: 11, fontWeight: '600', marginLeft: -4 },
 	featuredPill: { borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
 	featuredPillText: { fontSize: 10, fontWeight: '700' },
-	backdrop: { flex: 1 },
-	sheetWrap: {
-		position: 'absolute',
-		bottom: 0,
-		left: 0,
-		right: 0,
-		maxHeight: '90%',
-	},
 	sheet: {
-		flex: 1,
+		maxHeight: '90%',
 		borderTopLeftRadius: 12,
 		borderTopRightRadius: 12,
 		borderWidth: 1,

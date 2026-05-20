@@ -244,7 +244,7 @@ export default function RiderSetupPage() {
         {/* ── GUARANTOR ── */}
         <SectionLabel label="GUARANTOR" T={T} mt={32} />
         <div style={{ fontSize: 13, color: '#444', marginBottom: 18, lineHeight: 1.5 }}>
-          A guarantor vouches for your reliability. Providing one is strongly recommended for faster approval.
+          A guarantor vouches for your reliability. Providing one is strongly recommended for faster approval. Note that fake submissions will get you banned from the platform. 
         </div>
 
         <label style={labelStyle(T)}>Guarantor Full Name</label>

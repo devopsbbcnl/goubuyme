@@ -70,14 +70,17 @@ const FIELD_LABELS: Record<string, keyof RegisterErrors> = {
 	referralCode: 'referralCode',
 };
 
-function cleanPhoneNumber(value: string) {
-	return value.trim().replace(/(?!^\+)[^0-9]/g, '');
+function formatPhoneForApi(suffix: string): string {
+	const digits = suffix.replace(/\D/g, '');
+	if (!digits) return '';
+	const normalized = digits.startsWith('0') ? digits.slice(1) : digits;
+	return `+234${normalized}`;
 }
 
 function validationMessage(field: string, message: string) {
 	if (field === 'email') return 'Enter a valid email address.';
 	if (field === 'phone')
-		return 'Enter a valid phone number, e.g. +2348123456789.';
+		return 'Enter a valid Nigerian phone number, e.g. 8031234567.';
 	if (field === 'password') return 'Password must be at least 8 characters.';
 	if (field === 'name') return 'Enter your full name.';
 	if (field === 'businessName') return 'Enter your business name.';
@@ -185,7 +188,10 @@ export default function RegisterScreen() {
 	const validateRegister = () => {
 		const next: RegisterErrors = {};
 		const trimmedEmail = email.trim();
-		const cleanedPhone = cleanPhoneNumber(phone);
+		const phoneDigits = phone.replace(/\D/g, '');
+		const validPhone = !phoneDigits ||
+			phoneDigits.length === 10 ||
+			(phoneDigits.length === 11 && phoneDigits.startsWith('0'));
 
 		if (!name.trim()) next.name = 'Enter your full name.';
 		else if (name.trim().length < 2)
@@ -195,8 +201,8 @@ export default function RegisterScreen() {
 		else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail))
 			next.email = 'Enter a valid email address.';
 
-		if (cleanedPhone && !/^\+?[0-9]{10,15}$/.test(cleanedPhone)) {
-			next.phone = 'Enter a valid phone number, e.g. +2348123456789.';
+		if (!validPhone) {
+			next.phone = 'Enter a valid Nigerian phone number, e.g. 8031234567.';
 		}
 
 		if (!password) next.password = 'Create a password.';
@@ -233,13 +239,13 @@ export default function RegisterScreen() {
 			setBusy(true);
 			setErrors({});
 
-			const cleanPhone = cleanPhoneNumber(phone);
+			const formattedPhone = formatPhoneForApi(phone);
 			const payload: Record<string, unknown> = {
 				name: name.trim(),
 				email: email.trim().toLowerCase(),
 				password,
 				role: role.toUpperCase(),
-				...(cleanPhone ? { phone: cleanPhone } : {}),
+				...(formattedPhone ? { phone: formattedPhone } : {}),
 				...(referral.trim() ? { referralCode: referral.trim() } : {}),
 			};
 
@@ -316,8 +322,9 @@ export default function RegisterScreen() {
 					setPhone(v);
 					clearError('phone');
 				}}
-				placeholder="+234 812 345 6789"
+				placeholder="8031234567"
 				keyboardType="phone-pad"
+				prefix="+234"
 				error={errors.phone}
 			/>
 			<AppInput

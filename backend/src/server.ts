@@ -43,6 +43,7 @@ import notificationRoutes from './routes/notification.routes';
 import riderRoutes from './routes/rider.routes';
 import adminRoutes from './routes/admin.routes';
 import offerRoutes from './routes/offer.routes';
+import supportRoutes from './routes/support.routes';
 import logger from './utils/logger';
 
 const app = express();
@@ -76,6 +77,7 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/riders', riderRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/offers', offerRoutes);
+app.use('/api/v1/support', supportRoutes);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 

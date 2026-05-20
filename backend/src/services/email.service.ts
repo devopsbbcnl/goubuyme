@@ -188,6 +188,118 @@ function welcomeRider(name: string): string {
     </p>`);
 }
 
+// ─── Approval / rejection emails ──────────────────────────────────────────
+
+export const sendVendorApprovalEmail = async (
+  to: string,
+  name: string,
+  businessName: string,
+  status: 'APPROVED' | 'REJECTED' | 'SUSPENDED',
+): Promise<void> => {
+  const appUrl = process.env.VENDOR_APP_URL ?? 'https://gobuyme.shop/downloads';
+
+  if (status === 'APPROVED') {
+    const content = `
+      <p style="margin:0 0 8px;font-size:20px;font-weight:800;color:#111111;">You're approved, ${name}! 🎉</p>
+      <p style="margin:8px 0 28px;font-size:15px;color:#555555;line-height:22px;">
+        <strong>${businessName}</strong> is now live on GoBuyMe. Customers in your area can already discover and order from your store.
+      </p>
+      <table cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #F0F0F0;">
+        ${step(1, 'Open your store', 'Log in to the vendor app and toggle your store open to start receiving orders.')}
+        ${step(2, 'Keep your menu up to date', 'Make sure item availability, prices, and photos are accurate for the best customer experience.')}
+        ${step(3, 'Check your earnings', 'Track daily earnings and payout history from the Earnings tab in your dashboard.')}
+      </table>
+      <p style="margin:28px 0 16px;font-size:15px;color:#555555;line-height:22px;">
+        Head to the app to get started:
+      </p>
+      ${ctaButton(appUrl, 'Open Vendor App')}
+      <p style="margin:32px 0 0;font-size:14px;color:#555555;line-height:22px;">
+        Need help? Reach us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#FF521B;text-decoration:none;">${SUPPORT_EMAIL}</a>.
+      </p>`;
+    await sendEmail(to, `${businessName} is now live on GoBuyMe!`, emailLayout(content));
+  } else if (status === 'REJECTED') {
+    const content = `
+      <p style="margin:0 0 8px;font-size:20px;font-weight:800;color:#111111;">Application update for ${businessName}</p>
+      <p style="margin:8px 0 28px;font-size:15px;color:#555555;line-height:22px;">
+        Hi ${name}, after reviewing your application we were unable to approve <strong>${businessName}</strong> at this time.
+      </p>
+      <p style="margin:0 0 24px;font-size:15px;color:#555555;line-height:22px;">
+        Common reasons include incomplete profile information, missing documents, or a menu that doesn't yet meet our standards.
+        You're welcome to update your details and reapply.
+      </p>
+      <p style="margin:0 0 0;font-size:14px;color:#555555;line-height:22px;">
+        Questions? Contact us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#FF521B;text-decoration:none;">${SUPPORT_EMAIL}</a> and we'll help you get sorted.
+      </p>`;
+    await sendEmail(to, `Update on your GoBuyMe vendor application`, emailLayout(content));
+  } else if (status === 'SUSPENDED') {
+    const content = `
+      <p style="margin:0 0 8px;font-size:20px;font-weight:800;color:#111111;">Your store has been suspended</p>
+      <p style="margin:8px 0 28px;font-size:15px;color:#555555;line-height:22px;">
+        Hi ${name}, your GoBuyMe vendor account for <strong>${businessName}</strong> has been suspended. Your store is no longer visible to customers.
+      </p>
+      <p style="margin:0 0 0;font-size:14px;color:#555555;line-height:22px;">
+        If you believe this is a mistake or would like to appeal, please reach out to
+        <a href="mailto:${SUPPORT_EMAIL}" style="color:#FF521B;text-decoration:none;">${SUPPORT_EMAIL}</a>.
+      </p>`;
+    await sendEmail(to, `Your GoBuyMe store has been suspended`, emailLayout(content));
+  }
+};
+
+export const sendRiderApprovalEmail = async (
+  to: string,
+  name: string,
+  status: 'APPROVED' | 'REJECTED' | 'SUSPENDED',
+): Promise<void> => {
+  const appUrl = process.env.RIDER_APP_URL ?? 'https://gobuyme.shop/downloads';
+
+  if (status === 'APPROVED') {
+    const content = `
+      <p style="margin:0 0 8px;font-size:20px;font-weight:800;color:#111111;">You're approved, ${name}! 🎉</p>
+      <p style="margin:8px 0 28px;font-size:15px;color:#555555;line-height:22px;">
+        Your GoBuyMe rider account is verified and ready. Open the app, go online, and start accepting delivery jobs near you.
+      </p>
+      <table cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #F0F0F0;">
+        ${step(1, 'Go online', 'Open the rider app and toggle your status to Online to start receiving job offers.')}
+        ${step(2, 'Accept deliveries', 'Review each job — pickup location, drop-off, and estimated pay — then accept the ones that work for you.')}
+        ${step(3, 'Get paid daily', 'Earnings from completed deliveries are batched and paid out every day.')}
+      </table>
+      <p style="margin:28px 0 16px;font-size:15px;color:#555555;line-height:22px;">
+        Start earning now:
+      </p>
+      ${ctaButton(appUrl, 'Open Rider App')}
+      <p style="margin:32px 0 0;font-size:14px;color:#555555;line-height:22px;">
+        Need help? Reach us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#FF521B;text-decoration:none;">${SUPPORT_EMAIL}</a>.
+      </p>`;
+    await sendEmail(to, `You're approved — start riding with GoBuyMe!`, emailLayout(content));
+  } else if (status === 'REJECTED') {
+    const content = `
+      <p style="margin:0 0 8px;font-size:20px;font-weight:800;color:#111111;">Application update</p>
+      <p style="margin:8px 0 28px;font-size:15px;color:#555555;line-height:22px;">
+        Hi ${name}, we've reviewed your GoBuyMe rider application and we're unable to approve it at this time.
+      </p>
+      <p style="margin:0 0 24px;font-size:15px;color:#555555;line-height:22px;">
+        This is often due to incomplete documents or profile information. You're welcome to update your details and reapply.
+      </p>
+      <p style="margin:0 0 0;font-size:14px;color:#555555;line-height:22px;">
+        Questions? Contact us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#FF521B;text-decoration:none;">${SUPPORT_EMAIL}</a>.
+      </p>`;
+    await sendEmail(to, `Update on your GoBuyMe rider application`, emailLayout(content));
+  } else if (status === 'SUSPENDED') {
+    const content = `
+      <p style="margin:0 0 8px;font-size:20px;font-weight:800;color:#111111;">Your rider account has been suspended</p>
+      <p style="margin:8px 0 28px;font-size:15px;color:#555555;line-height:22px;">
+        Hi ${name}, your GoBuyMe rider account has been suspended. You will not be able to accept delivery jobs until this is resolved.
+      </p>
+      <p style="margin:0 0 0;font-size:14px;color:#555555;line-height:22px;">
+        To appeal or for more information, contact us at
+        <a href="mailto:${SUPPORT_EMAIL}" style="color:#FF521B;text-decoration:none;">${SUPPORT_EMAIL}</a>.
+      </p>`;
+    await sendEmail(to, `Your GoBuyMe rider account has been suspended`, emailLayout(content));
+  }
+};
+
+// ─── Welcome emails ────────────────────────────────────────────────────────
+
 export const sendWelcomeEmail = async (
   to: string,
   name: string,

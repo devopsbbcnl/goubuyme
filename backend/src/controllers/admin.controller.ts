@@ -7,6 +7,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { ApprovalStatus, CommissionTier, DocumentStatus, DocumentType, LicenseStatus, OrderStatus, PaymentStatus, PayoutStatus, Role, VendorCategory } from '@prisma/client';
 import { updateVendorBadge } from './vendor.controller';
 import { notifyUser } from '../services/notification.service';
+import { sendVendorApprovalEmail, sendRiderApprovalEmail } from '../services/email.service';
 import { generateReferralCode } from '../utils/generateToken';
 import { getPlatformSettings, updatePlatformSettings, PlatformSettingsPatch } from '../services/settings.service';
 import logger from '../utils/logger';
@@ -204,8 +205,13 @@ export const updateVendorStatus = catchAsync(async (req: AuthRequest, res: Respo
   const vendor = await prisma.vendor.update({
     where: { id },
     data: { approvalStatus: status as ApprovalStatus },
-    select: { id: true, businessName: true, approvalStatus: true },
+    select: { id: true, businessName: true, approvalStatus: true, user: { select: { email: true, name: true } } },
   });
+
+  if (status === 'APPROVED' || status === 'REJECTED') {
+    const docStatus = status === 'APPROVED' ? DocumentStatus.VERIFIED : DocumentStatus.REJECTED;
+    await prisma.vendorDocument.updateMany({ where: { vendorId: id }, data: { status: docStatus } });
+  }
 
   await prisma.auditLog.create({
     data: {
@@ -216,7 +222,16 @@ export const updateVendorStatus = catchAsync(async (req: AuthRequest, res: Respo
     },
   });
 
-  return apiResponse.success(res, `Vendor ${status.toLowerCase()}.`, vendor);
+  if (['APPROVED', 'REJECTED', 'SUSPENDED'].includes(status)) {
+    sendVendorApprovalEmail(
+      vendor.user.email,
+      vendor.user.name,
+      vendor.businessName,
+      status as 'APPROVED' | 'REJECTED' | 'SUSPENDED',
+    ).catch(err => logger.error('Vendor approval email failed', err));
+  }
+
+  return apiResponse.success(res, `Vendor ${status.toLowerCase()}.`, { id: vendor.id, businessName: vendor.businessName, approvalStatus: vendor.approvalStatus });
 });
 
 // GET /admin/riders
@@ -330,8 +345,13 @@ export const updateRiderStatus = catchAsync(async (req: AuthRequest, res: Respon
   const rider = await prisma.rider.update({
     where: { id },
     data: { approvalStatus: status as ApprovalStatus },
-    select: { id: true, approvalStatus: true },
+    select: { id: true, approvalStatus: true, user: { select: { email: true, name: true } } },
   });
+
+  if (status === 'APPROVED' || status === 'REJECTED') {
+    const docStatus = status === 'APPROVED' ? DocumentStatus.VERIFIED : DocumentStatus.REJECTED;
+    await prisma.riderDocument.updateMany({ where: { riderId: id }, data: { status: docStatus } });
+  }
 
   await prisma.auditLog.create({
     data: {
@@ -342,7 +362,15 @@ export const updateRiderStatus = catchAsync(async (req: AuthRequest, res: Respon
     },
   });
 
-  return apiResponse.success(res, `Rider ${status.toLowerCase()}.`, rider);
+  if (['APPROVED', 'REJECTED', 'SUSPENDED'].includes(status)) {
+    sendRiderApprovalEmail(
+      rider.user.email,
+      rider.user.name,
+      status as 'APPROVED' | 'REJECTED' | 'SUSPENDED',
+    ).catch(err => logger.error('Rider approval email failed', err));
+  }
+
+  return apiResponse.success(res, `Rider ${status.toLowerCase()}.`, { id: rider.id, approvalStatus: rider.approvalStatus });
 });
 
 // GET /admin/customers

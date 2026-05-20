@@ -11,8 +11,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
-const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL || 'support@gobuyme.shop';
-const SUPPORT_PHONE = process.env.EXPO_PUBLIC_SUPPORT_PHONE || '+2347078901095';
 const WEBSITE_URL = process.env.EXPO_PUBLIC_WEBSITE_URL || 'https://gobuyme.shop';
 
 const PREF_KEY = 'customerSettingsPrefs';
@@ -69,20 +67,8 @@ export default function SettingsScreen() {
     await Linking.openURL(url);
   };
 
-  const contactSupport = () => {
-    Alert.alert('Contact Support', 'Choose how you want to reach GoBuyMe support.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Email', onPress: () => openUrl(`mailto:${SUPPORT_EMAIL}`) },
-      { text: 'Call', onPress: () => openUrl(`tel:${SUPPORT_PHONE}`) },
-    ]);
-  };
-
-  const showWhatsNew = () => {
-    Alert.alert(
-      `What's New in v${APP_VERSION}`,
-      'Improved order tracking, stronger account security, saved address updates, and smoother vendor/rider flows.',
-    );
-  };
+  const comingSoon = (label: string) =>
+    Alert.alert('Coming Soon', `${label} options will be available in a future update.`);
 
   const SECTIONS = [
     {
@@ -112,7 +98,7 @@ export default function SettingsScreen() {
           label: 'Language',
           sub: prefs.language,
           control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-          onPress: () => setModalKey('language'),
+          onPress: () => comingSoon('Language'),
         },
         {
           icon: 'location-outline',
@@ -126,7 +112,7 @@ export default function SettingsScreen() {
           label: 'Currency',
           sub: prefs.currency,
           control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-          onPress: () => setModalKey('currency'),
+          onPress: () => comingSoon('Currency'),
         },
       ],
     },
@@ -142,17 +128,17 @@ export default function SettingsScreen() {
         },
         {
           icon: 'star-outline',
-          label: 'What\'s New',
+          label: "What's New",
           sub: 'See latest updates',
           control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-          onPress: showWhatsNew,
+          onPress: () => router.push('/whats-new' as any),
         },
         {
           icon: 'chatbubble-ellipses-outline',
           label: 'Contact Support',
-          sub: SUPPORT_EMAIL,
+          sub: 'Chat with our support team',
           control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-          onPress: contactSupport,
+          onPress: () => router.push('/contact-support' as any),
         },
         {
           icon: 'globe-outline',
@@ -238,11 +224,6 @@ export default function SettingsScreen() {
               );
             })}
 
-            {modalKey === 'currency' && (
-              <Text style={[styles.modalNote, { color: T.textSec }]}>
-                Payments and prices currently use Nigerian Naira across GoBuyMe.
-              </Text>
-            )}
           </View>
         </View>
       </Modal>

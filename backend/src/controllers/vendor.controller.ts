@@ -30,6 +30,7 @@ const vendorSelect = {
   latitude: true, longitude: true, isOpen: true, rating: true,
   totalRatings: true, openingTime: true, closingTime: true,
   avgDeliveryTime: true, commissionTier: true, verificationBadge: true,
+  minOrder: true,
 };
 
 export const getVendors = catchAsync(async (req: Request, res: Response) => {
@@ -135,7 +136,7 @@ export const getMyVendorProfile = catchAsync(async (req: AuthRequest, res: Respo
 });
 
 export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { businessName, description, logo, coverImage, address, city, state, openingTime, closingTime, avgDeliveryTime } = req.body;
+  const { businessName, description, logo, coverImage, address, city, state, openingTime, closingTime, avgDeliveryTime, minOrder } = req.body;
   const vendor = await prisma.vendor.update({
     where: { userId: req.user!.userId },
     data: {
@@ -149,6 +150,7 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
       ...(openingTime       !== undefined && { openingTime }),
       ...(closingTime       !== undefined && { closingTime }),
       ...(avgDeliveryTime   !== undefined && { avgDeliveryTime: avgDeliveryTime !== null ? Number(avgDeliveryTime) : null }),
+      ...(minOrder          !== undefined && !isNaN(Number(minOrder)) && { minOrder: Math.max(0, Number(minOrder)) }),
     },
     select: vendorSelect,
   });

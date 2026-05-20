@@ -13,6 +13,19 @@ import api from '@/services/api';
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
+function phoneToDisplay(phone: string): string {
+  if (phone.startsWith('+234')) return phone.slice(4);
+  if (phone.startsWith('234')) return phone.slice(3);
+  return phone;
+}
+
+function formatPhoneForApi(suffix: string): string {
+  const digits = suffix.replace(/\D/g, '');
+  if (!digits) return '';
+  const normalized = digits.startsWith('0') ? digits.slice(1) : digits;
+  return `+234${normalized}`;
+}
+
 async function uploadImage(uri: string): Promise<string> {
   if (!CLOUD_NAME || !UPLOAD_PRESET) throw new Error('Image upload is not configured. Contact support.');
   const form = new FormData();
@@ -82,7 +95,7 @@ export default function RiderDocumentScreen() {
         setSelfieUrl(data.selfieUrl ?? '');
         setVehicleImgUrl(data.vehicleImageUrl ?? '');
         setGuarantorName(data.guarantorName ?? '');
-        setGuarantorPhone(data.guarantorPhone ?? '');
+        setGuarantorPhone(phoneToDisplay(data.guarantorPhone ?? ''));
         setGuarantorAddress(data.guarantorAddress ?? '');
       }
     } catch {
@@ -138,15 +151,28 @@ export default function RiderDocumentScreen() {
       Alert.alert('Required', 'Please enter your NIN.');
       return;
     }
+    if (!guarantorName.trim()) {
+      Alert.alert('Required', 'Please enter your guarantor\'s full name.');
+      return;
+    }
+    if (!guarantorPhone.trim()) {
+      Alert.alert('Required', 'Please enter your guarantor\'s phone number.');
+      return;
+    }
+    if (!guarantorAddress.trim()) {
+      Alert.alert('Required', 'Please enter your guarantor\'s address.');
+      return;
+    }
     try {
       setSaving(true);
+      const formattedGuarantorPhone = formatPhoneForApi(guarantorPhone);
       await api.post('/riders/me/document', {
         ninNumber: ninNumber.trim(),
         ninImageUrl: ninImgUrl || null,
         selfieUrl: selfieUrl || null,
         vehicleImageUrl: vehicleImgUrl || null,
         guarantorName: guarantorName.trim() || null,
-        guarantorPhone: guarantorPhone.trim() || null,
+        guarantorPhone: formattedGuarantorPhone || null,
         guarantorAddress: guarantorAddress.trim() || null,
       });
       Alert.alert('Submitted', 'Your documents have been submitted for review.', [
@@ -170,7 +196,7 @@ export default function RiderDocumentScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <TouchableOpacity onPress={() => router.back()} style={styles.back} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={() => router.navigate('/(rider)/profile')} style={styles.back} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="arrow-back" size={22} color={T.text} />
         </TouchableOpacity>
 
@@ -252,6 +278,9 @@ export default function RiderDocumentScreen() {
             <Text style={[styles.sectionSub, { color: T.textSec }]}>
               A guarantor vouches for your reliability. This is strongly recommended.
             </Text>
+            <Text style={[styles.sectionSub, { color: T.textSec, marginTop: 6 }]}>
+              Note that guarantor will be strictly verified. False information will lead to rejection and ban from the platform.
+            </Text>
 
             <Text style={[styles.label, { color: T.textSec }]}>Guarantor Full Name</Text>
             <TextInput
@@ -264,15 +293,20 @@ export default function RiderDocumentScreen() {
             />
 
             <Text style={[styles.label, { color: T.textSec, marginTop: 14 }]}>Guarantor Phone Number</Text>
-            <TextInput
-              value={guarantorPhone}
-              onChangeText={setGuarantorPhone}
-              placeholder="e.g. 08012345678"
-              placeholderTextColor={T.textMuted}
-              keyboardType="phone-pad"
-              editable={!isVerified}
-              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text, opacity: isVerified ? 0.6 : 1 }]}
-            />
+            <View style={[styles.phoneRow, { backgroundColor: T.surface, borderColor: T.border, opacity: isVerified ? 0.6 : 1 }]}>
+              <View style={[styles.phonePrefix, { borderRightColor: T.border }]}>
+                <Text style={[styles.phonePrefixText, { color: T.textSec }]}>+234</Text>
+              </View>
+              <TextInput
+                value={guarantorPhone}
+                onChangeText={setGuarantorPhone}
+                placeholder="8031234567"
+                placeholderTextColor={T.textMuted}
+                keyboardType="phone-pad"
+                editable={!isVerified}
+                style={[styles.phoneInput, { color: T.text }]}
+              />
+            </View>
 
             <Text style={[styles.label, { color: T.textSec, marginTop: 14 }]}>Guarantor Address</Text>
             <TextInput
@@ -377,6 +411,21 @@ const styles = StyleSheet.create({
   sectionSub: { fontSize: 12, lineHeight: 18, fontFamily: 'PlusJakartaSans_400Regular', marginBottom: 12, marginTop: -6 },
   label: { fontSize: 12, fontWeight: '600', fontFamily: 'PlusJakartaSans_600SemiBold', marginBottom: 6 },
   input: { height: 48, borderRadius: 4, borderWidth: 1, paddingHorizontal: 14, fontSize: 14, fontFamily: 'PlusJakartaSans_400Regular' },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  phonePrefix: {
+    paddingHorizontal: 14,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    borderRightWidth: 1,
+  },
+  phonePrefixText: { fontSize: 14, fontFamily: 'PlusJakartaSans_400Regular' },
+  phoneInput: { flex: 1, paddingHorizontal: 14, fontSize: 14, fontFamily: 'PlusJakartaSans_400Regular' },
   textarea: {
     borderRadius: 4, borderWidth: 1, paddingHorizontal: 14, paddingTop: 12,
     fontSize: 14, minHeight: 72, textAlignVertical: 'top',

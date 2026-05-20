@@ -21,6 +21,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
+function phoneToDisplay(phone: string): string {
+	if (phone.startsWith('+234')) return phone.slice(4);
+	if (phone.startsWith('234')) return phone.slice(3);
+	return phone;
+}
+
+function formatPhoneForApi(suffix: string): string {
+	const digits = suffix.replace(/\D/g, '');
+	if (!digits) return '';
+	const normalized = digits.startsWith('0') ? digits.slice(1) : digits;
+	return `+234${normalized}`;
+}
+
 async function uploadToCloudinary(uri: string): Promise<string> {
 	if (!CLOUD_NAME || CLOUD_NAME === 'your_cloud_name') return uri;
 	const form = new FormData();
@@ -129,7 +142,7 @@ export default function RiderProfileScreen() {
 
 	const startEdit = () => {
 		setDraftName(profile?.user?.name ?? user?.name ?? '');
-		setDraftPhone(profile?.user?.phone ?? user?.phone ?? '');
+		setDraftPhone(phoneToDisplay(profile?.user?.phone ?? user?.phone ?? ''));
 		setDraftVehicle(profile?.vehicleType ?? '');
 		setDraftPlate(profile?.plateNumber ?? '');
 		setIsEditing(true);
@@ -146,10 +159,11 @@ export default function RiderProfileScreen() {
 		}
 		try {
 			setSaving(true);
+			const formattedPhone = formatPhoneForApi(draftPhone);
 			await Promise.all([
 				api.patch('/auth/profile', {
 					name: draftName.trim(),
-					...(draftPhone.trim() ? { phone: draftPhone.trim() } : {}),
+					...(formattedPhone ? { phone: formattedPhone } : {}),
 				}),
 				api.patch('/riders/me', {
 					...(draftVehicle.trim() ? { vehicleType: draftVehicle.trim() } : {}),
@@ -345,14 +359,19 @@ export default function RiderProfileScreen() {
 					<View style={[styles.infoRow, { borderBottomColor: T.border, borderBottomWidth: 1 }]}>
 						<Text style={styles.infoIcon}>📱</Text>
 						{isEditing ? (
-							<TextInput
-								value={draftPhone}
-								onChangeText={setDraftPhone}
-								placeholder="+234 800 000 0000"
-								placeholderTextColor={T.textMuted}
-								keyboardType="phone-pad"
-								style={[styles.inlineInput, { color: T.text, borderColor: T.border, backgroundColor: T.surface2 }]}
-							/>
+							<View style={[styles.phoneRow, { borderColor: T.border, backgroundColor: T.surface2 }]}>
+								<View style={[styles.phonePrefix, { borderRightColor: T.border }]}>
+									<Text style={[styles.phonePrefixText, { color: T.textSec }]}>+234</Text>
+								</View>
+								<TextInput
+									value={draftPhone}
+									onChangeText={setDraftPhone}
+									placeholder="8031234567"
+									placeholderTextColor={T.textMuted}
+									keyboardType="phone-pad"
+									style={[styles.phoneInput, { color: T.text }]}
+								/>
+							</View>
 						) : (
 							<Text style={[styles.infoValue, { color: T.text }]}>
 								{profile?.user?.phone ?? user?.phone ?? 'No phone added'}
@@ -532,6 +551,22 @@ const styles = StyleSheet.create({
 		fontSize: 13,
 		fontWeight: '500',
 	},
+	phoneRow: {
+		flex: 1,
+		flexDirection: 'row',
+		alignItems: 'center',
+		height: 38,
+		borderWidth: 1,
+		borderRadius: 4,
+	},
+	phonePrefix: {
+		paddingHorizontal: 10,
+		alignSelf: 'stretch',
+		justifyContent: 'center',
+		borderRightWidth: 1,
+	},
+	phonePrefixText: { fontSize: 13, fontWeight: '500' },
+	phoneInput: { flex: 1, paddingHorizontal: 10, fontSize: 13, fontWeight: '500' },
 	menuRow: {
 		flexDirection: 'row',
 		alignItems: 'center',

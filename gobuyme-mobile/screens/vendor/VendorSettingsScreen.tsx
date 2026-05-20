@@ -130,7 +130,7 @@ export default function VendorSettingsScreen() {
         {
           icon: 'globe-outline',
           label: 'Website',
-          sub: 'gobuyme.ng',
+          sub: 'gobuyme.shop',
           control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
           onPress: () => {},
         },
