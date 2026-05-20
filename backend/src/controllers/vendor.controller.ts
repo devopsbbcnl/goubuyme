@@ -30,7 +30,6 @@ const vendorSelect = {
   latitude: true, longitude: true, isOpen: true, rating: true,
   totalRatings: true, openingTime: true, closingTime: true,
   avgDeliveryTime: true, commissionTier: true, verificationBadge: true,
-  minOrder: true,
 };
 
 export const getVendors = catchAsync(async (req: Request, res: Response) => {
@@ -136,7 +135,14 @@ export const getMyVendorProfile = catchAsync(async (req: AuthRequest, res: Respo
 });
 
 export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { businessName, description, logo, coverImage, address, city, state, openingTime, closingTime, avgDeliveryTime, minOrder } = req.body;
+  const { businessName, description, logo, coverImage, address, city, state, openingTime, closingTime, avgDeliveryTime } = req.body;
+  if (businessName) {
+    const conflict = await prisma.vendor.findFirst({
+      where: { businessName: { equals: businessName.trim(), mode: 'insensitive' }, NOT: { userId: req.user!.userId } },
+      select: { id: true },
+    });
+    if (conflict) return apiResponse.error(res, 'A store with this business name already exists. Please choose a different name.', 409);
+  }
   const vendor = await prisma.vendor.update({
     where: { userId: req.user!.userId },
     data: {
@@ -150,7 +156,6 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
       ...(openingTime       !== undefined && { openingTime }),
       ...(closingTime       !== undefined && { closingTime }),
       ...(avgDeliveryTime   !== undefined && { avgDeliveryTime: avgDeliveryTime !== null ? Number(avgDeliveryTime) : null }),
-      ...(minOrder          !== undefined && !isNaN(Number(minOrder)) && { minOrder: Math.max(0, Number(minOrder)) }),
     },
     select: vendorSelect,
   });
@@ -345,10 +350,17 @@ export const getMyEarnings = catchAsync(async (req: AuthRequest, res: Response) 
 
 const drinkOptionSelect = { id: true, name: true, price: true, isAvailable: true };
 
+const optionItemSelect = { id: true, name: true, extraPrice: true, isAvailable: true };
+const optionGroupSelect = {
+  id: true, name: true, required: true,
+  items: { select: optionItemSelect },
+};
+
 const menuItemSelect = {
   id: true, name: true, description: true, price: true,
   image: true, category: true, isAvailable: true, isFeatured: true,
   drinkOptions: { select: drinkOptionSelect, orderBy: { price: 'asc' as const } },
+  optionGroups: { select: optionGroupSelect, orderBy: { createdAt: 'asc' as const } },
 };
 
 const resolveVendorId = async (userId: string): Promise<string | null> => {
@@ -517,6 +529,107 @@ export const deleteMenuItemDrinkOption = catchAsync(async (req: AuthRequest, res
 
   await prisma.menuItemDrinkOption.delete({ where: { id: req.params.optionId } });
   return apiResponse.success(res, 'Drink option deleted.');
+});
+
+// ─── Option groups ─────────────────────────────────────────────────────────────
+
+export const getMenuItemOptionGroups = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendorId = await resolveVendorId(req.user!.userId);
+  if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+
+  const groups = await prisma.menuItemOptionGroup.findMany({
+    where: { menuItemId: req.params.itemId },
+    select: optionGroupSelect,
+    orderBy: { createdAt: 'asc' },
+  });
+  return apiResponse.success(res, 'Option groups fetched.', groups);
+});
+
+export const createMenuItemOptionGroup = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendorId = await resolveVendorId(req.user!.userId);
+  if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+
+  const { name, required } = req.body as { name?: string; required?: boolean };
+  if (!name?.trim()) return apiResponse.error(res, 'Group name is required.', 400);
+
+  const group = await prisma.menuItemOptionGroup.create({
+    data: { menuItemId: req.params.itemId, name: name.trim(), required: required ?? false },
+    select: optionGroupSelect,
+  });
+  return apiResponse.success(res, 'Option group created.', group, 201);
+});
+
+export const deleteMenuItemOptionGroup = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendorId = await resolveVendorId(req.user!.userId);
+  if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+
+  const exists = await prisma.menuItemOptionGroup.findFirst({
+    where: { id: req.params.groupId, menuItemId: req.params.itemId },
+    select: { id: true },
+  });
+  if (!exists) return apiResponse.error(res, 'Option group not found.', 404);
+
+  await prisma.menuItemOptionGroup.delete({ where: { id: req.params.groupId } });
+  return apiResponse.success(res, 'Option group deleted.');
+});
+
+export const createMenuItemOptionItem = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendorId = await resolveVendorId(req.user!.userId);
+  if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+
+  const group = await prisma.menuItemOptionGroup.findFirst({
+    where: { id: req.params.groupId, menuItemId: req.params.itemId },
+    select: { id: true },
+  });
+  if (!group) return apiResponse.error(res, 'Option group not found.', 404);
+
+  const { name, extraPrice } = req.body as { name?: string; extraPrice?: number };
+  if (!name?.trim()) return apiResponse.error(res, 'Option name is required.', 400);
+
+  const item = await prisma.menuItemOptionItem.create({
+    data: { optionGroupId: req.params.groupId, name: name.trim(), extraPrice: Number(extraPrice) || 0 },
+    select: optionItemSelect,
+  });
+  return apiResponse.success(res, 'Option item created.', item, 201);
+});
+
+export const updateMenuItemOptionItem = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendorId = await resolveVendorId(req.user!.userId);
+  if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+
+  const exists = await prisma.menuItemOptionItem.findFirst({
+    where: { id: req.params.optItemId, optionGroupId: req.params.groupId },
+    select: { id: true },
+  });
+  if (!exists) return apiResponse.error(res, 'Option item not found.', 404);
+
+  const { isAvailable } = req.body as { isAvailable?: boolean };
+  const updated = await prisma.menuItemOptionItem.update({
+    where: { id: req.params.optItemId },
+    data: { ...(isAvailable !== undefined && { isAvailable }) },
+    select: optionItemSelect,
+  });
+  return apiResponse.success(res, 'Option item updated.', updated);
+});
+
+export const deleteMenuItemOptionItem = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendorId = await resolveVendorId(req.user!.userId);
+  if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+
+  const exists = await prisma.menuItemOptionItem.findFirst({
+    where: { id: req.params.optItemId, optionGroupId: req.params.groupId },
+    select: { id: true },
+  });
+  if (!exists) return apiResponse.error(res, 'Option item not found.', 404);
+
+  await prisma.menuItemOptionItem.delete({ where: { id: req.params.optItemId } });
+  return apiResponse.success(res, 'Option item deleted.');
 });
 
 // GET /vendors/me/payout-account

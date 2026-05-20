@@ -52,7 +52,9 @@
       "Bash(cmd /c \"cd /d \\\\\"C:\\\\Users\\\\Okonk\\\\onedrive\\\\desktop\\\\BUBBLE BARREL\\\\gobuyme6\\\\backend\\\\\" && npx tsc --noEmit\")",
       "Bash(node *)",
       "Bash(Get-ChildItem *)",
-      "Bash(grep -E \"\\\\.tsx$\")"
+      "Bash(grep -E \"\\\\.tsx$\")",
+      "Bash(python3 *)",
+      "PowerShell(cd \"C:\\\\Users\\\\Okonk\\\\onedrive\\\\desktop\\\\bubble barrel\\\\gobuyme6\\\\backend\"; $env:PRISMA_MIGRATE_SKIP_GENERATE=\"1\"; npx prisma migrate dev --name add_vendor_business_name_unique --create-only 2>&1)"
     ]
   }
 }

@@ -57,7 +57,9 @@
       "Bash(node -e \"const fs=require\\('fs'\\),buf=fs.readFileSync\\('c:/Users/Okonk/OneDrive/Desktop/BUBBLE BARREL/Gobuyme6/gobuyme-mobile/assets/adaptive-icon.png'\\);console.log\\(buf.readUInt32BE\\(16\\)+'x'+buf.readUInt32BE\\(20\\)\\);\")",
       "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('c:/Users/Okonk/OneDrive/Desktop/BUBBLE BARREL/Gobuyme6/gobuyme-mobile/app.json','utf8'\\)\\); console.log\\('valid'\\)\")",
       "Bash(Select-Object FullName)",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(node -e \"const fs=require\\('fs'\\); const s=fs.statSync\\('./assets/adaptive-icon.png'\\); console.log\\('size bytes:', s.size\\);\")",
+      "Bash(node -e \"require\\('sharp'\\); console.log\\('sharp ok'\\)\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"

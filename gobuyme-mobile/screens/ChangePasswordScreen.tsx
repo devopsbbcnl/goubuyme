@@ -9,6 +9,7 @@ import {
 	ActivityIndicator,
 	ScrollView,
 } from 'react-native';
+import { generatePassword } from '@/utils/generatePassword';
 import { useTheme } from '@/context/ThemeContext';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,6 +47,14 @@ export default function ChangePasswordScreen() {
 	useEffect(() => {
 		fetchMfaStatus();
 	}, [fetchMfaStatus]);
+
+	const handleGenerateNew = () => {
+		const pw = generatePassword();
+		setNewPw(pw);
+		setConfirmPw(pw);
+		setShowNew(true);
+		setShowConfirm(true);
+	};
 
 	const validate = () => {
 		if (!currentPw || !newPw || !confirmPw) {
@@ -143,6 +152,7 @@ export default function ChangePasswordScreen() {
 					onChange={setNewPw}
 					show={showNew}
 					toggle={() => setShowNew((v) => !v)}
+					onGenerate={handleGenerateNew}
 					T={T}
 				/>
 				<PwField
@@ -183,10 +193,22 @@ export default function ChangePasswordScreen() {
 	);
 }
 
-function PwField({ label, value, onChange, show, toggle, T }: any) {
+function PwField({ label, value, onChange, show, toggle, onGenerate, T }: any) {
 	return (
 		<View style={{ gap: 6 }}>
-			<Text style={[styles.fieldLabel, { color: T.textSec }]}>{label}</Text>
+			<View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+				<Text style={[styles.fieldLabel, { color: T.textSec }]}>{label}</Text>
+				{onGenerate && (
+					<TouchableOpacity
+						onPress={onGenerate}
+						style={styles.generateBtn}
+						hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+					>
+						<Ionicons name="dice-outline" size={13} color={T.primary} />
+						<Text style={[styles.generateBtnText, { color: T.primary }]}>Generate</Text>
+					</TouchableOpacity>
+				)}
+			</View>
 			<View style={[styles.fieldRow, { backgroundColor: T.surface2, borderColor: T.border }]}>
 				<TextInput
 					value={value}
@@ -234,6 +256,15 @@ const styles = StyleSheet.create({
 		fontWeight: '600',
 		textTransform: 'uppercase',
 		letterSpacing: 0.5,
+	},
+	generateBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+	},
+	generateBtnText: {
+		fontSize: 11,
+		fontWeight: '700',
 	},
 	fieldRow: {
 		flexDirection: 'row',

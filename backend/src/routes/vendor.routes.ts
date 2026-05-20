@@ -5,6 +5,8 @@ import {
   getVendorDashboardStats, getMyOrders, updateMyOrderStatus, getMyEarnings,
   getMyMenuItems, createMenuItem, updateMenuItem, deleteMenuItem,
   getMenuItemDrinkOptions, createMenuItemDrinkOption, updateMenuItemDrinkOption, deleteMenuItemDrinkOption,
+  getMenuItemOptionGroups, createMenuItemOptionGroup, deleteMenuItemOptionGroup,
+  createMenuItemOptionItem, updateMenuItemOptionItem, deleteMenuItemOptionItem,
   getPayoutAccount, savePayoutAccount, switchMyTier,
   getMyDocument, submitDocument,
   getMyBusinessVerification, submitBusinessVerification,
@@ -45,10 +47,18 @@ router.patch('/me/menu/:itemId',                                ...vendorAuth, u
 router.delete('/me/menu/:itemId',                               ...vendorAuth, deleteMenuItem);
 
 // Drink options
-router.get('/me/menu/:itemId/drink-options',                    ...vendorAuth, getMenuItemDrinkOptions);
-router.post('/me/menu/:itemId/drink-options',                   ...vendorAuth, createMenuItemDrinkOption);
-router.patch('/me/menu/:itemId/drink-options/:optionId',        ...vendorAuth, updateMenuItemDrinkOption);
-router.delete('/me/menu/:itemId/drink-options/:optionId',       ...vendorAuth, deleteMenuItemDrinkOption);
+router.get('/me/menu/:itemId/drink-options',                                        ...vendorAuth, getMenuItemDrinkOptions);
+router.post('/me/menu/:itemId/drink-options',                                       ...vendorAuth, createMenuItemDrinkOption);
+router.patch('/me/menu/:itemId/drink-options/:optionId',                            ...vendorAuth, updateMenuItemDrinkOption);
+router.delete('/me/menu/:itemId/drink-options/:optionId',                           ...vendorAuth, deleteMenuItemDrinkOption);
+
+// Option groups (add-on / choice groups)
+router.get('/me/menu/:itemId/option-groups',                                        ...vendorAuth, getMenuItemOptionGroups);
+router.post('/me/menu/:itemId/option-groups',                                       ...vendorAuth, createMenuItemOptionGroup);
+router.delete('/me/menu/:itemId/option-groups/:groupId',                            ...vendorAuth, deleteMenuItemOptionGroup);
+router.post('/me/menu/:itemId/option-groups/:groupId/items',                        ...vendorAuth, createMenuItemOptionItem);
+router.patch('/me/menu/:itemId/option-groups/:groupId/items/:optItemId',            ...vendorAuth, updateMenuItemOptionItem);
+router.delete('/me/menu/:itemId/option-groups/:groupId/items/:optItemId',           ...vendorAuth, deleteMenuItemOptionItem);
 
 // Promotion routes (vendor-authenticated)
 router.get('/me/promotions',                   ...vendorAuth, getMyPromotions);

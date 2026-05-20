@@ -11,11 +11,10 @@ import {
 	TextInput,
 	Switch,
 	Alert,
-	KeyboardAvoidingView,
-	Platform,
 	Pressable,
+	useWindowDimensions,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImage as openImagePicker } from '@/utils/pickImage';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +28,20 @@ interface DrinkOption {
 	isAvailable: boolean;
 }
 
+interface OptionItem {
+	id: string;
+	name: string;
+	extraPrice: number;
+	isAvailable: boolean;
+}
+
+interface OptionGroup {
+	id: string;
+	name: string;
+	required: boolean;
+	items: OptionItem[];
+}
+
 interface MenuItem {
 	id: string;
 	name: string;
@@ -39,6 +52,7 @@ interface MenuItem {
 	isAvailable: boolean;
 	isFeatured: boolean;
 	drinkOptions: DrinkOption[];
+	optionGroups: OptionGroup[];
 }
 
 interface FormState {
@@ -112,6 +126,7 @@ async function uploadImage(uri: string): Promise<string> {
 export default function ManageMenuScreen() {
 	const { theme: T } = useTheme();
 	const insets = useSafeAreaInsets();
+	const { height: screenHeight } = useWindowDimensions();
 
 	const [items, setItems] = useState<MenuItem[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -126,6 +141,15 @@ export default function ManageMenuScreen() {
 	const [drinkName, setDrinkName] = useState('');
 	const [drinkPrice, setDrinkPrice] = useState('');
 	const [drinkSaving, setDrinkSaving] = useState(false);
+
+	// Option groups sheet state
+	const [optSheetItem, setOptSheetItem] = useState<MenuItem | null>(null);
+	const [newGroupName, setNewGroupName] = useState('');
+	const [newGroupRequired, setNewGroupRequired] = useState(false);
+	const [addingToGroupId, setAddingToGroupId] = useState<string | null>(null);
+	const [newOptName, setNewOptName] = useState('');
+	const [newOptPrice, setNewOptPrice] = useState('');
+	const [optSaving, setOptSaving] = useState(false);
 
 	const fetchItems = useCallback(async () => {
 		try {
@@ -170,20 +194,8 @@ export default function ManageMenuScreen() {
 	};
 
 	const pickImage = async () => {
-		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-		if (status !== 'granted') {
-			Alert.alert('Permission needed', 'Allow photo access to upload images.');
-			return;
-		}
-		const result = await ImagePicker.launchImageLibraryAsync({
-			mediaTypes: ImagePicker.MediaTypeOptions.Images,
-			allowsEditing: true,
-			aspect: [1, 1],
-			quality: 0.8,
-		});
-		if (!result.canceled && result.assets[0]) {
-			setForm((f) => ({ ...f, image: result.assets[0].uri }));
-		}
+		const uri = await openImagePicker({ aspect: [1, 1], quality: 0.8 });
+		if (uri) setForm((f) => ({ ...f, image: uri }));
 	};
 
 	const handleSave = async () => {
@@ -345,6 +357,147 @@ export default function ManageMenuScreen() {
 		]);
 	};
 
+	const openOptSheet = (item: MenuItem) => {
+		setOptSheetItem(item);
+		setNewGroupName('');
+		setNewGroupRequired(false);
+		setAddingToGroupId(null);
+		setNewOptName('');
+		setNewOptPrice('');
+	};
+
+	const closeOptSheet = () => setOptSheetItem(null);
+
+	const handleAddOptionGroup = async () => {
+		if (!optSheetItem) return;
+		const name = newGroupName.trim();
+		if (!name) { Alert.alert('Validation', 'Group name is required.'); return; }
+		setOptSaving(true);
+		try {
+			const res = await api.post(`/vendors/me/menu/${optSheetItem.id}/option-groups`, { name, required: newGroupRequired });
+			const newGroup: OptionGroup = { ...res.data.data, items: res.data.data.items ?? [] };
+			setItems(prev => prev.map(it =>
+				it.id === optSheetItem.id ? { ...it, optionGroups: [...it.optionGroups, newGroup] } : it,
+			));
+			setOptSheetItem(prev => prev ? { ...prev, optionGroups: [...prev.optionGroups, newGroup] } : null);
+			setNewGroupName('');
+			setNewGroupRequired(false);
+		} catch (err: any) {
+			Alert.alert('Error', err?.response?.data?.message ?? 'Could not add option group.');
+		} finally {
+			setOptSaving(false);
+		}
+	};
+
+	const handleDeleteOptionGroup = (group: OptionGroup) => {
+		if (!optSheetItem) return;
+		Alert.alert('Remove group', `Remove "${group.name}" and all its options?`, [
+			{ text: 'Cancel', style: 'cancel' },
+			{
+				text: 'Remove', style: 'destructive', onPress: async () => {
+					try {
+						await api.delete(`/vendors/me/menu/${optSheetItem.id}/option-groups/${group.id}`);
+						const remove = (it: MenuItem) => it.id === optSheetItem.id
+							? { ...it, optionGroups: it.optionGroups.filter(g => g.id !== group.id) }
+							: it;
+						setItems(prev => prev.map(remove));
+						setOptSheetItem(prev => prev ? { ...prev, optionGroups: prev.optionGroups.filter(g => g.id !== group.id) } : null);
+					} catch (err: any) {
+						Alert.alert('Error', err?.response?.data?.message ?? 'Could not remove group.');
+					}
+				},
+			},
+		]);
+	};
+
+	const handleAddOptionItem = async (group: OptionGroup) => {
+		if (!optSheetItem) return;
+		const name = newOptName.trim();
+		const extraPrice = parseFloat(newOptPrice) || 0;
+		if (!name) { Alert.alert('Validation', 'Option name is required.'); return; }
+		setOptSaving(true);
+		try {
+			const res = await api.post(`/vendors/me/menu/${optSheetItem.id}/option-groups/${group.id}/items`, { name, extraPrice });
+			const newItem: OptionItem = res.data.data;
+			const update = (it: MenuItem) => it.id === optSheetItem.id
+				? { ...it, optionGroups: it.optionGroups.map(g => g.id === group.id ? { ...g, items: [...g.items, newItem] } : g) }
+				: it;
+			setItems(prev => prev.map(update));
+			setOptSheetItem(prev => prev ? {
+				...prev,
+				optionGroups: prev.optionGroups.map(g => g.id === group.id ? { ...g, items: [...g.items, newItem] } : g),
+			} : null);
+			setNewOptName('');
+			setNewOptPrice('');
+			setAddingToGroupId(null);
+		} catch (err: any) {
+			Alert.alert('Error', err?.response?.data?.message ?? 'Could not add option.');
+		} finally {
+			setOptSaving(false);
+		}
+	};
+
+	const handleToggleOptionItem = async (group: OptionGroup, optItem: OptionItem) => {
+		if (!optSheetItem) return;
+		const next = !optItem.isAvailable;
+		const applyUpdate = (it: MenuItem) => it.id === optSheetItem.id
+			? { ...it, optionGroups: it.optionGroups.map(g => g.id === group.id
+				? { ...g, items: g.items.map(oi => oi.id === optItem.id ? { ...oi, isAvailable: next } : oi) }
+				: g) }
+			: it;
+		setItems(prev => prev.map(applyUpdate));
+		setOptSheetItem(prev => prev ? {
+			...prev,
+			optionGroups: prev.optionGroups.map(g => g.id === group.id
+				? { ...g, items: g.items.map(oi => oi.id === optItem.id ? { ...oi, isAvailable: next } : oi) }
+				: g),
+		} : null);
+		try {
+			await api.patch(`/vendors/me/menu/${optSheetItem.id}/option-groups/${group.id}/items/${optItem.id}`, { isAvailable: next });
+		} catch {
+			const revert = (it: MenuItem) => it.id === optSheetItem.id
+				? { ...it, optionGroups: it.optionGroups.map(g => g.id === group.id
+					? { ...g, items: g.items.map(oi => oi.id === optItem.id ? { ...oi, isAvailable: optItem.isAvailable } : oi) }
+					: g) }
+				: it;
+			setItems(prev => prev.map(revert));
+			setOptSheetItem(prev => prev ? {
+				...prev,
+				optionGroups: prev.optionGroups.map(g => g.id === group.id
+					? { ...g, items: g.items.map(oi => oi.id === optItem.id ? { ...oi, isAvailable: optItem.isAvailable } : oi) }
+					: g),
+			} : null);
+		}
+	};
+
+	const handleDeleteOptionItem = (group: OptionGroup, optItem: OptionItem) => {
+		if (!optSheetItem) return;
+		Alert.alert('Remove option', `Remove "${optItem.name}"?`, [
+			{ text: 'Cancel', style: 'cancel' },
+			{
+				text: 'Remove', style: 'destructive', onPress: async () => {
+					try {
+						await api.delete(`/vendors/me/menu/${optSheetItem.id}/option-groups/${group.id}/items/${optItem.id}`);
+						const remove = (it: MenuItem) => it.id === optSheetItem.id
+							? { ...it, optionGroups: it.optionGroups.map(g => g.id === group.id
+								? { ...g, items: g.items.filter(oi => oi.id !== optItem.id) }
+								: g) }
+							: it;
+						setItems(prev => prev.map(remove));
+						setOptSheetItem(prev => prev ? {
+							...prev,
+							optionGroups: prev.optionGroups.map(g => g.id === group.id
+								? { ...g, items: g.items.filter(oi => oi.id !== optItem.id) }
+								: g),
+						} : null);
+					} catch (err: any) {
+						Alert.alert('Error', err?.response?.data?.message ?? 'Could not remove option.');
+					}
+				},
+			},
+		]);
+	};
+
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
 			{/* Header */}
@@ -408,6 +561,7 @@ export default function ManageMenuScreen() {
 							onDelete={() => handleDelete(item)}
 							onToggle={() => toggleAvailable(item)}
 							onDrinks={() => openDrinkSheet(item)}
+							onOptions={() => openOptSheet(item)}
 						/>
 					))}
 				</ScrollView>
@@ -420,18 +574,16 @@ export default function ManageMenuScreen() {
 				transparent
 				onRequestClose={closeDrinkSheet}
 			>
-				<View style={{ flex: 1 }}>
-					<Pressable style={{ flex: 1 }} onPress={closeDrinkSheet} />
-					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-						<View style={[styles.sheet, { backgroundColor: T.surface, borderColor: T.border }]}>
-							<View style={[styles.sheetHeader, { borderBottomColor: T.border }]}>
-								<Text style={[styles.sheetTitle, { color: T.text }]}>Drink Options</Text>
-								<TouchableOpacity onPress={closeDrinkSheet}>
-									<Ionicons name="close" size={22} color={T.textMuted} />
-								</TouchableOpacity>
-							</View>
-							<ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-							{/* Existing options */}
+				<View style={styles.modalBackdrop}>
+					<Pressable style={StyleSheet.absoluteFillObject} onPress={closeDrinkSheet} />
+					<View style={[styles.sheet, { backgroundColor: T.surface, borderColor: T.border, height: screenHeight * 0.65 }]}>
+						<View style={[styles.sheetHeader, { borderBottomColor: T.border }]}>
+							<Text style={[styles.sheetTitle, { color: T.text }]}>Drink Options</Text>
+							<TouchableOpacity onPress={closeDrinkSheet}>
+								<Ionicons name="close" size={22} color={T.textMuted} />
+							</TouchableOpacity>
+						</View>
+						<ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 							{(drinkSheetItem?.drinkOptions ?? []).length === 0 ? (
 								<Text style={[styles.drinkEmpty, { color: T.textMuted }]}>No drink options yet. Add one below.</Text>
 							) : (
@@ -458,8 +610,6 @@ export default function ManageMenuScreen() {
 									</View>
 								))
 							)}
-
-							{/* Add new drink form */}
 							<View style={[styles.drinkAddBox, { borderColor: T.border, backgroundColor: T.bg }]}>
 								<Text style={[styles.fieldLabel, { color: T.textSec, marginTop: 0 }]}>Add a Drink Option</Text>
 								<TextInput
@@ -488,10 +638,160 @@ export default function ManageMenuScreen() {
 										: <Text style={styles.saveBtnText}>Add Drink</Text>
 									}
 								</TouchableOpacity>
-								</View>
-							</ScrollView>
+							</View>
+						</ScrollView>
+					</View>
+				</View>
+			</Modal>
+
+			{/* Option groups sheet */}
+			<Modal
+				visible={!!optSheetItem}
+				animationType="slide"
+				transparent
+				onRequestClose={closeOptSheet}
+			>
+				<View style={styles.modalBackdrop}>
+					<Pressable style={StyleSheet.absoluteFillObject} onPress={closeOptSheet} />
+					<View style={[styles.sheet, { backgroundColor: T.surface, borderColor: T.border, height: screenHeight * 0.88 }]}>
+						<View style={[styles.sheetHeader, { borderBottomColor: T.border }]}>
+							<View style={{ flex: 1 }}>
+								<Text style={[styles.sheetTitle, { color: T.text }]}>Add-on Options</Text>
+								{optSheetItem && <Text style={[styles.drinkPrice, { color: T.textSec }]}>{optSheetItem.name}</Text>}
+							</View>
+							<TouchableOpacity onPress={closeOptSheet}>
+								<Ionicons name="close" size={22} color={T.textMuted} />
+							</TouchableOpacity>
 						</View>
-					</KeyboardAvoidingView>
+						<ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+							{(optSheetItem?.optionGroups ?? []).length === 0 && (
+								<Text style={[styles.drinkEmpty, { color: T.textMuted }]}>No option groups yet. Add one below.</Text>
+							)}
+							{(optSheetItem?.optionGroups ?? []).map(group => (
+								<View key={group.id} style={[styles.optGroupBox, { borderColor: T.border, backgroundColor: T.bg }]}>
+									<View style={styles.optGroupHeader}>
+										<View style={{ flex: 1 }}>
+											<Text style={[styles.optGroupName, { color: T.text }]}>{group.name}</Text>
+											{group.required && (
+												<View style={[styles.requiredPill, { backgroundColor: `${T.primary}18` }]}>
+													<Text style={[styles.requiredPillText, { color: T.primary }]}>Required</Text>
+												</View>
+											)}
+										</View>
+										<TouchableOpacity
+											onPress={() => handleDeleteOptionGroup(group)}
+											hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+										>
+											<Ionicons name="trash-outline" size={16} color="#E23B3B" />
+										</TouchableOpacity>
+									</View>
+									{group.items.map(optItem => (
+										<View key={optItem.id} style={[styles.optItemRow, { borderTopColor: T.border }]}>
+											<View style={{ flex: 1 }}>
+												<Text style={[styles.drinkName, { color: T.text }]}>{optItem.name}</Text>
+												{optItem.extraPrice > 0 && (
+													<Text style={[styles.drinkPrice, { color: T.primary }]}>+₦{optItem.extraPrice.toLocaleString()}</Text>
+												)}
+											</View>
+											<Switch
+												value={optItem.isAvailable}
+												onValueChange={() => { if (optSheetItem) handleToggleOptionItem(group, optItem); }}
+												trackColor={{ false: T.border, true: T.primary }}
+												thumbColor="#fff"
+												style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+											/>
+											<TouchableOpacity
+												onPress={() => optSheetItem && handleDeleteOptionItem(group, optItem)}
+												hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+												style={{ marginLeft: 8 }}
+											>
+												<Ionicons name="trash-outline" size={16} color="#E23B3B" />
+											</TouchableOpacity>
+										</View>
+									))}
+									{addingToGroupId === group.id ? (
+										<View style={[styles.optAddItemBox, { borderTopColor: T.border }]}>
+											<TextInput
+												value={newOptName}
+												onChangeText={setNewOptName}
+												placeholder="Option name (e.g. Semo)"
+												placeholderTextColor={T.textMuted}
+												style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text, marginBottom: 8 }]}
+											/>
+											<TextInput
+												value={newOptPrice}
+												onChangeText={setNewOptPrice}
+												placeholder="Extra price ₦ (0 if none)"
+												placeholderTextColor={T.textMuted}
+												keyboardType="numeric"
+												style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text }]}
+											/>
+											<View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+												<TouchableOpacity
+													onPress={() => { setAddingToGroupId(null); setNewOptName(''); setNewOptPrice(''); }}
+													style={[styles.optCancelBtn, { borderColor: T.border }]}
+												>
+													<Text style={[styles.optCancelBtnText, { color: T.textSec }]}>Cancel</Text>
+												</TouchableOpacity>
+												<TouchableOpacity
+													onPress={() => handleAddOptionItem(group)}
+													disabled={optSaving}
+													style={[styles.optAddBtn, { backgroundColor: optSaving ? T.textMuted : T.primary, flex: 1 }]}
+													activeOpacity={0.8}
+												>
+													{optSaving
+														? <ActivityIndicator color="#fff" size="small" />
+														: <Text style={styles.saveBtnText}>Add Option</Text>
+													}
+												</TouchableOpacity>
+											</View>
+										</View>
+									) : (
+										<TouchableOpacity
+											onPress={() => { setAddingToGroupId(group.id); setNewOptName(''); setNewOptPrice(''); }}
+											style={[styles.optAddItemTrigger, { borderTopColor: T.border }]}
+										>
+											<Ionicons name="add-circle-outline" size={16} color={T.primary} />
+											<Text style={[styles.optAddItemTriggerText, { color: T.primary }]}>Add option</Text>
+										</TouchableOpacity>
+									)}
+								</View>
+							))}
+							<View style={[styles.drinkAddBox, { borderColor: T.border, backgroundColor: T.bg, marginTop: 8 }]}>
+								<Text style={[styles.fieldLabel, { color: T.textSec, marginTop: 0 }]}>Add Option Group</Text>
+								<TextInput
+									value={newGroupName}
+									onChangeText={setNewGroupName}
+									placeholder="e.g. Choice of Swallow"
+									placeholderTextColor={T.textMuted}
+									style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text, marginBottom: 8 }]}
+								/>
+								<View style={[styles.toggleRow, { borderColor: T.border, marginTop: 0 }]}>
+									<View style={{ flex: 1 }}>
+										<Text style={[styles.toggleLabel, { color: T.text }]}>Required</Text>
+										<Text style={[styles.toggleSub, { color: T.textSec }]}>Customer must choose one</Text>
+									</View>
+									<Switch
+										value={newGroupRequired}
+										onValueChange={setNewGroupRequired}
+										trackColor={{ false: T.border, true: T.primary }}
+										thumbColor="#fff"
+									/>
+								</View>
+								<TouchableOpacity
+									onPress={handleAddOptionGroup}
+									disabled={optSaving}
+									style={[styles.saveBtn, { backgroundColor: optSaving ? T.textMuted : T.primary, marginTop: 12 }]}
+									activeOpacity={0.8}
+								>
+									{optSaving
+										? <ActivityIndicator color="#fff" />
+										: <Text style={styles.saveBtnText}>Add Group</Text>
+									}
+								</TouchableOpacity>
+							</View>
+						</ScrollView>
+					</View>
 				</View>
 			</Modal>
 
@@ -502,57 +802,36 @@ export default function ManageMenuScreen() {
 				transparent
 				onRequestClose={closeSheet}
 			>
-				<View style={{ flex: 1 }}>
-					<Pressable style={{ flex: 1 }} onPress={closeSheet} />
-					<KeyboardAvoidingView
-						behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-					>
-						<View
-							style={[
-								styles.sheet,
-								{ backgroundColor: T.surface, borderColor: T.border },
-							]}
-						>
-							{/* Sheet header */}
-							<View style={[styles.sheetHeader, { borderBottomColor: T.border }]}>
-								<Text style={[styles.sheetTitle, { color: T.text }]}>
-									{editing ? 'Edit Item' : 'New Item'}
-								</Text>
-								<TouchableOpacity onPress={closeSheet}>
-									<Ionicons name="close" size={22} color={T.textMuted} />
-								</TouchableOpacity>
-							</View>
+				<View style={styles.modalBackdrop}>
+					<Pressable style={StyleSheet.absoluteFillObject} onPress={closeSheet} />
+					<View style={[styles.sheet, { backgroundColor: T.surface, borderColor: T.border, height: screenHeight * 0.88 }]}>
+						{/* Sheet header */}
+						<View style={[styles.sheetHeader, { borderBottomColor: T.border }]}>
+							<Text style={[styles.sheetTitle, { color: T.text }]}>
+								{editing ? 'Edit Item' : 'New Item'}
+							</Text>
+							<TouchableOpacity onPress={closeSheet}>
+								<Ionicons name="close" size={22} color={T.textMuted} />
+							</TouchableOpacity>
+						</View>
 
-							<ScrollView
-								style={{ flex: 1 }}
-								contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
-								showsVerticalScrollIndicator={false}
-								keyboardShouldPersistTaps="handled"
-							>
+						<ScrollView
+							style={{ flex: 1 }}
+							contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+							showsVerticalScrollIndicator={false}
+							keyboardShouldPersistTaps="handled"
+						>
 							{/* Image picker */}
 							<TouchableOpacity
 								onPress={pickImage}
-								style={[
-									styles.imagePicker,
-									{ backgroundColor: T.bg, borderColor: T.border },
-								]}
+								style={[styles.imagePicker, { backgroundColor: T.bg, borderColor: T.border }]}
 							>
 								{form.image ? (
-									<Image
-										source={{ uri: form.image }}
-										style={styles.imagePreview}
-										resizeMode="cover"
-									/>
+									<Image source={{ uri: form.image }} style={styles.imagePreview} resizeMode="cover" />
 								) : (
 									<View style={{ alignItems: 'center', gap: 4 }}>
-										<Ionicons
-											name="camera-outline"
-											size={28}
-											color={T.textMuted}
-										/>
-										<Text
-											style={[styles.imagePickerText, { color: T.textMuted }]}
-										>
+										<Ionicons name="camera-outline" size={28} color={T.textMuted} />
+										<Text style={[styles.imagePickerText, { color: T.textMuted }]}>
 											Tap to add photo
 										</Text>
 									</View>
@@ -584,64 +863,28 @@ export default function ManageMenuScreen() {
 							/>
 
 							{/* Category picker */}
-							<Text style={[styles.fieldLabel, { color: T.textSec }]}>
-								Category
-							</Text>
+							<Text style={[styles.fieldLabel, { color: T.textSec }]}>Category</Text>
 							<TouchableOpacity
 								onPress={() => setCatOpen((o) => !o)}
-								style={[
-									styles.catTrigger,
-									{ backgroundColor: T.bg, borderColor: T.border },
-								]}
+								style={[styles.catTrigger, { backgroundColor: T.bg, borderColor: T.border }]}
 							>
-								<Text
-									style={[
-										styles.catTriggerText,
-										{ color: form.category ? T.text : T.textMuted },
-									]}
-								>
+								<Text style={[styles.catTriggerText, { color: form.category ? T.text : T.textMuted }]}>
 									{form.category || 'Select category'}
 								</Text>
-								<Ionicons
-									name={catOpen ? 'chevron-up' : 'chevron-down'}
-									size={14}
-									color={T.textMuted}
-								/>
+								<Ionicons name={catOpen ? 'chevron-up' : 'chevron-down'} size={14} color={T.textMuted} />
 							</TouchableOpacity>
 							{catOpen && (
-								<View
-									style={[
-										styles.catDropdown,
-										{ backgroundColor: T.surface, borderColor: T.border },
-									]}
-								>
+								<View style={[styles.catDropdown, { backgroundColor: T.surface, borderColor: T.border }]}>
 									{CATEGORIES.map((cat) => (
 										<TouchableOpacity
 											key={cat}
-											onPress={() => {
-												setForm((f) => ({ ...f, category: cat }));
-												setCatOpen(false);
-											}}
-											style={[
-												styles.catOption,
-												{ borderBottomColor: T.border },
-											]}
+											onPress={() => { setForm((f) => ({ ...f, category: cat })); setCatOpen(false); }}
+											style={[styles.catOption, { borderBottomColor: T.border }]}
 										>
-											<Text
-												style={[
-													styles.catOptionText,
-													{ color: form.category === cat ? T.primary : T.text },
-												]}
-											>
+											<Text style={[styles.catOptionText, { color: form.category === cat ? T.primary : T.text }]}>
 												{cat}
 											</Text>
-											{form.category === cat && (
-												<Ionicons
-													name="checkmark"
-													size={14}
-													color={T.primary}
-												/>
-											)}
+											{form.category === cat && <Ionicons name="checkmark" size={14} color={T.primary} />}
 										</TouchableOpacity>
 									))}
 								</View>
@@ -650,41 +893,24 @@ export default function ManageMenuScreen() {
 							{/* Toggles */}
 							<View style={[styles.toggleRow, { borderColor: T.border }]}>
 								<View style={{ flex: 1 }}>
-									<Text style={[styles.toggleLabel, { color: T.text }]}>
-										Available
-									</Text>
-									<Text style={[styles.toggleSub, { color: T.textSec }]}>
-										Customers can order this item
-									</Text>
+									<Text style={[styles.toggleLabel, { color: T.text }]}>Available</Text>
+									<Text style={[styles.toggleSub, { color: T.textSec }]}>Customers can order this item</Text>
 								</View>
 								<Switch
 									value={form.isAvailable}
-									onValueChange={(v) =>
-										setForm((f) => ({ ...f, isAvailable: v }))
-									}
+									onValueChange={(v) => setForm((f) => ({ ...f, isAvailable: v }))}
 									trackColor={{ false: T.border, true: T.primary }}
 									thumbColor="#fff"
 								/>
 							</View>
-							<View
-								style={[
-									styles.toggleRow,
-									{ borderColor: T.border, borderTopWidth: 0 },
-								]}
-							>
+							<View style={[styles.toggleRow, { borderColor: T.border, borderTopWidth: 0 }]}>
 								<View style={{ flex: 1 }}>
-									<Text style={[styles.toggleLabel, { color: T.text }]}>
-										Featured
-									</Text>
-									<Text style={[styles.toggleSub, { color: T.textSec }]}>
-										Show at top of your menu
-									</Text>
+									<Text style={[styles.toggleLabel, { color: T.text }]}>Featured</Text>
+									<Text style={[styles.toggleSub, { color: T.textSec }]}>Show at top of your menu</Text>
 								</View>
 								<Switch
 									value={form.isFeatured}
-									onValueChange={(v) =>
-										setForm((f) => ({ ...f, isFeatured: v }))
-									}
+									onValueChange={(v) => setForm((f) => ({ ...f, isFeatured: v }))}
 									trackColor={{ false: T.border, true: T.primary }}
 									thumbColor="#fff"
 								/>
@@ -694,25 +920,19 @@ export default function ManageMenuScreen() {
 							<TouchableOpacity
 								onPress={handleSave}
 								disabled={saving}
-								style={[
-									styles.saveBtn,
-									{ backgroundColor: saving ? T.textMuted : T.primary },
-								]}
+								style={[styles.saveBtn, { backgroundColor: saving ? T.textMuted : T.primary }]}
 								activeOpacity={0.8}
 							>
 								{saving ? (
 									<ActivityIndicator color="#fff" />
 								) : (
-									<Text style={styles.saveBtnText}>
-										{editing ? 'Save Changes' : 'Add Item'}
-									</Text>
+									<Text style={styles.saveBtnText}>{editing ? 'Save Changes' : 'Add Item'}</Text>
 								)}
 							</TouchableOpacity>
-								</ScrollView>
-							</View>
-						</KeyboardAvoidingView>
+						</ScrollView>
 					</View>
-				</Modal>
+				</View>
+			</Modal>
 		</View>
 	);
 }
@@ -726,6 +946,7 @@ function ItemCard({
 	onDelete,
 	onToggle,
 	onDrinks,
+	onOptions,
 }: {
 	item: MenuItem;
 	T: any;
@@ -733,6 +954,7 @@ function ItemCard({
 	onDelete: () => void;
 	onToggle: () => void;
 	onDrinks: () => void;
+	onOptions: () => void;
 }) {
 	return (
 		<View
@@ -806,6 +1028,13 @@ function ItemCard({
 						hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
 					>
 						<Ionicons name="water-outline" size={18} color={item.drinkOptions.length > 0 ? T.primary : T.textSec} />
+					</TouchableOpacity>
+					<TouchableOpacity
+						onPress={onOptions}
+						style={styles.iconBtn}
+						hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+					>
+						<Ionicons name="options-outline" size={18} color={item.optionGroups.length > 0 ? T.primary : T.textSec} />
 					</TouchableOpacity>
 					<TouchableOpacity
 						onPress={onEdit}
@@ -914,8 +1143,12 @@ const styles = StyleSheet.create({
 	availText: { fontSize: 11, fontWeight: '600', marginLeft: -4 },
 	featuredPill: { borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
 	featuredPillText: { fontSize: 10, fontWeight: '700' },
+	modalBackdrop: {
+		flex: 1,
+		justifyContent: 'flex-end',
+		backgroundColor: 'rgba(0,0,0,0.45)',
+	},
 	sheet: {
-		maxHeight: '90%',
 		borderTopLeftRadius: 12,
 		borderTopRightRadius: 12,
 		borderWidth: 1,
@@ -1002,4 +1235,16 @@ const styles = StyleSheet.create({
 	drinkName:   { fontSize: 14, fontWeight: '600' },
 	drinkPrice:  { fontSize: 12, fontWeight: '700', marginTop: 2 },
 	drinkAddBox: { borderRadius: 4, borderWidth: 1, padding: 12, marginTop: 16 },
+	optGroupBox:         { borderRadius: 4, borderWidth: 1, marginBottom: 12, overflow: 'hidden' },
+	optGroupHeader:      { flexDirection: 'row', alignItems: 'center', padding: 12 },
+	optGroupName:        { fontSize: 14, fontWeight: '700' },
+	requiredPill:        { borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1, marginTop: 3, alignSelf: 'flex-start' },
+	requiredPillText:    { fontSize: 10, fontWeight: '700' },
+	optItemRow:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderTopWidth: 1, gap: 8 },
+	optAddItemBox:       { padding: 12, borderTopWidth: 1 },
+	optAddItemTrigger:   { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 12, borderTopWidth: 1 },
+	optAddItemTriggerText: { fontSize: 13, fontWeight: '600' },
+	optCancelBtn:        { borderRadius: 4, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center' },
+	optCancelBtnText:    { fontSize: 14, fontWeight: '600' },
+	optAddBtn:           { borderRadius: 4, paddingVertical: 10, alignItems: 'center' },
 });

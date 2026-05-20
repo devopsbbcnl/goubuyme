@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, Image, Modal, Pressable,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImage as openImagePicker } from '@/utils/pickImage';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -93,19 +93,8 @@ export default function VendorLicensesScreen() {
   };
 
   const pickLicImage = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow access to your photo library.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [3, 2],
-      quality: 0.9,
-    });
-    if (result.canceled) return;
-    const uri = result.assets[0].uri;
+    const uri = await openImagePicker({ aspect: [3, 2], quality: 0.9 });
+    if (!uri) return;
     setLicImageUri(uri);
     setUploadingLic(true);
     try {

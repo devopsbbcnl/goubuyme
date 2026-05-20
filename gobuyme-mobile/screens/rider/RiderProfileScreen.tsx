@@ -10,7 +10,7 @@ import {
 	TextInput,
 	Alert,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImage as openImagePicker } from '@/utils/pickImage';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
@@ -112,19 +112,8 @@ export default function RiderProfileScreen() {
 	}, [fetchProfile]);
 
 	const pickAvatar = async () => {
-		const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-		if (!perm.granted) {
-			Alert.alert('Permission needed', 'Allow access to your photo library to change your profile picture.');
-			return;
-		}
-		const result = await ImagePicker.launchImageLibraryAsync({
-			mediaTypes: ImagePicker.MediaTypeOptions.Images,
-			allowsEditing: true,
-			aspect: [1, 1],
-			quality: 0.8,
-		});
-		if (result.canceled) return;
-		const uri = result.assets[0].uri;
+		const uri = await openImagePicker({ aspect: [1, 1], quality: 0.8 });
+		if (!uri) return;
 		try {
 			setUploadingAvatar(true);
 			const url = await uploadToCloudinary(uri);

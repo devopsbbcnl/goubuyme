@@ -13,6 +13,7 @@ interface Props extends Pick<TextInputProps, 'autoCapitalize' | 'autoCorrect' | 
   keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
   error?: string;
   prefix?: string;
+  labelRight?: React.ReactNode;
 }
 
 export function AppInput({
@@ -24,6 +25,7 @@ export function AppInput({
   keyboardType = 'default',
   error,
   prefix,
+  labelRight,
   autoCapitalize,
   autoCorrect,
   textContentType,
@@ -34,7 +36,10 @@ export function AppInput({
 
   return (
     <View style={{ marginBottom: spacing.md }}>
-      <Text style={[styles.label, { color: T.textSec }]}>{label}</Text>
+      <View style={styles.labelRow}>
+        <Text style={[styles.label, { color: T.textSec }]}>{label}</Text>
+        {labelRight}
+      </View>
       <View style={[
         styles.inputWrap,
         { backgroundColor: T.surface, borderColor: error ? '#E53E3E' : T.border },
@@ -77,10 +82,16 @@ export function AppInput({
 }
 
 const styles = StyleSheet.create({
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
   label: {
     fontSize: 11, fontWeight: '700',
     textTransform: 'uppercase', letterSpacing: 0.5,
-    marginBottom: 6, fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'PlusJakartaSans_700Bold',
   },
   inputWrap: {
     borderWidth: 1.5,

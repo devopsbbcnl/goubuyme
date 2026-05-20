@@ -4,7 +4,7 @@ import {
   Image, ActivityIndicator, Modal, TextInput, Alert,
   KeyboardAvoidingView, Platform, Pressable,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImage as openImagePicker } from '@/utils/pickImage';
 import { useTheme } from '@/context/ThemeContext';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -86,20 +86,8 @@ export default function VendorPromotionsScreen() {
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'Allow photo access to upload a promo image.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [PROMO_DIMENSIONS.width, PROMO_DIMENSIONS.height],
-      quality: 0.85,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
-    }
+    const uri = await openImagePicker({ aspect: [PROMO_DIMENSIONS.width, PROMO_DIMENSIONS.height], quality: 0.85 });
+    if (uri) setImageUri(uri);
   };
 
   const resetForm = () => {

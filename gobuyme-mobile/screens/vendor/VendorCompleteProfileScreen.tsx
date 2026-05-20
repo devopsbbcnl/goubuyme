@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, Image, Modal, Pressable, Switch,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImage as openImagePicker } from '@/utils/pickImage';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -157,19 +157,8 @@ export default function VendorCompleteProfileScreen() {
   };
 
   const pickImage = async (type: 'logo' | 'cover') => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow access to your photo library to upload images.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: type === 'logo' ? [1, 1] : [16, 9],
-      quality: 0.8,
-    });
-    if (result.canceled) return;
-    const uri = result.assets[0].uri;
+    const uri = await openImagePicker({ aspect: type === 'logo' ? [1, 1] : [16, 9], quality: 0.8 });
+    if (!uri) return;
     try {
       type === 'logo' ? setUploadingLogo(true) : setUploadingCover(true);
       const url = await uploadImage(uri);
@@ -183,19 +172,8 @@ export default function VendorCompleteProfileScreen() {
   };
 
   const pickSelfie = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow access to your photo library.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.9,
-    });
-    if (result.canceled) return;
-    const uri = result.assets[0].uri;
+    const uri = await openImagePicker({ aspect: [1, 1], quality: 0.9 });
+    if (!uri) return;
     setSelfieUri(uri);
     setUploadingSelfie(true);
     try {
@@ -210,19 +188,8 @@ export default function VendorCompleteProfileScreen() {
   };
 
   const pickDocumentImage = async (side: 'front' | 'back') => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow access to your photo library to upload your document.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [3, 2],
-      quality: 0.9,
-    });
-    if (result.canceled) return;
-    const uri = result.assets[0].uri;
+    const uri = await openImagePicker({ aspect: [3, 2], quality: 0.9 });
+    if (!uri) return;
     if (side === 'front') { setDocFrontUri(uri); setUploadingDocFront(true); }
     else { setDocBackUri(uri); setUploadingDocBack(true); }
     try {
@@ -870,19 +837,8 @@ function AddMenuItemModal({
   }, [visible, initial?.id]);
 
   const pickPhoto = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow access to your photo library.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (result.canceled) return;
-    const uri = result.assets[0].uri;
+    const uri = await openImagePicker({ aspect: [1, 1], quality: 0.8 });
+    if (!uri) return;
     setDraft(prev => ({ ...prev, imageUri: uri }));
     setUploading(true);
     try {

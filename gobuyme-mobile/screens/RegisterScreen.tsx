@@ -14,6 +14,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { generatePassword } from '@/utils/generatePassword';
 
 type RoleParam = 'customer' | 'vendor' | 'rider';
 
@@ -174,6 +175,16 @@ export default function RegisterScreen() {
 	const [termsAccepted, setTermsAccepted] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [errors, setErrors] = useState<RegisterErrors>({});
+	const [pwGenerated, setPwGenerated] = useState(false);
+
+	const handleGeneratePassword = () => {
+		const pw = generatePassword();
+		setPassword(pw);
+		setConfirmPassword(pw);
+		setErrors((prev) => ({ ...prev, password: undefined, confirmPassword: undefined }));
+		setPwGenerated(true);
+		setTimeout(() => setPwGenerated(false), 4000);
+	};
 
 	const clearError = (field: keyof RegisterErrors) => {
 		if (errors[field] || errors.general) {
@@ -333,12 +344,31 @@ export default function RegisterScreen() {
 				onChangeText={(v) => {
 					setPassword(v);
 					clearError('password');
+					if (pwGenerated) setPwGenerated(false);
 				}}
 				placeholder="Create a strong password"
 				secureTextEntry
 				error={errors.password}
+				labelRight={
+					<TouchableOpacity
+						onPress={handleGeneratePassword}
+						style={styles.generateBtn}
+						hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+					>
+						<Ionicons name="dice-outline" size={13} color={T.primary} />
+						<Text style={[styles.generateBtnText, { color: T.primary }]}>Generate</Text>
+					</TouchableOpacity>
+				}
 			/>
-			{password.length > 0 && (
+			{pwGenerated && (
+				<View style={[styles.generatedHint, { backgroundColor: `${T.success}15`, borderColor: `${T.success}40` }]}>
+					<Ionicons name="checkmark-circle-outline" size={14} color={T.success} />
+					<Text style={[styles.generatedHintText, { color: T.success }]}>
+						Strong password generated — tap 👁 to view it
+					</Text>
+				</View>
+			)}
+			{!pwGenerated && password.length > 0 && (
 				<View style={[styles.passwordHint, { backgroundColor: T.surface, borderColor: T.border }]}>
 					{PASSWORD_RULES.map(rule => {
 						const ok = rule.test(password);
@@ -602,6 +632,32 @@ const styles = StyleSheet.create({
 		fontSize: 13,
 		marginBottom: 12,
 		fontFamily: 'PlusJakartaSans_400Regular',
+	},
+	generateBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+	},
+	generateBtnText: {
+		fontSize: 11,
+		fontWeight: '700',
+		fontFamily: 'PlusJakartaSans_700Bold',
+	},
+	generatedHint: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 7,
+		borderRadius: 4,
+		borderWidth: 1,
+		paddingHorizontal: 10,
+		paddingVertical: 8,
+		marginTop: -8,
+		marginBottom: 16,
+	},
+	generatedHintText: {
+		fontSize: 12,
+		fontFamily: 'PlusJakartaSans_500Medium',
+		flex: 1,
 	},
 	passwordHint: {
 		borderRadius: 4,

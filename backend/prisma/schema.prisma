@@ -163,7 +163,7 @@ model Vendor {
   id                String         @id @default(uuid())
   userId            String         @unique
   user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  businessName      String
+  businessName      String         @unique
   slug              String         @unique
   description       String?
   logo              String?
@@ -249,6 +249,7 @@ model MenuItem {
   cartItems    CartItem[]
   orderItems   OrderItem[]
   drinkOptions MenuItemDrinkOption[]
+  optionGroups MenuItemOptionGroup[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -256,6 +257,31 @@ model MenuItem {
   @@index([vendorId])
   @@index([isAvailable])
   @@map("menu_items")
+}
+
+model MenuItemOptionGroup {
+  id         String               @id @default(uuid())
+  menuItemId String
+  menuItem   MenuItem             @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  name       String
+  required   Boolean              @default(false)
+  items      MenuItemOptionItem[]
+  createdAt  DateTime             @default(now())
+
+  @@index([menuItemId])
+  @@map("menu_item_option_groups")
+}
+
+model MenuItemOptionItem {
+  id            String              @id @default(uuid())
+  optionGroupId String
+  optionGroup   MenuItemOptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+  name          String
+  extraPrice    Float               @default(0)
+  isAvailable   Boolean             @default(true)
+
+  @@index([optionGroupId])
+  @@map("menu_item_option_items")
 }
 
 model MenuItemDrinkOption {

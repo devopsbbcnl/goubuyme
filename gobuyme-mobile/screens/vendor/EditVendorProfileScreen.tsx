@@ -10,7 +10,7 @@ import {
 	Alert,
 	Image,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { pickImage as openImagePicker } from '@/utils/pickImage';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -83,31 +83,14 @@ export default function EditVendorProfileScreen() {
 	}, [loadProfile]);
 
 	const pickImage = async (type: 'logo' | 'cover') => {
-		const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-		if (!perm.granted) {
-			Alert.alert(
-				'Permission needed',
-				'Allow access to your photo library to update images.',
-			);
-			return;
-		}
-		const result = await ImagePicker.launchImageLibraryAsync({
-			mediaTypes: ImagePicker.MediaTypeOptions.Images,
-			allowsEditing: true,
-			aspect: type === 'logo' ? [1, 1] : [16, 9],
-			quality: 0.8,
-		});
-		if (result.canceled) return;
-		const uri = result.assets[0].uri;
+		const uri = await openImagePicker({ aspect: type === 'logo' ? [1, 1] : [16, 9], quality: 0.8 });
+		if (!uri) return;
 		try {
 			type === 'logo' ? setUploadingLogo(true) : setUploadingCover(true);
 			const url = await uploadImage(uri);
 			type === 'logo' ? setLogo(url) : setCoverImage(url);
 		} catch {
-			Alert.alert(
-				'Upload failed',
-				'Could not upload the image. Please try again.',
-			);
+			Alert.alert('Upload failed', 'Could not upload the image. Please try again.');
 		} finally {
 			setUploadingLogo(false);
 			setUploadingCover(false);
@@ -139,7 +122,7 @@ export default function EditVendorProfileScreen() {
 					? parseInt(avgDeliveryTime.trim(), 10)
 					: null,
 			});
-			router.back();
+			router.navigate('/(vendor)/profile' as any);
 		} catch {
 			Alert.alert(
 				'Save failed',

@@ -55,6 +55,14 @@ export const register = catchAsync(async (req: Request, res: Response) => {
     return apiResponse.error(res, 'Email already registered.', 409);
   }
 
+  if (role === 'VENDOR' && businessName) {
+    const nameTaken = await prisma.vendor.findFirst({
+      where: { businessName: { equals: businessName.trim(), mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (nameTaken) return apiResponse.error(res, 'A store with this business name already exists. Please choose a different name.', 409);
+  }
+
   const hashed = await bcrypt.hash(password, SALT_ROUNDS);
   const newReferralCode = generateReferralCode();
 
