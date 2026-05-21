@@ -36,12 +36,18 @@ export const addToCart = catchAsync(async (req: AuthRequest, res: Response) => {
   if (!customerId) return apiResponse.error(res, 'Customer not found.', 404);
 
   const { menuItemId, quantity = 1, note, unitPrice } = req.body;
+  const requestedQty = Number(quantity);
+  if (!Number.isInteger(requestedQty) || requestedQty <= 0) {
+    return apiResponse.error(res, 'Quantity must be at least 1.', 400);
+  }
 
   const menuItem = await prisma.menuItem.findUnique({
     where: { id: menuItemId },
-    select: { id: true, vendorId: true, isAvailable: true },
+    select: { id: true, vendorId: true, isAvailable: true, stockQuantity: true },
   });
-  if (!menuItem || !menuItem.isAvailable) return apiResponse.error(res, 'Item not available.', 400);
+  if (!menuItem || !menuItem.isAvailable || menuItem.stockQuantity <= 0) {
+    return apiResponse.error(res, 'Item not available.', 400);
+  }
 
   const cart = await prisma.cart.upsert({
     where: { customerId },
@@ -55,14 +61,18 @@ export const addToCart = catchAsync(async (req: AuthRequest, res: Response) => {
   }
 
   const existing = await prisma.cartItem.findFirst({ where: { cartId: cart.id, menuItemId } });
+  const nextQuantity = (existing?.quantity ?? 0) + requestedQty;
+  if (nextQuantity > menuItem.stockQuantity) {
+    return apiResponse.error(res, `Only ${menuItem.stockQuantity} left in stock.`, 400);
+  }
 
   if (existing) {
     await prisma.cartItem.update({
       where: { id: existing.id },
-      data: { quantity: existing.quantity + quantity, ...(unitPrice != null ? { unitPrice } : {}) },
+      data: { quantity: nextQuantity, ...(unitPrice != null ? { unitPrice } : {}) },
     });
   } else {
-    await prisma.cartItem.create({ data: { cartId: cart.id, menuItemId, quantity, note, unitPrice } });
+    await prisma.cartItem.create({ data: { cartId: cart.id, menuItemId, quantity: requestedQty, note, unitPrice } });
   }
 
   return apiResponse.success(res, 'Item added to cart.');
@@ -74,15 +84,32 @@ export const updateCartItem = catchAsync(async (req: AuthRequest, res: Response)
 
   const { quantity } = req.body;
   const { itemId } = req.params;
+  const requestedQty = Number(quantity);
 
-  if (quantity <= 0) {
+  if (!Number.isInteger(requestedQty)) {
+    return apiResponse.error(res, 'Quantity must be a whole number.', 400);
+  }
+
+  if (requestedQty <= 0) {
     await prisma.cartItem.deleteMany({ where: { id: itemId, cart: { customerId } } });
     return apiResponse.success(res, 'Item removed.');
   }
 
+  const cartItem = await prisma.cartItem.findFirst({
+    where: { id: itemId, cart: { customerId } },
+    include: { menuItem: { select: { stockQuantity: true, isAvailable: true } } },
+  });
+  if (!cartItem) return apiResponse.error(res, 'Cart item not found.', 404);
+  if (!cartItem.menuItem.isAvailable || cartItem.menuItem.stockQuantity <= 0) {
+    return apiResponse.error(res, 'Item not available.', 400);
+  }
+  if (requestedQty > cartItem.menuItem.stockQuantity) {
+    return apiResponse.error(res, `Only ${cartItem.menuItem.stockQuantity} left in stock.`, 400);
+  }
+
   await prisma.cartItem.updateMany({
     where: { id: itemId, cart: { customerId } },
-    data: { quantity },
+    data: { quantity: requestedQty },
   });
   return apiResponse.success(res, 'Cart updated.');
 });

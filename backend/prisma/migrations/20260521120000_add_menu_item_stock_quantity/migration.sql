@@ -1,0 +1,2 @@
+ALTER TABLE "menu_items" ADD COLUMN "stockQuantity" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "orders" ADD COLUMN "stockReserved" BOOLEAN NOT NULL DEFAULT false;

@@ -62,13 +62,6 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "FOREGROUND_SERVICE",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
       "runtimeVersion": "1.0.0"
@@ -85,12 +78,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": "79f18436-58d9-4282-bbd3-b5b12030b803"
+        "projectId": "7639981c-2094-405b-a8b1-22f8ca7c088d"
       }
     },
-    "owner": "8037674195",
-    "updates": {
-      "url": "https://u.expo.dev/79f18436-58d9-4282-bbd3-b5b12030b803"
-    }
+    "owner": "bubblebarreldevops"
   }
 }

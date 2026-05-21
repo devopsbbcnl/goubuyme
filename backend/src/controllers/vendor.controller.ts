@@ -50,7 +50,7 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
     where,
     select: {
       ...vendorSelect,
-      menuItems: { select: { price: true }, where: { isAvailable: true }, take: 1, orderBy: { price: 'asc' } },
+      menuItems: { select: { price: true }, where: { isAvailable: true, stockQuantity: { gt: 0 } }, take: 1, orderBy: { price: 'asc' } },
     },
     orderBy: { rating: 'desc' },
   });
@@ -104,10 +104,10 @@ export const getVendorMenu = catchAsync(async (req: Request, res: Response) => {
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
   const items = await prisma.menuItem.findMany({
-    where: { vendorId: req.params.id, isAvailable: true },
+    where: { vendorId: req.params.id, isAvailable: true, stockQuantity: { gt: 0 } },
     select: {
       id: true, name: true, description: true, price: true,
-      image: true, category: true, isAvailable: true, isFeatured: true,
+      image: true, category: true, isAvailable: true, isFeatured: true, stockQuantity: true,
       drinkOptions: {
         where: { isAvailable: true },
         select: drinkOptionSelect,
@@ -281,7 +281,10 @@ export const updateMyOrderStatus = catchAsync(async (req: AuthRequest, res: Resp
   const { orderId } = req.params;
   const { action, reason } = req.body as { action: string; reason?: string };
 
-  const order = await prisma.order.findFirst({ where: { id: orderId, vendorId: vendor.id } });
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, vendorId: vendor.id },
+    include: { items: { select: { menuItemId: true, quantity: true } } },
+  });
   if (!order) return apiResponse.error(res, 'Order not found.', 404);
 
   const validFrom: Record<string, OrderStatus[]> = {
@@ -302,14 +305,35 @@ export const updateMyOrderStatus = catchAsync(async (req: AuthRequest, res: Resp
 
   const transition = { to: transitionTo[action] };
 
-  const updated = await prisma.order.update({
-    where: { id: orderId },
-    data: {
-      status: transition.to,
-      ...(action === 'reject' && reason ? { cancelReason: reason } : {}),
-    },
-    select: { id: true, orderNumber: true, status: true },
-  });
+  const updated = action === 'reject'
+    ? await prisma.$transaction(async (tx) => {
+        const nextOrder = await tx.order.update({
+          where: { id: orderId },
+          data: {
+            status: transition.to,
+            ...(reason ? { cancelReason: reason } : {}),
+          },
+          select: { id: true, orderNumber: true, status: true },
+        });
+        if (order.stockReserved) {
+          await Promise.all(order.items.map((item) =>
+            tx.menuItem.update({
+              where: { id: item.menuItemId },
+              data: { stockQuantity: { increment: item.quantity } },
+            }),
+          ));
+          await tx.order.update({
+            where: { id: orderId },
+            data: { stockReserved: false },
+          });
+        }
+        return nextOrder;
+      })
+    : await prisma.order.update({
+        where: { id: orderId },
+        data: { status: transition.to },
+        select: { id: true, orderNumber: true, status: true },
+      });
 
   return apiResponse.success(res, 'Order status updated.', updated);
 });
@@ -358,7 +382,7 @@ const optionGroupSelect = {
 
 const menuItemSelect = {
   id: true, name: true, description: true, price: true,
-  image: true, category: true, isAvailable: true, isFeatured: true,
+  image: true, category: true, isAvailable: true, isFeatured: true, stockQuantity: true,
   drinkOptions: { select: drinkOptionSelect, orderBy: { price: 'asc' as const } },
   optionGroups: { select: optionGroupSelect, orderBy: { createdAt: 'asc' as const } },
 };
@@ -384,13 +408,17 @@ export const createMenuItem = catchAsync(async (req: AuthRequest, res: Response)
   const vendorId = await resolveVendorId(req.user!.userId);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
 
-  const { name, description, price, image, category, isAvailable, isFeatured } = req.body as {
+  const { name, description, price, image, category, isAvailable, isFeatured, stockQuantity, optionGroups } = req.body as {
     name?: string; description?: string; price?: number; image?: string;
-    category?: string; isAvailable?: boolean; isFeatured?: boolean;
+    category?: string; isAvailable?: boolean; isFeatured?: boolean; stockQuantity?: number;
+    optionGroups?: { name?: string; required?: boolean; options?: { name?: string; extraPrice?: number }[] }[];
   };
 
   if (!name?.trim())                    return apiResponse.error(res, 'Item name is required.', 400);
   if (price === undefined || price <= 0) return apiResponse.error(res, 'Valid price is required.', 400);
+  if (stockQuantity !== undefined && (!Number.isInteger(Number(stockQuantity)) || Number(stockQuantity) < 0)) {
+    return apiResponse.error(res, 'Stock quantity must be 0 or more.', 400);
+  }
 
   const item = await prisma.menuItem.create({
     data: {
@@ -402,6 +430,25 @@ export const createMenuItem = catchAsync(async (req: AuthRequest, res: Response)
       category:    category?.trim() || null,
       isAvailable: isAvailable  ?? true,
       isFeatured:  isFeatured   ?? false,
+      stockQuantity: stockQuantity !== undefined ? Number(stockQuantity) : 0,
+      ...(Array.isArray(optionGroups) && {
+        optionGroups: {
+          create: optionGroups
+            .filter((group) => group.name?.trim())
+            .map((group) => ({
+              name: group.name!.trim(),
+              required: group.required ?? false,
+              items: {
+                create: (group.options ?? [])
+                  .filter((option) => option.name?.trim())
+                  .map((option) => ({
+                    name: option.name!.trim(),
+                    extraPrice: Number(option.extraPrice) || 0,
+                  })),
+              },
+            })),
+        },
+      }),
     },
     select: menuItemSelect,
   });
@@ -418,10 +465,13 @@ export const updateMenuItem = catchAsync(async (req: AuthRequest, res: Response)
   });
   if (!exists) return apiResponse.error(res, 'Menu item not found.', 404);
 
-  const { name, description, price, image, category, isAvailable, isFeatured } = req.body as {
+  const { name, description, price, image, category, isAvailable, isFeatured, stockQuantity } = req.body as {
     name?: string; description?: string | null; price?: number; image?: string | null;
-    category?: string | null; isAvailable?: boolean; isFeatured?: boolean;
+    category?: string | null; isAvailable?: boolean; isFeatured?: boolean; stockQuantity?: number;
   };
+  if (stockQuantity !== undefined && (!Number.isInteger(Number(stockQuantity)) || Number(stockQuantity) < 0)) {
+    return apiResponse.error(res, 'Stock quantity must be 0 or more.', 400);
+  }
 
   const item = await prisma.menuItem.update({
     where: { id: req.params.itemId },
@@ -433,6 +483,7 @@ export const updateMenuItem = catchAsync(async (req: AuthRequest, res: Response)
       ...(category                 !== undefined && { category: category?.trim() || null }),
       ...(isAvailable              !== undefined && { isAvailable }),
       ...(isFeatured               !== undefined && { isFeatured }),
+      ...(stockQuantity            !== undefined && { stockQuantity: Number(stockQuantity) }),
     },
     select: menuItemSelect,
   });

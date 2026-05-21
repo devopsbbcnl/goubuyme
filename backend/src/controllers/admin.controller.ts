@@ -1202,6 +1202,12 @@ export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Respon
   const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
   if (existing) return apiResponse.error(res, 'Email already registered.', 409);
 
+  const existingVendor = await prisma.vendor.findFirst({
+    where: { businessName: { equals: businessName.trim(), mode: 'insensitive' } },
+    select: { id: true },
+  });
+  if (existingVendor) return apiResponse.error(res, 'A store with this business name already exists. Please choose a different name.', 409);
+
   const hashed = await bcrypt.hash(password, 10);
   const referralCode = generateReferralCode();
   const slug = businessName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');

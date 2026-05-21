@@ -51,6 +51,7 @@ interface MenuItem {
 	category: string | null;
 	isAvailable: boolean;
 	isFeatured: boolean;
+	stockQuantity: number;
 	drinkOptions: DrinkOption[];
 	optionGroups: OptionGroup[];
 }
@@ -63,6 +64,7 @@ interface FormState {
 	image: string | null;
 	isAvailable: boolean;
 	isFeatured: boolean;
+	stockQuantity: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -73,6 +75,7 @@ const EMPTY_FORM: FormState = {
 	image: null,
 	isAvailable: true,
 	isFeatured: false,
+	stockQuantity: '',
 };
 
 const CATEGORIES = [
@@ -151,10 +154,22 @@ export default function ManageMenuScreen() {
 	const [newOptPrice, setNewOptPrice] = useState('');
 	const [optSaving, setOptSaving] = useState(false);
 
+	// Normalize menu items to ensure arrays are always defined
+	const normalizeMenuItem = (item: any): MenuItem => ({
+		...item,
+		stockQuantity: Number(item?.stockQuantity ?? 0),
+		drinkOptions: item.drinkOptions ?? [],
+		optionGroups: (item.optionGroups ?? []).map((g: any) => ({
+			...g,
+			items: g.items ?? [],
+		})),
+	});
+
 	const fetchItems = useCallback(async () => {
 		try {
 			const res = await api.get('/vendors/me/menu');
-			setItems(res.data.data ?? []);
+			const data = (res.data.data ?? []).map(normalizeMenuItem);
+			setItems(data);
 		} catch {
 			Alert.alert('Error', 'Could not load menu items.');
 		} finally {
@@ -183,6 +198,7 @@ export default function ManageMenuScreen() {
 			image: item.image,
 			isAvailable: item.isAvailable,
 			isFeatured: item.isFeatured,
+			stockQuantity: String(item.stockQuantity ?? 0),
 		});
 		setCatOpen(false);
 		setSheetVisible(true);
@@ -201,12 +217,17 @@ export default function ManageMenuScreen() {
 	const handleSave = async () => {
 		const name = form.name.trim();
 		const price = parseFloat(form.price);
+		const stockQuantity = Number(form.stockQuantity);
 		if (!name) {
 			Alert.alert('Validation', 'Item name is required.');
 			return;
 		}
 		if (!form.price || isNaN(price) || price <= 0) {
 			Alert.alert('Validation', 'Enter a valid price greater than 0.');
+			return;
+		}
+		if (!form.stockQuantity.trim() || !Number.isInteger(stockQuantity) || stockQuantity < 0) {
+			Alert.alert('Validation', 'Enter a stock quantity of 0 or more.');
 			return;
 		}
 
@@ -225,6 +246,7 @@ export default function ManageMenuScreen() {
 				image: imageUrl,
 				isAvailable: form.isAvailable,
 				isFeatured: form.isFeatured,
+				stockQuantity,
 			};
 
 			if (editing) {
@@ -232,13 +254,14 @@ export default function ManageMenuScreen() {
 				setItems((prev) =>
 					prev.map((it) =>
 						it.id === editing.id
-							? ({ ...it, ...payload, id: editing.id } as MenuItem)
+							? normalizeMenuItem({ ...it, ...payload, id: editing.id })
 							: it,
 					),
 				);
 			} else {
 				const res = await api.post('/vendors/me/menu', payload);
-				setItems((prev) => [res.data.data, ...prev]);
+				const newItem = normalizeMenuItem(res.data.data);
+				setItems((prev) => [newItem, ...prev]);
 			}
 			closeSheet();
 		} catch (err: any) {
@@ -420,12 +443,12 @@ export default function ManageMenuScreen() {
 			const res = await api.post(`/vendors/me/menu/${optSheetItem.id}/option-groups/${group.id}/items`, { name, extraPrice });
 			const newItem: OptionItem = res.data.data;
 			const update = (it: MenuItem) => it.id === optSheetItem.id
-				? { ...it, optionGroups: it.optionGroups.map(g => g.id === group.id ? { ...g, items: [...g.items, newItem] } : g) }
+				? { ...it, optionGroups: it.optionGroups.map(g => g.id === group.id ? { ...g, items: [...(g.items ?? []), newItem] } : g) }
 				: it;
 			setItems(prev => prev.map(update));
 			setOptSheetItem(prev => prev ? {
 				...prev,
-				optionGroups: prev.optionGroups.map(g => g.id === group.id ? { ...g, items: [...g.items, newItem] } : g),
+				optionGroups: prev.optionGroups.map(g => g.id === group.id ? { ...g, items: [...(g.items ?? []), newItem] } : g),
 			} : null);
 			setNewOptName('');
 			setNewOptPrice('');
@@ -862,6 +885,15 @@ export default function ManageMenuScreen() {
 								T={T}
 							/>
 
+							<FormField
+								label="Stock Quantity *"
+								value={form.stockQuantity}
+								onChangeText={(v) => setForm((f) => ({ ...f, stockQuantity: v.replace(/[^0-9]/g, '') }))}
+								placeholder="e.g. 20"
+								keyboardType="number-pad"
+								T={T}
+							/>
+
 							{/* Category picker */}
 							<Text style={[styles.fieldLabel, { color: T.textSec }]}>Category</Text>
 							<TouchableOpacity
@@ -1005,6 +1037,9 @@ function ItemCard({
 				<Text style={[styles.cardPrice, { color: T.primary }]}>
 					{formatPrice(item.price)}
 				</Text>
+				<Text style={[styles.stockText, { color: item.stockQuantity > 0 ? T.textSec : '#E23B3B' }]}>
+					{item.stockQuantity > 0 ? `${item.stockQuantity} in stock` : 'Out of stock'}
+				</Text>
 				<View style={styles.cardFooter}>
 					<Switch
 						value={item.isAvailable}
@@ -1027,14 +1062,14 @@ function ItemCard({
 						style={styles.iconBtn}
 						hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
 					>
-						<Ionicons name="water-outline" size={18} color={item.drinkOptions.length > 0 ? T.primary : T.textSec} />
+						<Ionicons name="water-outline" size={18} color={(item.drinkOptions ?? []).length > 0 ? T.primary : T.textSec} />
 					</TouchableOpacity>
 					<TouchableOpacity
 						onPress={onOptions}
 						style={styles.iconBtn}
 						hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
 					>
-						<Ionicons name="options-outline" size={18} color={item.optionGroups.length > 0 ? T.primary : T.textSec} />
+						<Ionicons name="options-outline" size={18} color={(item.optionGroups ?? []).length > 0 ? T.primary : T.textSec} />
 					</TouchableOpacity>
 					<TouchableOpacity
 						onPress={onEdit}
@@ -1139,6 +1174,7 @@ const styles = StyleSheet.create({
 	cardName: { fontSize: 14, fontWeight: '700' },
 	cardCat: { fontSize: 11, marginTop: 2 },
 	cardPrice: { fontSize: 14, fontWeight: '800', marginTop: 4 },
+	stockText: { fontSize: 11, fontWeight: '600', marginTop: 2 },
 	cardFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
 	availText: { fontSize: 11, fontWeight: '600', marginLeft: -4 },
 	featuredPill: { borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },

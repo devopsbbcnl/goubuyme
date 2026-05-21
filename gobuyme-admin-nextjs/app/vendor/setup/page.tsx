@@ -269,7 +269,7 @@ export default function VendorSetupPage() {
             Your profile has been submitted for review. Our team will activate your account within 1–2 business days and send you an email once approved.
           </div>
           <div style={{ background: '#fff', border: `1px solid ${T.border}`, borderRadius: 4, padding: 16, fontSize: 13, color: '#444' }}>
-            In the meantime, visit our <a href="/vendor/how-to" style={{ color: '#FF521B', fontWeight: 600, textDecoration: 'none' }}>How To</a> pages and learn how to manage your store on the go.
+            In the meantime, visit our <a href="https://gobuyme.shop/documentation" style={{ color: '#FF521B', fontWeight: 600, textDecoration: 'none' }}>How To</a> pages and learn how to manage your store on the go.
           </div>
         </div>
       </PageShell>

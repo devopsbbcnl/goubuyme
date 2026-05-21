@@ -41,6 +41,7 @@ type MenuItemDraft = {
   id: string;
   name: string;
   price: string;
+  stockQuantity: string;
   imageUri: string;
   imageUrl: string;
   optionGroups: OptionGroup[];
@@ -96,7 +97,29 @@ async function uploadImage(uri: string): Promise<string> {
 }
 
 function freshDraft(): MenuItemDraft {
-  return { id: Date.now().toString(), name: '', price: '', imageUri: '', imageUrl: '', optionGroups: [] };
+  return { id: Date.now().toString(), name: '', price: '', stockQuantity: '', imageUri: '', imageUrl: '', optionGroups: [] };
+}
+
+function normalizeMenuDraft(item: Partial<MenuItemDraft> | null | undefined): MenuItemDraft {
+  const draft = item ?? freshDraft();
+  return {
+    id: draft.id ?? Date.now().toString(),
+    name: draft.name ?? '',
+    price: draft.price ?? '',
+    stockQuantity: draft.stockQuantity ?? '',
+    imageUri: draft.imageUri ?? '',
+    imageUrl: draft.imageUrl ?? '',
+    optionGroups: (draft.optionGroups ?? []).map((group: any) => ({
+      id: group.id ?? `${Date.now()}g`,
+      name: group.name ?? '',
+      required: group.required ?? false,
+      options: (group.options ?? group.items ?? []).map((option: any) => ({
+        id: option.id ?? `${Date.now()}o`,
+        name: option.name ?? '',
+        extraPrice: String(option.extraPrice ?? ''),
+      })),
+    })),
+  };
 }
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
@@ -248,13 +271,14 @@ export default function VendorCompleteProfileScreen() {
         selfieUrl: selfieUrl || null,
       });
       const validItems = menuItems.filter(
-        i => i.name.trim() && i.price.trim() && !isNaN(parseFloat(i.price)),
+        i => i.name.trim() && i.price.trim() && !isNaN(parseFloat(i.price)) && i.stockQuantity.trim(),
       );
       await Promise.all(
         validItems.map(i =>
           api.post('/vendors/me/menu', {
             name: i.name.trim(),
             price: parseFloat(i.price),
+            stockQuantity: parseInt(i.stockQuantity, 10),
             image: i.imageUrl || null,
             optionGroups: i.optionGroups
               .filter(g => g.name.trim() && g.options.some(o => o.name.trim()))
@@ -781,7 +805,7 @@ function MenuItemCard({
 }: {
   item: MenuItemDraft; onEdit: () => void; onRemove: () => void; T: any;
 }) {
-  const namedGroups = item.optionGroups.filter(g => g.name.trim()).length;
+  const namedGroups = (item.optionGroups ?? []).filter(g => g.name.trim()).length;
   return (
     <TouchableOpacity
       onPress={onEdit}
@@ -833,7 +857,7 @@ function AddMenuItemModal({
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    if (visible) setDraft(initial ?? freshDraft());
+    if (visible) setDraft(normalizeMenuDraft(initial));
   }, [visible, initial?.id]);
 
   const pickPhoto = async () => {
@@ -858,40 +882,40 @@ function AddMenuItemModal({
       required: false,
       options: [{ id: `${Date.now()}o`, name: '', extraPrice: '' }],
     };
-    setDraft(prev => ({ ...prev, optionGroups: [...prev.optionGroups, group] }));
+    setDraft(prev => ({ ...prev, optionGroups: [...(prev.optionGroups ?? []), group] }));
   };
 
   const removeGroup = (gid: string) =>
-    setDraft(prev => ({ ...prev, optionGroups: prev.optionGroups.filter(g => g.id !== gid) }));
+    setDraft(prev => ({ ...prev, optionGroups: (prev.optionGroups ?? []).filter(g => g.id !== gid) }));
 
   const updateGroupName = (gid: string, name: string) =>
-    setDraft(prev => ({ ...prev, optionGroups: prev.optionGroups.map(g => g.id === gid ? { ...g, name } : g) }));
+    setDraft(prev => ({ ...prev, optionGroups: (prev.optionGroups ?? []).map(g => g.id === gid ? { ...g, name } : g) }));
 
   const updateGroupRequired = (gid: string, required: boolean) =>
-    setDraft(prev => ({ ...prev, optionGroups: prev.optionGroups.map(g => g.id === gid ? { ...g, required } : g) }));
+    setDraft(prev => ({ ...prev, optionGroups: (prev.optionGroups ?? []).map(g => g.id === gid ? { ...g, required } : g) }));
 
   const addOption = (gid: string) => {
     const opt: OptionItem = { id: `${Date.now()}oi`, name: '', extraPrice: '' };
     setDraft(prev => ({
       ...prev,
-      optionGroups: prev.optionGroups.map(g => g.id === gid ? { ...g, options: [...g.options, opt] } : g),
+      optionGroups: (prev.optionGroups ?? []).map(g => g.id === gid ? { ...g, options: [...(g.options ?? []), opt] } : g),
     }));
   };
 
   const removeOption = (gid: string, oid: string) =>
     setDraft(prev => ({
       ...prev,
-      optionGroups: prev.optionGroups.map(g =>
-        g.id === gid ? { ...g, options: g.options.filter(o => o.id !== oid) } : g,
+      optionGroups: (prev.optionGroups ?? []).map(g =>
+        g.id === gid ? { ...g, options: (g.options ?? []).filter(o => o.id !== oid) } : g,
       ),
     }));
 
   const updateOption = (gid: string, oid: string, field: 'name' | 'extraPrice', value: string) =>
     setDraft(prev => ({
       ...prev,
-      optionGroups: prev.optionGroups.map(g =>
+      optionGroups: (prev.optionGroups ?? []).map(g =>
         g.id === gid
-          ? { ...g, options: g.options.map(o => o.id === oid ? { ...o, [field]: value } : o) }
+          ? { ...g, options: (g.options ?? []).map(o => o.id === oid ? { ...o, [field]: value } : o) }
           : g,
       ),
     }));
@@ -905,8 +929,15 @@ function AddMenuItemModal({
       Alert.alert('Required', 'Please enter a valid price.');
       return;
     }
-    onSave(draft);
+    const stockQuantity = Number(draft.stockQuantity);
+    if (!draft.stockQuantity.trim() || !Number.isInteger(stockQuantity) || stockQuantity < 0) {
+      Alert.alert('Required', 'Please enter a stock quantity of 0 or more.');
+      return;
+    }
+    onSave(normalizeMenuDraft(draft));
   };
+
+  const optionGroups = draft.optionGroups ?? [];
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -979,14 +1010,25 @@ function AddMenuItemModal({
               />
             </View>
 
+            {/* Stock */}
+            <Text style={[styles.fieldLabel, { color: T.textSec, marginTop: 16, marginBottom: 6 }]}>Stock Quantity *</Text>
+            <TextInput
+              value={draft.stockQuantity}
+              onChangeText={(v) => setDraft(prev => ({ ...prev, stockQuantity: v.replace(/[^0-9]/g, '') }))}
+              placeholder="0"
+              placeholderTextColor={T.textMuted}
+              keyboardType="number-pad"
+              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text }]}
+            />
+
             {/* Options divider */}
             <View style={[styles.modalDivider, { backgroundColor: T.border, marginVertical: 24 }]} />
             <Text style={[styles.modalSectionTitle, { color: T.text, marginBottom: 4 }]}>Options</Text>
-            <Text style={[styles.subText, { color: T.textSec, marginBottom: draft.optionGroups.length > 0 ? 16 : 12 }]}>
+            <Text style={[styles.subText, { color: T.textSec, marginBottom: optionGroups.length > 0 ? 16 : 12 }]}>
               Add option groups for items that come with choices — e.g. soups served with different swallows.
             </Text>
 
-            {draft.optionGroups.map((group) => (
+            {optionGroups.map((group) => (
               <View key={group.id} style={[styles.optionGroupCard, { backgroundColor: T.surface, borderColor: T.border }]}>
                 {/* Group name + delete */}
                 <View style={styles.optionGroupTop}>
@@ -1018,7 +1060,7 @@ function AddMenuItemModal({
                 </View>
 
                 {/* Option items */}
-                {group.options.map((opt, oi) => (
+                {(group.options ?? []).map((opt, oi) => (
                   <View key={opt.id} style={styles.optionRow}>
                     <TextInput
                       value={opt.name}
@@ -1038,7 +1080,7 @@ function AddMenuItemModal({
                         style={[styles.optionPriceInput, { color: T.text }]}
                       />
                     </View>
-                    {group.options.length > 1 && (
+                    {(group.options ?? []).length > 1 && (
                       <TouchableOpacity
                         onPress={() => removeOption(group.id, opt.id)}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -1058,7 +1100,7 @@ function AddMenuItemModal({
 
             <TouchableOpacity
               onPress={addGroup}
-              style={[styles.addItemBtn, { borderColor: T.primary, marginTop: draft.optionGroups.length > 0 ? 8 : 0 }]}
+              style={[styles.addItemBtn, { borderColor: T.primary, marginTop: optionGroups.length > 0 ? 8 : 0 }]}
             >
               <Ionicons name="add-circle-outline" size={18} color={T.primary} />
               <Text style={[styles.addItemText, { color: T.primary }]}>Add option group</Text>

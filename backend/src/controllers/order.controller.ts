@@ -70,7 +70,7 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
           items: {
             include: {
               menuItem: {
-                select: { id: true, name: true, price: true, isAvailable: true, vendorId: true },
+                select: { id: true, name: true, price: true, isAvailable: true, stockQuantity: true, vendorId: true },
               },
             },
           },
@@ -84,8 +84,12 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
 
   const { cart } = customer;
 
-  const unavailable = cart.items.find((i) => !i.menuItem.isAvailable);
+  const unavailable = cart.items.find((i) => !i.menuItem.isAvailable || i.menuItem.stockQuantity <= 0);
   if (unavailable) return apiResponse.error(res, `${unavailable.menuItem.name} is no longer available.`, 400);
+  const overStocked = cart.items.find((i) => i.quantity > i.menuItem.stockQuantity);
+  if (overStocked) {
+    return apiResponse.error(res, `Only ${overStocked.menuItem.stockQuantity} ${overStocked.menuItem.name} left in stock.`, 400);
+  }
 
   const deliveryAddress = await prisma.address.findFirst({
     where: { id: deliveryAddressId, customerId: customer.id },
@@ -124,42 +128,66 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
   const totalAmount = subtotal + deliveryFee;
   const estimatedTime = estimateDeliveryMinutes(distanceKm);
 
-  const order = await prisma.$transaction(async (tx) => {
-    const newOrder = await tx.order.create({
-      data: {
-        orderNumber: generateOrderNumber(),
-        customerId: customer.id,
-        vendorId: vendor.id,
-        status: paymentMethod === PaymentMethod.CASH_ON_DELIVERY ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
-        subtotal,
-        deliveryFee,
-        originalDeliveryFee,
-        platformFee,
-        totalAmount,
-        freeDeliveryUsed: creditUsed,
-        deliveryAddress: deliveryAddress.address,
-        deliveryLatitude: deliveryAddress.latitude,
-        deliveryLongitude: deliveryAddress.longitude,
-        distanceKm: Math.round(distanceKm * 100) / 100,
-        paymentMethod: paymentMethod as PaymentMethod,
-        note,
-        estimatedTime,
-        items: {
-          create: cart.items.map((i) => ({
-            menuItemId: i.menuItem.id,
-            name: i.menuItem.name,
-            price: i.menuItem.price,
-            quantity: i.quantity,
-          })),
+  let order: any;
+  try {
+    order = await prisma.$transaction(async (tx) => {
+      for (const item of cart.items) {
+        const stockUpdate = await tx.menuItem.updateMany({
+          where: {
+            id: item.menuItem.id,
+            isAvailable: true,
+            stockQuantity: { gte: item.quantity },
+          },
+          data: { stockQuantity: { decrement: item.quantity } },
+        });
+        if (stockUpdate.count === 0) {
+          throw new Error(`INSUFFICIENT_STOCK:${item.menuItem.name}`);
+        }
+      }
+
+      const newOrder = await tx.order.create({
+        data: {
+          orderNumber: generateOrderNumber(),
+          customerId: customer.id,
+          vendorId: vendor.id,
+          status: paymentMethod === PaymentMethod.CASH_ON_DELIVERY ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
+          subtotal,
+          deliveryFee,
+          originalDeliveryFee,
+          platformFee,
+          totalAmount,
+          freeDeliveryUsed: creditUsed,
+          deliveryAddress: deliveryAddress.address,
+          deliveryLatitude: deliveryAddress.latitude,
+          deliveryLongitude: deliveryAddress.longitude,
+          distanceKm: Math.round(distanceKm * 100) / 100,
+          paymentMethod: paymentMethod as PaymentMethod,
+          stockReserved: true,
+          note,
+          estimatedTime,
+          items: {
+            create: cart.items.map((i) => ({
+              menuItemId: i.menuItem.id,
+              name: i.menuItem.name,
+              price: i.menuItem.price,
+              quantity: i.quantity,
+            })),
+          },
         },
-      },
-      include: { items: true },
+        include: { items: true },
+      });
+
+      await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+
+      return newOrder;
     });
-
-    await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
-
-    return newOrder;
-  });
+  } catch (err: any) {
+    if (typeof err?.message === 'string' && err.message.startsWith('INSUFFICIENT_STOCK:')) {
+      const itemName = err.message.replace('INSUFFICIENT_STOCK:', '');
+      return apiResponse.error(res, `${itemName} does not have enough stock.`, 400);
+    }
+    throw err;
+  }
 
   try {
     getIO().of('/orders').to(`vendor:${vendor.id}`).emit('order:new', { order });
@@ -182,7 +210,10 @@ export const cancelOrder = catchAsync(async (req: AuthRequest, res: Response) =>
   });
   if (!customer) return apiResponse.error(res, 'Customer not found.', 404);
 
-  const order = await prisma.order.findFirst({ where: { id: req.params.id, customerId: customer.id } });
+  const order = await prisma.order.findFirst({
+    where: { id: req.params.id, customerId: customer.id },
+    include: { items: { select: { menuItemId: true, quantity: true } } },
+  });
   if (!order) return apiResponse.error(res, 'Order not found.', 404);
 
   if (!['PENDING', 'CONFIRMED'].includes(order.status)) {
@@ -195,9 +226,23 @@ export const cancelOrder = catchAsync(async (req: AuthRequest, res: Response) =>
     return apiResponse.error(res, `Orders can only be cancelled within ${settings.cancellationWindowMinutes} minutes.`, 400);
   }
 
-  await prisma.order.update({
-    where: { id: order.id },
-    data: { status: OrderStatus.CANCELLED, cancelReason: req.body.reason },
+  await prisma.$transaction(async (tx) => {
+    await tx.order.update({
+      where: { id: order.id },
+      data: { status: OrderStatus.CANCELLED, cancelReason: req.body.reason },
+    });
+    if (order.stockReserved) {
+      await Promise.all(order.items.map((item) =>
+        tx.menuItem.update({
+          where: { id: item.menuItemId },
+          data: { stockQuantity: { increment: item.quantity } },
+        }),
+      ));
+      await tx.order.update({
+        where: { id: order.id },
+        data: { stockReserved: false },
+      });
+    }
   });
 
   return apiResponse.success(res, 'Order cancelled.');

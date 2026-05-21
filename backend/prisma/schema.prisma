@@ -245,6 +245,7 @@ model MenuItem {
   category    String?
   isAvailable Boolean @default(true)
   isFeatured  Boolean @default(false)
+  stockQuantity Int    @default(0)
 
   cartItems    CartItem[]
   orderItems   OrderItem[]
@@ -362,6 +363,7 @@ model Order {
   paymentStatus       PaymentStatus @default(PENDING)
   paystackRef         String?
   paystackVerified    Boolean       @default(false)
+  stockReserved       Boolean       @default(false)
   note                String?
   estimatedTime       Int?
   cancelReason        String?

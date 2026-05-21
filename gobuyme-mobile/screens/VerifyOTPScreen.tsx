@@ -222,6 +222,27 @@ export default function VerifyOTPScreen() {
 						</TouchableOpacity>
 					)}
 				</View>
+
+				<TouchableOpacity
+					onPress={() => router.replace('/login')}
+					style={[
+						styles.goToSignInBtn,
+						{
+							borderColor: T.border,
+							backgroundColor: T.surface,
+						},
+					]}
+				>
+					<Text
+						style={{
+							fontSize: 14,
+							fontFamily: 'PlusJakartaSans_600SemiBold',
+							color: T.text,
+						}}
+					>
+						Go to Sign In
+					</Text>
+				</TouchableOpacity>
 			</ScrollView>
 		</KeyboardAvoidingView>
 	);
@@ -276,5 +297,14 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		marginTop: 24,
 		alignItems: 'center',
+	},
+	goToSignInBtn: {
+		marginTop: 24,
+		paddingVertical: 12,
+		paddingHorizontal: 16,
+		borderRadius: 4,
+		borderWidth: 1,
+		alignItems: 'center',
+		justifyContent: 'center',
 	},
 });

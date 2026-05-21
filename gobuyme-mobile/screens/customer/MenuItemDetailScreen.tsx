@@ -27,6 +27,7 @@ export default function MenuItemDetailScreen() {
     image: string;
     category: string;
     isFeatured: string;
+    stockQuantity: string;
     drinkOptions: string;
   }>();
 
@@ -39,6 +40,7 @@ export default function MenuItemDetailScreen() {
     image:       params.image ?? '',
     category:    params.category ?? '',
     isFeatured:  params.isFeatured === '1',
+    stockQuantity: Number(params.stockQuantity ?? 0),
   };
 
   const drinkOptions: DrinkOption[] = (() => {
@@ -46,7 +48,7 @@ export default function MenuItemDetailScreen() {
   })();
 
   const cartQty = getItems(vendorId).find(i => i.id === item.id)?.qty ?? 0;
-  const [localQty, setLocalQty] = useState(Math.max(cartQty, 0));
+  const [localQty, setLocalQty] = useState(Math.min(Math.max(cartQty, 0), item.stockQuantity));
   // drink id → quantity selected
   const [drinkSelections, setDrinkSelections] = useState<Record<string, number>>({});
 
@@ -226,10 +228,11 @@ export default function MenuItemDetailScreen() {
             <Text style={[styles.stepQty, { color: T.text }]}>{localQty}</Text>
 
             <TouchableOpacity
-              onPress={() => setLocalQty(q => q + 1)}
-              style={[styles.stepBtn, { backgroundColor: T.primary }]}
+              onPress={() => setLocalQty(q => Math.min(item.stockQuantity, q + 1))}
+              style={[styles.stepBtn, { backgroundColor: localQty >= item.stockQuantity ? T.surface3 : T.primary }]}
+              disabled={localQty >= item.stockQuantity}
             >
-              <Ionicons name="add" size={18} color="#fff" />
+              <Ionicons name="add" size={18} color={localQty >= item.stockQuantity ? T.textMuted : '#fff'} />
             </TouchableOpacity>
           </View>
         </View>

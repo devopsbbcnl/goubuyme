@@ -50,6 +50,7 @@ interface MenuItem {
   image: string | null;
   category: string | null;
   isFeatured: boolean;
+  stockQuantity?: number;
   drinkOptions: DrinkOption[];
 }
 
@@ -242,6 +243,7 @@ export default function VendorDetailScreen() {
                           image: item.image ?? '',
                           category: item.category ?? '',
                           isFeatured: item.isFeatured ? '1' : '0',
+                          stockQuantity: String(item.stockQuantity ?? 0),
                           drinkOptions: JSON.stringify(item.drinkOptions ?? []),
                         },
                       })}

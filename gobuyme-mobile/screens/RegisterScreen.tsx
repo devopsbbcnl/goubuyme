@@ -132,6 +132,14 @@ function getRegisterErrors(err: unknown): RegisterErrors {
 				'An account already exists with this email. Try signing in instead.',
 		};
 	}
+
+	if (data?.message?.includes('business name')) {
+		return {
+			businessName:
+				'A store with this business name already exists. Please choose a different name.',
+		};
+	}
+
 	if (status === 409) {
 		return {
 			phone: 'This phone number is already registered. Use another number.',
