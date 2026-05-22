@@ -18,6 +18,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { setOnUnauthorized } from '@/services/api';
+import Mapbox from '@rnmapbox/maps';
+
+Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || '');
 
 SplashScreen.preventAutoHideAsync();
 

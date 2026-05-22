@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Image, ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useCart } from '@/context/CartContext';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { shadows } from '@/theme';
 import api from '@/services/api';
@@ -42,6 +43,20 @@ interface DrinkOption {
   price: number;
 }
 
+interface OptionItem {
+  id: string;
+  name: string;
+  extraPrice: number;
+  isAvailable: boolean;
+}
+
+interface OptionGroup {
+  id: string;
+  name: string;
+  required: boolean;
+  items: OptionItem[];
+}
+
 interface MenuItem {
   id: string;
   name: string;
@@ -52,6 +67,7 @@ interface MenuItem {
   isFeatured: boolean;
   stockQuantity?: number;
   drinkOptions: DrinkOption[];
+  optionGroups: OptionGroup[];
 }
 
 export default function VendorDetailScreen() {
@@ -61,6 +77,8 @@ export default function VendorDetailScreen() {
   const [activeTab, setActiveTab] = useState<'menu' | 'info'>('menu');
   const [vendor, setVendor] = useState<VendorDetail | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteSaving, setFavoriteSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -83,6 +101,45 @@ export default function VendorDetailScreen() {
   }, [id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const fetchFavoriteState = useCallback(async () => {
+    if (!id) return;
+    try {
+      const res = await api.get('/favorites');
+      const favorites: Array<{ id: string }> = res.data.data ?? [];
+      setIsFavorite(favorites.some(f => f.id === id));
+    } catch {
+      setIsFavorite(false);
+    }
+  }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchFavoriteState();
+    }, [fetchFavoriteState]),
+  );
+
+  const toggleFavorite = useCallback(async () => {
+    if (!id || favoriteSaving) return;
+    const next = !isFavorite;
+    setFavoriteSaving(true);
+    setIsFavorite(next);
+    try {
+      if (next) {
+        await api.post(`/favorites/${id}`);
+      } else {
+        await api.delete(`/favorites/${id}`);
+      }
+    } catch (err: any) {
+      setIsFavorite(!next);
+      Alert.alert(
+        'Favorites unavailable',
+        err?.response?.data?.message ?? 'Could not update this restaurant. Please try again.',
+      );
+    } finally {
+      setFavoriteSaving(false);
+    }
+  }, [favoriteSaving, id, isFavorite]);
 
   const vendorItems = id ? getItems(id) : [];
   const vendorCount = id ? getCount(id) : 0;
@@ -151,8 +208,18 @@ export default function VendorDetailScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={20} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.heartBtn}>
-            <Ionicons name="heart-outline" size={18} color="#fff" />
+          <TouchableOpacity
+            onPress={toggleFavorite}
+            disabled={favoriteSaving}
+            style={[
+              styles.heartBtn,
+              isFavorite && { backgroundColor: T.primary },
+              favoriteSaving && { opacity: 0.7 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={18} color="#fff" />
           </TouchableOpacity>
         </View>
 
@@ -245,6 +312,7 @@ export default function VendorDetailScreen() {
                           isFeatured: item.isFeatured ? '1' : '0',
                           stockQuantity: String(item.stockQuantity ?? 0),
                           drinkOptions: JSON.stringify(item.drinkOptions ?? []),
+                          optionGroups: JSON.stringify(item.optionGroups ?? []),
                         },
                       })}
                       style={{ flexDirection: 'row', flex: 1 }}

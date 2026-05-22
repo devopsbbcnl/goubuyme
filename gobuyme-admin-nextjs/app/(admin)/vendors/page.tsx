@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { AddVendorModal } from '@/components/vendor/AddVendorModal';
 import { api } from '@/lib/api';
 
@@ -101,6 +102,11 @@ export default function VendorsPage() {
   const [licActing, setLicActing] = useState<string | null>(null);
   const [licReviewNotes, setLicReviewNotes] = useState<Record<string, string>>({});
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteVendorId, setDeleteVendorId] = useState<string | null>(null);
+  const [deleteVendorName, setDeleteVendorName] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const fetchVendors = useCallback(async () => {
     setLoading(true);
     try {
@@ -183,6 +189,28 @@ export default function VendorsPage() {
     }
   };
 
+  const deleteVendorHandler = async () => {
+    if (!deleteVendorId) return;
+    setDeleteLoading(true);
+    try {
+      await api.del(`/admin/vendors/${deleteVendorId}`);
+      setVendors(vs => vs.filter(v => v.id !== deleteVendorId));
+      if (detail?.id === deleteVendorId) setDetailOpen(false);
+      setDeleteVendorId(null);
+      setDeleteVendorName('');
+    } catch {
+      // error handled by api wrapper
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const openDeleteModal = (id: string, name: string) => {
+    setDeleteVendorId(id);
+    setDeleteVendorName(name);
+    setDeleteModalOpen(true);
+  };
+
   const filtered = vendors.filter(v =>
     (filter === 'ALL' || v.approvalStatus === filter) &&
     (!search || v.businessName.toLowerCase().includes(search.toLowerCase()))
@@ -196,6 +224,17 @@ export default function VendorsPage() {
         open={addVendorOpen}
         onClose={() => setAddVendorOpen(false)}
         onCreated={() => { setAddVendorOpen(false); fetchVendors(); }}
+      />
+
+      <ConfirmDeleteModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Vendor"
+        message="This action will permanently delete the vendor account and all associated data. This cannot be undone."
+        itemName={deleteVendorName}
+        onConfirm={deleteVendorHandler}
+        isLoading={deleteLoading}
+        isDangerous
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -295,6 +334,7 @@ export default function VendorsPage() {
                       {(v.approvalStatus === 'SUSPENDED' || v.approvalStatus === 'REJECTED') && (
                         <button onClick={() => setStatus(v.id, 'APPROVED')} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: T.primary, color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Reinstate</button>
                       )}
+                      <button onClick={() => openDeleteModal(v.id, v.businessName)} style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -590,6 +630,7 @@ export default function VendorsPage() {
                 {(detail.approvalStatus === 'SUSPENDED' || detail.approvalStatus === 'REJECTED') && (
                   <ActionButton label="Reinstate Account" color={T.primary} textColor="#fff" onClick={() => setStatus(detail.id, 'APPROVED')} />
                 )}
+                <ActionButton label="Delete Account" color="none" border={T.error} textColor={T.error} onClick={() => openDeleteModal(detail.id, detail.businessName)} />
                 <div style={{ fontSize: 13, color: T.textSec, display: 'flex', alignItems: 'center', marginLeft: 4 }}>
                   Current: <Badge status={detail.approvalStatus} />
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
 	View,
 	Text,
@@ -6,26 +6,79 @@ import {
 	ScrollView,
 	TouchableOpacity,
 	Image,
+	ActivityIndicator,
+	Alert,
+	RefreshControl,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import api from '@/services/api';
 
 type FavoriteVendor = {
-	id: number;
-	name: string;
-	cat: string;
+	id: string;
+	businessName: string;
+	category: string;
 	rating: number;
-	time: string;
-	logo: string;
+	logo: string | null;
+	isOpen: boolean;
 };
 
 export default function FavoritesScreen() {
 	const { theme: T } = useTheme();
 	const insets = useSafeAreaInsets();
-	const [saved] = useState<FavoriteVendor[]>([]);
+	const [saved, setSaved] = useState<FavoriteVendor[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
+	const [removingId, setRemovingId] = useState<string | null>(null);
+
+	const fetchFavorites = useCallback(async (showSpinner = true) => {
+		if (showSpinner) setLoading(true);
+		try {
+			const res = await api.get('/favorites');
+			setSaved(res.data.data ?? []);
+		} catch (err: any) {
+			Alert.alert(
+				'Could not load favorites',
+				err?.response?.data?.message ?? 'Pull down to try again.',
+			);
+		} finally {
+			setLoading(false);
+			setRefreshing(false);
+		}
+	}, []);
+
+	useFocusEffect(
+		useCallback(() => {
+			fetchFavorites();
+		}, [fetchFavorites]),
+	);
+
+	const handleRefresh = useCallback(() => {
+		setRefreshing(true);
+		fetchFavorites(false);
+	}, [fetchFavorites]);
+
+	const removeFavorite = useCallback(async (vendorId: string) => {
+		if (removingId) return;
+
+		const previous = saved;
+		setRemovingId(vendorId);
+		setSaved(current => current.filter(v => v.id !== vendorId));
+		try {
+			await api.delete(`/favorites/${vendorId}`);
+		} catch (err: any) {
+			setSaved(previous);
+			Alert.alert(
+				'Could not remove favorite',
+				err?.response?.data?.message ?? 'Please try again.',
+			);
+		} finally {
+			setRemovingId(null);
+		}
+	}, [removingId, saved]);
 
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
@@ -36,8 +89,20 @@ export default function FavoritesScreen() {
 			<ScrollView
 				contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
 				showsVerticalScrollIndicator={false}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={handleRefresh}
+						tintColor={T.primary}
+						colors={[T.primary]}
+					/>
+				}
 			>
-				{saved.length === 0 ? (
+				{loading ? (
+					<View style={styles.loading}>
+						<ActivityIndicator color={T.primary} />
+					</View>
+				) : saved.length === 0 ? (
 					<View style={styles.empty}>
 						<MaterialIcons
 							name="favorite-outline"
@@ -68,15 +133,21 @@ export default function FavoritesScreen() {
 							activeOpacity={0.7}
 						>
 							<View style={styles.thumb}>
-								<Image
-									source={{ uri: v.logo }}
-									style={{ width: '100%', height: '100%' }}
-								/>
+								{v.logo ? (
+									<Image
+										source={{ uri: v.logo }}
+										style={{ width: '100%', height: '100%' }}
+									/>
+								) : (
+									<View style={[styles.logoFallback, { backgroundColor: T.primaryTint }]}>
+										<MaterialIcons name="restaurant" size={26} color={T.primary} />
+									</View>
+								)}
 							</View>
 							<View style={{ flex: 1 }}>
-								<Text style={[styles.name, { color: T.text }]}>{v.name}</Text>
+								<Text style={[styles.name, { color: T.text }]}>{v.businessName}</Text>
 								<Text style={[styles.meta, { color: T.textSec }]}>
-									{v.cat} · {v.time} min
+									{v.category} - {v.isOpen ? 'Open' : 'Closed'}
 								</Text>
 								<View
 									style={{
@@ -86,13 +157,19 @@ export default function FavoritesScreen() {
 										marginTop: 4,
 									}}
 								>
-									<Text style={{ fontSize: 12, color: T.star }}>⭐</Text>
+									<MaterialIcons name="star" size={12} color={T.star} />
 									<Text style={[styles.rating, { color: T.text }]}>
-										{v.rating}
+										{v.rating.toFixed(1)}
 									</Text>
 								</View>
 							</View>
-							<TouchableOpacity>
+							<TouchableOpacity
+								onPress={() => removeFavorite(v.id)}
+								disabled={removingId === v.id}
+								style={removingId === v.id ? { opacity: 0.6 } : undefined}
+								accessibilityRole="button"
+								accessibilityLabel={`Remove ${v.businessName} from favorites`}
+							>
 								<MaterialIcons name="favorite" size={22} color={T.primary} />
 							</TouchableOpacity>
 						</TouchableOpacity>
@@ -119,6 +196,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 20,
 		paddingBottom: 16,
 	},
+	loading: { alignItems: 'center', paddingTop: 90 },
 	empty: { alignItems: 'center', paddingTop: 80, gap: 12 },
 	emptyTitle: { fontSize: 17, fontWeight: '700' },
 	emptySub: { fontSize: 13, textAlign: 'center', maxWidth: 260 },
@@ -134,6 +212,12 @@ const styles = StyleSheet.create({
 		borderRadius: 4,
 		overflow: 'hidden',
 		flexShrink: 0,
+	},
+	logoFallback: {
+		width: '100%',
+		height: '100%',
+		alignItems: 'center',
+		justifyContent: 'center',
 	},
 	name: { fontSize: 14, fontWeight: '700' },
 	meta: { fontSize: 12, marginTop: 2 },

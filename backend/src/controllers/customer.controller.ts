@@ -256,14 +256,26 @@ export const toggleFavorite = catchAsync(async (req: AuthRequest, res: Response)
   if (!customerId) return apiResponse.error(res, 'Customer not found.', 404);
 
   const { vendorId } = req.params;
+  const vendor = await prisma.vendor.findFirst({
+    where: { id: vendorId, approvalStatus: 'APPROVED' },
+    select: { id: true },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+
   const existing = await prisma.favorite.findUnique({
     where: { customerId_vendorId: { customerId, vendorId } },
   });
 
-  if (existing) {
+  if (req.method === 'DELETE') {
+    if (!existing) return apiResponse.success(res, 'Removed from favorites.');
     await prisma.favorite.delete({ where: { id: existing.id } });
     return apiResponse.success(res, 'Removed from favorites.');
   }
+
+  if (existing) {
+    return apiResponse.success(res, 'Already in favorites.');
+  }
+
   await prisma.favorite.create({ data: { customerId, vendorId } });
   return apiResponse.success(res, 'Added to favorites.', null, 201);
 });

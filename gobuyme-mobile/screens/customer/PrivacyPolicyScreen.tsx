@@ -138,7 +138,7 @@ No system is 100% secure. If you believe your account has been compromised, plea
 
 Bubble Barrel Technologies Ltd.
 Email: ${EMAIL}
-Address: Lagos, Nigeria
+Address: Owerri, Imo State. Nigeria
 
 You also have the right to lodge a complaint with the Nigeria Data Protection Commission (NDPC) at www.ndpc.gov.ng if you believe your data rights have been violated.`,
 	},

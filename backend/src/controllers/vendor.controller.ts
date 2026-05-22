@@ -113,6 +113,10 @@ export const getVendorMenu = catchAsync(async (req: Request, res: Response) => {
         select: drinkOptionSelect,
         orderBy: { price: 'asc' },
       },
+      optionGroups: {
+        select: optionGroupSelect,
+        orderBy: { createdAt: 'asc' },
+      },
     },
     orderBy: [{ isFeatured: 'desc' }, { category: 'asc' }, { name: 'asc' }],
   });

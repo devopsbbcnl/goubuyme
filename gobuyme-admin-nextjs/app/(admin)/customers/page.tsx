@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { api } from '@/lib/api';
 
 interface Customer {
@@ -24,6 +25,11 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteCustomerId, setDeleteCustomerId] = useState<string | null>(null);
+  const [deleteCustomerName, setDeleteCustomerName] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
@@ -45,8 +51,39 @@ export default function CustomersPage() {
 
   const activeCount = customers.filter(c => c.isActive).length;
 
+  const deleteCustomerHandler = async () => {
+    if (!deleteCustomerId) return;
+    setDeleteLoading(true);
+    try {
+      await api.del(`/admin/customers/${deleteCustomerId}`);
+      setCustomers(cs => cs.filter(c => c.id !== deleteCustomerId));
+      setDeleteCustomerId(null);
+      setDeleteCustomerName('');
+    } catch {
+      // error handled by api wrapper
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const openDeleteModal = (id: string, name: string) => {
+    setDeleteCustomerId(id);
+    setDeleteCustomerName(name);
+    setDeleteModalOpen(true);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <ConfirmDeleteModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Customer"
+        message="This action will permanently delete the customer account and all associated data. This cannot be undone."
+        itemName={deleteCustomerName}
+        onConfirm={deleteCustomerHandler}
+        isLoading={deleteLoading}
+        isDangerous
+      />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Customers</div>
@@ -86,7 +123,7 @@ export default function CustomersPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: T.surface2 }}>
-              {['Customer', 'Phone', 'Email', 'Orders', 'Total Spent', 'Joined', 'Status'].map(h => (
+              {['Customer', 'Phone', 'Email', 'Orders', 'Total Spent', 'Joined', 'Status', 'Actions'].map(h => (
                 <th key={h} style={{ padding: '11px 16px', fontSize: 11, fontWeight: 700, color: T.textSec, textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap' }}>{h}</th>
               ))}
             </tr>
@@ -94,13 +131,13 @@ export default function CustomersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
+                <td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
                   Loading customers…
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
+                <td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
                   No customers found.
                 </td>
               </tr>
@@ -123,6 +160,9 @@ export default function CustomersPage() {
                   }}>
                     {c.isActive ? 'Active' : 'Inactive'}
                   </span>
+                </td>
+                <td style={{ padding: '13px 16px' }}>
+                  <button onClick={() => openDeleteModal(c.id, c.name)} style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Delete</button>
                 </td>
               </tr>
             ))}

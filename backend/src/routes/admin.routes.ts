@@ -7,8 +7,10 @@ import {
   adminCreateRider,
   getVendorDetail, updateVendorDocumentStatus,
   updateVendorBusinessVerifStatus, updateVendorLicenseStatus,
+  deleteVendor,
   getAdminRiders, getAdminRiderDetail, updateRiderStatus, updateRiderDocumentStatus,
   getAdminCustomers,
+  deleteCustomer,
   getAdminOrders,
   getAdminOrderDetail,
   getAuditLogs,
@@ -45,6 +47,7 @@ router.patch('/vendors/:id/tier',                               ...superAdminAut
 router.patch('/vendors/:id/document/status',                    ...opsAuth,        updateVendorDocumentStatus);
 router.patch('/vendors/:id/business-verification/status',       ...opsAuth,        updateVendorBusinessVerifStatus);
 router.patch('/vendors/:id/licenses/:licenseId/status',         ...opsAuth,        updateVendorLicenseStatus);
+router.delete('/vendors/:id',                                   ...superAdminAuth, deleteVendor);
 
 // Riders
 router.get('/riders',                        ...readAuth, getAdminRiders);
@@ -55,6 +58,7 @@ router.patch('/riders/:id/document/status',  ...opsAuth,  updateRiderDocumentSta
 
 // Customers & Orders
 router.get('/customers', ...readAuth, getAdminCustomers);
+router.delete('/customers/:id', ...superAdminAuth, deleteCustomer);
 router.get('/orders',    ...readAuth, getAdminOrders);
 router.get('/orders/:id', ...readAuth, getAdminOrderDetail);
 

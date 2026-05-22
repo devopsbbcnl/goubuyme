@@ -1,8 +1,8 @@
-const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
-const GEOCODING_BASE = 'https://api.maptiler.com/geocoding';
+const MAPBOX_ACCESS_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
+const GEOCODING_BASE = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
 
 function hasValidKey(): boolean {
-  return Boolean(MAPTILER_KEY) && MAPTILER_KEY !== 'get_free_key_at_maptiler_com';
+  return Boolean(MAPBOX_ACCESS_TOKEN) && MAPBOX_ACCESS_TOKEN !== 'your_mapbox_access_token';
 }
 
 export interface GeocodeSuggestion {
@@ -18,7 +18,7 @@ export interface GeocodeSuggestion {
 export async function forwardGeocode(query: string): Promise<GeocodeSuggestion[]> {
   if (!hasValidKey() || query.trim().length < 3) return [];
   try {
-    const url = `${GEOCODING_BASE}/${encodeURIComponent(query.trim())}.json?key=${MAPTILER_KEY}&country=ng&language=en&limit=5`;
+    const url = `${GEOCODING_BASE}/${encodeURIComponent(query.trim())}.json?access_token=${MAPBOX_ACCESS_TOKEN}&country=NG&language=en&limit=5`;
     const res = await fetch(url);
     if (!res.ok) return [];
     const json = await res.json();
@@ -48,7 +48,7 @@ export async function reverseGeocode(
 ): Promise<{ address: string; city: string; state: string } | null> {
   if (!hasValidKey()) return null;
   try {
-    const url = `${GEOCODING_BASE}/${lng},${lat}.json?key=${MAPTILER_KEY}&language=en`;
+    const url = `${GEOCODING_BASE}/${lng},${lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}&language=en`;
     const res = await fetch(url);
     if (!res.ok) return null;
     const json = await res.json();
