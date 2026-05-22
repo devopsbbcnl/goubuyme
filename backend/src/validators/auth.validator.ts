@@ -35,19 +35,29 @@ export const registerSchema = Joi.object({
     otherwise: Joi.forbidden(),
   }),
   address: Joi.when('role', {
-    is: 'VENDOR',
+    is: Joi.valid('VENDOR', 'RIDER'),
     then: Joi.string().required(),
     otherwise: Joi.forbidden(),
   }),
   city: Joi.when('role', {
-    is: 'VENDOR',
+    is: Joi.valid('VENDOR', 'RIDER'),
     then: Joi.string().required(),
     otherwise: Joi.forbidden(),
   }),
   state: Joi.when('role', {
-    is: 'VENDOR',
+    is: Joi.valid('VENDOR', 'RIDER'),
     then: Joi.string().required(),
-    otherwise: Joi.optional().allow(''),
+    otherwise: Joi.forbidden(),
+  }),
+  latitude: Joi.when('role', {
+    is: Joi.valid('VENDOR', 'RIDER'),
+    then: Joi.number().optional(),
+    otherwise: Joi.forbidden(),
+  }),
+  longitude: Joi.when('role', {
+    is: Joi.valid('VENDOR', 'RIDER'),
+    then: Joi.number().optional(),
+    otherwise: Joi.forbidden(),
   }),
   vehicleType: Joi.when('role', {
     is: 'RIDER',

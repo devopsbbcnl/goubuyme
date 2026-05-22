@@ -15,6 +15,7 @@ import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generatePassword } from '@/utils/generatePassword';
+import { forwardGeocode } from '@/services/geocoding';
 
 type RoleParam = 'customer' | 'vendor' | 'rider';
 
@@ -241,6 +242,9 @@ export default function RegisterScreen() {
 
 		if (role === 'rider') {
 			if (!vehicle.trim()) next.vehicleType = 'Enter your vehicle type.';
+			if (!address.trim()) next.address = 'Enter your street address.';
+			if (!city.trim()) next.city = 'Enter your city.';
+			if (!stateVal.trim()) next.state = 'Enter your state.';
 		}
 
 		if (!termsAccepted) {
@@ -275,11 +279,34 @@ export default function RegisterScreen() {
 				payload.city = city.trim();
 				payload.state = stateVal.trim();
 				payload.commissionTier = 'TIER_2';
+
+				// Geocode address if provided
+				if (address.trim() && city.trim()) {
+					const fullAddress = `${address.trim()}, ${city.trim()}, ${stateVal.trim()}`;
+					const geocodeResults = await forwardGeocode(fullAddress);
+					if (geocodeResults.length > 0) {
+						payload.latitude = geocodeResults[0].lat;
+						payload.longitude = geocodeResults[0].lng;
+					}
+				}
 			}
 
 			if (role === 'rider') {
 				payload.vehicleType = vehicle.trim();
 				if (plateNumber.trim()) payload.plateNumber = plateNumber.trim().toUpperCase();
+				payload.address = address.trim();
+				payload.city = city.trim();
+				payload.state = stateVal.trim();
+
+				// Geocode address if provided
+				if (address.trim() && city.trim()) {
+					const fullAddress = `${address.trim()}, ${city.trim()}, ${stateVal.trim()}`;
+					const geocodeResults = await forwardGeocode(fullAddress);
+					if (geocodeResults.length > 0) {
+						payload.latitude = geocodeResults[0].lat;
+						payload.longitude = geocodeResults[0].lng;
+					}
+				}
 			}
 
 			const res = await api.post('/auth/register', payload);
@@ -512,6 +539,42 @@ export default function RegisterScreen() {
 						autoCorrect={false}
 						error={errors.plateNumber}
 					/>
+					<AppInput
+						label="Street Address"
+						value={address}
+						onChangeText={(v) => {
+							setAddress(v);
+							clearError('address');
+						}}
+						placeholder="12 Wetheral Road"
+						error={errors.address}
+					/>
+					<View style={styles.rowFields}>
+						<View style={{ flex: 1 }}>
+							<AppInput
+								label="City"
+								value={city}
+								onChangeText={(v) => {
+									setCity(v);
+									clearError('city');
+								}}
+								placeholder="Port Harcourt"
+								error={errors.city}
+							/>
+						</View>
+						<View style={{ flex: 1 }}>
+							<AppInput
+								label="State"
+								value={stateVal}
+								onChangeText={(v) => {
+									setStateVal(v);
+									clearError('state');
+								}}
+								placeholder="Rivers"
+								error={errors.state}
+							/>
+						</View>
+					</View>
 				</>
 			)}
 

@@ -38,7 +38,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
   const {
     name, email, phone, password, role,
     referralCode,
-    commissionTier, businessName, category, address, city, state,
+    commissionTier, businessName, category, address, city, state, latitude, longitude,
     vehicleType, plateNumber,
   } = req.body;
 
@@ -101,6 +101,8 @@ export const register = catchAsync(async (req: Request, res: Response) => {
           address,
           city,
           ...(state?.trim() ? { state: state.trim() } : {}),
+          ...(latitude !== undefined ? { latitude } : {}),
+          ...(longitude !== undefined ? { longitude } : {}),
           commissionTier: commissionTier as CommissionTier,
           isPharmacyFlagged: category === 'PHARMACY',
         },
@@ -108,7 +110,18 @@ export const register = catchAsync(async (req: Request, res: Response) => {
     }
 
     if (role === 'RIDER') {
-      await tx.rider.create({ data: { userId: newUser.id, vehicleType, plateNumber } });
+      await tx.rider.create({
+        data: {
+          userId: newUser.id,
+          vehicleType,
+          plateNumber,
+          address,
+          city,
+          state,
+          ...(latitude !== undefined ? { latitude } : {}),
+          ...(longitude !== undefined ? { longitude } : {}),
+        },
+      });
     }
 
     if (referredById) {

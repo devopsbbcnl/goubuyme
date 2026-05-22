@@ -213,6 +213,9 @@ model Rider {
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   vehicleType    String
   plateNumber    String?
+  address        String?
+  city           String?
+  state          String?
   isAvailable    Boolean        @default(false)
   isOnline       Boolean        @default(false)
   latitude       Float?
