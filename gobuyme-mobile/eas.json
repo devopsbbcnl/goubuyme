@@ -16,7 +16,6 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.gobuyme.shop/api/v1",
         "EXPO_PUBLIC_SOCKET_URL": "https://api.gobuyme.shop",
-        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN":"pk.eyJ1IjoiZGV2b3BzYnViYmxlIiwiYSI6ImNtbDl6Z3I3MDA2a2YzZnF1djR6M2V3MWIifQ.p03tNjB77Ht6bHkNNdHMlw",
         "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "dihidzrkb",
         "EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET": "gobuyme",
         "EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY": "pk_test_ee2d46b7bab0496257e4c6b6f157b45fab2e4197",
@@ -32,7 +31,6 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://YOUR_BACKEND_URL/api/v1",
         "EXPO_PUBLIC_SOCKET_URL": "https://YOUR_BACKEND_URL",
-        "EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN":"pk.eyJ1IjoiZGV2b3BzYnViYmxlIiwiYSI6ImNtbDl6Z3I3MDA2a2YzZnF1djR6M2V3MWIifQ.p03tNjB77Ht6bHkNNdHMlw",
         "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "dihidzrkb",
         "EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET": "gobuyme",
         "EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY": "pk_live_YOUR_LIVE_KEY",
