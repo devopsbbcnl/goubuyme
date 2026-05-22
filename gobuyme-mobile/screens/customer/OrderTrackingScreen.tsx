@@ -6,19 +6,13 @@ import {
 	ScrollView,
 	TouchableOpacity,
 } from 'react-native';
-import { MapView, Camera, MarkerView } from '@maplibre/maplibre-react-native';
+import MapView, { Marker } from 'react-native-maps';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useOrderTracking, OrderStatus } from '@/hooks/useOrderTracking';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
-const MAP_STYLE =
-	MAPTILER_KEY && MAPTILER_KEY !== 'get_free_key_at_maptiler_com'
-		? `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${MAPTILER_KEY}`
-		: 'https://demotiles.maplibre.org/style.json';
 
 const DEFAULT_COORD: [number, number] = [7.0348, 5.4836];
 
@@ -290,16 +284,20 @@ function TrackingMap({
 	primaryColor: string;
 }) {
 	return (
-		<MapView style={StyleSheet.absoluteFillObject} styleURL={MAP_STYLE}>
-			<Camera
-				ref={cameraRef}
-				defaultSettings={{ centerCoordinate: riderCoord, zoomLevel: 14 }}
-			/>
-			<MarkerView coordinate={riderCoord}>
+		<MapView
+			style={StyleSheet.absoluteFillObject}
+			initialRegion={{
+				latitude: riderCoord[1],
+				longitude: riderCoord[0],
+				latitudeDelta: 0.01,
+				longitudeDelta: 0.01,
+			}}
+		>
+			<Marker coordinate={{ latitude: riderCoord[1], longitude: riderCoord[0] }}>
 				<View style={[styles.riderPin, { backgroundColor: primaryColor }]}>
 					<Ionicons name="bicycle" size={14} color="#fff" />
 				</View>
-			</MarkerView>
+			</Marker>
 		</MapView>
 	);
 }

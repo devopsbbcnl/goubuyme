@@ -34,12 +34,6 @@
         {
           "faceIDPermission": "GoBuyMe uses Face ID to keep your account secure."
         }
-      ],
-      [
-        "@rnmapbox/maps",
-        {
-          "RNMapboxMapsImpl": "mapbox"
-        }
       ]
     ],
     "ios": {

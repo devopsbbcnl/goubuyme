@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
+import { forwardGeocode } from '@/services/geocoding';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -132,6 +133,9 @@ export default function VendorCompleteProfileScreen() {
   const [logo, setLogo] = useState('');
   const [coverImage, setCoverImage] = useState('');
   const [description, setDescription] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('Rivers');
   const [openingTime, setOpeningTime] = useState('');
   const [closingTime, setClosingTime] = useState('');
   const [tier, setTier] = useState<Tier>('TIER_2');
@@ -234,6 +238,10 @@ export default function VendorCompleteProfileScreen() {
       Alert.alert('Required', 'Please add a short description of your store.');
       return;
     }
+    if (!address.trim() || !city.trim()) {
+      Alert.alert('Required', 'Please enter your store address and city.');
+      return;
+    }
     if (!openingTime.trim() || !closingTime.trim()) {
       Alert.alert('Required', 'Please enter your store opening and closing times.');
       return;
@@ -252,10 +260,29 @@ export default function VendorCompleteProfileScreen() {
     }
     try {
       setSaving(true);
+      
+      // Geocode address to get coordinates
+      const fullAddress = `${address.trim()}, ${city.trim()}, ${state.trim()}`;
+      const geocodeResults = await forwardGeocode(fullAddress);
+      const coordinates = geocodeResults.length > 0 
+        ? { latitude: geocodeResults[0].lat, longitude: geocodeResults[0].lng }
+        : null;
+      
+      if (!coordinates) {
+        Alert.alert('Address not found', 'Could not find your address. Please check and try again.');
+        setSaving(false);
+        return;
+      }
+      
       await api.patch('/vendors/me', {
         description: description.trim(),
         logo: logo || null,
         coverImage: coverImage || null,
+        address: address.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
         openingTime: openingTime.trim(),
         closingTime: closingTime.trim(),
       });
@@ -379,6 +406,38 @@ export default function VendorCompleteProfileScreen() {
           numberOfLines={4}
           style={[styles.textarea, { backgroundColor: T.surface, borderColor: T.border, color: T.text }]}
         />
+
+        {/* Address */}
+        <SectionLabel label="STORE ADDRESS *" T={T} mt={20} />
+        <TextInput
+          value={address}
+          onChangeText={setAddress}
+          placeholder="Street address (e.g. 12 Wetheral Road)"
+          placeholderTextColor={T.textMuted}
+          style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text }]}
+        />
+        <View style={styles.row}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.fieldLabel, { color: T.textSec, marginTop: 12, marginBottom: 6 }]}>City *</Text>
+            <TextInput
+              value={city}
+              onChangeText={setCity}
+              placeholder="e.g. Port Harcourt"
+              placeholderTextColor={T.textMuted}
+              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text }]}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.fieldLabel, { color: T.textSec, marginTop: 12, marginBottom: 6 }]}>State</Text>
+            <TextInput
+              value={state}
+              onChangeText={setState}
+              placeholder="Rivers"
+              placeholderTextColor={T.textMuted}
+              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text }]}
+            />
+          </View>
+        </View>
 
         {/* Hours */}
         <SectionLabel label="OPENING HOURS *" T={T} mt={20} />

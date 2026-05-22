@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { forwardGeocode } from '@/services/geocoding';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -51,6 +52,11 @@ interface RiderProfile {
 	id: string;
 	vehicleType: string;
 	plateNumber: string | null;
+	address: string | null;
+	city: string | null;
+	state: string | null;
+	latitude: number | null;
+	longitude: number | null;
 	isOnline: boolean;
 	isAvailable: boolean;
 	approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
@@ -95,6 +101,9 @@ export default function RiderProfileScreen() {
 	const [draftPhone, setDraftPhone] = useState('');
 	const [draftVehicle, setDraftVehicle] = useState('');
 	const [draftPlate, setDraftPlate] = useState('');
+	const [draftAddress, setDraftAddress] = useState('');
+	const [draftCity, setDraftCity] = useState('');
+	const [draftState, setDraftState] = useState('Rivers');
 
 	const fetchProfile = useCallback(async () => {
 		try {
@@ -134,6 +143,9 @@ export default function RiderProfileScreen() {
 		setDraftPhone(phoneToDisplay(profile?.user?.phone ?? user?.phone ?? ''));
 		setDraftVehicle(profile?.vehicleType ?? '');
 		setDraftPlate(profile?.plateNumber ?? '');
+		setDraftAddress(profile?.address ?? '');
+		setDraftCity(profile?.city ?? '');
+		setDraftState(profile?.state ?? 'Rivers');
 		setIsEditing(true);
 	};
 
@@ -149,6 +161,17 @@ export default function RiderProfileScreen() {
 		try {
 			setSaving(true);
 			const formattedPhone = formatPhoneForApi(draftPhone);
+			
+			// Geocode address if provided
+			let coordinates = null;
+			if (draftAddress.trim() && draftCity.trim()) {
+				const fullAddress = `${draftAddress.trim()}, ${draftCity.trim()}, ${draftState.trim()}`;
+				const geocodeResults = await forwardGeocode(fullAddress);
+				coordinates = geocodeResults.length > 0 
+					? { latitude: geocodeResults[0].lat, longitude: geocodeResults[0].lng }
+					: null;
+			}
+			
 			await Promise.all([
 				api.patch('/auth/profile', {
 					name: draftName.trim(),
@@ -157,6 +180,10 @@ export default function RiderProfileScreen() {
 				api.patch('/riders/me', {
 					...(draftVehicle.trim() ? { vehicleType: draftVehicle.trim() } : {}),
 					...(draftPlate.trim() ? { plateNumber: draftPlate.trim().toUpperCase() } : {}),
+					...(draftAddress.trim() ? { address: draftAddress.trim() } : {}),
+					...(draftCity.trim() ? { city: draftCity.trim() } : {}),
+					...(draftState.trim() ? { state: draftState.trim() } : {}),
+					...(coordinates ? { latitude: coordinates.latitude, longitude: coordinates.longitude } : {}),
 				}),
 			]);
 			setProfile((prev) =>
@@ -165,6 +192,11 @@ export default function RiderProfileScreen() {
 							...prev,
 							vehicleType: draftVehicle.trim() || prev.vehicleType,
 							plateNumber: draftPlate.trim().toUpperCase() || prev.plateNumber,
+							address: draftAddress.trim() || prev.address,
+							city: draftCity.trim() || prev.city,
+							state: draftState.trim() || prev.state,
+							latitude: coordinates?.latitude ?? prev.latitude,
+							longitude: coordinates?.longitude ?? prev.longitude,
 							user: {
 								...prev.user,
 								name: draftName.trim(),
@@ -387,7 +419,7 @@ export default function RiderProfileScreen() {
 					</View>
 
 					{/* Plate number */}
-					<View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+					<View style={[styles.infoRow, { borderBottomColor: T.border, borderBottomWidth: 1 }]}>
 						<Text style={styles.infoIcon}>🔑</Text>
 						{isEditing ? (
 							<TextInput
@@ -401,6 +433,60 @@ export default function RiderProfileScreen() {
 						) : (
 							<Text style={[styles.infoValue, { color: T.text }]}>
 								{profile?.plateNumber ?? 'Plate number not set'}
+							</Text>
+						)}
+					</View>
+
+					{/* Address */}
+					<View style={[styles.infoRow, { borderBottomColor: T.border, borderBottomWidth: 1 }]}>
+						<Text style={styles.infoIcon}>📍</Text>
+						{isEditing ? (
+							<TextInput
+								value={draftAddress}
+								onChangeText={setDraftAddress}
+								placeholder="Street address"
+								placeholderTextColor={T.textMuted}
+								style={[styles.inlineInput, { color: T.text, borderColor: T.border, backgroundColor: T.surface2 }]}
+							/>
+						) : (
+							<Text style={[styles.infoValue, { color: T.text }]}>
+								{profile?.address ?? 'Address not set'}
+							</Text>
+						)}
+					</View>
+
+					{/* City */}
+					<View style={[styles.infoRow, { borderBottomColor: T.border, borderBottomWidth: 1 }]}>
+						<Text style={styles.infoIcon}>🏙️</Text>
+						{isEditing ? (
+							<TextInput
+								value={draftCity}
+								onChangeText={setDraftCity}
+								placeholder="City"
+								placeholderTextColor={T.textMuted}
+								style={[styles.inlineInput, { color: T.text, borderColor: T.border, backgroundColor: T.surface2 }]}
+							/>
+						) : (
+							<Text style={[styles.infoValue, { color: T.text }]}>
+								{profile?.city ?? 'City not set'}
+							</Text>
+						)}
+					</View>
+
+					{/* State */}
+					<View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+						<Text style={styles.infoIcon}>🗺️</Text>
+						{isEditing ? (
+							<TextInput
+								value={draftState}
+								onChangeText={setDraftState}
+								placeholder="State"
+								placeholderTextColor={T.textMuted}
+								style={[styles.inlineInput, { color: T.text, borderColor: T.border, backgroundColor: T.surface2 }]}
+							/>
+						) : (
+							<Text style={[styles.infoValue, { color: T.text }]}>
+								{profile?.state ?? 'State not set'}
 							</Text>
 						)}
 					</View>

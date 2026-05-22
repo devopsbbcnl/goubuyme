@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Alert,
 } from 'react-native';
-import { MapView, Camera, MarkerView } from '@maplibre/maplibre-react-native';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
@@ -12,11 +12,6 @@ import { useRiderLocation } from '@/hooks/useRiderLocation';
 import { connectSockets } from '@/services/socketService';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
-const MAP_STYLE = MAPTILER_KEY && MAPTILER_KEY !== 'get_free_key_at_maptiler_com'
-  ? `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${MAPTILER_KEY}`
-  : 'https://demotiles.maplibre.org/style.json';
 
 const DEFAULT_VENDOR_COORD: [number, number] = [7.0348, 5.4836];
 const DEFAULT_CUSTOMER_COORD: [number, number] = [7.0421, 5.4912];
@@ -218,18 +213,25 @@ function DeliveryMap({
   primaryColor: string;
 }) {
   return (
-    <MapView style={StyleSheet.absoluteFillObject} styleURL={MAP_STYLE}>
-      <Camera defaultSettings={{ centerCoordinate: midCoord, zoomLevel: 13 }} />
-      <MarkerView coordinate={vendorCoord}>
+    <MapView
+      style={StyleSheet.absoluteFillObject}
+      initialRegion={{
+        latitude: midCoord[1],
+        longitude: midCoord[0],
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }}
+    >
+      <Marker coordinate={{ latitude: vendorCoord[1], longitude: vendorCoord[0] }}>
         <View style={[styles.mapPin, { backgroundColor: primaryColor }]}>
           <Ionicons name="storefront" size={12} color="#fff" />
         </View>
-      </MarkerView>
-      <MarkerView coordinate={customerCoord}>
+      </Marker>
+      <Marker coordinate={{ latitude: customerCoord[1], longitude: customerCoord[0] }}>
         <View style={[styles.mapPin, { backgroundColor: '#1A9E5F' }]}>
           <Ionicons name="person" size={12} color="#fff" />
         </View>
-      </MarkerView>
+      </Marker>
     </MapView>
   );
 }

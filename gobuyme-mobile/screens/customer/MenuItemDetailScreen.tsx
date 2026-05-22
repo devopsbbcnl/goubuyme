@@ -282,7 +282,7 @@ export default function MenuItemDetailScreen() {
                           onPress={() => selectOption(group.id, item.id)}
                           style={[
                             styles.drinkOption,
-                            { borderColor: selected ? T.primary : T.border, backgroundColor: selected ? T.primaryTint : T.surface },
+                            { borderColor: selected ? T.primary : T.border, backgroundColor: selected ? T.primaryTint : T.surface, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 14 },
                           ]}
                           activeOpacity={0.75}
                         >

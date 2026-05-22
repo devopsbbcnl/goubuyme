@@ -12,6 +12,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
+import { calculateDistance, calculateDeliveryFee } from '@/services/geocoding';
 
 const TYPE_ICONS: Record<string, any> = { home: 'home', work: 'business', other: 'location-on' };
 
@@ -28,31 +29,49 @@ export default function CheckoutScreen() {
   const [loading, setLoading] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [feeLoading, setFeeLoading] = useState(false);
+  const [distance, setDistance] = useState<number | null>(null);
+  const [vendor, setVendor] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const { popup } = usePaystack();
 
   const subtotal   = total;
   const grandTotal = subtotal + (deliveryFee ?? 0);
 
-  const fetchDeliveryFee = useCallback(async (addressId: string) => {
-    setFeeLoading(true);
-    try {
-      const res = await api.get(`/orders/estimate-fee?addressId=${addressId}`);
-      setDeliveryFee(res.data.data.deliveryFee);
-    } catch {
-      setDeliveryFee(null);
-    } finally {
-      setFeeLoading(false);
-    }
-  }, []);
-
+  // Fetch vendor location
   useEffect(() => {
-    if (selected?.id) {
-      fetchDeliveryFee(selected.id);
-    } else {
-      setDeliveryFee(null);
+    if (vid) {
+      api.get(`/vendors/${vid}`).then(res => {
+        const vendorData = res.data.data;
+        setVendor({
+          latitude: vendorData.latitude,
+          longitude: vendorData.longitude,
+        });
+      }).catch(() => {});
     }
-  }, [selected?.id, fetchDeliveryFee]);
+  }, [vid]);
+
+  // Calculate distance and delivery fee when address and vendor are available
+  useEffect(() => {
+    if (selected?.latitude && selected?.longitude && vendor) {
+      setFeeLoading(true);
+      const dist = calculateDistance(
+        vendor.latitude,
+        vendor.longitude,
+        selected.latitude,
+        selected.longitude,
+      );
+      setDistance(dist);
+      
+      // Calculate delivery fee based on distance
+      // You can adjust baseFee, perKmRate, and maxFee as needed
+      const fee = calculateDeliveryFee(dist, 500, 100, 2000);
+      setDeliveryFee(fee);
+      setFeeLoading(false);
+    } else if (!selected) {
+      setDeliveryFee(null);
+      setDistance(null);
+    }
+  }, [selected, vendor]);
 
   const handlePay = async () => {
     if (addresses.length === 0) {
@@ -207,6 +226,12 @@ export default function CheckoutScreen() {
           {/* Totals */}
           <View style={[styles.totalsBlock, { borderTopColor: T.border }]}>
             <TotalRow label="Subtotal" value={`₦${subtotal.toLocaleString()}`} T={T} />
+            {distance !== null && (
+              <View style={styles.totalRow}>
+                <Text style={[styles.totalLabel, { color: T.textSec }]}>Distance</Text>
+                <Text style={[styles.totalVal, { color: T.text }]}>{distance.toFixed(1)} km</Text>
+              </View>
+            )}
             <View style={styles.totalRow}>
               <Text style={[styles.totalLabel, { color: T.textSec }]}>Delivery Fee</Text>
               {feeLoading ? (

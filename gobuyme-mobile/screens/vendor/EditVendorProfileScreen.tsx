@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
+import { forwardGeocode } from '@/services/geocoding';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -108,6 +109,14 @@ export default function EditVendorProfileScreen() {
 		}
 		try {
 			setSaving(true);
+			
+			// Geocode address to get coordinates
+			const fullAddress = `${address.trim()}, ${city.trim()}, ${stateVal.trim()}`;
+			const geocodeResults = await forwardGeocode(fullAddress);
+			const coordinates = geocodeResults.length > 0 
+				? { latitude: geocodeResults[0].lat, longitude: geocodeResults[0].lng }
+				: null;
+			
 			await api.patch('/vendors/me', {
 				businessName: businessName.trim(),
 				description: description.trim() || null,
@@ -116,6 +125,7 @@ export default function EditVendorProfileScreen() {
 				address: address.trim(),
 				city: city.trim(),
 				state: stateVal.trim() || 'Rivers',
+				...(coordinates ? { latitude: coordinates.latitude, longitude: coordinates.longitude } : {}),
 				openingTime: openingTime.trim() || null,
 				closingTime: closingTime.trim() || null,
 				avgDeliveryTime: avgDeliveryTime.trim()
