@@ -70,14 +70,32 @@ app.use(maintenanceGuard);
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/vendors', vendorRoutes);
-app.use('/api/v1', customerRoutes);
 app.use('/api/v1/orders', orderRoutes);
+app.use('/api/v1', customerRoutes);
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/riders', riderRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/offers', offerRoutes);
 app.use('/api/v1/support', supportRoutes);
+
+// Public endpoint for mobile apps to fetch delivery fee settings
+app.get('/api/v1/settings/public', async (_req, res) => {
+  try {
+    const settings = await (await import('./services/settings.service')).getPlatformSettings();
+    return res.json({
+      success: true,
+      data: {
+        deliveryBaseFee: settings.deliveryBaseFee,
+        deliveryPerKmRate: settings.deliveryPerKmRate,
+        deliveryMaxFee: settings.deliveryMaxFee,
+        maxDeliveryRadiusKm: settings.maxDeliveryRadiusKm,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to fetch settings' });
+  }
+});
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
@@ -90,7 +108,7 @@ const PORT = process.env.PORT || 5000;
 const start = async () => {
   await connectDB();
   startPayoutJob();
-  httpServer.listen(PORT, () => logger.info(`GoBuyMe API running on port ${PORT}`));
+  httpServer.listen(PORT, '0.0.0.0', () => logger.info(`GoBuyMe API running on port ${PORT}`));
 };
 
 start();

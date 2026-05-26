@@ -22,6 +22,7 @@ const NAV: NavItem[] = [
   { href: '/riders',     label: 'Riders',        icon: '🏍️', pendingKey: 'riders' },
   { href: '/orders',     label: 'Orders',        icon: '📦', pendingKey: null },
   { href: '/customers',  label: 'Customers',     icon: '👥', pendingKey: null },
+  { href: '/pricing',    label: 'Pricing',       icon: '💰', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
   { href: '/payouts',    label: 'Payouts',       icon: '💳', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
   { href: '/audit',      label: 'Audit Logs',    icon: '📋', pendingKey: null },
   { href: '/admins',     label: 'Admin Users',   icon: '🔐', pendingKey: null, minRole: 'SUPER_ADMIN' },

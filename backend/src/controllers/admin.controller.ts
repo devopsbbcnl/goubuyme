@@ -1226,6 +1226,8 @@ export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Respon
       },
     });
 
+    const vendorCoords = await forwardGeocodeVendorAddress(address.trim(), city.trim(), state?.trim());
+
     const newVendor = await tx.vendor.create({
       data: {
         userId: newUser.id,
@@ -1235,6 +1237,7 @@ export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Respon
         address: address.trim(),
         city: city.trim(),
         ...(state?.trim() ? { state: state.trim() } : {}),
+        ...(vendorCoords ? { latitude: vendorCoords.lat, longitude: vendorCoords.lng } : {}),
         commissionTier: (tier ?? 'TIER_2') as CommissionTier,
         isPharmacyFlagged: category === 'PHARMACY',
         ...(description?.trim() ? { description: description.trim() } : {}),

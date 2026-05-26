@@ -23,6 +23,28 @@ import {
   deactivateAdminUser,
 } from '../controllers/admin.controller';
 import { createOffer, updateOffer } from '../controllers/offer.controller';
+import {
+  getPricingProfiles,
+  getPricingProfile,
+  createPricingProfile,
+  updatePricingProfile,
+  deletePricingProfile,
+  createPricingBucket,
+  updatePricingBucket,
+  deletePricingBucket,
+  createPricingModifier,
+  updatePricingModifier,
+  deletePricingModifier,
+  getDeliveryZones,
+  createDeliveryZone,
+  updateDeliveryZone,
+  deleteDeliveryZone,
+  getSurgeEvents,
+  createSurgeEvent,
+  updateSurgeEvent,
+  deleteSurgeEvent,
+  simulatePricing,
+} from '../controllers/pricing.controller';
 import { verifyToken } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 
@@ -79,5 +101,32 @@ router.get('/admins',            ...superAdminAuth, listAdminUsers);
 router.post('/admins',           ...superAdminAuth, createAdminUser);
 router.patch('/admins/:id/role', ...superAdminAuth, updateAdminRole);
 router.delete('/admins/:id',     ...superAdminAuth, deactivateAdminUser);
+
+// Pricing Management — ops+ admin
+router.get('/pricing/profiles',                    ...readAuth,  getPricingProfiles);
+router.get('/pricing/profiles/:id',                ...readAuth,  getPricingProfile);
+router.post('/pricing/profiles',                   ...opsAuth,   createPricingProfile);
+router.patch('/pricing/profiles/:id',               ...opsAuth,   updatePricingProfile);
+router.delete('/pricing/profiles/:id',              ...superAdminAuth, deletePricingProfile);
+
+router.post('/pricing/buckets',                    ...opsAuth,   createPricingBucket);
+router.patch('/pricing/buckets/:id',               ...opsAuth,   updatePricingBucket);
+router.delete('/pricing/buckets/:id',              ...superAdminAuth, deletePricingBucket);
+
+router.post('/pricing/modifiers',                   ...opsAuth,   createPricingModifier);
+router.patch('/pricing/modifiers/:id',              ...opsAuth,   updatePricingModifier);
+router.delete('/pricing/modifiers/:id',             ...superAdminAuth, deletePricingModifier);
+
+router.get('/pricing/zones',                       ...readAuth,  getDeliveryZones);
+router.post('/pricing/zones',                      ...opsAuth,   createDeliveryZone);
+router.patch('/pricing/zones/:id',                 ...opsAuth,   updateDeliveryZone);
+router.delete('/pricing/zones/:id',                ...superAdminAuth, deleteDeliveryZone);
+
+router.get('/pricing/surge-events',                ...readAuth,  getSurgeEvents);
+router.post('/pricing/surge-events',               ...opsAuth,   createSurgeEvent);
+router.patch('/pricing/surge-events/:id',          ...opsAuth,   updateSurgeEvent);
+router.delete('/pricing/surge-events/:id',         ...superAdminAuth, deleteSurgeEvent);
+
+router.post('/pricing/simulate',                   ...readAuth,  simulatePricing);
 
 export default router;

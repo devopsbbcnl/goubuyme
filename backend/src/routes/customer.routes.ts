@@ -5,6 +5,7 @@ import {
   getOrders, getOrderById,
   getFavorites, toggleFavorite,
   getReferral,
+  geocodeAddress,
 } from '../controllers/customer.controller';
 import { verifyToken } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
@@ -32,5 +33,6 @@ router.post('/favorites/:vendorId',  ...auth, toggleFavorite);
 router.delete('/favorites/:vendorId',...auth, toggleFavorite);
 
 router.get('/referral',              ...auth, getReferral);
+router.get('/geocode',               ...auth, geocodeAddress);
 
 export default router;

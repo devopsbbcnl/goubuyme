@@ -11,7 +11,8 @@
     "prisma:studio": "prisma studio --port 5556",
     "prisma:seed": "ts-node prisma/seed.ts",
     "demo:seed": "ts-node prisma/seed-demo.ts",
-    "demo:unseed": "ts-node prisma/unseed-demo.ts"
+    "demo:unseed": "ts-node prisma/unseed-demo.ts",
+    "geocode:vendors": "ts-node scripts/geocode-vendors.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.14.0",

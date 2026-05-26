@@ -3,6 +3,7 @@ import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { haversineDistance, estimateDeliveryMinutes } from '../services/distance.service';
+import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { ApprovalStatus, CommissionTier, LicenseType, OrderStatus, VerificationBadge } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
 
@@ -147,20 +148,45 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
     });
     if (conflict) return apiResponse.error(res, 'A store with this business name already exists. Please choose a different name.', 409);
   }
+
+  const currentVendor = await prisma.vendor.findUnique({
+    where: { userId: req.user!.userId },
+    select: { address: true, city: true, state: true, latitude: true, longitude: true },
+  });
+  if (!currentVendor) return apiResponse.error(res, 'Vendor profile not found.', 404);
+
+  const newAddress = address?.trim() ?? currentVendor.address;
+  const newCity = city?.trim() ?? currentVendor.city;
+  const newState = state?.trim() ?? currentVendor.state;
+  const addressUpdated = Boolean(address || city || state);
+
+  const data: Record<string, unknown> = {
+    ...(businessName      && { businessName }),
+    ...(description       !== undefined && { description }),
+    ...(logo              !== undefined && { logo }),
+    ...(coverImage        !== undefined && { coverImage }),
+    ...(address           && { address: newAddress }),
+    ...(city              && { city: newCity }),
+    ...(state             && { state: newState }),
+    ...(openingTime       !== undefined && { openingTime }),
+    ...(closingTime       !== undefined && { closingTime }),
+    ...(avgDeliveryTime   !== undefined && { avgDeliveryTime: avgDeliveryTime !== null ? Number(avgDeliveryTime) : null }),
+  };
+
+  if (newAddress && (addressUpdated || currentVendor.latitude == null || currentVendor.longitude == null)) {
+    const coords = await forwardGeocodeVendorAddress(newAddress, newCity, newState);
+    if (coords) {
+      data.latitude = coords.lat;
+      data.longitude = coords.lng;
+    } else if (addressUpdated) {
+      data.latitude = null;
+      data.longitude = null;
+    }
+  }
+
   const vendor = await prisma.vendor.update({
     where: { userId: req.user!.userId },
-    data: {
-      ...(businessName      && { businessName }),
-      ...(description       !== undefined && { description }),
-      ...(logo              !== undefined && { logo }),
-      ...(coverImage        !== undefined && { coverImage }),
-      ...(address           && { address }),
-      ...(city              && { city }),
-      ...(state             && { state }),
-      ...(openingTime       !== undefined && { openingTime }),
-      ...(closingTime       !== undefined && { closingTime }),
-      ...(avgDeliveryTime   !== undefined && { avgDeliveryTime: avgDeliveryTime !== null ? Number(avgDeliveryTime) : null }),
-    },
+    data,
     select: vendorSelect,
   });
   return apiResponse.success(res, 'Vendor profile updated.', vendor);

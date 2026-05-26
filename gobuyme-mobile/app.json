@@ -68,7 +68,7 @@
     "experiments": {
       "typedRoutes": true
     },
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "extra": {
       "router": {
         "origin": false

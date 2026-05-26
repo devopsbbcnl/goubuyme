@@ -7,7 +7,689 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Enums ────────────────────────────────────────────────────────────────────
+model User {
+  id                     String     @id @default(uuid())
+  name                   String
+  email                  String     @unique
+  phone                  String?    @unique
+  password               String?
+  googleId               String?    @unique
+  role                   Role       @default(CUSTOMER)
+  avatar                 String?
+  isEmailVerified        Boolean    @default(false)
+  isPhoneVerified        Boolean    @default(false)
+  isActive               Boolean    @default(true)
+  refreshToken           String?
+  pushToken              String?
+  preferredLocale        String     @default("en")
+  referralCode           String     @unique
+  referredById           String?
+  freeDeliveryCredits    Int        @default(0)
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  mfaEnabled             Boolean    @default(false)
+  mfaSecret              String?
+  passwordResetExpiresAt DateTime?
+  passwordResetToken     String?
+  auditLogs              AuditLog[]
+  customer               Customer?
+  rider                  Rider?
+  referredBy             User?      @relation("Referrals", fields: [referredById], references: [id])
+  referrals              User[]     @relation("Referrals")
+  vendor                 Vendor?
+
+  @@index([role])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Customer {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  createdAt DateTime   @default(now())
+  addresses Address[]
+  cart      Cart?
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favorites Favorite[]
+  orders    Order[]
+
+  @@map("customers")
+}
+
+model Vendor {
+  id                   String                      @id @default(uuid())
+  userId               String                      @unique
+  businessName         String                      @unique
+  slug                 String                      @unique
+  description          String?
+  logo                 String?
+  coverImage           String?
+  category             VendorCategory
+  address              String
+  city                 String
+  state                String                      @default("Rivers")
+  latitude             Float?
+  longitude            Float?
+  isOpen               Boolean                     @default(false)
+  approvalStatus       ApprovalStatus              @default(PENDING)
+  autoApprove          Boolean                     @default(false)
+  commissionTier       CommissionTier              @default(TIER_2)
+  isPharmacyFlagged    Boolean                     @default(false)
+  rating               Float                       @default(0)
+  totalRatings         Int                         @default(0)
+  openingTime          String?
+  closingTime          String?
+  avgDeliveryTime      Int?
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  tierChangedAt        DateTime?
+  verificationBadge    VerificationBadge           @default(UNVERIFIED)
+  favorites            Favorite[]
+  menuItems            MenuItem[]
+  orders               Order[]
+  payoutAccount        PayoutAccount?
+  businessVerification VendorBusinessVerification?
+  document             VendorDocument?
+  licenses             VendorLicense[]
+  vendorPayouts        VendorPayout[]
+  vendorPromotions     VendorPromotion[]
+  user                 User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([approvalStatus])
+  @@index([city])
+  @@index([category])
+  @@index([createdAt])
+  @@map("vendors")
+}
+
+model Rider {
+  id             String         @id @default(uuid())
+  userId         String         @unique
+  vehicleType    String
+  plateNumber    String?
+  isAvailable    Boolean        @default(false)
+  isOnline       Boolean        @default(false)
+  latitude       Float?
+  longitude      Float?
+  approvalStatus ApprovalStatus @default(PENDING)
+  rating         Float          @default(0)
+  totalRatings   Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  address        String?
+  city           String?
+  state          String?
+  earnings       Earning[]
+  deliveries     Order[]
+  payoutAccount  PayoutAccount?
+  document       RiderDocument?
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([approvalStatus])
+  @@index([isAvailable])
+  @@map("riders")
+}
+
+model MenuItem {
+  id            String                @id @default(uuid())
+  vendorId      String
+  name          String
+  description   String?
+  price         Float
+  image         String?
+  category      String?
+  isAvailable   Boolean               @default(true)
+  isFeatured    Boolean               @default(false)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  stockQuantity Int                   @default(0)
+  cartItems     CartItem[]
+  drinkOptions  MenuItemDrinkOption[]
+  optionGroups  MenuItemOptionGroup[]
+  vendor        Vendor                @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  orderItems    OrderItem[]
+
+  @@index([vendorId])
+  @@index([isAvailable])
+  @@map("menu_items")
+}
+
+model MenuItemOptionGroup {
+  id         String               @id @default(uuid())
+  menuItemId String
+  name       String
+  required   Boolean              @default(false)
+  createdAt  DateTime             @default(now())
+  menuItem   MenuItem             @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  items      MenuItemOptionItem[]
+
+  @@index([menuItemId])
+  @@map("menu_item_option_groups")
+}
+
+model MenuItemOptionItem {
+  id            String              @id @default(uuid())
+  optionGroupId String
+  name          String
+  extraPrice    Float               @default(0)
+  isAvailable   Boolean             @default(true)
+  optionGroup   MenuItemOptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+
+  @@index([optionGroupId])
+  @@map("menu_item_option_items")
+}
+
+model MenuItemDrinkOption {
+  id          String   @id @default(uuid())
+  menuItemId  String
+  name        String
+  price       Float
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  menuItem    MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([menuItemId])
+  @@map("menu_item_drink_options")
+}
+
+model Cart {
+  id         String     @id @default(uuid())
+  customerId String     @unique
+  vendorId   String?
+  updatedAt  DateTime   @updatedAt
+  items      CartItem[]
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("carts")
+}
+
+model CartItem {
+  id         String   @id @default(uuid())
+  cartId     String
+  menuItemId String
+  quantity   Int      @default(1)
+  note       String?
+  unitPrice  Float?
+  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("cart_items")
+}
+
+model Address {
+  id         String   @id @default(uuid())
+  customerId String
+  label      String
+  address    String
+  city       String
+  state      String   @default("Rivers")
+  latitude   Float?
+  longitude  Float?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("addresses")
+}
+
+model Order {
+  id                  String        @id @default(uuid())
+  orderNumber         String        @unique
+  customerId          String
+  vendorId            String
+  riderId             String?
+  status              OrderStatus   @default(PENDING)
+  subtotal            Float
+  deliveryFee         Float
+  originalDeliveryFee Float
+  platformFee         Float
+  totalAmount         Float
+  freeDeliveryUsed    Boolean       @default(false)
+  deliveryAddress     String
+  deliveryLatitude    Float?
+  deliveryLongitude   Float?
+  distanceKm          Float?
+  paymentMethod       PaymentMethod
+  paymentStatus       PaymentStatus @default(PENDING)
+  paystackRef         String?
+  paystackVerified    Boolean       @default(false)
+  note                String?
+  estimatedTime       Int?
+  cancelReason        String?
+  rating              Int?
+  review              String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  stockReserved       Boolean       @default(false)
+  items               OrderItem[]
+  customer            Customer      @relation(fields: [customerId], references: [id])
+  rider               Rider?        @relation(fields: [riderId], references: [id])
+  vendor              Vendor        @relation(fields: [vendorId], references: [id])
+
+  @@index([customerId])
+  @@index([vendorId])
+  @@index([riderId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  menuItemId String
+  name       String
+  price      Float
+  quantity   Int
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
+}
+
+model Favorite {
+  id         String   @id @default(uuid())
+  customerId String
+  vendorId   String
+  createdAt  DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vendor     Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, vendorId])
+  @@map("favorites")
+}
+
+model Earning {
+  id            String       @id @default(uuid())
+  riderId       String
+  orderId       String       @unique
+  grossAmount   Float
+  platformCut   Float
+  netAmount     Float
+  payoutStatus  PayoutStatus @default(PENDING)
+  payoutBatchId String?
+  createdAt     DateTime     @default(now())
+  payoutBatch   PayoutBatch? @relation(fields: [payoutBatchId], references: [id])
+  rider         Rider        @relation(fields: [riderId], references: [id])
+
+  @@index([riderId])
+  @@index([payoutStatus])
+  @@map("earnings")
+}
+
+model VendorPayout {
+  id             String         @id @default(uuid())
+  vendorId       String
+  orderId        String         @unique
+  subtotal       Float
+  platformFee    Float
+  netAmount      Float
+  commissionTier CommissionTier
+  payoutStatus   PayoutStatus   @default(PENDING)
+  payoutBatchId  String?
+  createdAt      DateTime       @default(now())
+  payoutBatch    PayoutBatch?   @relation(fields: [payoutBatchId], references: [id])
+  vendor         Vendor         @relation(fields: [vendorId], references: [id])
+
+  @@index([vendorId])
+  @@index([payoutStatus])
+  @@map("vendor_payouts")
+}
+
+model PayoutBatch {
+  id                   String         @id @default(uuid())
+  batchDate            DateTime
+  status               PayoutStatus   @default(PENDING)
+  totalRiderPayout     Float          @default(0)
+  totalVendorPayout    Float          @default(0)
+  totalPlatformRevenue Float          @default(0)
+  paystackBatchRef     String?
+  processedAt          DateTime?
+  failureReason        String?
+  createdAt            DateTime       @default(now())
+  riderEarnings        Earning[]
+  vendorPayouts        VendorPayout[]
+
+  @@map("payout_batches")
+}
+
+model Referral {
+  id            String    @id @default(uuid())
+  referrerId    String
+  refereeId     String    @unique
+  isActive      Boolean   @default(false)
+  creditAwarded Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  activatedAt   DateTime?
+
+  @@map("referrals")
+}
+
+model PayoutAccount {
+  id                    String   @id @default(uuid())
+  vendorId              String?  @unique
+  riderId               String?  @unique
+  bankName              String
+  accountNumber         String
+  accountName           String
+  paystackRecipientCode String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  rider                 Rider?   @relation(fields: [riderId], references: [id])
+  vendor                Vendor?  @relation(fields: [vendorId], references: [id])
+
+  @@map("payout_accounts")
+}
+
+model Offer {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  imageUrl    String?
+  code        String?   @unique
+  discount    Float
+  isPercent   Boolean   @default(true)
+  minOrder    Float     @default(0)
+  vendorId    String?
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  @@map("offers")
+}
+
+model VendorDocument {
+  id           String         @id @default(uuid())
+  vendorId     String         @unique
+  type         DocumentType
+  number       String
+  imageUrl     String
+  imageUrlBack String?
+  status       DocumentStatus @default(PENDING)
+  reviewNote   String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  bvn          String?
+  selfieUrl    String?
+  vendor       Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_documents")
+}
+
+model VendorBusinessVerification {
+  id          String         @id @default(uuid())
+  vendorId    String         @unique
+  cacNumber   String?
+  cacImageUrl String?
+  tin         String?
+  directorNin String?
+  status      DocumentStatus @default(PENDING)
+  reviewNote  String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  vendor      Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_business_verifications")
+}
+
+model VendorLicense {
+  id            String        @id @default(uuid())
+  vendorId      String
+  type          LicenseType
+  licenseNumber String
+  imageUrl      String
+  expiresAt     DateTime?
+  status        LicenseStatus @default(PENDING)
+  reviewNote    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  vendor        Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_licenses")
+}
+
+model RiderDocument {
+  id               String         @id @default(uuid())
+  riderId          String         @unique
+  ninNumber        String
+  ninImageUrl      String?
+  selfieUrl        String?
+  vehicleImageUrl  String?
+  guarantorName    String?
+  guarantorPhone   String?
+  guarantorAddress String?
+  status           DocumentStatus @default(PENDING)
+  reviewNote       String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  rider            Rider          @relation(fields: [riderId], references: [id], onDelete: Cascade)
+
+  @@map("rider_documents")
+}
+
+model VendorPromotion {
+  id        String   @id @default(uuid())
+  vendorId  String
+  title     String
+  imageUrl  String
+  code      String?
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_promotions")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String
+  meta      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  type      String
+  isRead    Boolean  @default(false)
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model EmailOtp {
+  id        String   @id @default(uuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("email_otps")
+}
+
+model PlatformSetting {
+  id                        String   @id @default("default")
+  platformName              String   @default("GoBuyMe")
+  supportEmail              String   @default("support@gobuyme.shop")
+  deliveryBaseFee           Float    @default(500)
+  deliveryPerKmRate         Float    @default(100)
+  deliveryMaxFee            Float    @default(3000)
+  maxDeliveryRadiusKm       Float    @default(25)
+  cancellationWindowMinutes Int      @default(10)
+  maintenanceMode           Boolean  @default(false)
+  updatedAt                 DateTime @updatedAt
+  createdAt                 DateTime @default(now())
+  riderPayoutPercentage     Float    @default(85)
+
+  @@map("platform_settings")
+}
+
+model PricingProfile {
+  id                    String                  @id @default(uuid())
+  name                  String
+  country               String                  @default("Nigeria")
+  state                 String?
+  city                  String?
+  status                PricingProfileStatus    @default(ACTIVE)
+  baseFee               Float                   @default(700)
+  minimumFee            Float                   @default(700)
+  maximumFee            Float?
+  maxDeliveryRadiusKm   Float                   @default(25)
+  freeDeliveryThreshold Float?
+  isDefault             Boolean                 @default(false)
+  priority              Int                     @default(0)
+  effectiveFrom         DateTime                @default(now())
+  effectiveTo           DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  riderPayoutPercentage Float                   @default(85)
+  zones                 DeliveryZone[]
+  buckets               PricingBucket[]
+  history               PricingHistory[]
+  modifiers             PricingModifier[]
+  vendorOverrides       VendorPricingOverride[]
+
+  @@unique([country, state, city])
+  @@index([country])
+  @@index([state])
+  @@index([city])
+  @@index([status])
+  @@index([effectiveFrom])
+  @@map("pricing_profiles")
+}
+
+model PricingBucket {
+  id               String         @id @default(uuid())
+  pricingProfileId String
+  minDistanceKm    Float
+  maxDistanceKm    Float?
+  fee              Float
+  perKmRate        Float?
+  description      String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  pricingProfile   PricingProfile @relation(fields: [pricingProfileId], references: [id], onDelete: Cascade)
+
+  @@index([pricingProfileId])
+  @@index([minDistanceKm])
+  @@map("pricing_buckets")
+}
+
+model PricingModifier {
+  id               String              @id @default(uuid())
+  pricingProfileId String
+  type             PricingModifierType @default(PERCENTAGE)
+  surchargeType    SurchargeType?
+  name             String
+  value            Float
+  conditions       Json?
+  isActive         Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  pricingProfile   PricingProfile      @relation(fields: [pricingProfileId], references: [id], onDelete: Cascade)
+
+  @@index([pricingProfileId])
+  @@index([surchargeType])
+  @@index([isActive])
+  @@map("pricing_modifiers")
+}
+
+model DeliveryZone {
+  id                 String          @id @default(uuid())
+  pricingProfileId   String
+  name               String
+  type               PricingZoneType @default(NORMAL)
+  zoneType           String          @default("CITY")
+  parentZoneId       String?
+  multiplier         Float           @default(1.0)
+  description        String?
+  polygonCoordinates Json?
+  landmarkKeywords   String[]
+  requiresManualCorrection Boolean      @default(false)
+  isActive           Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  pricingProfile     PricingProfile  @relation(fields: [pricingProfileId], references: [id], onDelete: Cascade)
+
+  @@index([pricingProfileId])
+  @@index([type])
+  @@index([isActive])
+  @@index([zoneType])
+  @@index([parentZoneId])
+  @@map("delivery_zones")
+}
+
+model SurgeEvent {
+  id            String        @id @default(uuid())
+  name          String
+  type          SurchargeType
+  multiplier    Float
+  startTime     DateTime
+  endTime       DateTime
+  affectedAreas Json?
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([type])
+  @@index([startTime])
+  @@index([endTime])
+  @@index([isActive])
+  @@map("surge_events")
+}
+
+model VendorPricingOverride {
+  id               String         @id @default(uuid())
+  pricingProfileId String
+  vendorId         String         @unique
+  baseFee          Float?
+  perKmRate        Float?
+  maxFee           Float?
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  pricingProfile   PricingProfile @relation(fields: [pricingProfileId], references: [id], onDelete: Cascade)
+
+  @@index([pricingProfileId])
+  @@index([vendorId])
+  @@index([isActive])
+  @@map("vendor_pricing_overrides")
+}
+
+model PricingHistory {
+  id               String         @id @default(uuid())
+  pricingProfileId String
+  changedBy        String
+  changeType       String
+  oldValue         Json?
+  newValue         Json?
+  reason           String?
+  createdAt        DateTime       @default(now())
+  pricingProfile   PricingProfile @relation(fields: [pricingProfileId], references: [id], onDelete: Cascade)
+
+  @@index([pricingProfileId])
+  @@index([createdAt])
+  @@map("pricing_history")
+}
 
 enum Role {
   CUSTOMER
@@ -46,6 +728,31 @@ enum OrderStatus {
   IN_TRANSIT
   DELIVERED
   CANCELLED
+}
+
+enum PricingProfileStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PricingZoneType {
+  NORMAL
+  RURAL_EDGE
+  FLOOD_PRONE
+  HIGH_COST
+}
+
+enum SurchargeType {
+  RAIN
+  NIGHT_DELIVERY
+  HIGH_TRAFFIC
+  FUEL
+  EMERGENCY
+}
+
+enum PricingModifierType {
+  PERCENTAGE
+  FIXED
 }
 
 enum PaymentStatus {
@@ -101,555 +808,4 @@ enum LicenseStatus {
   VERIFIED
   REJECTED
   EXPIRED
-}
-
-// ─── Models ───────────────────────────────────────────────────────────────────
-
-model User {
-  id              String  @id @default(uuid())
-  name            String
-  email           String  @unique
-  phone           String? @unique
-  password        String?
-  googleId        String? @unique
-  role            Role    @default(CUSTOMER)
-  avatar          String?
-  isEmailVerified Boolean @default(false)
-  isPhoneVerified Boolean @default(false)
-  isActive        Boolean @default(true)
-  refreshToken    String?
-  pushToken       String?
-  preferredLocale String  @default("en")
-
-  mfaEnabled          Boolean @default(false)
-  mfaSecret           String?
-
-  referralCode        String @unique
-  referredById        String?
-  referredBy          User?  @relation("Referrals", fields: [referredById], references: [id])
-  referrals           User[] @relation("Referrals")
-  freeDeliveryCredits Int    @default(0)
-
-  passwordResetToken     String?
-  passwordResetExpiresAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  customer  Customer?
-  vendor    Vendor?
-  rider     Rider?
-  auditLogs AuditLog[]
-
-  @@index([role])
-  @@index([createdAt])
-  @@map("users")
-}
-
-model Customer {
-  id        String     @id @default(uuid())
-  userId    String     @unique
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  addresses Address[]
-  orders    Order[]
-  favorites Favorite[]
-  cart      Cart?
-  createdAt DateTime   @default(now())
-
-  @@map("customers")
-}
-
-model Vendor {
-  id                String         @id @default(uuid())
-  userId            String         @unique
-  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  businessName      String         @unique
-  slug              String         @unique
-  description       String?
-  logo              String?
-  coverImage        String?
-  category          VendorCategory
-  address           String
-  city              String
-  state             String         @default("Rivers")
-  latitude          Float?
-  longitude         Float?
-  isOpen            Boolean        @default(false)
-  approvalStatus    ApprovalStatus @default(PENDING)
-  autoApprove       Boolean        @default(false)
-  commissionTier    CommissionTier @default(TIER_2)
-  tierChangedAt     DateTime?
-  isPharmacyFlagged    Boolean            @default(false)
-  verificationBadge    VerificationBadge  @default(UNVERIFIED)
-  rating               Float              @default(0)
-  totalRatings         Int                @default(0)
-  openingTime          String?
-  closingTime          String?
-  avgDeliveryTime      Int?
-
-  menuItems            MenuItem[]
-  orders               Order[]
-  favorites            Favorite[]
-  payoutAccount        PayoutAccount?
-  vendorPayouts        VendorPayout[]
-  vendorPromotions     VendorPromotion[]
-  document             VendorDocument?
-  businessVerification VendorBusinessVerification?
-  licenses             VendorLicense[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([approvalStatus])
-  @@index([city])
-  @@index([category])
-  @@index([createdAt])
-  @@map("vendors")
-}
-
-model Rider {
-  id             String         @id @default(uuid())
-  userId         String         @unique
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vehicleType    String
-  plateNumber    String?
-  address        String?
-  city           String?
-  state          String?
-  isAvailable    Boolean        @default(false)
-  isOnline       Boolean        @default(false)
-  latitude       Float?
-  longitude      Float?
-  approvalStatus ApprovalStatus @default(PENDING)
-  rating         Float          @default(0)
-  totalRatings   Int            @default(0)
-
-  deliveries    Order[]
-  earnings      Earning[]
-  payoutAccount PayoutAccount?
-  document      RiderDocument?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([approvalStatus])
-  @@index([isAvailable])
-  @@map("riders")
-}
-
-model MenuItem {
-  id          String  @id @default(uuid())
-  vendorId    String
-  vendor      Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  price       Float
-  image       String?
-  category    String?
-  isAvailable Boolean @default(true)
-  isFeatured  Boolean @default(false)
-  stockQuantity Int    @default(0)
-
-  cartItems    CartItem[]
-  orderItems   OrderItem[]
-  drinkOptions MenuItemDrinkOption[]
-  optionGroups MenuItemOptionGroup[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([vendorId])
-  @@index([isAvailable])
-  @@map("menu_items")
-}
-
-model MenuItemOptionGroup {
-  id         String               @id @default(uuid())
-  menuItemId String
-  menuItem   MenuItem             @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  name       String
-  required   Boolean              @default(false)
-  items      MenuItemOptionItem[]
-  createdAt  DateTime             @default(now())
-
-  @@index([menuItemId])
-  @@map("menu_item_option_groups")
-}
-
-model MenuItemOptionItem {
-  id            String              @id @default(uuid())
-  optionGroupId String
-  optionGroup   MenuItemOptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
-  name          String
-  extraPrice    Float               @default(0)
-  isAvailable   Boolean             @default(true)
-
-  @@index([optionGroupId])
-  @@map("menu_item_option_items")
-}
-
-model MenuItemDrinkOption {
-  id          String   @id @default(uuid())
-  menuItemId  String
-  menuItem    MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  name        String
-  price       Float
-  isAvailable Boolean  @default(true)
-  createdAt   DateTime @default(now())
-
-  @@index([menuItemId])
-  @@map("menu_item_drink_options")
-}
-
-model Cart {
-  id         String     @id @default(uuid())
-  customerId String     @unique
-  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  vendorId   String?
-  items      CartItem[]
-  updatedAt  DateTime   @updatedAt
-
-  @@map("carts")
-}
-
-model CartItem {
-  id         String   @id @default(uuid())
-  cartId     String
-  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  menuItemId String
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
-  quantity   Int      @default(1)
-  unitPrice  Float?
-  note       String?
-
-  @@map("cart_items")
-}
-
-model Address {
-  id         String   @id @default(uuid())
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  label      String
-  address    String
-  city       String
-  state      String   @default("Rivers")
-  latitude   Float?
-  longitude  Float?
-  isDefault  Boolean  @default(false)
-  createdAt  DateTime @default(now())
-
-  @@map("addresses")
-}
-
-model Order {
-  id                  String        @id @default(uuid())
-  orderNumber         String        @unique
-  customerId          String
-  customer            Customer      @relation(fields: [customerId], references: [id])
-  vendorId            String
-  vendor              Vendor        @relation(fields: [vendorId], references: [id])
-  riderId             String?
-  rider               Rider?        @relation(fields: [riderId], references: [id])
-  items               OrderItem[]
-  status              OrderStatus   @default(PENDING)
-  subtotal            Float
-  deliveryFee         Float
-  originalDeliveryFee Float
-  platformFee         Float
-  totalAmount         Float
-  freeDeliveryUsed    Boolean       @default(false)
-  deliveryAddress     String
-  deliveryLatitude    Float?
-  deliveryLongitude   Float?
-  distanceKm          Float?
-  paymentMethod       PaymentMethod
-  paymentStatus       PaymentStatus @default(PENDING)
-  paystackRef         String?
-  paystackVerified    Boolean       @default(false)
-  stockReserved       Boolean       @default(false)
-  note                String?
-  estimatedTime       Int?
-  cancelReason        String?
-  rating              Int?
-  review              String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([customerId])
-  @@index([vendorId])
-  @@index([riderId])
-  @@index([status])
-  @@index([paymentStatus])
-  @@index([createdAt])
-  @@map("orders")
-}
-
-model OrderItem {
-  id         String   @id @default(uuid())
-  orderId    String
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItemId String
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
-  name       String
-  price      Float
-  quantity   Int
-
-  @@map("order_items")
-}
-
-model Favorite {
-  id         String   @id @default(uuid())
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  vendorId   String
-  vendor     Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-
-  @@unique([customerId, vendorId])
-  @@map("favorites")
-}
-
-model Earning {
-  id            String       @id @default(uuid())
-  riderId       String
-  rider         Rider        @relation(fields: [riderId], references: [id])
-  orderId       String       @unique
-  grossAmount   Float
-  platformCut   Float
-  netAmount     Float
-  payoutStatus  PayoutStatus @default(PENDING)
-  payoutBatchId String?
-  payoutBatch   PayoutBatch? @relation(fields: [payoutBatchId], references: [id])
-  createdAt     DateTime     @default(now())
-
-  @@index([riderId])
-  @@index([payoutStatus])
-  @@map("earnings")
-}
-
-model VendorPayout {
-  id             String         @id @default(uuid())
-  vendorId       String
-  vendor         Vendor         @relation(fields: [vendorId], references: [id])
-  orderId        String         @unique
-  subtotal       Float
-  platformFee    Float
-  netAmount      Float
-  commissionTier CommissionTier
-  payoutStatus   PayoutStatus   @default(PENDING)
-  payoutBatchId  String?
-  payoutBatch    PayoutBatch?   @relation(fields: [payoutBatchId], references: [id])
-  createdAt      DateTime       @default(now())
-
-  @@index([vendorId])
-  @@index([payoutStatus])
-  @@map("vendor_payouts")
-}
-
-model PayoutBatch {
-  id                   String       @id @default(uuid())
-  batchDate            DateTime
-  status               PayoutStatus @default(PENDING)
-  totalRiderPayout     Float        @default(0)
-  totalVendorPayout    Float        @default(0)
-  totalPlatformRevenue Float        @default(0)
-  paystackBatchRef     String?
-  processedAt          DateTime?
-  failureReason        String?
-
-  riderEarnings Earning[]
-  vendorPayouts VendorPayout[]
-
-  createdAt DateTime @default(now())
-
-  @@map("payout_batches")
-}
-
-model Referral {
-  id            String    @id @default(uuid())
-  referrerId    String
-  refereeId     String    @unique
-  isActive      Boolean   @default(false)
-  creditAwarded Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  activatedAt   DateTime?
-
-  @@map("referrals")
-}
-
-model PayoutAccount {
-  id                    String   @id @default(uuid())
-  vendorId              String?  @unique
-  vendor                Vendor?  @relation(fields: [vendorId], references: [id])
-  riderId               String?  @unique
-  rider                 Rider?   @relation(fields: [riderId], references: [id])
-  bankName              String
-  accountNumber         String
-  accountName           String
-  paystackRecipientCode String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  @@map("payout_accounts")
-}
-
-model Offer {
-  id          String    @id @default(uuid())
-  title       String
-  description String?
-  imageUrl    String?
-  code        String?   @unique
-  discount    Float
-  isPercent   Boolean   @default(true)
-  minOrder    Float     @default(0)
-  vendorId    String?
-  expiresAt   DateTime?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-
-  @@map("offers")
-}
-
-model VendorDocument {
-  id           String         @id @default(uuid())
-  vendorId     String         @unique
-  vendor       Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  type         DocumentType
-  number       String
-  imageUrl     String
-  imageUrlBack String?
-  bvn          String?
-  selfieUrl    String?
-  status       DocumentStatus @default(PENDING)
-  reviewNote   String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-
-  @@map("vendor_documents")
-}
-
-model VendorBusinessVerification {
-  id          String         @id @default(uuid())
-  vendorId    String         @unique
-  vendor      Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  cacNumber   String?
-  cacImageUrl String?
-  tin         String?
-  directorNin String?
-  status      DocumentStatus @default(PENDING)
-  reviewNote  String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  @@map("vendor_business_verifications")
-}
-
-model VendorLicense {
-  id            String        @id @default(uuid())
-  vendorId      String
-  vendor        Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  type          LicenseType
-  licenseNumber String
-  imageUrl      String
-  expiresAt     DateTime?
-  status        LicenseStatus @default(PENDING)
-  reviewNote    String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  @@map("vendor_licenses")
-}
-
-model RiderDocument {
-  id               String         @id @default(uuid())
-  riderId          String         @unique
-  rider            Rider          @relation(fields: [riderId], references: [id], onDelete: Cascade)
-  ninNumber        String
-  ninImageUrl      String?
-  selfieUrl        String?
-  vehicleImageUrl  String?
-  guarantorName    String?
-  guarantorPhone   String?
-  guarantorAddress String?
-  status           DocumentStatus @default(PENDING)
-  reviewNote       String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-
-  @@map("rider_documents")
-}
-
-model VendorPromotion {
-  id        String   @id @default(uuid())
-  vendorId  String
-  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  title     String
-  imageUrl  String
-  code      String?
-  isActive  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("vendor_promotions")
-}
-
-model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  action    String
-  entity    String
-  entityId  String
-  meta      Json?
-  ip        String?
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([entity])
-  @@index([createdAt])
-  @@map("audit_logs")
-}
-
-model Notification {
-  id        String  @id @default(uuid())
-  userId    String
-  title     String
-  body      String
-  type      String
-  isRead    Boolean @default(false)
-  meta      Json?
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([isRead])
-  @@index([createdAt])
-  @@map("notifications")
-}
-
-model EmailOtp {
-  id        String   @id @default(uuid())
-  userId    String
-  code      String
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@map("email_otps")
-}
-
-model PlatformSetting {
-  id                        String   @id @default("default")
-  platformName              String   @default("GoBuyMe")
-  supportEmail              String   @default("support@gobuyme.shop")
-  deliveryBaseFee           Float    @default(500)
-  deliveryPerKmRate         Float    @default(100)
-  deliveryMaxFee            Float    @default(3000)
-  maxDeliveryRadiusKm       Float    @default(25)
-  cancellationWindowMinutes Int      @default(10)
-  maintenanceMode           Boolean  @default(false)
-  updatedAt                 DateTime @updatedAt
-  createdAt                 DateTime @default(now())
-
-  @@map("platform_settings")
 }

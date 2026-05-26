@@ -3,6 +3,7 @@ import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 
 const getCustomerId = async (userId: string) => {
   const c = await prisma.customer.findUnique({ where: { userId }, select: { id: true } });
@@ -298,5 +299,27 @@ export const getReferral = catchAsync(async (req: AuthRequest, res: Response) =>
     credits: user.freeDeliveryCredits,
     activeReferrals,
     nextCreditAt: 10 - (activeReferrals % 10),
+  });
+});
+
+// ─── Geocoding ───────────────────────────────────────────────────────────────
+
+export const geocodeAddress = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { address, city, state } = req.query as { address?: string; city?: string; state?: string };
+  
+  if (!address) {
+    return apiResponse.error(res, 'Address is required.', 400);
+  }
+
+  const result = await forwardGeocodeVendorAddress(address, city, state);
+  
+  if (!result) {
+    return apiResponse.error(res, 'Failed to geocode address.', 400);
+  }
+
+  return apiResponse.success(res, 'Address geocoded.', {
+    lat: result.lat,
+    lng: result.lng,
+    query: result.query,
   });
 });

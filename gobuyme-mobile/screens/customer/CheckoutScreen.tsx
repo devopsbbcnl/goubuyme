@@ -12,7 +12,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
-import { calculateDistance, calculateDeliveryFee } from '@/services/geocoding';
+import { calculateDistance, calculateRouteDistance } from '@/services/geocoding';
+import Constants from 'expo-constants';
 
 const TYPE_ICONS: Record<string, any> = { home: 'home', work: 'business', other: 'location-on' };
 
@@ -30,47 +31,211 @@ export default function CheckoutScreen() {
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [feeLoading, setFeeLoading] = useState(false);
   const [distance, setDistance] = useState<number | null>(null);
-  const [vendor, setVendor] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [addressCoords, setAddressCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [geoSource, setGeoSource] = useState<'stored' | 'geocoded' | 'missing' | null>(null);
+  const [vendor, setVendor] = useState<{
+    latitude?: number | null;
+    longitude?: number | null;
+    address?: string | null;
+    city?: string | null;
+    state?: string | null;
+  } | null>(null);
 
   const { popup } = usePaystack();
 
   const subtotal   = total;
   const grandTotal = subtotal + (deliveryFee ?? 0);
 
+  const isNigeriaCoordinate = (lat: number, lng: number) => {
+    return lat >= 4 && lat <= 14 && lng >= 2 && lng <= 15;
+  };
+
   // Fetch vendor location
   useEffect(() => {
     if (vid) {
-      api.get(`/vendors/${vid}`).then(res => {
+      api.get(`/vendors/${vid}`).then(async res => {
         const vendorData = res.data.data;
+        console.log('[Checkout] Vendor fetch success:', { vid, lat: vendorData.latitude, lng: vendorData.longitude });
+        // Save vendor info including address fields
         setVendor({
-          latitude: vendorData.latitude,
-          longitude: vendorData.longitude,
+          latitude: vendorData.latitude ?? null,
+          longitude: vendorData.longitude ?? null,
+          address: vendorData.address ?? vendorData.location ?? null,
+          city: vendorData.city ?? null,
+          state: vendorData.state ?? null,
         });
-      }).catch(() => {});
+
+        // If vendor lacks coords, attempt to geocode vendor address using backend
+        if ((vendorData.latitude == null || vendorData.longitude == null) && (vendorData.address || vendorData.city || vendorData.state)) {
+          try {
+            const geoRes = await api.get('/geocode', {
+              params: {
+                address: vendorData.address,
+                city: vendorData.city,
+                state: vendorData.state,
+              },
+            });
+            const geoData = geoRes.data?.data;
+            if (geoData?.lat != null && geoData?.lng != null) {
+              console.log('[Checkout] Geocoded vendor address:', { lat: geoData.lat, lng: geoData.lng, query: geoData.query });
+              setVendor(v => ({ ...(v ?? {}), latitude: geoData.lat, longitude: geoData.lng }));
+            }
+          } catch (e) {
+            console.warn('[Checkout] Vendor geocode failed', e);
+          }
+        }
+      }).catch(err => {
+        console.error('[Checkout] Vendor fetch failed:', { vid, error: err?.message });
+      });
     }
   }, [vid]);
 
   // Calculate distance and delivery fee when address and vendor are available
   useEffect(() => {
-    if (selected?.latitude && selected?.longitude && vendor) {
+    let mounted = true;
+
+    (async () => {
+      if (!selected) {
+        console.log('[Checkout] No address selected');
+        if (mounted) {
+          setDeliveryFee(null);
+          setDistance(null);
+          setAddressCoords(null);
+          setGeoSource(null);
+        }
+        return;
+      }
+
+      const selectedLat = selected.latitude as number | undefined;
+      const selectedLng = selected.longitude as number | undefined;
+      const selectedValid = selectedLat != null && selectedLng != null && isNigeriaCoordinate(selectedLat, selectedLng);
+      const selectedQuery = [selected.address, selected.city, selected.state]
+        .filter(Boolean)
+        .join(', ');
+
+      console.log('[Checkout] Selected address:', {
+        label: selected.label,
+        address: selected.address,
+        city: selected.city,
+        state: selected.state,
+        query: selectedQuery,
+        hasCoords: selectedLat != null && selectedLng != null,
+        latitude: selectedLat,
+        longitude: selectedLng,
+        isNigeriaCoord: selectedValid,
+      });
+
+      if (!vendor) {
+        console.log('[Checkout] Vendor not loaded yet');
+        return;
+      }
+
+      const vendorValid = vendor.latitude != null && vendor.longitude != null && isNigeriaCoordinate(vendor.latitude, vendor.longitude);
+      if (!vendorValid) {
+        console.warn('[Checkout] Vendor coordinates invalid or outside Nigeria:', vendor);
+        return;
+      }
+
       setFeeLoading(true);
-      const dist = calculateDistance(
-        vendor.latitude,
-        vendor.longitude,
-        selected.latitude,
-        selected.longitude,
-      );
-      setDistance(dist);
-      
-      // Calculate delivery fee based on distance
-      // You can adjust baseFee, perKmRate, and maxFee as needed
-      const fee = calculateDeliveryFee(dist, 500, 100, 2000);
-      setDeliveryFee(fee);
-      setFeeLoading(false);
-    } else if (!selected) {
-      setDeliveryFee(null);
-      setDistance(null);
-    }
+
+      try {
+        let lat = selected.latitude as number | undefined;
+        let lng = selected.longitude as number | undefined;
+        let source: 'stored' | 'geocoded' | 'missing' = 'stored';
+
+        // If saved address lacks coordinates, try to geocode the full address text using backend
+        if ((lat == null || lng == null) && selected.address) {
+          console.log('[Checkout] Address has no coords, attempting geocode via backend');
+          try {
+            const geoRes = await api.get('/geocode', {
+              params: {
+                address: selected.address,
+                city: selected.city,
+                state: selected.state,
+              },
+            });
+            const geoData = geoRes.data?.data;
+            if (geoData?.lat != null && geoData?.lng != null) {
+              lat = geoData.lat;
+              lng = geoData.lng;
+              source = 'geocoded';
+              console.log('[Checkout] Geocoded to:', { lat, lng, query: geoData.query });
+            } else {
+              source = 'missing';
+              console.log('[Checkout] Backend geocoding failed - no results');
+            }
+          } catch (geoErr) {
+            console.error('[Checkout] Backend geocoding error:', geoErr);
+            source = 'missing';
+          }
+        }
+
+        const addressCoordsValid = lat != null && lng != null && isNigeriaCoordinate(lat, lng);
+        if (!addressCoordsValid && lat != null && lng != null) {
+          console.warn('[Checkout] Address coordinates are outside Nigeria bounds:', { lat, lng });
+        }
+
+        if (addressCoordsValid && vendor.latitude != null && vendor.longitude != null) {
+          const dist = await calculateRouteDistance(
+            vendor.latitude,
+            vendor.longitude,
+            lat!,
+            lng!,
+          );
+          console.log('[Checkout] Route calculated:', { distance: dist, vendor: { lat: vendor.latitude, lng: vendor.longitude }, address: { lat, lng } });
+          // Sanity check: distances > 500km are probably erroneous for local deliveries
+          if (dist > 500) {
+            console.warn('[Checkout] Route distance implausible, aborting:', { distance: dist });
+            if (!mounted) return;
+            setDistance(null);
+            setAddressCoords(null);
+            setGeoSource('missing');
+            setDeliveryFee(null);
+            return;
+          }
+          if (!mounted) return;
+          setDistance(dist);
+          setAddressCoords({ latitude: lat!, longitude: lng! });
+          setGeoSource(source);
+          
+          // Call backend to calculate delivery fee
+          try {
+            const feeRes = await api.get(`/orders/estimate-fee?addressId=${selected.id}`);
+            const fee = feeRes.data?.data?.deliveryFee;
+            if (fee != null) {
+              setDeliveryFee(fee);
+              console.log('[Checkout] Backend delivery fee:', { fee, distance: dist });
+            } else {
+              console.warn('[Checkout] Backend did not return delivery fee');
+              setDeliveryFee(null);
+            }
+          } catch (feeErr) {
+            console.error('[Checkout] Failed to fetch delivery fee from backend:', feeErr);
+            setDeliveryFee(null);
+          }
+        } else {
+          // Could not determine coords for selected address
+          console.log('[Checkout] Could not determine address coordinates');
+          if (!mounted) return;
+          setDeliveryFee(null);
+          setDistance(null);
+          setAddressCoords(null);
+          setGeoSource(source);
+        }
+      } catch (err) {
+        console.error('[Checkout] Error calculating fee:', err);
+        if (mounted) {
+          setDeliveryFee(null);
+          setDistance(null);
+          setAddressCoords(null);
+          setGeoSource('missing');
+        }
+      } finally {
+        if (mounted) setFeeLoading(false);
+      }
+    })();
+
+    return () => { mounted = false; };
   }, [selected, vendor]);
 
   const handlePay = async () => {
@@ -110,9 +275,6 @@ export default function CheckoutScreen() {
       const confirmedTotal: number = order.totalAmount;
       const confirmedDeliveryFee: number = order.deliveryFee;
 
-      // Sync displayed fee to what the backend actually calculated
-      setDeliveryFee(confirmedDeliveryFee);
-
       // 3. Generate a unique reference locally — popup.checkout() initialises
       //    its own Paystack transaction; calling /payments/initialize first
       //    would create a duplicate reference and Paystack would reject it.
@@ -121,7 +283,8 @@ export default function CheckoutScreen() {
       // 4. Open Paystack popup — amount is always the backend-confirmed total
       popup.checkout({
         email: user?.email ?? 'customer@gobuyme.ng',
-        amount: confirmedTotal, // naira — library multiplies by 100 internally
+        amount: Math.round(Number(confirmedTotal)), // naira — library multiplies by 100 internally
+        currency: 'NGN',
         reference,
         onSuccess: async (paystackRes) => {
           const ref = paystackRes.reference ?? paystackRes.transaction ?? paystackRes.trans ?? reference;
@@ -146,6 +309,11 @@ export default function CheckoutScreen() {
         onCancel: () => {
           setLoading(false);
           Alert.alert('Payment cancelled', 'Your order is saved. Complete payment to confirm it.');
+        },
+        onError: (error) => {
+          console.error('[Paystack] Payment error:', error);
+          setLoading(false);
+          Alert.alert('Payment error', error?.message ?? 'Paystack payment failed. Please try again.');
         },
       });
     } catch (err: any) {
@@ -253,6 +421,50 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
+        {__DEV__ && (
+          <View style={[styles.debugBox, { backgroundColor: T.surface2, borderColor: T.border }]}> 
+            <Text style={[styles.debugTitle, { color: T.text }]}>Checkout debug</Text>
+            <View style={styles.debugRow}>
+              <Text style={[styles.debugLabel, { color: T.textSec }]}>Selected address</Text>
+              <Text style={[styles.debugValue, { color: T.text }]} numberOfLines={2}>{selected?.address ?? 'None'}</Text>
+            </View>
+            <View style={styles.debugRow}>
+              <Text style={[styles.debugLabel, { color: T.textSec }]}>Selected coords</Text>
+              <Text style={[styles.debugValue, { color: T.text }]}>
+                {selected?.latitude != null && selected?.longitude != null
+                  ? `${selected.latitude.toFixed(6)}, ${selected.longitude.toFixed(6)}`
+                  : 'Missing'}
+              </Text>
+            </View>
+            <View style={styles.debugRow}>
+              <Text style={[styles.debugLabel, { color: T.textSec }]}>Address coords</Text>
+              <Text style={[styles.debugValue, { color: T.text }]}> 
+                {addressCoords?.latitude != null && addressCoords?.longitude != null
+                  ? `${addressCoords.latitude.toFixed(6)}, ${addressCoords.longitude.toFixed(6)}`
+                  : 'Missing'}
+              </Text>
+            </View>
+            <View style={styles.debugRow}>
+              <Text style={[styles.debugLabel, { color: T.textSec }]}>Geo source</Text>
+              <Text style={[styles.debugValue, { color: T.text }]}>{geoSource ?? 'Pending'}</Text>
+            </View>
+            <View style={styles.debugRow}>
+              <Text style={[styles.debugLabel, { color: T.textSec }]}>Vendor coords</Text>
+              <Text style={[styles.debugValue, { color: T.text }]}>
+                {vendor?.latitude != null && vendor?.longitude != null
+                  ? `${vendor.latitude.toFixed(6)}, ${vendor.longitude.toFixed(6)}`
+                  : 'Unknown'}
+              </Text>
+            </View>
+            <View style={styles.debugRow}>
+              <Text style={[styles.debugLabel, { color: T.textSec }]}>Distance (km)</Text>
+              <Text style={[styles.debugValue, { color: T.text }]}>
+                {distance != null ? distance.toFixed(2) : 'Calculating...'}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Paystack badge */}
         <View style={styles.securedRow}>
           <Ionicons name="lock-closed" size={12} color={T.textMuted} />
@@ -327,4 +539,9 @@ const styles = StyleSheet.create({
   footer:           { borderTopWidth: 1, padding: 20, paddingBottom: 36 },
   payBtn:           { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 54, borderRadius: 4 },
   payBtnText:       { color: '#fff', fontSize: 16, fontWeight: '800' },
+  debugBox:         { borderWidth: 1, borderRadius: 4, marginTop: 16, padding: 12, gap: 8 },
+  debugTitle:       { fontSize: 13, fontWeight: '700', marginBottom: 4 },
+  debugRow:         { gap: 4, marginBottom: 4 },
+  debugLabel:       { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
+  debugValue:       { fontSize: 12, fontWeight: '600' },
 });

@@ -3,7 +3,7 @@ import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { haversineDistance, calcDeliveryFee, estimateDeliveryMinutes } from '../services/distance.service';
+import { calculateDeliveryFee } from '../services/pricing.service';
 import { calcVendorFee } from '../services/commission.service';
 import { applyFreeDelivery } from '../services/referral.service';
 import { getPlatformSettings } from '../services/settings.service';
@@ -21,42 +21,56 @@ export const estimateDeliveryFee = catchAsync(async (req: AuthRequest, res: Resp
   const { addressId } = req.query as { addressId?: string };
   if (!addressId) return apiResponse.error(res, 'addressId is required.', 400);
 
+  console.log('[estimateDeliveryFee] Request:', { userId: req.user?.userId, addressId });
+
   const customer = await prisma.customer.findUnique({
     where: { userId: req.user!.userId },
     include: { cart: true },
   });
-  if (!customer) return apiResponse.error(res, 'Customer not found.', 404);
+  if (!customer) {
+    console.log('[estimateDeliveryFee] Customer not found for userId:', req.user?.userId);
+    return apiResponse.error(res, 'Customer not found.', 404);
+  }
+
+  console.log('[estimateDeliveryFee] Customer found:', { customerId: customer.id, cartVendorId: customer.cart?.vendorId });
 
   const deliveryAddress = await prisma.address.findFirst({
     where: { id: addressId, customerId: customer.id },
   });
-  if (!deliveryAddress) return apiResponse.error(res, 'Address not found.', 404);
-
-  let distanceKm = 3;
-  if (customer.cart?.vendorId) {
-    const vendor = await prisma.vendor.findUnique({
-      where: { id: customer.cart.vendorId },
-      select: { latitude: true, longitude: true },
-    });
-    if (vendor?.latitude && vendor?.longitude && deliveryAddress.latitude && deliveryAddress.longitude) {
-      distanceKm = haversineDistance(
-        vendor.latitude, vendor.longitude,
-        deliveryAddress.latitude, deliveryAddress.longitude,
-      );
-    }
+  if (!deliveryAddress) {
+    console.log('[estimateDeliveryFee] Address not found:', { addressId, customerId: customer.id });
+    return apiResponse.error(res, 'Address not found.', 404);
   }
 
-  const settings = await getPlatformSettings();
-  if (distanceKm > settings.maxDeliveryRadiusKm) {
-    return apiResponse.error(
-      res,
-      `Delivery address is outside the ${settings.maxDeliveryRadiusKm} km delivery radius.`,
-      400,
-    );
+  if (!deliveryAddress.latitude || !deliveryAddress.longitude) {
+    return apiResponse.error(res, 'Address coordinates missing.', 400);
   }
 
-  const fee = calcDeliveryFee(distanceKm, settings);
-  return apiResponse.success(res, 'Delivery fee estimated.', { deliveryFee: fee, distanceKm: Math.round(distanceKm * 100) / 100 });
+  const vendor = await prisma.vendor.findUnique({
+    where: { id: customer.cart?.vendorId! },
+    select: { id: true, latitude: true, longitude: true, city: true, state: true },
+  });
+  if (!vendor || !vendor.latitude || !vendor.longitude) {
+    return apiResponse.error(res, 'Vendor not found or missing coordinates.', 404);
+  }
+
+  // Use new pricing engine
+  const pricingResult = await calculateDeliveryFee({
+    vendorLat: vendor.latitude,
+    vendorLng: vendor.longitude,
+    customerLat: deliveryAddress.latitude,
+    customerLng: deliveryAddress.longitude,
+    country: 'Nigeria',
+    state: vendor.state,
+    city: vendor.city,
+    vendorId: vendor.id,
+  });
+
+  return apiResponse.success(res, 'Delivery fee estimated.', { 
+    deliveryFee: pricingResult.finalFee, 
+    distanceKm: pricingResult.distanceKm,
+    breakdown: pricingResult,
+  });
 });
 
 export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -98,35 +112,34 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
 
   const vendor = await prisma.vendor.findUnique({
     where: { id: cart.vendorId! },
-    select: { id: true, latitude: true, longitude: true, commissionTier: true, isOpen: true },
+    select: { id: true, latitude: true, longitude: true, commissionTier: true, isOpen: true, city: true, state: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
   if (!vendor.isOpen) return apiResponse.error(res, 'This vendor is currently closed.', 400);
 
   const subtotal = cart.items.reduce((sum, i) => sum + (i.unitPrice ?? i.menuItem.price) * i.quantity, 0);
 
-  let distanceKm = 3;
-  if (vendor.latitude && vendor.longitude && deliveryAddress.latitude && deliveryAddress.longitude) {
-    distanceKm = haversineDistance(
-      vendor.latitude, vendor.longitude,
-      deliveryAddress.latitude, deliveryAddress.longitude,
-    );
+  if (!vendor.latitude || !vendor.longitude || !deliveryAddress.latitude || !deliveryAddress.longitude) {
+    return apiResponse.error(res, 'Missing coordinates for distance calculation.', 400);
   }
 
-  const settings = await getPlatformSettings();
-  if (distanceKm > settings.maxDeliveryRadiusKm) {
-    return apiResponse.error(
-      res,
-      `Delivery address is outside the ${settings.maxDeliveryRadiusKm} km delivery radius.`,
-      400,
-    );
-  }
+  // Use new pricing engine
+  const pricingResult = await calculateDeliveryFee({
+    vendorLat: vendor.latitude,
+    vendorLng: vendor.longitude,
+    customerLat: deliveryAddress.latitude,
+    customerLng: deliveryAddress.longitude,
+    country: 'Nigeria',
+    state: vendor.state,
+    city: vendor.city,
+    vendorId: vendor.id,
+  });
 
-  const originalDeliveryFee = calcDeliveryFee(distanceKm, settings);
+  const originalDeliveryFee = pricingResult.finalFee;
   const { fee: deliveryFee, creditUsed } = await applyFreeDelivery(customer.id, originalDeliveryFee);
   const { platformFee, netAmount } = calcVendorFee(subtotal, vendor.commissionTier);
   const totalAmount = subtotal + deliveryFee;
-  const estimatedTime = estimateDeliveryMinutes(distanceKm);
+  const estimatedTime = pricingResult.durationMinutes;
 
   let order: any;
   try {
@@ -160,7 +173,7 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
           deliveryAddress: deliveryAddress.address,
           deliveryLatitude: deliveryAddress.latitude,
           deliveryLongitude: deliveryAddress.longitude,
-          distanceKm: Math.round(distanceKm * 100) / 100,
+          distanceKm: pricingResult.distanceKm,
           paymentMethod: paymentMethod as PaymentMethod,
           stockReserved: true,
           note,

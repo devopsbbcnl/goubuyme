@@ -44,9 +44,11 @@ export default function MenuItemDetailScreen() {
     stockQuantity: string;
     drinkOptions: string;
     optionGroups: string;
+    vendorOpen: string;
   }>();
 
   const vendorId = params.vendorId ?? '';
+  const isVendorOpen = params.vendorOpen === '1';
   const item = {
     id:          params.id ?? '',
     name:        params.name ?? '',
@@ -113,6 +115,8 @@ export default function MenuItemDetailScreen() {
   const totalPrice = unitPrice * Math.max(localQty, 1);
 
   const handleConfirm = () => {
+    if (!isVendorOpen) return;
+
     const selectedDrinkLabels = Object.entries(drinkSelections)
       .filter(([, qty]) => qty > 0)
       .map(([id, qty]) => {
@@ -140,7 +144,7 @@ export default function MenuItemDetailScreen() {
   const hasAnyOption = optionSubtotal > 0;
 
   return (
-    <View style={{ flex: 1, backgroundColor: T.bg }}>
+    <View style={{ flex: 1, backgroundColor: T.bg, opacity: isVendorOpen ? 1 : 0.5 }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
 
         {/* Hero image */}
@@ -224,6 +228,7 @@ export default function MenuItemDetailScreen() {
                       onPress={() => toggleDrink(drink.id)}
                       style={styles.drinkOptionMain}
                       activeOpacity={0.75}
+                      disabled={!isVendorOpen}
                     >
                       <View style={[styles.checkbox, { borderColor: selected ? T.primary : T.border, backgroundColor: selected ? T.primary : 'transparent' }]}>
                         {selected && <Ionicons name="checkmark" size={13} color="#fff" />}
@@ -237,15 +242,17 @@ export default function MenuItemDetailScreen() {
                         <TouchableOpacity
                           onPress={() => changeDrinkQty(drink.id, -1)}
                           style={[styles.drinkStepBtn, { backgroundColor: T.surface3 }]}
+                          disabled={!isVendorOpen}
                         >
-                          <Ionicons name="remove" size={14} color={T.text} />
+                          <Ionicons name="remove" size={14} color={isVendorOpen ? T.text : T.textMuted} />
                         </TouchableOpacity>
                         <Text style={[styles.drinkStepQty, { color: T.text }]}>{qty}</Text>
                         <TouchableOpacity
                           onPress={() => changeDrinkQty(drink.id, 1)}
-                          style={[styles.drinkStepBtn, { backgroundColor: T.primary }]}
+                          style={[styles.drinkStepBtn, { backgroundColor: isVendorOpen ? T.primary : T.surface3 }]}
+                          disabled={!isVendorOpen}
                         >
-                          <Ionicons name="add" size={14} color="#fff" />
+                          <Ionicons name="add" size={14} color={isVendorOpen ? '#fff' : T.textMuted} />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -285,6 +292,7 @@ export default function MenuItemDetailScreen() {
                             { borderColor: selected ? T.primary : T.border, backgroundColor: selected ? T.primaryTint : T.surface, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 14 },
                           ]}
                           activeOpacity={0.75}
+                          disabled={!isVendorOpen}
                         >
                           <View style={[styles.checkbox, { borderColor: selected ? T.primary : T.border, backgroundColor: selected ? T.primary : 'transparent' }]}>
                             {selected && <Ionicons name="checkmark" size={13} color="#fff" />}
@@ -310,19 +318,19 @@ export default function MenuItemDetailScreen() {
             <TouchableOpacity
               onPress={() => setLocalQty(q => Math.max(0, q - 1))}
               style={[styles.stepBtn, { backgroundColor: localQty > 0 ? T.surface3 : T.surface2 }]}
-              disabled={localQty === 0}
+              disabled={localQty === 0 || !isVendorOpen}
             >
-              <Ionicons name="remove" size={18} color={localQty > 0 ? T.text : T.textMuted} />
+              <Ionicons name="remove" size={18} color={localQty > 0 && isVendorOpen ? T.text : T.textMuted} />
             </TouchableOpacity>
 
             <Text style={[styles.stepQty, { color: T.text }]}>{localQty}</Text>
 
             <TouchableOpacity
               onPress={() => setLocalQty(q => Math.min(item.stockQuantity, q + 1))}
-              style={[styles.stepBtn, { backgroundColor: localQty >= item.stockQuantity ? T.surface3 : T.primary }]}
-              disabled={localQty >= item.stockQuantity}
+              style={[styles.stepBtn, { backgroundColor: localQty >= item.stockQuantity || !isVendorOpen ? T.surface3 : T.primary }]}
+              disabled={localQty >= item.stockQuantity || !isVendorOpen}
             >
-              <Ionicons name="add" size={18} color={localQty >= item.stockQuantity ? T.textMuted : '#fff'} />
+              <Ionicons name="add" size={18} color={localQty >= item.stockQuantity || !isVendorOpen ? T.textMuted : '#fff'} />
             </TouchableOpacity>
           </View>
         </View>
@@ -340,11 +348,12 @@ export default function MenuItemDetailScreen() {
         </View>
         <TouchableOpacity
           onPress={handleConfirm}
-          style={[styles.ctaBtn, { backgroundColor: localQty === 0 ? T.surface3 : T.primary, ...(localQty > 0 ? shadows.primaryGlow(T.primary) : {}) }]}
+          style={[styles.ctaBtn, { backgroundColor: localQty === 0 || !isVendorOpen ? T.surface3 : T.primary, ...(localQty > 0 && isVendorOpen ? shadows.primaryGlow(T.primary) : {}) }]}
+          disabled={!isVendorOpen}
         >
-          <Ionicons name={localQty === 0 ? 'close-outline' : 'bag-add-outline'} size={18} color={localQty === 0 ? T.textSec : '#fff'} />
-          <Text style={[styles.ctaBtnText, { color: localQty === 0 ? T.textSec : '#fff' }]}>
-            {localQty === 0 ? 'Cancel' : `Add ${localQty} to Cart`}
+          <Ionicons name={!isVendorOpen ? 'lock-closed-outline' : localQty === 0 ? 'close-outline' : 'bag-add-outline'} size={18} color={localQty === 0 || !isVendorOpen ? T.textSec : '#fff'} />
+          <Text style={[styles.ctaBtnText, { color: localQty === 0 || !isVendorOpen ? T.textSec : '#fff' }]}>
+            {!isVendorOpen ? 'Restaurant Closed' : localQty === 0 ? 'Cancel' : `Add ${localQty} to Cart`}
           </Text>
         </TouchableOpacity>
       </View>

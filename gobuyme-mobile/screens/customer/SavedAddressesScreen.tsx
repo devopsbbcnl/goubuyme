@@ -81,7 +81,8 @@ export default function SavedAddressesScreen() {
 		if (v.trim().length >= 3) {
 			setGeocoding(true);
 			geocodeTimer.current = setTimeout(async () => {
-				const results = await forwardGeocode(v);
+				const query = [v, form.city, form.state].filter(Boolean).join(', ');
+				const results = await forwardGeocode(query);
 				setSuggestions(results);
 				setGeocoding(false);
 			}, 400);
@@ -149,14 +150,18 @@ export default function SavedAddressesScreen() {
 			Alert.alert('Required', 'Please fill in all fields.');
 			return;
 		}
+		if (!latLng?.lat || !latLng?.lng) {
+			Alert.alert('Location required', 'Please pick an address from suggestions or use your location.');
+			return;
+		}
 		const payload = {
 			type: form.type,
 			label: form.label.trim(),
 			address: form.address.trim(),
 			city: form.city.trim(),
 			state: form.state.trim(),
-			latitude: latLng?.lat,
-			longitude: latLng?.lng,
+			latitude: latLng.lat,
+			longitude: latLng.lng,
 		};
 		try {
 			setSaving(true);

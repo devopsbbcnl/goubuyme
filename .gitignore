@@ -35,3 +35,6 @@ gobuyme-mobile/android/app/build/
 gobuyme-mobile/android/build/
 gobuyme-mobile/ios/Pods/
 gobuyme-mobile/ios/build/
+
+# Documentation
+*.md

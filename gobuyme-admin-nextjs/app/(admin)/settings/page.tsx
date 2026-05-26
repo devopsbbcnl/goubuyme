@@ -5,8 +5,6 @@ import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 
 interface SettingsApi {
-  platformName: string;
-  supportEmail: string;
   deliveryBaseFee: number;
   deliveryPerKmRate: number;
   deliveryMaxFee: number;
@@ -16,8 +14,6 @@ interface SettingsApi {
 }
 
 interface SettingsState {
-  platformName: string;
-  supportEmail: string;
   deliveryBaseFee: string;
   deliveryPerKmRate: string;
   deliveryMaxFee: string;
@@ -27,8 +23,6 @@ interface SettingsState {
 }
 
 const EMPTY: SettingsState = {
-  platformName: '',
-  supportEmail: '',
   deliveryBaseFee: '',
   deliveryPerKmRate: '',
   deliveryMaxFee: '',
@@ -37,16 +31,19 @@ const EMPTY: SettingsState = {
   maintenanceMode: false,
 };
 
-const toState = (s: SettingsApi): SettingsState => ({
-  platformName: s.platformName ?? '',
-  supportEmail: s.supportEmail ?? '',
-  deliveryBaseFee: String(s.deliveryBaseFee ?? ''),
-  deliveryPerKmRate: String(s.deliveryPerKmRate ?? ''),
-  deliveryMaxFee: String(s.deliveryMaxFee ?? ''),
-  maxDeliveryRadiusKm: String(s.maxDeliveryRadiusKm ?? ''),
-  cancellationWindowMinutes: String(s.cancellationWindowMinutes ?? ''),
-  maintenanceMode: Boolean(s.maintenanceMode),
-});
+const toState = (s: SettingsApi | undefined): SettingsState => {
+  if (!s) {
+    return EMPTY;
+  }
+  return {
+    deliveryBaseFee: String(s.deliveryBaseFee ?? ''),
+    deliveryPerKmRate: String(s.deliveryPerKmRate ?? ''),
+    deliveryMaxFee: String(s.deliveryMaxFee ?? ''),
+    maxDeliveryRadiusKm: String(s.maxDeliveryRadiusKm ?? ''),
+    cancellationWindowMinutes: String(s.cancellationWindowMinutes ?? ''),
+    maintenanceMode: Boolean(s.maintenanceMode),
+  };
+};
 
 const toNumber = (value: string) => Number(value || 0);
 
@@ -62,9 +59,20 @@ export default function SettingsPage() {
   const canSave = user?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
-    api.get<{ data: SettingsApi }>('/admin/settings')
-      .then(res => setCfg(toState(res.data)))
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load settings'))
+    api.get<SettingsApi>('/admin/settings')
+      .then(res => {
+        // The API returns settings directly, not wrapped in a data property
+        if (res.data) {
+          setCfg(toState(res.data));
+        } else {
+          setCfg(EMPTY);
+          console.warn('Settings API response unexpected:', res);
+        }
+      })
+      .catch(err => {
+        setError(err instanceof Error ? err.message : 'Failed to load settings');
+        setCfg(EMPTY);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -83,8 +91,6 @@ export default function SettingsPage() {
 
     try {
       const payload = {
-        platformName: cfg.platformName.trim(),
-        supportEmail: cfg.supportEmail.trim(),
         deliveryBaseFee: toNumber(cfg.deliveryBaseFee),
         deliveryPerKmRate: toNumber(cfg.deliveryPerKmRate),
         deliveryMaxFee: toNumber(cfg.deliveryMaxFee),
@@ -92,8 +98,12 @@ export default function SettingsPage() {
         cancellationWindowMinutes: Math.round(toNumber(cfg.cancellationWindowMinutes)),
         maintenanceMode: cfg.maintenanceMode,
       };
-      const res = await api.patch<{ data: SettingsApi }>('/admin/settings', payload);
-      setCfg(toState(res.data));
+      const res = await api.patch<SettingsApi>('/admin/settings', payload);
+      if (res.data) {
+        setCfg(toState(res.data));
+      } else {
+        setCfg(toState(undefined));
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
@@ -210,19 +220,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <div style={sectionStyle}>
-        <div style={sectionHeader}>General</div>
-        <div style={sectionBody}>
-          <div>
-            <label style={labelStyle}>Platform Name</label>
-            <input style={inputStyle} value={cfg.platformName} onChange={e => set('platformName', e.target.value)} />
-          </div>
-          <div>
-            <label style={labelStyle}>Support Email</label>
-            <input style={inputStyle} type="email" value={cfg.supportEmail} onChange={e => set('supportEmail', e.target.value)} />
-          </div>
-        </div>
-      </div>
 
       <div style={sectionStyle}>
         <div style={sectionHeader}>Delivery Pricing</div>

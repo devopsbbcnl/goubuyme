@@ -295,7 +295,7 @@ export default function VendorDetailScreen() {
                 return (
                   <View
                     key={item.id}
-                    style={[styles.menuItem, { backgroundColor: T.surface, borderColor: T.border }]}
+                    style={[styles.menuItem, { backgroundColor: T.surface, borderColor: T.border, opacity: vendor.isOpen ? 1 : 0.5 }]}
                   >
                     <TouchableOpacity
                       activeOpacity={0.75}
@@ -313,9 +313,11 @@ export default function VendorDetailScreen() {
                           stockQuantity: String(item.stockQuantity ?? 0),
                           drinkOptions: JSON.stringify(item.drinkOptions ?? []),
                           optionGroups: JSON.stringify(item.optionGroups ?? []),
+                          vendorOpen: vendor.isOpen ? '1' : '0',
                         },
                       })}
                       style={{ flexDirection: 'row', flex: 1 }}
+                      disabled={!vendor.isOpen}
                     >
                       {item.image ? (
                         <Image source={{ uri: item.image }} style={styles.menuImg} />
@@ -338,24 +340,27 @@ export default function VendorDetailScreen() {
                       {qty === 0 ? (
                         <TouchableOpacity
                           onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, 1, id!)}
-                          style={[styles.addBtn, { backgroundColor: T.primary }]}
+                          style={[styles.addBtn, { backgroundColor: vendor.isOpen ? T.primary : T.surface3 }]}
+                          disabled={!vendor.isOpen}
                         >
-                          <Ionicons name="add" size={16} color="#fff" />
+                          <Ionicons name="add" size={16} color={vendor.isOpen ? '#fff' : T.textMuted} />
                         </TouchableOpacity>
                       ) : (
                         <View style={styles.stepper}>
                           <TouchableOpacity
                             onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, -1, id!)}
-                            style={[styles.stepBtn, { backgroundColor: T.surface3 }]}
+                            style={[styles.stepBtn, { backgroundColor: vendor.isOpen ? T.surface3 : T.surface2 }]}
+                            disabled={!vendor.isOpen}
                           >
-                            <Ionicons name="remove" size={12} color={T.text} />
+                            <Ionicons name="remove" size={12} color={vendor.isOpen ? T.text : T.textMuted} />
                           </TouchableOpacity>
                           <Text style={[styles.stepQty, { color: T.text }]}>{qty}</Text>
                           <TouchableOpacity
                             onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, 1, id!)}
-                            style={[styles.stepBtn, { backgroundColor: T.primary }]}
+                            style={[styles.stepBtn, { backgroundColor: vendor.isOpen ? T.primary : T.surface3 }]}
+                            disabled={!vendor.isOpen}
                           >
-                            <Ionicons name="add" size={12} color="#fff" />
+                            <Ionicons name="add" size={12} color={vendor.isOpen ? '#fff' : T.textMuted} />
                           </TouchableOpacity>
                         </View>
                       )}
