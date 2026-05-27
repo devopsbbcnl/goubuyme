@@ -200,7 +200,7 @@ export default function CheckoutScreen() {
           
           // Call backend to calculate delivery fee
           try {
-            const feeRes = await api.get(`/orders/estimate-fee?addressId=${selected.id}`);
+            const feeRes = await api.get(`/orders/estimate-fee?addressId=${selected.id}&vendorId=${vid}`);
             const fee = feeRes.data?.data?.deliveryFee;
             if (fee != null) {
               setDeliveryFee(fee);

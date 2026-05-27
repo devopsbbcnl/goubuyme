@@ -34,6 +34,7 @@ interface ActiveDelivery {
   fee: number;
   customerName: string;
   customerAddress: string;
+  customerPhone: string | null;
   customerLat: number | null;
   customerLng: number | null;
   vendorName: string;
@@ -85,6 +86,7 @@ export default function AvailableOrdersScreen() {
           orderNumber:     d.orderNumber,
           customerName:    d.customerName,
           customerAddress: d.customerAddress,
+          customerPhone:   d.customerPhone ?? '',
           vendorLat:       String(d.vendorLat ?? ''),
           vendorLng:       String(d.vendorLng ?? ''),
           customerLat:     String(d.customerLat ?? ''),
@@ -130,6 +132,7 @@ export default function AvailableOrdersScreen() {
               orderNumber:     activeDelivery.orderNumber,
               customerName:    activeDelivery.customerName,
               customerAddress: activeDelivery.customerAddress,
+              customerPhone:   activeDelivery.customerPhone ?? '',
               vendorLat:       String(activeDelivery.vendorLat ?? ''),
               vendorLng:       String(activeDelivery.vendorLng ?? ''),
               customerLat:     String(activeDelivery.customerLat ?? ''),

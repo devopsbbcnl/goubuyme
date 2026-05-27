@@ -59,9 +59,9 @@ export default function VendorLayout() {
           backgroundColor: T.surface,
           borderTopColor: T.border,
           borderTopWidth: 1,
-          paddingBottom: insets.bottom + 4,
+          paddingBottom: insets.bottom + 12,
           paddingTop: 8,
-          height: 56 + insets.bottom,
+          height: 56 + insets.bottom + 8,
         },
         tabBarLabelStyle: {
           fontSize: 10,

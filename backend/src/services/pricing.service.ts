@@ -134,45 +134,22 @@ async function findDeliveryZone(
   customerLat: number,
   customerLng: number,
 ): Promise<any> {
-  // Try to find zone using PostGIS geometry first (most accurate)
+  // Try to find zone using landmark keywords (primary signal since PostGIS is not installed)
   try {
-    const zoneWithGeometry = await prisma.$queryRaw`
+    const zonesWithKeywords = await prisma.$queryRaw`
       SELECT * FROM delivery_zones 
-      WHERE pricingProfileId = ${pricingProfileId}
+      WHERE "pricingProfileId" = ${pricingProfileId}
         AND isActive = true
-        AND geometry IS NOT NULL
-        AND ST_Contains(geometry, ST_SetSRID(ST_MakePoint(${customerLng}, ${customerLat}), 4326))
-      ORDER BY 
-        CASE zoneType
-          WHEN 'MICRO_ZONE' THEN 1
-          WHEN 'OPERATIONAL' THEN 2
-          WHEN 'CITY' THEN 3
-          WHEN 'STATE' THEN 4
-          WHEN 'COUNTRY' THEN 5
-          ELSE 6
-        END
+        AND landmarkKeywords IS NOT NULL
+        AND array_length(landmarkKeywords, 1) > 0
       LIMIT 1
     ` as any[];
 
-    if (zoneWithGeometry && zoneWithGeometry.length > 0) {
-      return zoneWithGeometry[0];
+    if (zonesWithKeywords && zonesWithKeywords.length > 0) {
+      return zonesWithKeywords[0];
     }
   } catch (error) {
-    console.error('PostGIS zone detection failed, falling back to simple logic:', error);
-  }
-
-  // Fallback: Try to find zone using landmark keywords (secondary signal)
-  const zonesWithKeywords = await prisma.$queryRaw`
-    SELECT * FROM delivery_zones 
-    WHERE pricingProfileId = ${pricingProfileId}
-      AND isActive = true
-      AND landmarkKeywords IS NOT NULL
-      AND array_length(landmarkKeywords, 1) > 0
-    LIMIT 1
-  ` as any[];
-
-  if (zonesWithKeywords && zonesWithKeywords.length > 0) {
-    return zonesWithKeywords[0];
+    console.error('Zone detection failed, falling back to simple logic:', error);
   }
 
   // Final fallback: Return the first active zone (legacy behavior)

@@ -44,14 +44,15 @@ model User {
 }
 
 model Customer {
-  id        String     @id @default(uuid())
-  userId    String     @unique
-  createdAt DateTime   @default(now())
-  addresses Address[]
-  cart      Cart?
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  favorites Favorite[]
-  orders    Order[]
+  id             String         @id @default(uuid())
+  userId         String         @unique
+  createdAt      DateTime       @default(now())
+  addresses      Address[]
+  cart           Cart?
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favorites      Favorite[]
+  orders         Order[]
+  conversations  Conversation[]
 
   @@map("customers")
 }
@@ -124,6 +125,7 @@ model Rider {
   payoutAccount  PayoutAccount?
   document       RiderDocument?
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations  Conversation[]
 
   @@index([approvalStatus])
   @@index([isAvailable])
@@ -265,6 +267,7 @@ model Order {
   customer            Customer      @relation(fields: [customerId], references: [id])
   rider               Rider?        @relation(fields: [riderId], references: [id])
   vendor              Vendor        @relation(fields: [vendorId], references: [id])
+  conversation        Conversation?
 
   @@index([customerId])
   @@index([vendorId])
@@ -513,6 +516,37 @@ model Notification {
   @@index([isRead])
   @@index([createdAt])
   @@map("notifications")
+}
+
+model Conversation {
+  id          String    @id @default(uuid())
+  orderId     String    @unique
+  customerId  String
+  riderId     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  messages    Message[]
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  rider       Rider     @relation(fields: [riderId], references: [id])
+  order       Order     @relation(fields: [orderId], references: [id])
+
+  @@index([customerId])
+  @@index([riderId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@map("messages")
 }
 
 model EmailOtp {

@@ -29,6 +29,7 @@ import morgan from 'morgan';
 
 import { connectDB } from './config/db';
 import { setIO } from './config/socket';
+import passport from './config/passport';
 import { setupSockets } from './sockets';
 import { startPayoutJob } from './jobs/payoutJob';
 import { errorHandler } from './middleware/error.middleware';
@@ -44,6 +45,7 @@ import riderRoutes from './routes/rider.routes';
 import adminRoutes from './routes/admin.routes';
 import offerRoutes from './routes/offer.routes';
 import supportRoutes from './routes/support.routes';
+import messageRoutes from './routes/message.routes';
 import logger from './utils/logger';
 
 const app = express();
@@ -64,6 +66,7 @@ app.use(helmet());
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 app.use(globalLimiter);
 app.use(maintenanceGuard);
@@ -78,6 +81,7 @@ app.use('/api/v1/riders', riderRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/offers', offerRoutes);
 app.use('/api/v1/support', supportRoutes);
+app.use('/api/v1/messages', messageRoutes);
 
 // Public endpoint for mobile apps to fetch delivery fee settings
 app.get('/api/v1/settings/public', async (_req, res) => {
@@ -103,7 +107,7 @@ app.use(errorHandler);
 
 setupSockets(io);
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 
 const start = async () => {
   await connectDB();

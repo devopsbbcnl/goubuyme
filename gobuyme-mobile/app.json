@@ -43,7 +43,10 @@
         "NSLocationWhenInUseUsageDescription": "GoBuyMe needs your location to show nearby vendors and track deliveries.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "GoBuyMe needs your location to track your deliveries."
       },
-      "runtimeVersion": "1.0.0"
+      "runtimeVersion": "1.0.0",
+      "associatedDomains": [
+        "applinks:gobuyme.shop"
+      ]
     },
     "android": {
       "package": "dev.bubblebarrel.gobuyme",

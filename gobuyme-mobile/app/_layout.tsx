@@ -26,12 +26,19 @@ function AppContent() {
   const { loading: authLoading, logout } = useAuth();
 
   useEffect(() => {
-    // When api.ts exhausts the refresh token, clear auth state and send to login
+    // When api.ts exhausts the refresh token, clear auth state and send to login.
+    // Avoid redirect while the app is still mounting.
+    let mounted = true;
+
     setOnUnauthorized(() => {
-      logout();
-      router.replace('/login');
+      if (!mounted) return;
+      void logout();
     });
-  }, [logout]);
+
+    return () => {
+      mounted = false;
+    };
+  }, [logout, router]);
 
   useEffect(() => {
     if (!authLoading) SplashScreen.hideAsync();

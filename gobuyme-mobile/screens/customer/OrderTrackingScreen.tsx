@@ -5,6 +5,8 @@ import {
 	StyleSheet,
 	ScrollView,
 	TouchableOpacity,
+	Linking,
+	Alert,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -61,6 +63,18 @@ export default function OrderTrackingScreen() {
 	const done = status === 'DELIVERED';
 	const inTransit = status === 'PICKED_UP' || status === 'IN_TRANSIT';
 	const cameraRef = useRef<any>(null);
+
+	const handleCall = () => {
+		if (!rider?.phone) return;
+		Linking.openURL(`tel:${rider.phone}`).catch(() => {
+			Alert.alert('Error', 'Unable to make a call. Please check your phone settings.');
+		});
+	};
+
+	const handleMessage = () => {
+		if (!orderId) return;
+		router.push(`/chat?orderId=${orderId}`);
+	};
 
 	useEffect(() => {
 		if (riderLocation && cameraRef.current?.setCamera) {
@@ -216,12 +230,14 @@ export default function OrderTrackingScreen() {
 										styles.contactBtn,
 										{ backgroundColor: T.primaryTint },
 									]}
+									onPress={handleCall}
 								>
 									<Ionicons name="call-outline" size={18} color={T.primary} />
 								</TouchableOpacity>
 							) : null}
 							<TouchableOpacity
 								style={[styles.contactBtn, { backgroundColor: T.primaryTint }]}
+								onPress={handleMessage}
 							>
 								<Ionicons
 									name="chatbubble-outline"

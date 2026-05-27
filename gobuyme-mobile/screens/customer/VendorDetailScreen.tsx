@@ -339,7 +339,30 @@ export default function VendorDetailScreen() {
                     <View style={{ paddingRight: 12, justifyContent: 'center' }}>
                       {qty === 0 ? (
                         <TouchableOpacity
-                          onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, 1, id!)}
+                          onPress={() => {
+                            const hasOptions = (item.drinkOptions && item.drinkOptions.length > 0) || (item.optionGroups && item.optionGroups.length > 0);
+                            if (hasOptions) {
+                              router.push({
+                                pathname: '/menu-item',
+                                params: {
+                                  id: item.id,
+                                  vendorId: id,
+                                  name: item.name,
+                                  description: item.description ?? '',
+                                  price: String(item.price),
+                                  image: item.image ?? '',
+                                  category: item.category ?? '',
+                                  isFeatured: item.isFeatured ? '1' : '0',
+                                  stockQuantity: String(item.stockQuantity ?? 0),
+                                  drinkOptions: JSON.stringify(item.drinkOptions ?? []),
+                                  optionGroups: JSON.stringify(item.optionGroups ?? []),
+                                  vendorOpen: vendor.isOpen ? '1' : '0',
+                                },
+                              });
+                            } else {
+                              addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, 1, id!);
+                            }
+                          }}
                           style={[styles.addBtn, { backgroundColor: vendor.isOpen ? T.primary : T.surface3 }]}
                           disabled={!vendor.isOpen}
                         >

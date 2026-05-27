@@ -18,21 +18,33 @@ const generateOrderNumber = () => {
 };
 
 export const estimateDeliveryFee = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { addressId } = req.query as { addressId?: string };
+  const { addressId, vendorId } = req.query as { addressId?: string; vendorId?: string };
   if (!addressId) return apiResponse.error(res, 'addressId is required.', 400);
 
-  console.log('[estimateDeliveryFee] Request:', { userId: req.user?.userId, addressId });
+  console.log('[estimateDeliveryFee] Request:', { userId: req.user?.userId, addressId, vendorId });
 
   const customer = await prisma.customer.findUnique({
     where: { userId: req.user!.userId },
-    include: { cart: true },
+    include: { 
+      cart: {
+        include: {
+          items: {
+            include: {
+              menuItem: {
+                select: { vendorId: true }
+              }
+            }
+          }
+        }
+      }
+    },
   });
   if (!customer) {
     console.log('[estimateDeliveryFee] Customer not found for userId:', req.user?.userId);
     return apiResponse.error(res, 'Customer not found.', 404);
   }
 
-  console.log('[estimateDeliveryFee] Customer found:', { customerId: customer.id, cartVendorId: customer.cart?.vendorId });
+  console.log('[estimateDeliveryFee] Customer found:', { customerId: customer.id, cartVendorId: customer.cart?.vendorId, cartId: customer.cart?.id, cartItemsCount: customer.cart?.items?.length });
 
   const deliveryAddress = await prisma.address.findFirst({
     where: { id: addressId, customerId: customer.id },
@@ -43,11 +55,34 @@ export const estimateDeliveryFee = catchAsync(async (req: AuthRequest, res: Resp
   }
 
   if (!deliveryAddress.latitude || !deliveryAddress.longitude) {
+    console.log('[estimateDeliveryFee] Address coordinates missing:', { addressId });
     return apiResponse.error(res, 'Address coordinates missing.', 400);
   }
 
+  let finalVendorId = vendorId || customer.cart?.vendorId;
+  console.log('[estimateDeliveryFee] Initial vendorId:', finalVendorId);
+  
+  // If no vendorId provided and cart doesn't have vendorId, get it from the first cart item's menu item
+  if (!finalVendorId && customer.cart?.items && customer.cart.items.length > 0) {
+    console.log('[estimateDeliveryFee] Getting vendorId from cart items:', { itemCount: customer.cart.items.length });
+    finalVendorId = customer.cart.items[0].menuItem.vendorId;
+    console.log('[estimateDeliveryFee] VendorId from cart item:', finalVendorId);
+    // Update the cart with the vendorId for future requests
+    if (finalVendorId) {
+      await prisma.cart.update({
+        where: { id: customer.cart.id },
+        data: { vendorId: finalVendorId }
+      });
+    }
+  }
+
+  if (!finalVendorId) {
+    console.log('[estimateDeliveryFee] No vendorId found');
+    return apiResponse.error(res, 'No vendor specified. Please add items to your cart or provide a vendorId.', 400);
+  }
+
   const vendor = await prisma.vendor.findUnique({
-    where: { id: customer.cart?.vendorId! },
+    where: { id: finalVendorId },
     select: { id: true, latitude: true, longitude: true, city: true, state: true },
   });
   if (!vendor || !vendor.latitude || !vendor.longitude) {

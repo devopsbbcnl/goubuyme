@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
@@ -182,17 +182,6 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <PrimaryButton onPress={handleLogin} loading={busy}>Sign In</PrimaryButton>
-
-        <View style={styles.divider}>
-          <View style={[styles.line, { backgroundColor: T.border }]} />
-          <Text style={[styles.orText, { color: T.textMuted }]}>or</Text>
-          <View style={[styles.line, { backgroundColor: T.border }]} />
-        </View>
-
-        <TouchableOpacity style={[styles.googleBtn, { backgroundColor: T.surface, borderColor: T.border }]}>
-          <Text style={{ fontSize: 18 }}>G</Text>
-          <Text style={[styles.googleText, { color: T.text }]}>Continue with Google</Text>
-        </TouchableOpacity>
       </View>
 
       <View style={styles.footer}>

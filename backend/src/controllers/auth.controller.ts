@@ -380,3 +380,4 @@ export const resetPassword = catchAsync(async (req: Request, res: Response) => {
 
   return apiResponse.success(res, 'Password reset successfully.');
 });
+

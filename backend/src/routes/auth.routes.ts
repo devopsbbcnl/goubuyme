@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import passport from '../config/passport';
 import {
   register, login, refresh, logout,
   getMe, updateProfile, forgotPassword, resetPassword, changePassword,

@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Animated, Alert,
+  View, Text, StyleSheet, TouchableOpacity, Animated, Alert, Linking,
 } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -30,6 +30,7 @@ export default function ActiveDeliveryScreen() {
     orderId?: string;
     customerName?: string;
     customerAddress?: string;
+    customerPhone?: string;
     vendorLat?: string;
     vendorLng?: string;
     customerLat?: string;
@@ -42,6 +43,7 @@ export default function ActiveDeliveryScreen() {
   const orderId = params.orderId ?? null;
   const customerName = params.customerName ?? '';
   const customerAddress = params.customerAddress ?? '';
+  const customerPhone = params.customerPhone ?? '';
   const fee = params.fee ? parseInt(params.fee, 10) : 0;
   const orderNumber = params.orderNumber ?? '';
 
@@ -67,6 +69,13 @@ export default function ActiveDeliveryScreen() {
   useRiderLocation(user?.id ?? null, isActive);
 
   const [advancing, setAdvancing] = useState(false);
+
+  const handleCall = () => {
+    if (!customerPhone) return;
+    Linking.openURL(`tel:${customerPhone}`).catch(() => {
+      Alert.alert('Error', 'Unable to make a call. Please check your phone settings.');
+    });
+  };
 
   const advanceStep = async () => {
     if (stepIdx >= DELIVERY_STEPS.length - 1) {
@@ -178,12 +187,14 @@ export default function ActiveDeliveryScreen() {
               {customerAddress}
             </Text>
           </View>
-          <TouchableOpacity style={[styles.contactBtn, { backgroundColor: T.primaryTint }]}>
-            <Ionicons name="call-outline" size={16} color={T.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.contactBtn, { backgroundColor: T.primaryTint }]}>
-            <Ionicons name="chatbubble-outline" size={16} color={T.primary} />
-          </TouchableOpacity>
+          {customerPhone ? (
+            <TouchableOpacity
+              style={[styles.contactBtn, { backgroundColor: T.primaryTint }]}
+              onPress={handleCall}
+            >
+              <Ionicons name="call-outline" size={16} color={T.primary} />
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
 
