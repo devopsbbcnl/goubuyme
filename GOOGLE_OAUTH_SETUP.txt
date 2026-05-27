@@ -1,0 +1,134 @@
+# Google OAuth Setup Guide
+
+## Overview
+Google OAuth sign-in has been implemented with separate client IDs for each platform:
+- **Backend/Admin**: Uses Web Client ID with Passport.js
+- **Mobile App**: Uses @react-native-google-signin/google-signin with native Android/iOS support
+- **Admin Dashboard**: Uses the same Web Client ID as backend
+
+## Step 1: Create Google OAuth Credentials
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Create a new project or select an existing one
+3. Navigate to: APIs & Services > Credentials
+4. Click "Create Credentials" > "OAuth client ID"
+5. Configure the OAuth consent screen if prompted
+
+### Create Three OAuth Client IDs:
+
+**1. Web Client ID (for Backend & Admin Dashboard)**
+- Application type: Web application
+- Authorized redirect URIs:
+  - Development: `http://localhost:5000/api/v1/auth/google/callback`
+  - Production: `https://your-backend-domain.com/api/v1/auth/google/callback`
+
+**2. Android Client ID (for Mobile App)**
+- Application type: Android
+- Package name: `dev.bubblebarrel.gobuyme`
+- SHA-1 signing certificate fingerprint (from your keystore)
+
+**3. iOS Client ID (for Mobile App)**
+- Application type: iOS
+- Bundle ID: `dev.bubblebarrel.gobuyme`
+
+## Step 2: Update Environment Variables
+
+### Backend (.env)
+```
+GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
+GOOGLE_WEB_CLIENT_SECRET=your-web-client-secret
+GOOGLE_CALLBACK_URL=http://localhost:5000/api/v1/auth/google/callback
+```
+
+### Mobile App (.env)
+```
+EXPO_PUBLIC_API_URL=http://localhost:5000
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
+```
+
+### Admin App (.env)
+```
+NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
+BACKEND_API_URL=http://localhost:5000/api/v1
+```
+
+## Step 3: Configure Mobile App
+
+### Android Configuration
+1. Open `gobuyme-mobile/android/app/build.gradle`
+2. Add your Google Web Client ID to defaultConfig:
+```gradle
+defaultConfig {
+    // ...
+    resValue "string", "default_web_client_id", "2862867570-nj78olbd5u4eb70ir0fkrojfo8pbm3mb.apps.googleusercontent.com"
+}
+```
+
+### iOS Configuration
+1. Open `gobuyme-mobile/ios/gobuyme/Info.plist`
+2. Add the following URL scheme:
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+    <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>your-reverse-client-id</string>
+        </array>
+    </dict>
+</array>
+```
+3. The reverse client ID is your iOS client ID with the format: `com.googleusercontent.apps.YOUR_CLIENT_ID`
+
+## Step 4: Testing the Implementation
+
+### Backend/Admin Test:
+1. Start the backend server
+2. Visit: http://localhost:5000/api/v1/auth/google
+3. Complete Google sign-in flow
+4. Verify redirect to admin dashboard with tokens
+
+### Mobile App Test:
+1. Start the Expo development server
+2. Open the mobile app
+3. Tap "Continue with Google" on the login screen
+4. Complete the native Google sign-in flow
+5. Verify successful login and navigation
+
+## Important Notes
+
+1. **User Creation**: Google OAuth automatically creates new users with the CUSTOMER role. Existing users signing in with Google will have their avatar updated if not set.
+
+2. **Email Verification**: Google OAuth users are automatically marked as email verified.
+
+3. **Password**: OAuth users have `password: null` in the database - they cannot sign in with email/password.
+
+4. **Mobile App**: Uses native Google Sign-In SDK for better UX and security. The Web Client ID is used for both Android and iOS.
+
+5. **Admin Access**: Google OAuth for admin users requires the user to already exist in the database with an admin role (SUPER_ADMIN, OPERATIONS_ADMIN, or SUPPORT_ADMIN).
+
+## Troubleshooting
+
+### "redirect_uri_mismatch" Error
+- Ensure the exact redirect URI is added to Google Cloud Console
+- Check for trailing slashes or protocol differences (http vs https)
+
+### Mobile App Google Sign-In Not Working
+- Verify the Web Client ID is set in both .env and build.gradle
+- Ensure Google Play Services is installed on the device/emulator
+- Check that the package name matches exactly in Google Cloud Console
+- For iOS, verify the bundle ID matches exactly
+
+### Admin Dashboard Callback Issues
+- Verify NEXT_PUBLIC_BACKEND_URL is set correctly
+- Check that the backend is running and accessible
+- Ensure cookies are being set correctly in the browser
+
+## Security Considerations
+
+1. Never commit Google OAuth credentials to version control
+2. Use environment-specific credentials (separate for dev/staging/prod)
+3. Enable Google Cloud audit logging
+4. Regularly rotate client secrets
+5. Monitor for suspicious authentication attempts
+6. For mobile apps, use app signing with proper keystore management

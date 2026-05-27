@@ -10,6 +10,7 @@ import { notifyUser } from '../services/notification.service';
 import { sendVendorApprovalEmail, sendRiderApprovalEmail } from '../services/email.service';
 import { generateReferralCode } from '../utils/generateToken';
 import { getPlatformSettings, updatePlatformSettings, PlatformSettingsPatch } from '../services/settings.service';
+import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import logger from '../utils/logger';
 
 // GET /admin/dashboard
