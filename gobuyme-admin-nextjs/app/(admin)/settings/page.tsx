@@ -61,13 +61,8 @@ export default function SettingsPage() {
   useEffect(() => {
     api.get<SettingsApi>('/admin/settings')
       .then(res => {
-        // The API returns settings directly, not wrapped in a data property
-        if (res.data) {
-          setCfg(toState(res.data));
-        } else {
-          setCfg(EMPTY);
-          console.warn('Settings API response unexpected:', res);
-        }
+        // api.get<T>() returns T directly (not wrapped in { data })
+        setCfg(toState(res));
       })
       .catch(err => {
         setError(err instanceof Error ? err.message : 'Failed to load settings');
@@ -99,11 +94,7 @@ export default function SettingsPage() {
         maintenanceMode: cfg.maintenanceMode,
       };
       const res = await api.patch<SettingsApi>('/admin/settings', payload);
-      if (res.data) {
-        setCfg(toState(res.data));
-      } else {
-        setCfg(toState(undefined));
-      }
+      setCfg(toState(res));
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
