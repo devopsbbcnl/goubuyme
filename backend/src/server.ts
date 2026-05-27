@@ -58,7 +58,10 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 const io = new Server(httpServer, {
-  cors: { origin: allowedOrigins, methods: ['GET', 'POST'] },
+  // Temporary diagnostic: native/mobile Socket.IO handshakes may not present
+  // an Origin header matching CLIENT_URL/ADMIN_URL exactly.
+  // If sockets connect after this change, we know it's a CORS/origin issue.
+  cors: { origin: '*', methods: ['GET', 'POST'] },
 });
 setIO(io);
 

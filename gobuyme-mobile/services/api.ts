@@ -3,6 +3,10 @@ import * as SecureStore from 'expo-secure-store';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
+// Debug: confirm EAS env injection in the bundled app
+console.log('[api.ts] EXPO_PUBLIC_API_URL =', process.env.EXPO_PUBLIC_API_URL);
+console.log('[api.ts] resolved BASE_URL =', BASE_URL);
+
 const api = axios.create({ baseURL: BASE_URL, timeout: 10000 });
 
 const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'];

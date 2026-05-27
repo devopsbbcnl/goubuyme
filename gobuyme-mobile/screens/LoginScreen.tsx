@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert,
 } from 'react-native';
@@ -10,6 +10,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { connectSockets, subscribeBackendStatus } from '@/services/socketService';
 
 const ROLE_ROUTE: Record<string, string> = {
   customer: '/(customer)',
@@ -56,6 +57,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
+  const [backendOnline, setBackendOnline] = useState(false);
+
 
   const validateLogin = () => {
     const next: LoginErrors = {};
@@ -69,7 +72,17 @@ export default function LoginScreen() {
     return Object.keys(next).length === 0;
   };
 
+  useEffect(() => {
+    // Start socket connection in background and subscribe to backend connectivity.
+    // Indicator should reflect backend/socket reachability.
+    void connectSockets();
+    const unsubscribe = subscribeBackendStatus((online) => setBackendOnline(online));
+
+    return () => unsubscribe();
+  }, []);
+
   const handleLogin = async () => {
+
     if (!validateLogin()) return;
 
     try {
@@ -144,8 +157,23 @@ export default function LoginScreen() {
       contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
       keyboardShouldPersistTaps="handled"
     >
+      <View style={styles.topRow}>
+        <View />
+        <View style={styles.dotWrap}>
+          <View
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: 999,
+              backgroundColor: backendOnline ? '#22C55E' : '#EF4444',
+            }}
+          />
+        </View>
+      </View>
+
       <Text style={[styles.heading, { color: T.text }]}>Welcome back</Text>
       <Text style={[styles.sub, { color: T.textSec }]}>Sign in to continue</Text>
+
 
       <View style={styles.form}>
         <AppInput
@@ -211,5 +239,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14, paddingHorizontal: 20,
   },
   googleText: { fontSize: 14, fontWeight: '600', fontFamily: 'PlusJakartaSans_600SemiBold' },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  dotWrap: { paddingRight: 2 },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 'auto', paddingTop: 24 },
 });
+
