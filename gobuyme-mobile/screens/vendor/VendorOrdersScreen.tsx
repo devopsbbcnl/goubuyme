@@ -13,6 +13,7 @@ import {
 	KeyboardAvoidingView,
 	Platform,
 } from 'react-native';
+import { router } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,7 +35,7 @@ interface Order {
 	customerPhone: string | null;
 	items: string[];
 	subtotal: number;
-	netAmount: number;
+	commissionTier: 'TIER_1' | 'TIER_2';
 	status: RawStatus;
 	createdAt: string;
 }
@@ -132,7 +133,7 @@ export default function VendorOrdersScreen() {
 					customerPhone: o.customerPhone ?? null,
 					items: o.items,
 					subtotal: o.subtotal ?? 0,
-					netAmount: o.netAmount ?? 0,
+					commissionTier: o.commissionTier ?? 'TIER_2',
 					status: o.status as RawStatus,
 					createdAt: o.createdAt,
 				})),
@@ -338,8 +339,10 @@ export default function VendorOrdersScreen() {
 							const isPreparing =
 								order.status === 'PREPARING' || order.status === 'ACCEPTED';
 							return (
-								<View
+								<TouchableOpacity
 									key={order.id}
+									activeOpacity={0.85}
+									onPress={() => router.push(`/(vendor)/order-detail?orderId=${order.id}`)}
 									style={[
 										styles.card,
 										{ backgroundColor: T.surface, borderColor: T.border },
@@ -379,7 +382,7 @@ export default function VendorOrdersScreen() {
 												₦{order.subtotal.toLocaleString()}
 											</Text>
 											<Text style={[styles.earnings, { color: '#1A9E5F' }]}>
-												You earn ₦{order.netAmount.toLocaleString()}
+												You earn ₦{Math.round(order.subtotal * (order.commissionTier === 'TIER_1' ? 0.97 : 0.925)).toLocaleString()}
 											</Text>
 											<Text style={[styles.date, { color: T.textMuted }]}>
 												{formatDate(order.createdAt)}
@@ -477,7 +480,7 @@ export default function VendorOrdersScreen() {
 											)}
 										</View>
 									</View>
-								</View>
+								</TouchableOpacity>
 							);
 						})
 					)}

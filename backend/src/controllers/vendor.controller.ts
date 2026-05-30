@@ -6,7 +6,6 @@ import { haversineDistance, estimateDeliveryMinutes } from '../services/distance
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { ApprovalStatus, CommissionTier, LicenseType, OrderStatus, VerificationBadge } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { calcVendorFee } from '../services/commission.service';
 
 // ── Badge recomputation ───────────────────────────────────────────────────────
 export async function updateVendorBadge(vendorId: string): Promise<void> {
@@ -288,9 +287,7 @@ export const getMyOrders = catchAsync(async (req: AuthRequest, res: Response) =>
     customerPhone: o.customer.user.phone,
     items: o.items.map(i => `${i.name} x${i.quantity}`),
     subtotal: o.subtotal,
-    netAmount: o.platformFee > 0
-      ? o.subtotal - o.platformFee
-      : calcVendorFee(o.subtotal, vendor.commissionTier).netAmount,
+    commissionTier: vendor.commissionTier,
     status: o.status,
     paymentMethod: o.paymentMethod,
     paymentStatus: o.paymentStatus,
@@ -301,6 +298,49 @@ export const getMyOrders = catchAsync(async (req: AuthRequest, res: Response) =>
   return apiResponse.paginated(res, 'Orders fetched.', data, {
     page: pageNum, limit: limitNum, total,
     totalPages: Math.ceil(total / limitNum),
+  });
+});
+
+export const getMyOrderById = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendor = await prisma.vendor.findUnique({
+    where: { userId: req.user!.userId },
+    select: { id: true, commissionTier: true },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+
+  const order = await prisma.order.findFirst({
+    where: { id: req.params.orderId, vendorId: vendor.id },
+    include: {
+      customer: { include: { user: { select: { name: true, phone: true } } } },
+      items: { select: { id: true, name: true, quantity: true, price: true } },
+    },
+  });
+  if (!order) return apiResponse.error(res, 'Order not found.', 404);
+
+  return apiResponse.success(res, 'Order fetched.', {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    customer: order.customer.user.name,
+    customerPhone: order.customer.user.phone,
+    deliveryAddress: order.deliveryAddress,
+    items: order.items.map(i => ({
+      id: i.id,
+      name: i.name,
+      quantity: i.quantity,
+      unitPrice: i.price,
+      lineTotal: i.price * i.quantity,
+    })),
+    subtotal: order.subtotal,
+    deliveryFee: order.deliveryFee,
+    totalAmount: order.totalAmount,
+    commissionTier: vendor.commissionTier,
+    note: order.note ?? null,
+    estimatedTime: order.estimatedTime ?? null,
+    cancelReason: order.cancelReason ?? null,
+    createdAt: order.createdAt,
   });
 });
 

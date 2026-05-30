@@ -108,6 +108,7 @@ export default function VendorLayout() {
       />
       {/* Hidden from tab bar — navigated to via router.push */}
       <Tabs.Screen name="edit-profile" options={{ href: null }} />
+      <Tabs.Screen name="order-detail" options={{ href: null }} />
       <Tabs.Screen name="earnings" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />

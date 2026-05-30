@@ -21,7 +21,6 @@ interface Order {
   customer: string;
   items: string[];
   subtotal: number;
-  netAmount: number;
   time: string;
   status: OrderStatus;
 }
@@ -49,9 +48,9 @@ const STATUS_META: Record<OrderStatus, { label: string; color: string; bg: strin
 };
 
 const mapStatus = (s: string): OrderStatus => {
-  if (s === 'PREPARING') return 'preparing';
-  if (s === 'READY')     return 'ready';
-  return 'new'; // PENDING and CONFIRMED both need vendor acceptance
+  if (s === 'ACCEPTED' || s === 'PREPARING') return 'preparing';
+  if (s === 'READY' || s === 'PICKED_UP')    return 'ready';
+  return 'new'; // PENDING, CONFIRMED
 };
 
 const formatMoney = (n: number) => {
@@ -65,9 +64,10 @@ export default function VendorDashboardScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
 
-  const [storeOpen,   setStoreOpen]   = useState(false);
-  const [storeName,   setStoreName]   = useState('My Store');
-  const [storeLogo,   setStoreLogo]   = useState<string | null>(null);
+  const [storeOpen,       setStoreOpen]       = useState(false);
+  const [storeName,       setStoreName]       = useState('My Store');
+  const [storeLogo,       setStoreLogo]       = useState<string | null>(null);
+  const [commissionTier,  setCommissionTier]  = useState<'TIER_1' | 'TIER_2'>('TIER_2');
   const [activeTab,   setActiveTab]   = useState<'orders' | 'earnings'>('orders');
   const [orders,      setOrders]      = useState<Order[]>([]);
   const [stats,       setStats]       = useState<Stats | null>(null);
@@ -99,7 +99,6 @@ export default function VendorDashboardScreen() {
         customer: o.customer,
         items: o.items,
         subtotal: o.subtotal ?? 0,
-        netAmount: o.netAmount ?? 0,
         time: new Date(o.createdAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
         status: mapStatus(o.status),
       }));
@@ -120,6 +119,7 @@ export default function VendorDashboardScreen() {
         setStoreName(v.businessName);
         setStoreLogo(v.logo);
         setStoreOpen(v.isOpen);
+        setCommissionTier(v.commissionTier ?? 'TIER_2');
       }
       if (statsRes.status === 'fulfilled')    setStats(statsRes.value.data.data);
       if (earningsRes.status === 'fulfilled') setEarnings(earningsRes.value.data.data);
@@ -143,7 +143,7 @@ export default function VendorDashboardScreen() {
         customer: order.customer ?? '—',
         items:    (order.items ?? []).map((i: any) => `${i.name} x${i.quantity}`),
         subtotal:    order.subtotal ?? 0,
-        netAmount: order.netAmount ?? 0,
+        subtotal: order.subtotal ?? 0,
         time:     new Date(order.createdAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
         status:   'new',
       };
@@ -346,7 +346,12 @@ export default function VendorDashboardScreen() {
               orders.map(o => {
                 const meta = STATUS_META[o.status];
                 return (
-                  <View key={o.orderId} style={[styles.orderCard, { backgroundColor: T.surface, borderColor: T.border }]}>
+                  <TouchableOpacity
+                    key={o.orderId}
+                    activeOpacity={0.85}
+                    onPress={() => router.push(`/(vendor)/order-detail?orderId=${o.orderId}`)}
+                    style={[styles.orderCard, { backgroundColor: T.surface, borderColor: T.border }]}
+                  >
                     <View style={styles.orderTop}>
                       <View>
                         <Text style={[styles.orderId, { color: T.text }]}>{o.id}</Text>
@@ -360,7 +365,7 @@ export default function VendorDashboardScreen() {
                     <View style={styles.orderBottom}>
                       <View>
                         <Text style={[styles.orderTotal, { color: T.text }]}>₦{o.subtotal.toLocaleString()}</Text>
-                        <Text style={[styles.orderEarnings, { color: '#1A9E5F' }]}>You earn ₦{o.netAmount.toLocaleString()}</Text>
+                        <Text style={[styles.orderEarnings, { color: '#1A9E5F' }]}>You earn ₦{Math.round(o.subtotal * (commissionTier === 'TIER_1' ? 0.97 : 0.925)).toLocaleString()}</Text>
                         <Text style={[styles.orderTime, { color: T.textMuted }]}>{o.time}</Text>
                       </View>
                       <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -395,7 +400,7 @@ export default function VendorDashboardScreen() {
                         )}
                       </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })
             )

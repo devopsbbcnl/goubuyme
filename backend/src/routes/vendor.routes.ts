@@ -2,7 +2,7 @@ import { Router } from 'express';
 import {
   getVendors, getVendorById, getVendorMenu,
   getMyVendorProfile, updateMyVendorProfile, toggleStoreStatus,
-  getVendorDashboardStats, getMyOrders, updateMyOrderStatus, getMyEarnings,
+  getVendorDashboardStats, getMyOrders, getMyOrderById, updateMyOrderStatus, getMyEarnings,
   getMyMenuItems, createMenuItem, updateMenuItem, deleteMenuItem,
   getMenuItemDrinkOptions, createMenuItemDrinkOption, updateMenuItemDrinkOption, deleteMenuItemDrinkOption,
   getMenuItemOptionGroups, createMenuItemOptionGroup, deleteMenuItemOptionGroup,
@@ -27,6 +27,7 @@ router.patch('/me',                        ...vendorAuth, updateMyVendorProfile)
 router.patch('/me/status',                 ...vendorAuth, toggleStoreStatus);
 router.get('/me/stats',                    ...vendorAuth, getVendorDashboardStats);
 router.get('/me/orders',                   ...vendorAuth, getMyOrders);
+router.get('/me/orders/:orderId',          ...vendorAuth, getMyOrderById);
 router.patch('/me/orders/:orderId/status', ...vendorAuth, updateMyOrderStatus);
 router.get('/me/earnings',                 ...vendorAuth, getMyEarnings);
 router.get('/me/payout-account',           ...vendorAuth, getPayoutAccount);
