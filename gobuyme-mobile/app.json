@@ -43,6 +43,9 @@
         "NSLocationWhenInUseUsageDescription": "GoBuyMe needs your location to show nearby vendors and track deliveries.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "GoBuyMe needs your location to track your deliveries."
       },
+      "config": {
+        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+      },
       "runtimeVersion": "1.0.0",
       "associatedDomains": [
         "applinks:gobuyme.shop"
@@ -50,6 +53,11 @@
     },
     "android": {
       "package": "dev.bubblebarrel.gobuyme",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCF6Vz_ZG1p8IlKVlE36MTNXCfhjAK789A"
+        }
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FF521B"

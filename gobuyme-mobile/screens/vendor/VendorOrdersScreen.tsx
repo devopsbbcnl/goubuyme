@@ -33,7 +33,8 @@ interface Order {
 	customer: string;
 	customerPhone: string | null;
 	items: string[];
-	total: number;
+	subtotal: number;
+	netAmount: number;
 	status: RawStatus;
 	createdAt: string;
 }
@@ -130,7 +131,8 @@ export default function VendorOrdersScreen() {
 					customer: o.customer,
 					customerPhone: o.customerPhone ?? null,
 					items: o.items,
-					total: o.total,
+					subtotal: o.subtotal ?? 0,
+					netAmount: o.netAmount ?? 0,
 					status: o.status as RawStatus,
 					createdAt: o.createdAt,
 				})),
@@ -374,7 +376,10 @@ export default function VendorOrdersScreen() {
 									<View style={styles.cardBottom}>
 										<View>
 											<Text style={[styles.total, { color: T.text }]}>
-												₦{order.total.toLocaleString()}
+												₦{order.subtotal.toLocaleString()}
+											</Text>
+											<Text style={[styles.earnings, { color: '#1A9E5F' }]}>
+												You earn ₦{order.netAmount.toLocaleString()}
 											</Text>
 											<Text style={[styles.date, { color: T.textMuted }]}>
 												{formatDate(order.createdAt)}
@@ -603,6 +608,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 	},
 	total: { fontSize: 16, fontWeight: '800' },
+	earnings: { fontSize: 11, fontWeight: '700', marginTop: 1 },
 	date: { fontSize: 11, marginTop: 2 },
 	actions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
 	actionBtn: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 4 },

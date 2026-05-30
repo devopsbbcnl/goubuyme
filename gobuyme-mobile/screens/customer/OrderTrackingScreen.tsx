@@ -8,7 +8,7 @@ import {
 	Linking,
 	Alert,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
@@ -301,6 +301,7 @@ function TrackingMap({
 }) {
 	return (
 		<MapView
+			provider={PROVIDER_GOOGLE}
 			style={StyleSheet.absoluteFillObject}
 			initialRegion={{
 				latitude: riderCoord[1],

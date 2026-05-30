@@ -143,30 +143,22 @@ export default function CheckoutScreen() {
         let lng = selected.longitude as number | undefined;
         let source: 'stored' | 'geocoded' | 'missing' = 'stored';
 
-        // If saved address lacks coordinates, try to geocode the full address text using backend
+        // If saved address lacks coordinates, try to geocode the full address text
         if ((lat == null || lng == null) && selected.address) {
-          console.log('[Checkout] Address has no coords, attempting geocode via backend');
-          try {
-            const geoRes = await api.get('/geocode', {
-              params: {
-                address: selected.address,
-                city: selected.city,
-                state: selected.state,
-              },
-            });
-            const geoData = geoRes.data?.data;
-            if (geoData?.lat != null && geoData?.lng != null) {
-              lat = geoData.lat;
-              lng = geoData.lng;
-              source = 'geocoded';
-              console.log('[Checkout] Geocoded to:', { lat, lng, query: geoData.query });
-            } else {
-              source = 'missing';
-              console.log('[Checkout] Backend geocoding failed - no results');
-            }
-          } catch (geoErr) {
-            console.error('[Checkout] Backend geocoding error:', geoErr);
+          const query = [selected.address, selected.city, selected.state]
+            .filter(Boolean)
+            .join(', ');
+          console.log('[Checkout] Address has no coords, attempting geocode:', query);
+          const results = await forwardGeocode(query);
+          console.log('[Checkout] Geocode results:', { query, resultCount: results?.length });
+          if (results && results.length > 0) {
+            lat = results[0].lat;
+            lng = results[0].lng;
+            source = 'geocoded';
+            console.log('[Checkout] Geocoded to:', { lat, lng });
+          } else {
             source = 'missing';
+            console.log('[Checkout] Geocoding failed - no results');
           }
         }
 
@@ -197,22 +189,14 @@ export default function CheckoutScreen() {
           setDistance(dist);
           setAddressCoords({ latitude: lat!, longitude: lng! });
           setGeoSource(source);
-          
-          // Call backend to calculate delivery fee
-          try {
-            const feeRes = await api.get(`/orders/estimate-fee?addressId=${selected.id}&vendorId=${vid}`);
-            const fee = feeRes.data?.data?.deliveryFee;
-            if (fee != null) {
-              setDeliveryFee(fee);
-              console.log('[Checkout] Backend delivery fee:', { fee, distance: dist });
-            } else {
-              console.warn('[Checkout] Backend did not return delivery fee');
-              setDeliveryFee(null);
-            }
-          } catch (feeErr) {
-            console.error('[Checkout] Failed to fetch delivery fee from backend:', feeErr);
-            setDeliveryFee(null);
-          }
+          const fee = calculateDeliveryFee(
+            dist,
+            feeSettings?.deliveryBaseFee ?? 1500,
+            2, // includedKm - first 2km free
+            feeSettings?.deliveryPerKmRate ?? 100,
+            feeSettings?.deliveryMaxFee ?? 999999,
+          );
+          setDeliveryFee(fee);
         } else {
           // Could not determine coords for selected address
           console.log('[Checkout] Could not determine address coordinates');
@@ -275,6 +259,9 @@ export default function CheckoutScreen() {
       const confirmedTotal: number = order.totalAmount;
       const confirmedDeliveryFee: number = order.deliveryFee;
 
+      // Sync displayed fee to what the backend actually calculated
+      setDeliveryFee(confirmedDeliveryFee);
+
       // 3. Generate a unique reference locally — popup.checkout() initialises
       //    its own Paystack transaction; calling /payments/initialize first
       //    would create a duplicate reference and Paystack would reject it.
@@ -283,8 +270,7 @@ export default function CheckoutScreen() {
       // 4. Open Paystack popup — amount is always the backend-confirmed total
       popup.checkout({
         email: user?.email ?? 'customer@gobuyme.ng',
-        amount: Math.round(Number(confirmedTotal)), // naira — library multiplies by 100 internally
-        currency: 'NGN',
+        amount: confirmedTotal, // naira — library multiplies by 100 internally
         reference,
         onSuccess: async (paystackRes) => {
           const ref = paystackRes.reference ?? paystackRes.transaction ?? paystackRes.trans ?? reference;
@@ -309,11 +295,6 @@ export default function CheckoutScreen() {
         onCancel: () => {
           setLoading(false);
           Alert.alert('Payment cancelled', 'Your order is saved. Complete payment to confirm it.');
-        },
-        onError: (error) => {
-          console.error('[Paystack] Payment error:', error);
-          setLoading(false);
-          Alert.alert('Payment error', error?.message ?? 'Paystack payment failed. Please try again.');
         },
       });
     } catch (err: any) {

@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Alert, Linking,
 } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
@@ -200,7 +200,7 @@ export default function ActiveDeliveryScreen() {
 
       <View style={[styles.earningsRow, { backgroundColor: T.surface, borderColor: T.border }]}>
         <Text style={[styles.earningsLabel, { color: T.textSec }]}>Your earnings for this delivery</Text>
-        <Text style={[styles.earningsVal, { color: '#1A9E5F' }]}>+N{fee}</Text>
+        <Text style={[styles.earningsVal, { color: '#1A9E5F' }]}>+₦{Math.round(fee * 0.85).toLocaleString()}</Text>
       </View>
 
       <View style={{ padding: 20, paddingBottom: 36, marginTop: 'auto' }}>
@@ -225,6 +225,7 @@ function DeliveryMap({
 }) {
   return (
     <MapView
+      provider={PROVIDER_GOOGLE}
       style={StyleSheet.absoluteFillObject}
       initialRegion={{
         latitude: midCoord[1],

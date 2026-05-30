@@ -20,7 +20,8 @@ interface Order {
   id: string;            // display orderNumber
   customer: string;
   items: string[];
-  total: number;
+  subtotal: number;
+  netAmount: number;
   time: string;
   status: OrderStatus;
 }
@@ -97,7 +98,8 @@ export default function VendorDashboardScreen() {
         id: o.orderNumber,
         customer: o.customer,
         items: o.items,
-        total: o.total,
+        subtotal: o.subtotal ?? 0,
+        netAmount: o.netAmount ?? 0,
         time: new Date(o.createdAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
         status: mapStatus(o.status),
       }));
@@ -140,7 +142,8 @@ export default function VendorDashboardScreen() {
         id:       order.orderNumber,
         customer: order.customer ?? '—',
         items:    (order.items ?? []).map((i: any) => `${i.name} x${i.quantity}`),
-        total:    order.totalAmount ?? order.subtotal ?? 0,
+        subtotal:    order.subtotal ?? 0,
+        netAmount: order.netAmount ?? 0,
         time:     new Date(order.createdAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
         status:   'new',
       };
@@ -356,7 +359,8 @@ export default function VendorDashboardScreen() {
                     <Text style={[styles.orderItems, { color: T.textSec }]}>{o.items.join(' · ')}</Text>
                     <View style={styles.orderBottom}>
                       <View>
-                        <Text style={[styles.orderTotal, { color: T.primary }]}>₦{o.total.toLocaleString()}</Text>
+                        <Text style={[styles.orderTotal, { color: T.text }]}>₦{o.subtotal.toLocaleString()}</Text>
+                        <Text style={[styles.orderEarnings, { color: '#1A9E5F' }]}>You earn ₦{o.netAmount.toLocaleString()}</Text>
                         <Text style={[styles.orderTime, { color: T.textMuted }]}>{o.time}</Text>
                       </View>
                       <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -533,6 +537,7 @@ const styles = StyleSheet.create({
   orderItems:         { fontSize: 12, marginBottom: 10 },
   orderBottom:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   orderTotal:         { fontSize: 16, fontWeight: '800' },
+  orderEarnings:      { fontSize: 11, fontWeight: '700', marginTop: 1 },
   orderTime:          { fontSize: 11, marginTop: 1 },
   actionBtn:          { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 4 },
   actionBtnText:      { fontSize: 12, fontWeight: '700', color: '#fff' },

@@ -59,7 +59,10 @@
       "Bash(Select-Object FullName)",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(node -e \"const fs=require\\('fs'\\); const s=fs.statSync\\('./assets/adaptive-icon.png'\\); console.log\\('size bytes:', s.size\\);\")",
-      "Bash(node -e \"require\\('sharp'\\); console.log\\('sharp ok'\\)\")"
+      "Bash(node -e \"require\\('sharp'\\); console.log\\('sharp ok'\\)\")",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(p.dependencies['react-native-maps']\\)\")",
+      "Bash(keytool -list -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android)",
+      "Bash(findstr /i \"sha1\\\\|sha-1\\\\|fingerprint\\\\|certificate\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"

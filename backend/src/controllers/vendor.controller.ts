@@ -6,6 +6,7 @@ import { haversineDistance, estimateDeliveryMinutes } from '../services/distance
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { ApprovalStatus, CommissionTier, LicenseType, OrderStatus, VerificationBadge } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { calcVendorFee } from '../services/commission.service';
 
 // ── Badge recomputation ───────────────────────────────────────────────────────
 export async function updateVendorBadge(vendorId: string): Promise<void> {
@@ -251,7 +252,7 @@ export const getVendorDashboardStats = catchAsync(async (req: AuthRequest, res: 
 export const getMyOrders = catchAsync(async (req: AuthRequest, res: Response) => {
   const vendor = await prisma.vendor.findUnique({
     where: { userId: req.user!.userId },
-    select: { id: true },
+    select: { id: true, commissionTier: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
@@ -287,7 +288,9 @@ export const getMyOrders = catchAsync(async (req: AuthRequest, res: Response) =>
     customerPhone: o.customer.user.phone,
     items: o.items.map(i => `${i.name} x${i.quantity}`),
     subtotal: o.subtotal,
-    total: o.totalAmount,
+    netAmount: o.platformFee > 0
+      ? o.subtotal - o.platformFee
+      : calcVendorFee(o.subtotal, vendor.commissionTier).netAmount,
     status: o.status,
     paymentMethod: o.paymentMethod,
     paymentStatus: o.paymentStatus,
