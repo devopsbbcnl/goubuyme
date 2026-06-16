@@ -7,9 +7,6 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import api from '@/services/api';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
-const HEALTH_URL = API_BASE.replace(/\/api\/v1\/?$/, '') + '/health';
-
 function LoginContent() {
   const { login } = useAuth();
   const router = useRouter();
@@ -30,7 +27,8 @@ function LoginContent() {
       try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 4000);
-        await fetch(HEALTH_URL, { signal: ctrl.signal, mode: 'no-cors' });
+        const res = await fetch('/api/health', { signal: ctrl.signal });
+        if (!res.ok) throw new Error('offline');
         clearTimeout(timer);
         if (!cancelled) setBackendOnline(true);
       } catch {
