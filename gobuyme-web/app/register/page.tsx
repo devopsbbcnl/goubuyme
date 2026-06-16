@@ -31,7 +31,7 @@ function RegisterContent() {
       try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 4000);
-        await fetch(HEALTH_URL, { signal: ctrl.signal });
+        await fetch(HEALTH_URL, { signal: ctrl.signal, mode: 'no-cors' });
         clearTimeout(timer);
         if (!cancelled) setBackendOnline(true);
       } catch {

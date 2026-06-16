@@ -104,7 +104,7 @@ app.get('/api/v1/settings/public', async (_req, res) => {
   }
 });
 
-app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/health', cors({ origin: '*' }), (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 app.use(errorHandler);
 
