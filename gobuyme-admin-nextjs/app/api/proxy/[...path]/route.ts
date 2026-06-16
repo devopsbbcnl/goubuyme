@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND = process.env.BACKEND_API_URL ?? 'http://localhost:5000/api/v1';
 const ACCESS_TTL = 15 * 60;
+const REFRESH_TTL = 30 * 24 * 60 * 60;
 
-async function getOrRefreshToken(req: NextRequest): Promise<{ token: string; newAccess?: string } | null> {
+async function getOrRefreshToken(req: NextRequest): Promise<{ token: string; newAccess?: string; newRefresh?: string } | null> {
   const access = req.cookies.get('admin_token')?.value;
   if (access) return { token: access };
 
   const refresh = req.cookies.get('admin_refresh')?.value;
   if (!refresh) return null;
 
-  const refreshRes = await fetch(`${BACKEND}/auth/refresh-token`, {
+  const refreshRes = await fetch(`${BACKEND}/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken: refresh }),
@@ -18,15 +19,15 @@ async function getOrRefreshToken(req: NextRequest): Promise<{ token: string; new
 
   if (!refreshRes.ok) return null;
 
-  const { data } = await refreshRes.json() as { data: { accessToken: string } };
-  return { token: data.accessToken, newAccess: data.accessToken };
+  const { data } = await refreshRes.json() as { data: { accessToken: string; refreshToken: string } };
+  return { token: data.accessToken, newAccess: data.accessToken, newRefresh: data.refreshToken };
 }
 
 async function proxyRequest(req: NextRequest, pathSegments: string[]) {
   const tokenResult = await getOrRefreshToken(req);
   if (!tokenResult) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
 
-  const { token, newAccess } = tokenResult;
+  const { token, newAccess, newRefresh } = tokenResult;
   const backendPath = pathSegments.join('/');
   const search = req.nextUrl.search;
   const url = `${BACKEND}/${backendPath}${search}`;
@@ -49,15 +50,14 @@ async function proxyRequest(req: NextRequest, pathSegments: string[]) {
     headers: { 'Content-Type': upstream.headers.get('Content-Type') ?? 'application/json' },
   });
 
-  if (newAccess) {
-    res.cookies.set('admin_token', newAccess, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: ACCESS_TTL,
-    });
-  }
+  const cookieOpts = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+  };
+  if (newAccess) res.cookies.set('admin_token', newAccess, { ...cookieOpts, maxAge: ACCESS_TTL });
+  if (newRefresh) res.cookies.set('admin_refresh', newRefresh, { ...cookieOpts, maxAge: REFRESH_TTL });
 
   return res;
 }

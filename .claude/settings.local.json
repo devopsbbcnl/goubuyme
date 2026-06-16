@@ -62,7 +62,18 @@
       "Bash(node -e \"require\\('sharp'\\); console.log\\('sharp ok'\\)\")",
       "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(p.dependencies['react-native-maps']\\)\")",
       "Bash(keytool -list -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android)",
-      "Bash(findstr /i \"sha1\\\\|sha-1\\\\|fingerprint\\\\|certificate\")"
+      "Bash(findstr /i \"sha1\\\\|sha-1\\\\|fingerprint\\\\|certificate\")",
+      "PowerShell(cd \"C:\\\\Users\\\\Okonk\\\\Pictures\\\\Gobuyme6\\\\gobuyme-nextjs\"; $proc = Start-Process -FilePath \"node\" -ArgumentList \"node_modules\\\\.bin\\\\next dev --port 3001\" -PassThru -NoNewWindow; Start-Sleep -Seconds 8; $proc.Kill\\(\\); Write-Output \"Dev server started OK\")",
+      "Bash(python3 scripts/search.py \"food delivery marketplace web app multi-role dashboard\" --design-system -p \"GoBuyMe Web\" -f markdown)",
+      "Bash(python scripts/search.py \"food delivery marketplace web app multi-role dashboard\" --design-system -p \"GoBuyMe Web\" -f markdown)",
+      "Bash(dir \"C:\\\\Users\\\\Okonk\\\\Pictures\\\\Gobuyme6\" /b)",
+      "Bash(ls \"C:\\\\Users\\\\Okonk\\\\Pictures\\\\Gobuyme6\\\\gobuyme-nextjs\" /b)",
+      "Bash(dir \"C:\\\\Users\\\\Okonk\\\\Pictures\\\\Gobuyme6\\\\gobuyme-nextjs\" /b)",
+      "Bash(npx create-next-app@latest gobuyme-web --typescript --no-tailwind --app --no-src-dir --eslint --no-turbopack --yes)",
+      "Bash(npx next *)",
+      "Bash(Start-Sleep -Seconds 5)",
+      "Bash(Invoke-WebRequest -Uri \"http://localhost:3001\" -MaximumRedirection 3 -UseBasicParsing)",
+      "Bash(Select-Object -First 5)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"

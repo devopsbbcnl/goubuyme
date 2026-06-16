@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
 	View,
 	Text,
@@ -7,12 +7,22 @@ import {
 	TouchableOpacity,
 	Switch,
 	Alert,
+	Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+type NavApp = 'google_maps' | 'waze' | 'in_app';
+
+const NAV_APP_LABELS: Record<NavApp, string> = {
+	google_maps: 'Google Maps',
+	waze: 'Waze',
+	in_app: 'In-app map',
+};
 
 const comingSoon = (label: string) =>
 	Alert.alert('Coming Soon', `${label} options will be available in a future update.`);
@@ -22,6 +32,45 @@ const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 export default function RiderSettingsScreen() {
 	const { theme: T, isDark, toggleTheme } = useTheme();
 	const insets = useSafeAreaInsets();
+
+	const [navApp, setNavApp] = useState<NavApp>('in_app');
+
+	useEffect(() => {
+		AsyncStorage.getItem('rider_nav_app').then(val => {
+			if (val === 'google_maps' || val === 'waze' || val === 'in_app') setNavApp(val);
+		});
+	}, []);
+
+	const handleNavAppSelect = () => {
+		Alert.alert(
+			'Navigation App',
+			'Choose your preferred navigation app for deliveries',
+			[
+				{
+					text: 'Google Maps',
+					onPress: () => {
+						setNavApp('google_maps');
+						AsyncStorage.setItem('rider_nav_app', 'google_maps');
+					},
+				},
+				{
+					text: 'Waze',
+					onPress: () => {
+						setNavApp('waze');
+						AsyncStorage.setItem('rider_nav_app', 'waze');
+					},
+				},
+				{
+					text: 'In-app Map',
+					onPress: () => {
+						setNavApp('in_app');
+						AsyncStorage.setItem('rider_nav_app', 'in_app');
+					},
+				},
+				{ text: 'Cancel', style: 'cancel' },
+			],
+		);
+	};
 
 	const SECTIONS = [
 		{
@@ -49,23 +98,23 @@ export default function RiderSettingsScreen() {
 				{
 					icon: 'bicycle-outline',
 					label: 'Vehicle Type',
-					sub: 'Motorcycle · Change in profile',
-					control: null,
-					onPress: undefined as (() => void) | undefined,
+					sub: 'Change in profile',
+					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
+					onPress: () => router.navigate('/(rider)/profile'),
 				},
 				{
 					icon: 'map-outline',
 					label: 'Service Area',
 					sub: 'Port Harcourt',
 					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-					onPress: () => {},
+					onPress: () => comingSoon('Service Area'),
 				},
 				{
 					icon: 'navigate-outline',
 					label: 'Navigation App',
-					sub: 'In-app map',
+					sub: NAV_APP_LABELS[navApp],
 					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-					onPress: () => {},
+					onPress: handleNavAppSelect,
 				},
 			],
 		},
@@ -96,14 +145,14 @@ export default function RiderSettingsScreen() {
 					label: 'Change Password',
 					sub: 'Update your account password',
 					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-					onPress: () => router.push({ pathname: '/change-password', params: { from: '/(rider)/settings' } }),
+					onPress: () => router.push('/change-password' as any),
 				},
 				{
 					icon: 'shield-checkmark-outline',
 					label: 'Two-Factor Auth',
 					sub: 'Authenticator app (TOTP)',
 					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-					onPress: () => router.push({ pathname: '/mfa-setup', params: { from: '/(rider)/settings' } }),
+					onPress: () => router.push('/mfa-setup' as any),
 				},
 			],
 		},
@@ -122,21 +171,21 @@ export default function RiderSettingsScreen() {
 					label: "What's New",
 					sub: 'See latest updates',
 					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-					onPress: () => router.push({ pathname: '/whats-new', params: { from: '/(rider)/settings' } } as any),
+					onPress: () => router.push('/whats-new' as any),
 				},
 				{
 					icon: 'chatbubble-ellipses-outline',
 					label: 'Contact Support',
 					sub: 'Chat with our support team',
 					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-					onPress: () => router.push({ pathname: '/contact-support', params: { from: '/(rider)/settings' } } as any),
+					onPress: () => router.push('/contact-support' as any),
 				},
 				{
 					icon: 'globe-outline',
 					label: 'Website',
-					sub: 'gobuyme.ng',
+					sub: 'gobuyme.shop',
 					control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-					onPress: () => {},
+					onPress: () => Linking.openURL('https://gobuyme.shop'),
 				},
 			],
 		},

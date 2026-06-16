@@ -99,7 +99,7 @@ export default function VendorDashboardScreen() {
         customer: o.customer,
         items: o.items,
         subtotal: o.subtotal ?? 0,
-        time: new Date(o.createdAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+        time: new Date(o.createdAt).toLocaleString('en-NG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }),
         status: mapStatus(o.status),
       }));
       setOrders(mapped);
@@ -144,7 +144,7 @@ export default function VendorDashboardScreen() {
         items:    (order.items ?? []).map((i: any) => `${i.name} x${i.quantity}`),
         subtotal:    order.subtotal ?? 0,
         subtotal: order.subtotal ?? 0,
-        time:     new Date(order.createdAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+        time:     new Date(order.createdAt).toLocaleString('en-NG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
         status:   'new',
       };
       setOrders(prev => [mapped, ...prev.filter(o => o.orderId !== order.id)]);
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
   orderBottom:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   orderTotal:         { fontSize: 16, fontWeight: '800' },
   orderEarnings:      { fontSize: 11, fontWeight: '700', marginTop: 1 },
-  orderTime:          { fontSize: 11, marginTop: 1 },
+  orderTime:          { fontSize: 11, marginTop: 10 },
   actionBtn:          { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 4 },
   actionBtnText:      { fontSize: 12, fontWeight: '700', color: '#fff' },
   actionBtnOutline:   { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 4, borderWidth: 1 },

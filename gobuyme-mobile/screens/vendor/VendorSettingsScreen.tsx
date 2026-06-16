@@ -92,14 +92,14 @@ export default function VendorSettingsScreen() {
           label: 'Change Password',
           sub: 'Update your account password',
           control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-          onPress: () => router.push({ pathname: '/change-password', params: { from: '/(vendor)/settings' } }),
+          onPress: () => router.push('/change-password' as any),
         },
         {
           icon: 'shield-checkmark-outline',
           label: 'Two-Factor Auth',
           sub: 'Authenticator app (TOTP)',
           control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-          onPress: () => router.push({ pathname: '/mfa-setup', params: { from: '/(vendor)/settings' } }),
+          onPress: () => router.push('/mfa-setup' as any),
         },
       ],
     },
@@ -118,14 +118,14 @@ export default function VendorSettingsScreen() {
           label: "What's New",
           sub: 'See latest updates',
           control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-          onPress: () => {},
+          onPress: () => router.push('/whats-new' as any),
         },
         {
           icon: 'chatbubble-ellipses-outline',
           label: 'Contact Support',
           sub: 'Chat, email, or call',
           control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-          onPress: () => {},
+          onPress: () => router.push('/contact-support' as any),
         },
         {
           icon: 'globe-outline',
@@ -142,7 +142,7 @@ export default function VendorSettingsScreen() {
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       <View style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.navigate('/(vendor)/profile' as any)}
           style={styles.backBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >

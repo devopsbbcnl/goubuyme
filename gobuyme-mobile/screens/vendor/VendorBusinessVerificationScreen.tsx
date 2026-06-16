@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, Image,
@@ -28,8 +28,8 @@ async function uploadImage(uri: string): Promise<string> {
 
 const STATUS_META: Record<string, { color: string; icon: string; label: string }> = {
   PENDING:  { color: '#F5A623', icon: 'time-outline',           label: 'Pending Review' },
-  VERIFIED: { color: '#1A9E5F', icon: 'checkmark-circle',       label: 'Verified' },
-  REJECTED: { color: '#E23B3B', icon: 'close-circle',           label: 'Rejected' },
+  VERIFIED: { color: '#1A9E5F', icon: 'checkmark-circle',       label: 'Verified — Update if your documents have changed or expired' },
+  REJECTED: { color: '#E23B3B', icon: 'close-circle',           label: 'Rejected — Please resubmit' },
 };
 
 interface BizVerif {
@@ -41,6 +41,10 @@ interface BizVerif {
   status: 'PENDING' | 'VERIFIED' | 'REJECTED';
   reviewNote: string | null;
 }
+
+type Director = { name: string; phone: string; nin: string };
+
+const BLANK_DIRECTOR: Director = { name: '', phone: '', nin: '' };
 
 export default function VendorBusinessVerificationScreen() {
   const { theme: T } = useTheme();
@@ -54,10 +58,10 @@ export default function VendorBusinessVerificationScreen() {
   const [cacImageUrl, setCacImageUrl] = useState('');
   const [uploadingCac, setUploadingCac] = useState(false);
   const [tin, setTin] = useState('');
-  const [directorNin, setDirectorNin] = useState('');
+  const [directors, setDirectors] = useState<Director[]>([{ ...BLANK_DIRECTOR }]);
   const [saving, setSaving] = useState(false);
 
-  const fetch = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get('/vendors/me/business-verification');
@@ -67,7 +71,8 @@ export default function VendorBusinessVerificationScreen() {
         setCacNumber(data.cacNumber ?? '');
         setCacImageUrl(data.cacImageUrl ?? '');
         setTin(data.tin ?? '');
-        setDirectorNin(data.directorNin ?? '');
+        // Seed first director's NIN from legacy field; name/phone start blank
+        setDirectors([{ name: '', phone: '', nin: data.directorNin ?? '' }]);
       }
     } catch {
       // no existing record is fine
@@ -76,7 +81,7 @@ export default function VendorBusinessVerificationScreen() {
     }
   }, []);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const pickCacImage = async () => {
     const uri = await openImagePicker({ aspect: [3, 2], quality: 0.9 });
@@ -94,21 +99,40 @@ export default function VendorBusinessVerificationScreen() {
     }
   };
 
+  const updateDirector = (index: number, field: keyof Director, value: string) => {
+    setDirectors(prev => prev.map((d, i) => i === index ? { ...d, [field]: value } : d));
+  };
+
+  const addDirector = () => {
+    setDirectors(prev => [...prev, { ...BLANK_DIRECTOR }]);
+  };
+
+  const removeDirector = (index: number) => {
+    setDirectors(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
     if (!cacNumber.trim() && !cacImageUrl) {
       Alert.alert('Required', 'Please enter your CAC number or upload your CAC certificate.');
       return;
     }
+    const filledDirectors = directors.filter(d => d.name.trim() || d.phone.trim() || d.nin.trim());
     try {
       setSaving(true);
       await api.post('/vendors/me/business-verification', {
         cacNumber: cacNumber.trim() || null,
         cacImageUrl: cacImageUrl || null,
         tin: tin.trim() || null,
-        directorNin: directorNin.trim() || null,
+        directorNin: filledDirectors[0]?.nin.trim() || null,
+        directors: filledDirectors.map(d => ({
+          name: d.name.trim() || null,
+          phone: d.phone.trim() || null,
+          nin: d.nin.trim() || null,
+        })),
       });
+      setExisting(prev => prev ? { ...prev, status: 'PENDING', reviewNote: null } : prev);
       Alert.alert('Submitted', 'Your business verification has been submitted for review.', [
-        { text: 'OK', onPress: () => router.back() },
+        { text: 'OK', onPress: () => router.navigate('/(vendor)/profile' as any) },
       ]);
     } catch {
       Alert.alert('Failed', 'Could not submit. Please try again.');
@@ -117,8 +141,20 @@ export default function VendorBusinessVerificationScreen() {
     }
   };
 
-  const isVerified = existing?.status === 'VERIFIED';
   const statusMeta = existing ? STATUS_META[existing.status] : null;
+
+  const isDirty = useMemo(() => {
+    if (!existing) return true;
+    const hasDirectorChange = directors.some(d => d.name.trim() || d.phone.trim());
+    return (
+      cacNumber.trim() !== (existing.cacNumber ?? '') ||
+      cacImageUri !== '' ||
+      tin.trim() !== (existing.tin ?? '') ||
+      directors[0]?.nin.trim() !== (existing.directorNin ?? '') ||
+      hasDirectorChange ||
+      directors.length > 1
+    );
+  }, [existing, cacNumber, cacImageUri, tin, directors]);
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
@@ -128,7 +164,7 @@ export default function VendorBusinessVerificationScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Back */}
-        <TouchableOpacity onPress={() => router.back()} style={styles.back} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={() => router.navigate('/(vendor)/profile' as any)} style={styles.back} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="arrow-back" size={22} color={T.text} />
         </TouchableOpacity>
 
@@ -162,16 +198,15 @@ export default function VendorBusinessVerificationScreen() {
               placeholder="e.g. RC-1234567"
               placeholderTextColor={T.textMuted}
               autoCapitalize="characters"
-              editable={!isVerified}
-              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text, opacity: isVerified ? 0.6 : 1 }]}
+              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text }]}
             />
 
             {/* CAC Certificate Image */}
             <Text style={[styles.label, { color: T.textSec, marginTop: 16 }]}>CAC Certificate Image</Text>
             <TouchableOpacity
-              onPress={isVerified ? undefined : pickCacImage}
+              onPress={pickCacImage}
               activeOpacity={0.85}
-              style={[styles.docImgBox, { backgroundColor: T.surface, borderColor: T.border, opacity: isVerified ? 0.6 : 1 }]}
+              style={[styles.docImgBox, { backgroundColor: T.surface, borderColor: T.border }]}
             >
               {cacImageUri || cacImageUrl ? (
                 <Image
@@ -189,7 +224,7 @@ export default function VendorBusinessVerificationScreen() {
                 <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 4 }]}>
                   <ActivityIndicator color="#fff" />
                 </View>
-              ) : (cacImageUri || cacImageUrl) && !isVerified ? (
+              ) : (cacImageUri || cacImageUrl) ? (
                 <View style={[styles.chip, { backgroundColor: T.primary }]}>
                   <Ionicons name="camera" size={13} color="#fff" />
                   <Text style={styles.chipText}>Change</Text>
@@ -205,22 +240,87 @@ export default function VendorBusinessVerificationScreen() {
               placeholder="e.g. 12345678-0001"
               placeholderTextColor={T.textMuted}
               keyboardType="numbers-and-punctuation"
-              editable={!isVerified}
-              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text, opacity: isVerified ? 0.6 : 1 }]}
+              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text }]}
             />
 
-            {/* Director NIN */}
-            <Text style={[styles.label, { color: T.textSec, marginTop: 16 }]}>Director / Owner NIN — Optional</Text>
-            <TextInput
-              value={directorNin}
-              onChangeText={setDirectorNin}
-              placeholder="11-digit NIN"
-              placeholderTextColor={T.textMuted}
-              keyboardType="numeric"
-              maxLength={11}
-              editable={!isVerified}
-              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text, opacity: isVerified ? 0.6 : 1 }]}
-            />
+            {/* Directors */}
+            <View style={styles.directorHeader}>
+              <Text style={[styles.sectionTitle, { color: T.text }]}>Directors / Owners</Text>
+              <Text style={[styles.sectionHint, { color: T.textMuted }]}>Optional</Text>
+            </View>
+
+            {directors.map((director, index) => (
+              <View
+                key={index}
+                style={[styles.directorCard, { backgroundColor: T.surface, borderColor: T.border }]}
+              >
+                {/* Card header */}
+                <View style={styles.directorCardHeader}>
+                  <View style={[styles.directorBadge, { backgroundColor: T.primaryTint }]}>
+                    <Text style={[styles.directorBadgeText, { color: T.primary }]}>
+                      {index + 1}
+                    </Text>
+                  </View>
+                  <Text style={[styles.directorCardTitle, { color: T.text }]}>
+                    {index === 0 ? 'Primary Director' : `Director ${index + 1}`}
+                  </Text>
+                  {directors.length > 1 && (
+                    <TouchableOpacity
+                      onPress={() => removeDirector(index)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={styles.removeBtn}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#E23B3B" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Name */}
+                <Text style={[styles.label, { color: T.textSec, marginTop: 12 }]}>Full Name</Text>
+                <TextInput
+                  value={director.name}
+                  onChangeText={v => updateDirector(index, 'name', v)}
+                  placeholder="e.g. Chukwuemeka Okafor"
+                  placeholderTextColor={T.textMuted}
+                  autoCapitalize="words"
+                  style={[styles.input, { backgroundColor: T.bg, borderColor: T.border, color: T.text }]}
+                />
+
+                {/* Phone */}
+                <Text style={[styles.label, { color: T.textSec, marginTop: 12 }]}>Phone Number</Text>
+                <TextInput
+                  value={director.phone}
+                  onChangeText={v => updateDirector(index, 'phone', v)}
+                  placeholder="e.g. 08012345678"
+                  placeholderTextColor={T.textMuted}
+                  keyboardType="phone-pad"
+                  maxLength={14}
+                  style={[styles.input, { backgroundColor: T.bg, borderColor: T.border, color: T.text }]}
+                />
+
+                {/* NIN */}
+                <Text style={[styles.label, { color: T.textSec, marginTop: 12 }]}>NIN — Optional</Text>
+                <TextInput
+                  value={director.nin}
+                  onChangeText={v => updateDirector(index, 'nin', v)}
+                  placeholder="11-digit NIN"
+                  placeholderTextColor={T.textMuted}
+                  keyboardType="numeric"
+                  maxLength={11}
+                  style={[styles.input, { backgroundColor: T.bg, borderColor: T.border, color: T.text }]}
+                />
+              </View>
+            ))}
+
+            {/* Add director button */}
+            <TouchableOpacity
+              onPress={addDirector}
+              activeOpacity={0.8}
+              style={[styles.addDirectorBtn, { borderColor: T.primary }]}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={T.primary} />
+              <Text style={[styles.addDirectorText, { color: T.primary }]}>Add Another Director</Text>
+            </TouchableOpacity>
 
             {/* Privacy note */}
             <View style={[styles.privacyBox, { backgroundColor: T.surface2 ?? T.surface }]}>
@@ -235,18 +335,18 @@ export default function VendorBusinessVerificationScreen() {
         )}
       </ScrollView>
 
-      {!isVerified && !loading && (
+      {!loading && (
         <View style={[styles.footer, { backgroundColor: T.bg, borderTopColor: T.border, paddingBottom: insets.bottom + 16 }]}>
           <TouchableOpacity
             onPress={handleSubmit}
-            disabled={saving || uploadingCac}
-            style={[styles.btn, { backgroundColor: (saving || uploadingCac) ? T.surface3 : T.primary }]}
+            disabled={saving || uploadingCac || !isDirty}
+            style={[styles.btn, { backgroundColor: (saving || uploadingCac || !isDirty) ? T.surface3 : T.primary }]}
             activeOpacity={0.85}
           >
             {saving ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.btnText}>Submit for Review</Text>
+              <Text style={styles.btnText}>{existing ? 'Update for Review' : 'Submit for Review'}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -280,7 +380,27 @@ const styles = StyleSheet.create({
     borderRadius: 4, paddingVertical: 4, paddingHorizontal: 8,
   },
   chipText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-  privacyBox: { flexDirection: 'row', gap: 8, borderRadius: 4, padding: 12, marginTop: 20 },
+  directorHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24, marginBottom: 12 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold' },
+  sectionHint: { fontSize: 12, fontFamily: 'PlusJakartaSans_400Regular' },
+  directorCard: {
+    borderRadius: 4, borderWidth: 1, padding: 16, marginBottom: 12,
+  },
+  directorCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  directorBadge: {
+    width: 24, height: 24, borderRadius: 999,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  directorBadgeText: { fontSize: 12, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold' },
+  directorCardTitle: { flex: 1, fontSize: 14, fontWeight: '600', fontFamily: 'PlusJakartaSans_600SemiBold' },
+  removeBtn: { padding: 4 },
+  addDirectorBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 4, borderWidth: 1, borderStyle: 'dashed',
+    paddingVertical: 14, marginBottom: 20,
+  },
+  addDirectorText: { fontSize: 14, fontWeight: '600', fontFamily: 'PlusJakartaSans_600SemiBold' },
+  privacyBox: { flexDirection: 'row', gap: 8, borderRadius: 4, padding: 12, marginTop: 4 },
   privacyText: { flex: 1, fontSize: 12, lineHeight: 18, fontFamily: 'PlusJakartaSans_400Regular' },
   footer: { padding: 20, borderTopWidth: 1 },
   btn: { height: 52, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },

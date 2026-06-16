@@ -10,12 +10,13 @@ const PROMO_CARD_WIDTH = SCREEN_WIDTH - 40;
 import { useTheme } from '@/context/ThemeContext';
 import { useCart } from '@/context/CartContext';
 import { useAddress } from '@/context/AddressContext';
+import { useCity, SUPPORTED_CITIES } from '@/context/CityContext';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { FontAwesome } from '@expo/vector-icons';
-import { radius, spacing, shadows } from '@/theme';
 import { MaterialIcons } from '@expo/vector-icons';
+import { radius, spacing, shadows } from '@/theme';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -112,8 +113,11 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { count } = useCart();
   const { addresses, selected, selectAddress } = useAddress();
+  const { selectedCity, setSelectedCity, cityLoaded } = useCity();
+
   const [activeCat,    setActiveCat]    = useState('all');
   const [addrModal,    setAddrModal]    = useState(false);
+  const [cityModal,    setCityModal]    = useState(false);
   const [vendors,      setVendors]      = useState<Vendor[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [refreshing,   setRefreshing]   = useState(false);
@@ -121,6 +125,11 @@ export default function HomeScreen() {
   const [vendorPromos, setVendorPromos] = useState<VendorPromo[]>([]);
   const promoRef = useRef<FlatList>(null);
   const isUserScrolling = useRef(false);
+
+  // Show city picker on first load if no city is stored yet
+  useEffect(() => {
+    if (cityLoaded && !selectedCity) setCityModal(true);
+  }, [cityLoaded, selectedCity]);
 
   const carouselItems: CarouselItem[] = vendorPromos.length > 0
     ? [
@@ -133,11 +142,15 @@ export default function HomeScreen() {
       ]
     : PLATFORM_PROMOS.map(p => ({ kind: 'platform' as const, ...p }));
 
-  useEffect(() => {
-    api.get('/vendors/active-promotions')
-      .then(res => setVendorPromos(res.data.data ?? []))
-      .catch(() => {});
-  }, []);
+  const fetchPromos = useCallback(async () => {
+    try {
+      const params = selectedCity ? { city: selectedCity } : {};
+      const res = await api.get('/vendors/active-promotions', { params });
+      setVendorPromos(res.data.data ?? []);
+    } catch {}
+  }, [selectedCity]);
+
+  useEffect(() => { fetchPromos(); }, [fetchPromos]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -153,7 +166,8 @@ export default function HomeScreen() {
 
   const fetchVendors = useCallback(async () => {
     try {
-      const res = await api.get('/vendors');
+      const params = selectedCity ? { city: selectedCity } : {};
+      const res = await api.get('/vendors', { params });
       setVendors(res.data.data ?? []);
     } catch {
       // show whatever we have (or empty list)
@@ -161,7 +175,7 @@ export default function HomeScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [selectedCity]);
 
   useEffect(() => { fetchVendors(); }, [fetchVendors]);
 
@@ -169,6 +183,13 @@ export default function HomeScreen() {
     setRefreshing(true);
     fetchVendors();
   }, [fetchVendors]);
+
+  const handleCitySelect = useCallback(async (cityName: string) => {
+    await setSelectedCity(cityName);
+    setCityModal(false);
+    setLoading(true);
+    setActivePromo(0);
+  }, [setSelectedCity]);
 
   const hasAddresses = addresses.length > 0;
   const filtered = vendors.filter(v => matchCat(v.category, activeCat));
@@ -184,28 +205,32 @@ export default function HomeScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          {/* Deliver-to dropdown */}
-          <TouchableOpacity
-            onPress={() => hasAddresses && setAddrModal(true)}
-            activeOpacity={hasAddresses ? 0.7 : 1}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Ionicons name="location-outline" size={14} color={T.primary} />
-              <Text style={[styles.locationLabel, { color: T.textSec }]}>Deliver to</Text>
-              {hasAddresses && <Ionicons name="chevron-down" size={12} color={T.textSec} />}
-            </View>
-            {hasAddresses && selected ? (
+          <View style={{ gap: 2 }}>
+            {/* City selector */}
+            <TouchableOpacity onPress={() => setCityModal(true)} activeOpacity={0.75}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="location-sharp" size={14} color={T.primary} />
+                <Text style={[styles.locationLabel, { color: T.textSec }]}>Delivering in</Text>
+                <Ionicons name="chevron-down" size={12} color={T.textSec} />
+              </View>
               <Text style={[styles.locationCity, { color: T.text }]} numberOfLines={1}>
-                {selected.label}
+                {selectedCity ?? 'Select City'}
               </Text>
-            ) : (
-              <TouchableOpacity onPress={() => router.push('/saved-addresses')} activeOpacity={0.75}>
-                <Text style={[styles.locationCity, { color: T.textMuted, fontSize: 13 }]}>
-                  No saved addresses
-                </Text>
+            </TouchableOpacity>
+
+            {/* Deliver-to address (secondary row) */}
+            {hasAddresses && selected && (
+              <TouchableOpacity onPress={() => setAddrModal(true)} activeOpacity={0.75}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Ionicons name="location-outline" size={11} color={T.textMuted} />
+                  <Text style={[styles.addrSubLabel, { color: T.textMuted }]} numberOfLines={1}>
+                    {selected.label} · {selected.address}
+                  </Text>
+                  <Ionicons name="chevron-down" size={10} color={T.textMuted} />
+                </View>
               </TouchableOpacity>
             )}
-          </TouchableOpacity>
+          </View>
 
           <TouchableOpacity onPress={() => router.push('/cart')} style={[styles.cartBtn, { backgroundColor: T.surface }]}>
             <Ionicons name="cart-outline" size={20} color={T.text} />
@@ -309,7 +334,9 @@ export default function HomeScreen() {
 
         {/* Vendors */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <Text style={[styles.sectionTitle, { color: T.text, marginBottom: 0 }]}>Nearby Restaurants</Text>
+          <Text style={[styles.sectionTitle, { color: T.text, marginBottom: 0 }]}>
+            {selectedCity ? `Vendors in ${selectedCity}` : 'All Vendors'}
+          </Text>
           <TouchableOpacity onPress={() => router.push('/search')}>
             <Text style={{ fontSize: 13, color: T.primary, fontWeight: '600' }}>See All</Text>
           </TouchableOpacity>
@@ -319,9 +346,11 @@ export default function HomeScreen() {
           <ActivityIndicator color={T.primary} style={{ marginTop: 32 }} />
         ) : filtered.length === 0 ? (
           <View style={[styles.emptyState, { backgroundColor: T.surface, borderColor: T.border }]}>
-            <Text style={{ fontSize: 32, marginBottom: 8 }}>🍽️</Text>
+            <Text style={{ fontSize: 32, marginBottom: 8 }}>🏙️</Text>
             <Text style={[styles.emptyText, { color: T.textSec }]}>
-              {activeCat === 'all' ? 'No restaurants available yet' : 'No restaurants in this category'}
+              {selectedCity
+                ? `No vendors in ${selectedCity} yet — check back soon!`
+                : 'No vendors available yet'}
             </Text>
           </View>
         ) : (
@@ -439,6 +468,49 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </Modal>
+
+      {/* City picker modal */}
+      <Modal visible={cityModal} transparent animationType="slide">
+        {/* Only dismissible if a city is already selected */}
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => { if (selectedCity) setCityModal(false); }}
+        />
+        <View style={[styles.modalSheet, { backgroundColor: T.surface, paddingBottom: 40 }]}>
+          <View style={styles.modalHandle} />
+          <Text style={[styles.modalTitle, { color: T.text }]}>Select Your City</Text>
+          <Text style={[{ fontSize: 13, color: T.textSec, marginBottom: 8 }]}>
+            We'll show you vendors available in your city.
+          </Text>
+
+          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+            {SUPPORTED_CITIES.map(city => {
+              const isActive = city.name === selectedCity;
+              return (
+                <TouchableOpacity
+                  key={city.name}
+                  onPress={() => handleCitySelect(city.name)}
+                  activeOpacity={0.75}
+                  style={[
+                    styles.cityRow,
+                    { borderColor: isActive ? T.primary : T.border,
+                      backgroundColor: isActive ? T.primaryTint : T.surface2 },
+                  ]}
+                >
+                  <View style={[styles.cityIconWrap, { backgroundColor: isActive ? T.primary : T.surface3 }]}>
+                    <Ionicons name="location-sharp" size={16} color={isActive ? '#fff' : T.textSec} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cityName, { color: T.text }]}>{city.name}</Text>
+                    <Text style={[styles.cityState, { color: T.textSec }]}>{city.state} State</Text>
+                  </View>
+                  {isActive && <Ionicons name="checkmark-circle" size={20} color={T.primary} />}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -448,6 +520,7 @@ const styles = StyleSheet.create({
   header:            { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   locationLabel:     { fontSize: 12, fontWeight: '500' },
   locationCity:      { fontSize: 16, fontWeight: '700', marginTop: 1, maxWidth: 220 },
+  addrSubLabel:      { fontSize: 11, maxWidth: 200 },
   cartBtn:           { width: 40, height: 40, borderRadius: 4, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   cartBadge:         { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   cartBadgeText:     { fontSize: 10, fontWeight: '700', color: '#fff' },
@@ -468,7 +541,7 @@ const styles = StyleSheet.create({
   catIcon:           { fontSize: 15 },
   catLabel:          { fontSize: 13, fontWeight: '600' },
   emptyState:        { alignItems: 'center', paddingVertical: 40, borderRadius: 4, borderWidth: 1, marginBottom: 14 },
-  emptyText:         { fontSize: 14, textAlign: 'center' },
+  emptyText:         { fontSize: 14, textAlign: 'center', paddingHorizontal: 16 },
   vendorCard:        { borderRadius: 4, overflow: 'hidden', borderWidth: 1, marginBottom: 14 },
   vendorImage:       { width: '100%', height: 150 },
   vendorTag:         { position: 'absolute', top: 12, left: 12, borderRadius: 4, paddingVertical: 4, paddingHorizontal: 10 },
@@ -484,7 +557,7 @@ const styles = StyleSheet.create({
   vendorMeta:        { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   metaText:          { fontSize: 12, fontWeight: '600' },
   metaDot:           { width: 3, height: 3, borderRadius: 2 },
-  // Modal
+  // Modals
   modalBackdrop:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   modalSheet:        { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36, gap: 10 },
   modalHandle:       { width: 40, height: 4, borderRadius: 2, backgroundColor: '#ccc', alignSelf: 'center', marginBottom: 8 },
@@ -495,4 +568,8 @@ const styles = StyleSheet.create({
   addrText:          { fontSize: 12, marginTop: 2 },
   manageBtn:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 4, borderWidth: 1.5, borderStyle: 'dashed', marginTop: 4 },
   manageBtnText:     { fontSize: 14, fontWeight: '600' },
+  cityRow:           { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 4, borderWidth: 1.5, marginBottom: 8 },
+  cityIconWrap:      { width: 36, height: 36, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
+  cityName:          { fontSize: 15, fontWeight: '700' },
+  cityState:         { fontSize: 12, marginTop: 2 },
 });

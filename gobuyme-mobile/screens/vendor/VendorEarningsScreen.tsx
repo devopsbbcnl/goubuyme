@@ -269,7 +269,7 @@ export default function VendorEarningsScreen() {
         {/* Header */}
         <View style={[styles.headerRow, { paddingTop: insets.top + 12 }]}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.navigate('/(vendor)/profile' as any)}
             style={styles.backBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >

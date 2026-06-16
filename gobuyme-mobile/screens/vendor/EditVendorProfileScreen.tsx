@@ -167,7 +167,7 @@ export default function EditVendorProfileScreen() {
 				style={[styles.header, { borderBottomColor: T.border, paddingTop: insets.top + 16 }]}
 			>
 				<TouchableOpacity
-					onPress={() => router.back()}
+					onPress={() => router.navigate('/(vendor)/profile' as any)}
 					style={styles.backBtn}
 					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 				>

@@ -386,6 +386,124 @@ async function seedDemo() {
 
   console.log(`✓ Vendor 4 created: ${vendor4User.email} (Errand)`);
 
+  // ─── VENDOR 5 — Spicy Kings Shawarma (Restaurant, TIER_2, ID Verified) ──────
+
+  const vendor5User = await prisma.user.create({
+    data: {
+      name: 'Chukwuma Okonkwo',
+      email: `spicykings@${DEMO_DOMAIN}`,
+      phone: '+2348115556677',
+      password,
+      role: Role.VENDOR,
+      isEmailVerified: true,
+      isActive: true,
+      referralCode: 'DEMO-SPICYKINGS',
+    },
+  });
+
+  const vendor5 = await prisma.vendor.create({
+    data: {
+      userId: vendor5User.id,
+      businessName: 'Spicy Kings Shawarma & Grills',
+      slug: 'spicy-kings-shawarma',
+      description: 'Lebanese-style shawarma and Nigerian suya grills, made to order. Fast, fresh, and fiery.',
+      logo: 'https://picsum.photos/seed/spicykings-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/spicykings-cover/1080/580',
+      category: VendorCategory.RESTAURANT,
+      address: '45 Rumuobiakani Road',
+      city: 'Port Harcourt',
+      state: 'Rivers',
+      latitude: 4.8302,
+      longitude: 7.0512,
+      isOpen: true,
+      approvalStatus: ApprovalStatus.APPROVED,
+      commissionTier: CommissionTier.TIER_2,
+      openingTime: '10:00',
+      closingTime: '23:00',
+      rating: 4.6,
+      totalRatings: 78,
+      avgDeliveryTime: 25,
+      verificationBadge: VerificationBadge.ID_VERIFIED,
+    },
+  });
+
+  await prisma.menuItem.createMany({
+    data: [
+      { vendorId: vendor5.id, name: 'Chicken Shawarma Roll', description: 'Grilled chicken, crispy veg, garlic sauce in warm flatbread', price: 2200, image: 'https://picsum.photos/seed/shawarma-chicken/400/300', category: 'Shawarma', isFeatured: true, stockQuantity: 999 },
+      { vendorId: vendor5.id, name: 'Beef Shawarma Roll', description: 'Seasoned minced beef, pickled veg, spicy sauce', price: 2500, image: 'https://picsum.photos/seed/shawarma-beef/400/300', category: 'Shawarma', isFeatured: true, stockQuantity: 999 },
+      { vendorId: vendor5.id, name: 'Suya Stick (×5)', description: 'Classic PH-style spiced grilled beef skewers', price: 2000, image: 'https://picsum.photos/seed/suya-sticks/400/300', category: 'Grills', stockQuantity: 999 },
+      { vendorId: vendor5.id, name: 'Grilled Chicken (Half)', description: 'Marinated half chicken slow-grilled over charcoal', price: 4500, image: 'https://picsum.photos/seed/grilled-chick/400/300', category: 'Grills', stockQuantity: 999 },
+      { vendorId: vendor5.id, name: 'Puff Puff (×6)', description: 'Sweet deep-fried dough balls', price: 800, image: 'https://picsum.photos/seed/puff-puff-pk/400/300', category: 'Snacks', stockQuantity: 999 },
+      { vendorId: vendor5.id, name: 'Soft Drink (Can)', description: 'Chilled Coke, Fanta, or Sprite', price: 400, image: 'https://picsum.photos/seed/softdrink-can/400/300', category: 'Drinks', stockQuantity: 999 },
+    ],
+  });
+
+  await prisma.vendorDocument.create({
+    data: {
+      vendorId: vendor5.id,
+      type: DocumentType.NIN,
+      number: '44455566677',
+      imageUrl: 'https://picsum.photos/seed/nin-doc5/400/300',
+      selfieUrl: 'https://picsum.photos/seed/selfie5/400/300',
+      status: DocumentStatus.VERIFIED,
+    },
+  });
+
+  await prisma.vendorPromotion.create({
+    data: {
+      vendorId: vendor5.id,
+      title: 'Buy 2 Shawarmas, Get 1 Free This Weekend!',
+      imageUrl: 'https://picsum.photos/seed/promo-spicykings/1080/580',
+      code: 'SKBOGO',
+      isActive: true,
+    },
+  });
+
+  console.log(`✓ Vendor 5 created: ${vendor5User.email} (Restaurant · Shawarma · TIER_2)`);
+
+  // ─── VENDOR 6 — FreshMart Hypermarket (Grocery, TIER_1, Pending approval) ───
+
+  const vendor6User = await prisma.user.create({
+    data: {
+      name: 'Taiwo Akinleye',
+      email: `freshmart@${DEMO_DOMAIN}`,
+      phone: '+2348126667788',
+      password,
+      role: Role.VENDOR,
+      isEmailVerified: true,
+      isActive: true,
+      referralCode: 'DEMO-FRESHMART',
+    },
+  });
+
+  await prisma.vendor.create({
+    data: {
+      userId: vendor6User.id,
+      businessName: 'FreshMart Hypermarket',
+      slug: 'freshmart-hypermarket',
+      description: 'Your one-stop grocery store — fresh produce, beverages, and household essentials at great prices.',
+      logo: 'https://picsum.photos/seed/freshmart-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/freshmart-cover/1080/580',
+      category: VendorCategory.GROCERY,
+      address: '18 Aba Road, GRA',
+      city: 'Port Harcourt',
+      state: 'Rivers',
+      latitude: 4.8091,
+      longitude: 7.0234,
+      isOpen: false,
+      approvalStatus: ApprovalStatus.PENDING,
+      commissionTier: CommissionTier.TIER_1,
+      openingTime: '08:00',
+      closingTime: '21:00',
+      avgDeliveryTime: 40,
+      verificationBadge: VerificationBadge.UNVERIFIED,
+      rating: 0,
+      totalRatings: 0,
+    },
+  });
+
+  console.log(`✓ Vendor 6 created: ${vendor6User.email} (Grocery · Pending approval — visible in admin dashboard)`);
+
   // ─── RIDER 1 — Emeka Eze (Motorcycle, Online & Available) ─────────────────
 
   const rider1User = await prisma.user.create({
@@ -478,6 +596,53 @@ async function seedDemo() {
   });
 
   console.log(`✓ Rider 2 created: ${rider2User.email} (Offline)`);
+
+  // ─── RIDER 3 — Biodun Coker (Motorcycle, Online) ──────────────────────────
+
+  const rider3User = await prisma.user.create({
+    data: {
+      name: 'Biodun Coker',
+      email: `biodun.rider@${DEMO_DOMAIN}`,
+      phone: '+2348137778899',
+      password,
+      role: Role.RIDER,
+      isEmailVerified: true,
+      isActive: true,
+      referralCode: 'DEMO-BIODUN-RIDER',
+      avatar: 'https://picsum.photos/seed/biodun-rider/200/200',
+    },
+  });
+
+  const rider3 = await prisma.rider.create({
+    data: {
+      userId: rider3User.id,
+      vehicleType: 'Motorcycle',
+      plateNumber: 'RSH-567-CD',
+      isAvailable: true,
+      isOnline: true,
+      latitude: 4.821,
+      longitude: 7.049,
+      approvalStatus: ApprovalStatus.APPROVED,
+      rating: 4.7,
+      totalRatings: 52,
+    },
+  });
+
+  await prisma.riderDocument.create({
+    data: {
+      riderId: rider3.id,
+      ninNumber: '11122233344',
+      ninImageUrl: 'https://picsum.photos/seed/rider3-nin/400/300',
+      selfieUrl: 'https://picsum.photos/seed/rider3-selfie/400/300',
+      vehicleImageUrl: 'https://picsum.photos/seed/rider3-vehicle/400/300',
+      guarantorName: 'Amos Coker',
+      guarantorPhone: '+2348022244455',
+      guarantorAddress: '22 Bori Road, Port Harcourt',
+      status: DocumentStatus.VERIFIED,
+    },
+  });
+
+  console.log(`✓ Rider 3 created: ${rider3User.email} (Online)`);
 
   // ─── ORDERS ───────────────────────────────────────────────────────────────
 
@@ -681,6 +846,249 @@ async function seedDemo() {
 
   console.log('✓ 6 orders created (DELIVERED, IN_TRANSIT, PREPARING, CONFIRMED, PENDING, CANCELLED)');
 
+  // ─── HISTORICAL ORDERS — last 7 days (for realistic weekly bar charts) ────
+  //
+  // weeklyOrders / weeklyEarnings stat endpoints count per UTC-day for the
+  // trailing 7 days (index 0 = 6 days ago … index 6 = today).
+  // Target for Mama Chika :  [2, 1, 3, 1, 1, 2, 2]   (includes 2 live orders today)
+  // Target for QuickMart  :  [1, 1, 2, 1, 1, 1, 1]   (includes 1 live order today)
+  // Rider Emeka earnings  :  [1870, 595, 3145, 1275, 1275, 1870, 0]  (₦)
+
+  const ago = (days: number, offsetHours = 0) =>
+    new Date(Date.now() - days * 86_400_000 + offsetHours * 3_600_000);
+
+  // ── Mama Chika — 9 historical DELIVERED orders ──
+  const hist1 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-H001', customerId: customer.id, vendorId: vendor1.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 2500, deliveryFee: 700, originalDeliveryFee: 700,
+      platformFee: 187.5, totalAmount: 3200, deliveryAddress: '15 Rumuola Road, Port Harcourt',
+      deliveryLatitude: 4.8241, deliveryLongitude: 7.0483, distanceKm: 2.3,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_h001', paystackVerified: true, rating: 5, estimatedTime: 35,
+      createdAt: ago(6, 0),
+      items: { create: [{ menuItemId: jollof!.id, name: jollof!.name, price: jollof!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: hist1.id, grossAmount: 700, platformCut: 105, netAmount: 595, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor1.id, orderId: hist1.id, subtotal: 2500, platformFee: 187.5, netAmount: 2312.5, commissionTier: CommissionTier.TIER_2, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const hist2 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-H002', customerId: customer.id, vendorId: vendor1.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 3200, deliveryFee: 700, originalDeliveryFee: 700,
+      platformFee: 240, totalAmount: 3900, deliveryAddress: '15 Rumuola Road, Port Harcourt',
+      deliveryLatitude: 4.8241, deliveryLongitude: 7.0483, distanceKm: 2.3,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_h002', paystackVerified: true, rating: 4, estimatedTime: 35,
+      createdAt: ago(6, 5),
+      items: { create: [{ menuItemId: egusi!.id, name: egusi!.name, price: egusi!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: hist2.id, grossAmount: 700, platformCut: 105, netAmount: 595, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor1.id, orderId: hist2.id, subtotal: 3200, platformFee: 240, netAmount: 2960, commissionTier: CommissionTier.TIER_2, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const hist3 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-H003', customerId: customer.id, vendorId: vendor1.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 2800, deliveryFee: 700, originalDeliveryFee: 700,
+      platformFee: 210, totalAmount: 3500, deliveryAddress: '3 Aba Road, GRA, Port Harcourt',
+      deliveryLatitude: 4.8065, deliveryLongitude: 7.0152, distanceKm: 2.3,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_h003', paystackVerified: true, rating: 5, estimatedTime: 35,
+      createdAt: ago(5, 1),
+      items: { create: [{ menuItemId: friedR!.id, name: friedR!.name, price: friedR!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: hist3.id, grossAmount: 700, platformCut: 105, netAmount: 595, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor1.id, orderId: hist3.id, subtotal: 2800, platformFee: 210, netAmount: 2590, commissionTier: CommissionTier.TIER_2, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const hist4 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-H004', customerId: customer.id, vendorId: vendor1.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 3500, deliveryFee: 700, originalDeliveryFee: 700,
+      platformFee: 262.5, totalAmount: 4200, deliveryAddress: '15 Rumuola Road, Port Harcourt',
+      deliveryLatitude: 4.8241, deliveryLongitude: 7.0483, distanceKm: 2.3,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_h004', paystackVerified: true, rating: 5, estimatedTime: 35,
+      createdAt: ago(4, 0),
+      items: { create: [{ menuItemId: banga!.id, name: banga!.name, price: banga!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: hist4.id, grossAmount: 700, platformCut: 105, netAmount: 595, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor1.id, orderId: hist4.id, subtotal: 3500, platformFee: 262.5, netAmount: 3237.5, commissionTier: CommissionTier.TIER_2, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const hist5 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-H005', customerId: customer.id, vendorId: vendor1.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 5000, deliveryFee: 700, originalDeliveryFee: 700,
+      platformFee: 375, totalAmount: 5700, deliveryAddress: '15 Rumuola Road, Port Harcourt',
+      deliveryLatitude: 4.8241, deliveryLongitude: 7.0483, distanceKm: 2.3,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_h005', paystackVerified: true, rating: 5, estimatedTime: 35,
+      createdAt: ago(4, 3),
+      items: { create: [{ menuItemId: jollof!.id, name: jollof!.name, price: jollof!.price, quantity: 2 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: hist5.id, grossAmount: 700, platformCut: 105, netAmount: 595, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor1.id, orderId: hist5.id, subtotal: 5000, platformFee: 375, netAmount: 4625, commissionTier: CommissionTier.TIER_2, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const hist6 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-H006', customerId: customer.id, vendorId: vendor1.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 3200, deliveryFee: 700, originalDeliveryFee: 700,
+      platformFee: 240, totalAmount: 3900, deliveryAddress: '3 Aba Road, GRA, Port Harcourt',
+      deliveryLatitude: 4.8065, deliveryLongitude: 7.0152, distanceKm: 2.3,
+      paymentMethod: PaymentMethod.CASH_ON_DELIVERY, paymentStatus: PaymentStatus.PAID,
+      paystackRef: null, paystackVerified: false, rating: 4, estimatedTime: 35,
+      createdAt: ago(4, 7),
+      items: { create: [{ menuItemId: egusi!.id, name: egusi!.name, price: egusi!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: hist6.id, grossAmount: 700, platformCut: 105, netAmount: 595, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor1.id, orderId: hist6.id, subtotal: 3200, platformFee: 240, netAmount: 2960, commissionTier: CommissionTier.TIER_2, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const hist7 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-H007', customerId: customer.id, vendorId: vendor1.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 2500, deliveryFee: 700, originalDeliveryFee: 700,
+      platformFee: 187.5, totalAmount: 3200, deliveryAddress: '15 Rumuola Road, Port Harcourt',
+      deliveryLatitude: 4.8241, deliveryLongitude: 7.0483, distanceKm: 2.3,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_h007', paystackVerified: true, rating: 5, estimatedTime: 35,
+      createdAt: ago(3, 1),
+      items: { create: [{ menuItemId: jollof!.id, name: jollof!.name, price: jollof!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: hist7.id, grossAmount: 700, platformCut: 105, netAmount: 595, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor1.id, orderId: hist7.id, subtotal: 2500, platformFee: 187.5, netAmount: 2312.5, commissionTier: CommissionTier.TIER_2, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const hist8 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-H008', customerId: customer.id, vendorId: vendor1.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 2800, deliveryFee: 700, originalDeliveryFee: 700,
+      platformFee: 210, totalAmount: 3500, deliveryAddress: '15 Rumuola Road, Port Harcourt',
+      deliveryLatitude: 4.8241, deliveryLongitude: 7.0483, distanceKm: 2.3,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_h008', paystackVerified: true, rating: 5, estimatedTime: 35,
+      createdAt: ago(1, 0),
+      items: { create: [{ menuItemId: friedR!.id, name: friedR!.name, price: friedR!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: hist8.id, grossAmount: 700, platformCut: 105, netAmount: 595, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor1.id, orderId: hist8.id, subtotal: 2800, platformFee: 210, netAmount: 2590, commissionTier: CommissionTier.TIER_2, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const hist9 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-H009', customerId: customer.id, vendorId: vendor1.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 3500, deliveryFee: 700, originalDeliveryFee: 700,
+      platformFee: 262.5, totalAmount: 4200, deliveryAddress: '3 Aba Road, GRA, Port Harcourt',
+      deliveryLatitude: 4.8065, deliveryLongitude: 7.0152, distanceKm: 2.3,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_h009', paystackVerified: true, rating: 4, estimatedTime: 35,
+      createdAt: ago(1, 5),
+      items: { create: [{ menuItemId: banga!.id, name: banga!.name, price: banga!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: hist9.id, grossAmount: 700, platformCut: 105, netAmount: 595, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor1.id, orderId: hist9.id, subtotal: 3500, platformFee: 262.5, netAmount: 3237.5, commissionTier: CommissionTier.TIER_2, payoutStatus: PayoutStatus.COMPLETED } });
+
+  console.log('✓ 9 historical orders created for Mama Chika (weekly chart: [2,1,3,1,1,2,2])');
+
+  // ── QuickMart — 6 historical DELIVERED orders ──
+  const histq1 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-Q001', customerId: customer.id, vendorId: vendor2.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 4400, deliveryFee: 800, originalDeliveryFee: 800,
+      platformFee: 132, totalAmount: 5200, deliveryAddress: '15 Rumuola Road, Port Harcourt',
+      deliveryLatitude: 4.8241, deliveryLongitude: 7.0483, distanceKm: 3.1,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_q001', paystackVerified: true, rating: 4, estimatedTime: 28,
+      createdAt: ago(6, 2),
+      items: { create: [{ menuItemId: indomie!.id, name: indomie!.name, price: indomie!.price, quantity: 2 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: histq1.id, grossAmount: 800, platformCut: 120, netAmount: 680, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor2.id, orderId: histq1.id, subtotal: 4400, platformFee: 132, netAmount: 4268, commissionTier: CommissionTier.TIER_1, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const histq2 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-Q002', customerId: customer.id, vendorId: vendor2.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 4500, deliveryFee: 800, originalDeliveryFee: 800,
+      platformFee: 135, totalAmount: 5300, deliveryAddress: '15 Rumuola Road, Port Harcourt',
+      deliveryLatitude: 4.8241, deliveryLongitude: 7.0483, distanceKm: 3.1,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_q002', paystackVerified: true, rating: 5, estimatedTime: 28,
+      createdAt: ago(4, 1),
+      items: { create: [{ menuItemId: frozenChicken!.id, name: frozenChicken!.name, price: frozenChicken!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: histq2.id, grossAmount: 800, platformCut: 120, netAmount: 680, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor2.id, orderId: histq2.id, subtotal: 4500, platformFee: 135, netAmount: 4365, commissionTier: CommissionTier.TIER_1, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const histq3 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-Q003', customerId: customer.id, vendorId: vendor2.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 2200, deliveryFee: 800, originalDeliveryFee: 800,
+      platformFee: 66, totalAmount: 3000, deliveryAddress: '3 Aba Road, GRA, Port Harcourt',
+      deliveryLatitude: 4.8065, deliveryLongitude: 7.0152, distanceKm: 3.1,
+      paymentMethod: PaymentMethod.CASH_ON_DELIVERY, paymentStatus: PaymentStatus.PAID,
+      paystackRef: null, paystackVerified: false, rating: 4, estimatedTime: 28,
+      createdAt: ago(4, 6),
+      items: { create: [{ menuItemId: indomie!.id, name: indomie!.name, price: indomie!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: histq3.id, grossAmount: 800, platformCut: 120, netAmount: 680, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor2.id, orderId: histq3.id, subtotal: 2200, platformFee: 66, netAmount: 2134, commissionTier: CommissionTier.TIER_1, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const histq4 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-Q004', customerId: customer.id, vendorId: vendor2.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 4500, deliveryFee: 800, originalDeliveryFee: 800,
+      platformFee: 135, totalAmount: 5300, deliveryAddress: '15 Rumuola Road, Port Harcourt',
+      deliveryLatitude: 4.8241, deliveryLongitude: 7.0483, distanceKm: 3.1,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_q004', paystackVerified: true, rating: 5, estimatedTime: 28,
+      createdAt: ago(3, 2),
+      items: { create: [{ menuItemId: frozenChicken!.id, name: frozenChicken!.name, price: frozenChicken!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: histq4.id, grossAmount: 800, platformCut: 120, netAmount: 680, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor2.id, orderId: histq4.id, subtotal: 4500, platformFee: 135, netAmount: 4365, commissionTier: CommissionTier.TIER_1, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const histq5 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-Q005', customerId: customer.id, vendorId: vendor2.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 2200, deliveryFee: 800, originalDeliveryFee: 800,
+      platformFee: 66, totalAmount: 3000, deliveryAddress: '15 Rumuola Road, Port Harcourt',
+      deliveryLatitude: 4.8241, deliveryLongitude: 7.0483, distanceKm: 3.1,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_q005', paystackVerified: true, rating: 4, estimatedTime: 28,
+      createdAt: ago(2, 3),
+      items: { create: [{ menuItemId: indomie!.id, name: indomie!.name, price: indomie!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: histq5.id, grossAmount: 800, platformCut: 120, netAmount: 680, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor2.id, orderId: histq5.id, subtotal: 2200, platformFee: 66, netAmount: 2134, commissionTier: CommissionTier.TIER_1, payoutStatus: PayoutStatus.COMPLETED } });
+
+  const histq6 = await prisma.order.create({
+    data: {
+      orderNumber: 'GBM-Q006', customerId: customer.id, vendorId: vendor2.id, riderId: rider1.id,
+      status: OrderStatus.DELIVERED, subtotal: 4500, deliveryFee: 800, originalDeliveryFee: 800,
+      platformFee: 135, totalAmount: 5300, deliveryAddress: '15 Rumuola Road, Port Harcourt',
+      deliveryLatitude: 4.8241, deliveryLongitude: 7.0483, distanceKm: 3.1,
+      paymentMethod: PaymentMethod.CARD, paymentStatus: PaymentStatus.PAID,
+      paystackRef: 'ps_q006', paystackVerified: true, rating: 5, estimatedTime: 28,
+      createdAt: ago(1, 3),
+      items: { create: [{ menuItemId: frozenChicken!.id, name: frozenChicken!.name, price: frozenChicken!.price, quantity: 1 }] },
+    },
+  });
+  await prisma.earning.create({ data: { riderId: rider1.id, orderId: histq6.id, grossAmount: 800, platformCut: 120, netAmount: 680, payoutStatus: PayoutStatus.COMPLETED } });
+  await prisma.vendorPayout.create({ data: { vendorId: vendor2.id, orderId: histq6.id, subtotal: 4500, platformFee: 135, netAmount: 4365, commissionTier: CommissionTier.TIER_1, payoutStatus: PayoutStatus.COMPLETED } });
+
+  console.log('✓ 6 historical orders created for QuickMart (weekly chart: [1,1,2,1,1,1,1])');
+  console.log('  Rider Emeka weekly earnings: [1870, 595, 3145, 1275, 1275, 1870, 0] ₦');
+
   // ─── FAVORITES ────────────────────────────────────────────────────────────
 
   await prisma.favorite.createMany({
@@ -737,20 +1145,514 @@ async function seedDemo() {
     data: { riderId: rider1.id, bankName: 'GTBank', accountNumber: '0087654321', accountName: 'EMEKA EZE', paystackRecipientCode: 'RCP_demo_rider1' },
   });
 
+  // ─── MULTI-CITY VENDORS (Lagos + Abuja) — for city-filter testing ─────────
+
+  // Lagos 1 — Yellow Chilli Restaurant (TIER_2, active promo)
+  const lagosV1User = await prisma.user.create({
+    data: {
+      name: 'Funmi Adeyemi',
+      email: `yellowchilli@${DEMO_DOMAIN}`,
+      phone: '+2348141112233',
+      password,
+      role: Role.VENDOR,
+      isEmailVerified: true,
+      isActive: true,
+      referralCode: 'DEMO-YELLOWCHILLI',
+    },
+  });
+
+  const lagosV1 = await prisma.vendor.create({
+    data: {
+      userId: lagosV1User.id,
+      businessName: 'Yellow Chilli Restaurant',
+      slug: 'yellow-chilli-restaurant',
+      description: 'Bold West African flavours — from pepper soup to asun, served hot and fresh across Lagos.',
+      logo: 'https://picsum.photos/seed/yellowchilli-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/yellowchilli-cover/1080/580',
+      category: VendorCategory.RESTAURANT,
+      address: '14 Admiralty Way, Lekki Phase 1',
+      city: 'Lagos',
+      state: 'Lagos',
+      latitude: 6.4281,
+      longitude: 3.4219,
+      isOpen: true,
+      approvalStatus: ApprovalStatus.APPROVED,
+      commissionTier: CommissionTier.TIER_2,
+      openingTime: '10:00',
+      closingTime: '22:00',
+      rating: 4.8,
+      totalRatings: 203,
+      avgDeliveryTime: 30,
+      verificationBadge: VerificationBadge.BUSINESS_VERIFIED,
+    },
+  });
+
+  await prisma.menuItem.createMany({
+    data: [
+      { vendorId: lagosV1.id, name: 'Asun (Spicy Goat Meat)', description: 'Smoky peppered goat — Lagos party staple', price: 3800, image: 'https://picsum.photos/seed/asun/400/300', category: 'Grills', isFeatured: true, stockQuantity: 999 },
+      { vendorId: lagosV1.id, name: 'Pounded Yam + Egusi', description: 'Freshly pounded with rich egusi soup', price: 3200, image: 'https://picsum.photos/seed/py-egusi/400/300', category: 'Soups & Swallow', stockQuantity: 999 },
+      { vendorId: lagosV1.id, name: 'Fried Plantain (Dodo)', description: 'Perfectly golden slices of ripe plantain', price: 900, image: 'https://picsum.photos/seed/dodo-lg/400/300', category: 'Sides', stockQuantity: 999 },
+      { vendorId: lagosV1.id, name: 'Pepper Soup (Goat)', description: 'Hot goat pepper soup with utazi leaves', price: 4200, image: 'https://picsum.photos/seed/goat-ps/400/300', category: 'Specials', stockQuantity: 999 },
+      { vendorId: lagosV1.id, name: 'Party Jollof (Large)', description: 'Smoky tomato jollof for two', price: 4500, image: 'https://picsum.photos/seed/jollof-lg/400/300', category: 'Rice Dishes', isFeatured: true, stockQuantity: 999 },
+    ],
+  });
+
+  await prisma.vendorPromotion.create({
+    data: {
+      vendorId: lagosV1.id,
+      title: 'Lagos Special: 15% Off All Grills This Weekend!',
+      imageUrl: 'https://picsum.photos/seed/promo-yellowchilli/1080/580',
+      code: 'GRILL15',
+      isActive: true,
+    },
+  });
+
+  console.log(`✓ Lagos Vendor 1 created: ${lagosV1User.email} (Restaurant)`);
+
+  // Lagos 2 — FreshBasket Supermarket (GROCERY, TIER_1)
+  const lagosV2User = await prisma.user.create({
+    data: {
+      name: 'Seun Ogundimu',
+      email: `freshbasket@${DEMO_DOMAIN}`,
+      phone: '+2348152223344',
+      password,
+      role: Role.VENDOR,
+      isEmailVerified: true,
+      isActive: true,
+      referralCode: 'DEMO-FRESHBASKET',
+    },
+  });
+
+  const lagosV2 = await prisma.vendor.create({
+    data: {
+      userId: lagosV2User.id,
+      businessName: 'FreshBasket Supermarket',
+      slug: 'freshbasket-supermarket',
+      description: 'Quality groceries and fresh produce delivered fast across Lagos Island and Mainland.',
+      logo: 'https://picsum.photos/seed/freshbasket-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/freshbasket-cover/1080/580',
+      category: VendorCategory.GROCERY,
+      address: '7 Kofo Abayomi Street, Victoria Island',
+      city: 'Lagos',
+      state: 'Lagos',
+      latitude: 6.4269,
+      longitude: 3.4163,
+      isOpen: true,
+      approvalStatus: ApprovalStatus.APPROVED,
+      commissionTier: CommissionTier.TIER_1,
+      openingTime: '07:00',
+      closingTime: '21:00',
+      rating: 4.4,
+      totalRatings: 118,
+      avgDeliveryTime: 35,
+      verificationBadge: VerificationBadge.ID_VERIFIED,
+    },
+  });
+
+  await prisma.menuItem.createMany({
+    data: [
+      { vendorId: lagosV2.id, name: 'Semovita (2 kg)', price: 2800, image: 'https://picsum.photos/seed/semovita/400/300', category: 'Dry Goods', isFeatured: true, stockQuantity: 999 },
+      { vendorId: lagosV2.id, name: 'Titus Fish (1 kg)', description: 'Frozen titus mackerel', price: 3500, image: 'https://picsum.photos/seed/titus-fish/400/300', category: 'Meat & Fish', stockQuantity: 999 },
+      { vendorId: lagosV2.id, name: 'Groundnut Oil (2 L)', price: 4200, image: 'https://picsum.photos/seed/gnut-oil/400/300', category: 'Cooking Essentials', isFeatured: true, stockQuantity: 999 },
+      { vendorId: lagosV2.id, name: 'Tomato Paste (800 g)', price: 1100, image: 'https://picsum.photos/seed/tom-paste/400/300', category: 'Cooking Essentials', stockQuantity: 999 },
+    ],
+  });
+
+  console.log(`✓ Lagos Vendor 2 created: ${lagosV2User.email} (Grocery)`);
+
+  // Abuja 1 — The Buka Spot (RESTAURANT, TIER_2, ID Verified)
+  const abujaV1User = await prisma.user.create({
+    data: {
+      name: 'Amina Musa',
+      email: `thebukaspot@${DEMO_DOMAIN}`,
+      phone: '+2348163334455',
+      password,
+      role: Role.VENDOR,
+      isEmailVerified: true,
+      isActive: true,
+      referralCode: 'DEMO-BUKASPOT',
+    },
+  });
+
+  const abujaV1 = await prisma.vendor.create({
+    data: {
+      userId: abujaV1User.id,
+      businessName: 'The Buka Spot',
+      slug: 'the-buka-spot',
+      description: 'Authentic Nigerian buka experience — tuwo shinkafa, miyan kuka, and Northern delicacies, delivered hot in Abuja.',
+      logo: 'https://picsum.photos/seed/bukaspot-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/bukaspot-cover/1080/580',
+      category: VendorCategory.RESTAURANT,
+      address: '3 Aminu Kano Crescent, Wuse 2',
+      city: 'Abuja',
+      state: 'FCT',
+      latitude: 9.0643,
+      longitude: 7.4892,
+      isOpen: true,
+      approvalStatus: ApprovalStatus.APPROVED,
+      commissionTier: CommissionTier.TIER_2,
+      openingTime: '09:00',
+      closingTime: '21:00',
+      rating: 4.6,
+      totalRatings: 89,
+      avgDeliveryTime: 40,
+      verificationBadge: VerificationBadge.ID_VERIFIED,
+    },
+  });
+
+  await prisma.menuItem.createMany({
+    data: [
+      { vendorId: abujaV1.id, name: 'Tuwo Shinkafa + Miyan Kuka', description: 'Classic Northern soup with dried baobab leaves', price: 2800, image: 'https://picsum.photos/seed/tuwo-kuka/400/300', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
+      { vendorId: abujaV1.id, name: 'Masa + Suya', description: 'Rice cakes served with spiced beef suya', price: 2200, image: 'https://picsum.photos/seed/masa-suya/400/300', category: 'Specials', isFeatured: true, stockQuantity: 999 },
+      { vendorId: abujaV1.id, name: 'Miyan Taushe + Tuwon Masara', description: 'Pumpkin leaf soup with cornmeal wrap', price: 2500, image: 'https://picsum.photos/seed/miyan-taushe/400/300', category: 'Soups & Swallow', stockQuantity: 999 },
+      { vendorId: abujaV1.id, name: 'Kilishi (100 g)', description: 'Abuja-style dried spiced beef jerky', price: 3000, image: 'https://picsum.photos/seed/kilishi/400/300', category: 'Snacks', stockQuantity: 999 },
+    ],
+  });
+
+  await prisma.vendorPromotion.create({
+    data: {
+      vendorId: abujaV1.id,
+      title: 'Abuja Lunch Special: Free Kilishi with any Soup Order!',
+      imageUrl: 'https://picsum.photos/seed/promo-bukaspot/1080/580',
+      code: 'ABUJAFREE',
+      isActive: true,
+    },
+  });
+
+  console.log(`✓ Abuja Vendor 1 created: ${abujaV1User.email} (Restaurant)`);
+
+  // Abuja 2 — Capital Pharmacy (PHARMACY, TIER_1)
+  const abujaV2User = await prisma.user.create({
+    data: {
+      name: 'Dr. Ibrahim Sule',
+      email: `capitalpharmacy@${DEMO_DOMAIN}`,
+      phone: '+2348174445566',
+      password,
+      role: Role.VENDOR,
+      isEmailVerified: true,
+      isActive: true,
+      referralCode: 'DEMO-CAPITALPHARM',
+    },
+  });
+
+  const abujaV2 = await prisma.vendor.create({
+    data: {
+      userId: abujaV2User.id,
+      businessName: 'Capital Pharmacy',
+      slug: 'capital-pharmacy-abuja',
+      description: 'Licensed pharmacy serving Abuja residents with genuine medications and wellness products.',
+      logo: 'https://picsum.photos/seed/capitalpharm-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/capitalpharm-cover/1080/580',
+      category: VendorCategory.PHARMACY,
+      address: '22 Gana Street, Maitama',
+      city: 'Abuja',
+      state: 'FCT',
+      latitude: 9.0736,
+      longitude: 7.5011,
+      isOpen: true,
+      approvalStatus: ApprovalStatus.APPROVED,
+      commissionTier: CommissionTier.TIER_1,
+      openingTime: '08:00',
+      closingTime: '20:00',
+      rating: 4.5,
+      totalRatings: 47,
+      avgDeliveryTime: 30,
+      verificationBadge: VerificationBadge.ID_VERIFIED,
+      isPharmacyFlagged: true,
+    },
+  });
+
+  await prisma.menuItem.createMany({
+    data: [
+      { vendorId: abujaV2.id, name: 'Paracetamol (Strip)', price: 200, image: 'https://picsum.photos/seed/para-abj/400/300', category: 'Pain Relief', isFeatured: true, stockQuantity: 999 },
+      { vendorId: abujaV2.id, name: 'Artemether-Lumefantrine (6-dose)', description: 'First-line malaria treatment', price: 3500, image: 'https://picsum.photos/seed/malaria-drug/400/300', category: 'Malaria', isFeatured: true, stockQuantity: 999 },
+      { vendorId: abujaV2.id, name: 'Hand Sanitizer (500 ml)', price: 1500, image: 'https://picsum.photos/seed/sanit-abj/400/300', category: 'Hygiene', stockQuantity: 999 },
+    ],
+  });
+
+  console.log(`✓ Abuja Vendor 2 created: ${abujaV2User.email} (Pharmacy)`);
+
+  // ─── MULTI-CITY VENDORS (Uyo · Calabar · Enugu · Aba · Owerri) ─────────
+
+  // Uyo — Annang Kitchen (RESTAURANT, TIER_1)
+  const uyoV1User = await prisma.user.create({
+    data: {
+      name: 'Ekaette Okon',
+      email: `annangkitchen@${DEMO_DOMAIN}`,
+      phone: '+2348181112233',
+      password, role: Role.VENDOR, isEmailVerified: true, isActive: true,
+      referralCode: 'DEMO-ANNANGKITCHEN',
+    },
+  });
+  const uyoV1 = await prisma.vendor.create({
+    data: {
+      userId: uyoV1User.id,
+      businessName: 'Annang Kitchen',
+      slug: 'annang-kitchen',
+      description: 'Akwa Ibom home cooking — Afang soup, Edikang Ikong, and fresh sea food delivered hot in Uyo.',
+      logo: 'https://picsum.photos/seed/annang-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/annang-cover/1080/580',
+      category: VendorCategory.RESTAURANT,
+      address: '8 Oron Road, Uyo',
+      city: 'Uyo', state: 'Akwa Ibom',
+      latitude: 5.0377, longitude: 7.9128,
+      isOpen: true, approvalStatus: ApprovalStatus.APPROVED,
+      commissionTier: CommissionTier.TIER_1,
+      openingTime: '09:00', closingTime: '21:00',
+      rating: 4.6, totalRatings: 61, avgDeliveryTime: 35,
+      verificationBadge: VerificationBadge.ID_VERIFIED,
+    },
+  });
+  await prisma.menuItem.createMany({
+    data: [
+      { vendorId: uyoV1.id, name: 'Afang Soup + Semovita', description: 'Rich Akwa Ibom Afang with waterleaf & periwinkle', price: 3200, image: 'https://picsum.photos/seed/afang/400/300', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
+      { vendorId: uyoV1.id, name: 'Edikang Ikong + Eba', description: 'Fluted pumpkin leaf soup with stockfish', price: 3000, image: 'https://picsum.photos/seed/edikang/400/300', category: 'Soups & Swallow', stockQuantity: 999 },
+      { vendorId: uyoV1.id, name: 'Ekpang Nkukwo', description: 'Grated cocoyam rolls with periwinkle in palm oil sauce', price: 2800, image: 'https://picsum.photos/seed/ekpang/400/300', category: 'Specials', isFeatured: true, stockQuantity: 999 },
+    ],
+  });
+  console.log(`✓ Uyo Vendor created: ${uyoV1User.email} (Restaurant)`);
+
+  // Calabar — Efik Seafood House (RESTAURANT, TIER_2, active promo)
+  const calabarV1User = await prisma.user.create({
+    data: {
+      name: 'Ifeoma Bassey',
+      email: `efikseafood@${DEMO_DOMAIN}`,
+      phone: '+2348192223344',
+      password, role: Role.VENDOR, isEmailVerified: true, isActive: true,
+      referralCode: 'DEMO-EFIKSEAFOOD',
+    },
+  });
+  const calabarV1 = await prisma.vendor.create({
+    data: {
+      userId: calabarV1User.id,
+      businessName: 'Efik Seafood House',
+      slug: 'efik-seafood-house',
+      description: 'Authentic Cross River delicacies — Fisherman\'s soup, Ekpang Nkukwo, and fresh river seafood in Calabar.',
+      logo: 'https://picsum.photos/seed/efikseafood-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/efikseafood-cover/1080/580',
+      category: VendorCategory.RESTAURANT,
+      address: '14 MCC Road, Calabar',
+      city: 'Calabar', state: 'Cross River',
+      latitude: 4.9757, longitude: 8.3417,
+      isOpen: true, approvalStatus: ApprovalStatus.APPROVED,
+      commissionTier: CommissionTier.TIER_2,
+      openingTime: '09:00', closingTime: '22:00',
+      rating: 4.7, totalRatings: 95, avgDeliveryTime: 30,
+      verificationBadge: VerificationBadge.ID_VERIFIED,
+    },
+  });
+  await prisma.menuItem.createMany({
+    data: [
+      { vendorId: calabarV1.id, name: 'Fisherman\'s Soup', description: 'Calabar-style rich seafood pepper broth', price: 4500, image: 'https://picsum.photos/seed/fishermansoup/400/300', category: 'Specials', isFeatured: true, stockQuantity: 999 },
+      { vendorId: calabarV1.id, name: 'Afang + Fufu', description: 'Wild vegetable soup with stockfish and assorted', price: 3200, image: 'https://picsum.photos/seed/afang-fufu/400/300', category: 'Soups & Swallow', stockQuantity: 999 },
+      { vendorId: calabarV1.id, name: 'Nkwobi (Cow Foot)', description: 'Spiced cow foot in palm kernel paste', price: 4000, image: 'https://picsum.photos/seed/nkwobi/400/300', category: 'Specials', isFeatured: true, stockQuantity: 999 },
+    ],
+  });
+  await prisma.vendorPromotion.create({
+    data: {
+      vendorId: calabarV1.id,
+      title: 'Calabar Carnival Special: 10% Off Seafood Orders!',
+      imageUrl: 'https://picsum.photos/seed/promo-efikseafood/1080/580',
+      code: 'CARNIVAL10',
+      isActive: true,
+    },
+  });
+  console.log(`✓ Calabar Vendor created: ${calabarV1User.email} (Restaurant · promo active)`);
+
+  // Enugu — Miners Grill (RESTAURANT, TIER_2)
+  const enuguV1User = await prisma.user.create({
+    data: {
+      name: 'Chukwuebuka Agu',
+      email: `minersgrill@${DEMO_DOMAIN}`,
+      phone: '+2348113334455',
+      password, role: Role.VENDOR, isEmailVerified: true, isActive: true,
+      referralCode: 'DEMO-MINERSGRILL',
+    },
+  });
+  const enuguV1 = await prisma.vendor.create({
+    data: {
+      userId: enuguV1User.id,
+      businessName: "Miners' Grill",
+      slug: 'miners-grill-enugu',
+      description: 'Coal City flavours — Ofe Onugbu, Oha soup, and classic Igbo dishes delivered fresh in Enugu.',
+      logo: 'https://picsum.photos/seed/minersgrill-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/minersgrill-cover/1080/580',
+      category: VendorCategory.RESTAURANT,
+      address: '33 Ogui Road, Enugu',
+      city: 'Enugu', state: 'Enugu',
+      latitude: 6.4584, longitude: 7.5464,
+      isOpen: true, approvalStatus: ApprovalStatus.APPROVED,
+      commissionTier: CommissionTier.TIER_2,
+      openingTime: '08:00', closingTime: '21:00',
+      rating: 4.8, totalRatings: 112, avgDeliveryTime: 30,
+      verificationBadge: VerificationBadge.ID_VERIFIED,
+    },
+  });
+  await prisma.menuItem.createMany({
+    data: [
+      { vendorId: enuguV1.id, name: 'Ofe Onugbu + Pounded Yam', description: 'Bitter leaf soup with stockfish and assorted meat', price: 3000, image: 'https://picsum.photos/seed/ofe-onugbu/400/300', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
+      { vendorId: enuguV1.id, name: 'Oha Soup + Fufu', description: 'Seasonal oha leaves in palm oil with goat meat', price: 3200, image: 'https://picsum.photos/seed/oha-enugu/400/300', category: 'Soups & Swallow', stockQuantity: 999 },
+      { vendorId: enuguV1.id, name: 'Abacha (African Salad)', description: 'Spiced dried cassava with ugba, ede, and fish', price: 1800, image: 'https://picsum.photos/seed/abacha/400/300', category: 'Specials', isFeatured: true, stockQuantity: 999 },
+    ],
+  });
+  console.log(`✓ Enugu Vendor 1 created: ${enuguV1User.email} (Restaurant)`);
+
+  // Enugu — Coal City Mart (GROCERY, TIER_1)
+  const enuguV2User = await prisma.user.create({
+    data: {
+      name: 'Ngozi Obi',
+      email: `coalcitymart@${DEMO_DOMAIN}`,
+      phone: '+2348124445566',
+      password, role: Role.VENDOR, isEmailVerified: true, isActive: true,
+      referralCode: 'DEMO-COALCITYMART',
+    },
+  });
+  const enuguV2 = await prisma.vendor.create({
+    data: {
+      userId: enuguV2User.id,
+      businessName: 'Coal City Mart',
+      slug: 'coal-city-mart',
+      description: 'Enugu\'s favourite grocery stop — fresh produce, packaged goods, and household essentials delivered fast.',
+      logo: 'https://picsum.photos/seed/coalcitymart-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/coalcitymart-cover/1080/580',
+      category: VendorCategory.GROCERY,
+      address: '7 Zik Avenue, Uwani, Enugu',
+      city: 'Enugu', state: 'Enugu',
+      latitude: 6.4510, longitude: 7.5392,
+      isOpen: true, approvalStatus: ApprovalStatus.APPROVED,
+      commissionTier: CommissionTier.TIER_1,
+      openingTime: '07:00', closingTime: '21:00',
+      rating: 4.3, totalRatings: 44, avgDeliveryTime: 40,
+      verificationBadge: VerificationBadge.UNVERIFIED,
+    },
+  });
+  await prisma.menuItem.createMany({
+    data: [
+      { vendorId: enuguV2.id, name: 'Semovita (2 kg)', price: 2600, image: 'https://picsum.photos/seed/semo-enugu/400/300', category: 'Dry Goods', isFeatured: true, stockQuantity: 999 },
+      { vendorId: enuguV2.id, name: 'Palm Oil (1 L)', price: 1800, image: 'https://picsum.photos/seed/palmoil/400/300', category: 'Cooking Essentials', stockQuantity: 999 },
+      { vendorId: enuguV2.id, name: 'Ogiri Okpei (Igbo Seasoning)', description: 'Traditional fermented seed seasoning', price: 400, image: 'https://picsum.photos/seed/ogiri/400/300', category: 'Seasonings', stockQuantity: 999 },
+    ],
+  });
+  console.log(`✓ Enugu Vendor 2 created: ${enuguV2User.email} (Grocery)`);
+
+  // Aba — Ariaria Chop House (RESTAURANT, TIER_1)
+  const abaV1User = await prisma.user.create({
+    data: {
+      name: 'Chiamaka Nwachukwu',
+      email: `ariariachophouse@${DEMO_DOMAIN}`,
+      phone: '+2348135556677',
+      password, role: Role.VENDOR, isEmailVerified: true, isActive: true,
+      referralCode: 'DEMO-ARIARIACOPH',
+    },
+  });
+  const abaV1 = await prisma.vendor.create({
+    data: {
+      userId: abaV1User.id,
+      businessName: 'Ariaria Chop House',
+      slug: 'ariaria-chop-house',
+      description: 'Aba\'s go-to buka — quick Nigerian plates at market prices. Jollof, white rice, and assorted soups daily.',
+      logo: 'https://picsum.photos/seed/ariariacoph-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/ariariacoph-cover/1080/580',
+      category: VendorCategory.RESTAURANT,
+      address: '2 Factory Road, Aba',
+      city: 'Aba', state: 'Abia',
+      latitude: 5.1049, longitude: 7.3672,
+      isOpen: true, approvalStatus: ApprovalStatus.APPROVED,
+      commissionTier: CommissionTier.TIER_1,
+      openingTime: '07:00', closingTime: '20:00',
+      rating: 4.4, totalRatings: 57, avgDeliveryTime: 25,
+      verificationBadge: VerificationBadge.UNVERIFIED,
+    },
+  });
+  await prisma.menuItem.createMany({
+    data: [
+      { vendorId: abaV1.id, name: 'White Rice + Stew', description: 'Plain boiled rice with rich tomato stew', price: 1500, image: 'https://picsum.photos/seed/rice-stew-aba/400/300', category: 'Rice Dishes', isFeatured: true, stockQuantity: 999 },
+      { vendorId: abaV1.id, name: 'Jollof Rice + Fish', description: 'Party jollof with fried titus fish', price: 1800, image: 'https://picsum.photos/seed/jollof-aba/400/300', category: 'Rice Dishes', stockQuantity: 999 },
+      { vendorId: abaV1.id, name: 'Ofe Onugbu + Pounded Yam', price: 2500, image: 'https://picsum.photos/seed/ofe-aba/400/300', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
+    ],
+  });
+  console.log(`✓ Aba Vendor created: ${abaV1User.email} (Restaurant)`);
+
+  // Owerri — Owerre Nchaa (RESTAURANT, TIER_2, active promo)
+  const owerriV1User = await prisma.user.create({
+    data: {
+      name: 'Adanna Eze',
+      email: `owerrenchaa@${DEMO_DOMAIN}`,
+      phone: '+2348146667788',
+      password, role: Role.VENDOR, isEmailVerified: true, isActive: true,
+      referralCode: 'DEMO-OWERRENCHAA',
+    },
+  });
+  const owerriV1 = await prisma.vendor.create({
+    data: {
+      userId: owerriV1User.id,
+      businessName: 'Owerre Nchaa',
+      slug: 'owerre-nchaa',
+      description: 'The taste of Imo — Ofe Owerre, bush meat pepper soup, and authentic Owerri favourites delivered to your door.',
+      logo: 'https://picsum.photos/seed/owerrenchaa-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/owerrenchaa-cover/1080/580',
+      category: VendorCategory.RESTAURANT,
+      address: '5 Douglas Road, Owerri',
+      city: 'Owerri', state: 'Imo',
+      latitude: 5.4836, longitude: 7.0333,
+      isOpen: true, approvalStatus: ApprovalStatus.APPROVED,
+      commissionTier: CommissionTier.TIER_2,
+      openingTime: '09:00', closingTime: '22:00',
+      rating: 4.7, totalRatings: 83, avgDeliveryTime: 35,
+      verificationBadge: VerificationBadge.ID_VERIFIED,
+    },
+  });
+  await prisma.menuItem.createMany({
+    data: [
+      { vendorId: owerriV1.id, name: 'Ofe Owerre + Fufu', description: 'Imo-style soup with uziza, cocoyam & assorted', price: 3500, image: 'https://picsum.photos/seed/ofe-owerre/400/300', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
+      { vendorId: owerriV1.id, name: 'Bush Meat Pepper Soup', description: 'Forest game in a spiced herb broth', price: 5000, image: 'https://picsum.photos/seed/bushmeat-ps/400/300', category: 'Specials', isFeatured: true, stockQuantity: 999 },
+      { vendorId: owerriV1.id, name: 'Ụtara + Ogiri Sauce', description: 'Breadfruit with traditional fermented seed sauce', price: 2200, image: 'https://picsum.photos/seed/utara/400/300', category: 'Specials', stockQuantity: 999 },
+    ],
+  });
+  await prisma.vendorPromotion.create({
+    data: {
+      vendorId: owerriV1.id,
+      title: 'Owerri Special: Free Pepper Soup Side on Orders Above ₦4,000!',
+      imageUrl: 'https://picsum.photos/seed/promo-owerrenchaa/1080/580',
+      code: 'OWERRI4K',
+      isActive: true,
+    },
+  });
+  console.log(`✓ Owerri Vendor created: ${owerriV1User.email} (Restaurant · promo active)`);
+
   // ─── SUMMARY ──────────────────────────────────────────────────────────────
 
   console.log('\n✅ Demo seed complete!\n');
   console.log('Demo credentials (password: Demo@2026!)');
   console.log('─────────────────────────────────────────────────────────────────');
-  console.log(`  Customer  : adaeze@${DEMO_DOMAIN}`);
-  console.log(`  Vendor 1  : mamachika@${DEMO_DOMAIN}   (Restaurant · TIER_2 · Business Verified)`);
-  console.log(`  Vendor 2  : quickmart@${DEMO_DOMAIN}   (Grocery · TIER_1 · ID Verified)`);
-  console.log(`  Vendor 3  : healthplus@${DEMO_DOMAIN}  (Pharmacy · TIER_2 · Premium Verified)`);
-  console.log(`  Vendor 4  : gofetch@${DEMO_DOMAIN}     (Errand · TIER_1 · Unverified)`);
-  console.log(`  Rider 1   : emeka.rider@${DEMO_DOMAIN} (Online & Available)`);
-  console.log(`  Rider 2   : tunde.rider@${DEMO_DOMAIN} (Offline)`);
+  console.log(`  Customer        : adaeze@${DEMO_DOMAIN}`);
+  console.log('  — Port Harcourt vendors —');
+  console.log(`  Vendor 1        : mamachika@${DEMO_DOMAIN}      (Restaurant · TIER_2 · Business Verified)`);
+  console.log(`  Vendor 2        : quickmart@${DEMO_DOMAIN}      (Grocery · TIER_1 · ID Verified)`);
+  console.log(`  Vendor 3        : healthplus@${DEMO_DOMAIN}     (Pharmacy · TIER_2 · Premium Verified)`);
+  console.log(`  Vendor 4        : gofetch@${DEMO_DOMAIN}        (Errand · TIER_1 · Unverified)`);
+  console.log(`  Vendor 5        : spicykings@${DEMO_DOMAIN}     (Restaurant · TIER_2 · promo active)`);
+  console.log(`  Vendor 6        : freshmart@${DEMO_DOMAIN}      (Grocery · TIER_1 · PENDING)`);
+  console.log('  — Lagos vendors —');
+  console.log(`  Lagos Vendor 1  : yellowchilli@${DEMO_DOMAIN}   (Restaurant · TIER_2 · promo active)`);
+  console.log(`  Lagos Vendor 2  : freshbasket@${DEMO_DOMAIN}    (Grocery · TIER_1 · ID Verified)`);
+  console.log('  — Abuja vendors —');
+  console.log(`  Abuja Vendor 1  : thebukaspot@${DEMO_DOMAIN}    (Restaurant · TIER_2 · promo active)`);
+  console.log(`  Abuja Vendor 2  : capitalpharmacy@${DEMO_DOMAIN} (Pharmacy · TIER_1 · ID Verified)`);
+  console.log('  — Uyo / Calabar / Enugu / Aba / Owerri vendors —');
+  console.log(`  Uyo Vendor      : annangkitchen@${DEMO_DOMAIN}    (Restaurant · TIER_1)`);
+  console.log(`  Calabar Vendor  : efikseafood@${DEMO_DOMAIN}      (Restaurant · TIER_2 · promo active)`);
+  console.log(`  Enugu Vendor 1  : minersgrill@${DEMO_DOMAIN}      (Restaurant · TIER_2)`);
+  console.log(`  Enugu Vendor 2  : coalcitymart@${DEMO_DOMAIN}     (Grocery · TIER_1)`);
+  console.log(`  Aba Vendor      : ariariachophouse@${DEMO_DOMAIN} (Restaurant · TIER_1)`);
+  console.log(`  Owerri Vendor   : owerrenchaa@${DEMO_DOMAIN}      (Restaurant · TIER_2 · promo active)`);
+  console.log('  — Riders —');
+  console.log(`  Rider 1         : emeka.rider@${DEMO_DOMAIN}    (Online & Available)`);
+  console.log(`  Rider 2         : tunde.rider@${DEMO_DOMAIN}    (Offline)`);
+  console.log(`  Rider 3         : biodun.rider@${DEMO_DOMAIN}   (Online)`);
   console.log('─────────────────────────────────────────────────────────────────');
-  console.log('Orders: DELIVERED, IN_TRANSIT, PREPARING, CONFIRMED, PENDING, CANCELLED');
+  console.log('City filter: PH=5, Lagos=2, Abuja=2, Uyo=1, Calabar=1, Enugu=2, Aba=1, Owerri=1');
+  console.log('Orders: 6 live (all statuses) + 15 historical (7-day bar charts)');
 }
 
 seedDemo()

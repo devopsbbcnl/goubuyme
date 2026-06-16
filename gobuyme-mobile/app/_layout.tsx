@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
 import { AddressProvider } from '@/context/AddressContext';
+import { CityProvider } from '@/context/CityContext';
 import { PaystackProvider } from 'react-native-paystack-webview';
 import {
   useFonts,
@@ -83,9 +84,11 @@ export default function RootLayout() {
         <AuthProvider>
           <CartProvider>
             <AddressProvider>
-              <PaystackProvider publicKey={process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY as string}>
-                <AppContent />
-              </PaystackProvider>
+              <CityProvider>
+                <PaystackProvider publicKey={process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY as string}>
+                  <AppContent />
+                </PaystackProvider>
+              </CityProvider>
             </AddressProvider>
           </CartProvider>
         </AuthProvider>

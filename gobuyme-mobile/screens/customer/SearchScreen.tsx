@@ -10,6 +10,7 @@ import {
 	ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
+import { useCity } from '@/context/CityContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -38,6 +39,7 @@ function formatTime(mins: number | null): string {
 export default function SearchScreen() {
 	const { theme: T } = useTheme();
 	const insets = useSafeAreaInsets();
+	const { selectedCity } = useCity();
 	const [query, setQuery] = useState('');
 	const [vendors, setVendors] = useState<Vendor[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -45,14 +47,15 @@ export default function SearchScreen() {
 
 	const fetchVendors = useCallback(async () => {
 		try {
-			const res = await api.get('/vendors');
+			const params = selectedCity ? { city: selectedCity } : {};
+			const res = await api.get('/vendors', { params });
 			setVendors(res.data.data ?? []);
 		} catch {
 			// show whatever we have
 		} finally {
 			setLoading(false);
 		}
-	}, []);
+	}, [selectedCity]);
 
 	useEffect(() => { fetchVendors(); }, [fetchVendors]);
 
@@ -99,7 +102,7 @@ export default function SearchScreen() {
 				>
 					{!query && (
 						<Text style={[styles.sectionLabel, { color: T.textSec }]}>
-							All Restaurants
+							{selectedCity ? `Vendors in ${selectedCity}` : 'All Vendors'}
 						</Text>
 					)}
 

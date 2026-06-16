@@ -44,12 +44,6 @@ const STATUS_META: Record<RawStatus, { label: string; color: string; bg: string 
   CANCELLED: { label: 'Cancelled',  color: '#E23B3B', bg: 'rgba(226,59,59,0.12)'  },
 };
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CARD:             'Card',
-  CASH_ON_DELIVERY: 'Cash on Delivery',
-  WALLET:           'Wallet',
-};
-
 export default function VendorOrderDetailScreen() {
   const { theme: T } = useTheme();
   const insets = useSafeAreaInsets();
@@ -198,44 +192,6 @@ export default function VendorOrderDetailScreen() {
               <Text style={[styles.noteText, { color: T.textSec }]}>{order.note}</Text>
             </View>
           )}
-        </View>
-
-        {/* Payment summary */}
-        <View style={[styles.card, { backgroundColor: T.surface, borderColor: T.border }]}>
-          <Text style={[styles.sectionLabel, { color: T.textSec }]}>Payment</Text>
-
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryKey, { color: T.textSec }]}>Items subtotal</Text>
-            <Text style={[styles.summaryVal, { color: T.text }]}>₦{order.subtotal.toLocaleString()}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryKey, { color: T.textSec }]}>Delivery fee</Text>
-            <Text style={[styles.summaryVal, { color: T.textSec }]}>₦{order.deliveryFee.toLocaleString()}</Text>
-          </View>
-          <View style={[styles.summaryRow, styles.totalRow, { borderTopColor: T.border }]}>
-            <Text style={[styles.totalKey, { color: T.text }]}>Total charged</Text>
-            <Text style={[styles.totalVal, { color: T.text }]}>₦{order.totalAmount.toLocaleString()}</Text>
-          </View>
-
-          <View style={[styles.paymentBadgeRow]}>
-            <View style={[styles.paymentBadge, { backgroundColor: T.surface2, borderColor: T.border }]}>
-              <Ionicons name="card-outline" size={13} color={T.textSec} />
-              <Text style={[styles.paymentBadgeText, { color: T.textSec }]}>
-                {PAYMENT_METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod}
-              </Text>
-            </View>
-            <View style={[
-              styles.paymentBadge,
-              { backgroundColor: order.paymentStatus === 'PAID' ? 'rgba(26,158,95,0.1)' : 'rgba(245,166,35,0.1)', borderColor: T.border },
-            ]}>
-              <Text style={[
-                styles.paymentBadgeText,
-                { color: order.paymentStatus === 'PAID' ? '#1A9E5F' : '#F5A623' },
-              ]}>
-                {order.paymentStatus === 'PAID' ? 'Paid' : 'Pending payment'}
-              </Text>
-            </View>
-          </View>
         </View>
 
         {/* Earnings */}

@@ -1,0 +1,107 @@
+'use client';
+
+import { Suspense } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/Toast';
+import api from '@/services/api';
+
+function LoginContent() {
+  const { login } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const toast = useToast();
+  const next = searchParams.get('next') ?? '/';
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr('');
+    setLoading(true);
+    try {
+      const { data } = await api.post('/auth/login', { email, password });
+      const d = data.data;
+      login({
+        id: d.user.id, name: d.user.name, email: d.user.email,
+        phone: d.user.phone, avatar: d.user.avatar,
+        role: d.user.role?.toLowerCase() ?? null,
+        token: d.accessToken,
+      }, d.refreshToken);
+      toast('Welcome back!', 'success');
+      const role = d.user.role?.toLowerCase();
+      if (role === 'vendor') router.replace('/vendor');
+      else if (role === 'rider') router.replace('/rider');
+      else router.replace(next === '/' ? '/home' : next);
+    } catch (e: any) {
+      setErr(e?.response?.data?.message ?? 'Login failed. Check your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-page">
+      <div className="auth-left">
+        <div className="logo" style={{ marginBottom: 32, fontSize: 28 }}>
+          <span className="go">Go</span><span style={{ color: 'rgba(255,255,255,.8)' }}>Buy</span><span className="go" style={{ color: 'rgba(255,255,255,.8)' }}>Me</span>
+        </div>
+        <h1>Hungry?<br />GoBuyMe.</h1>
+        <p style={{ marginTop: 16 }}>Order food, groceries, and more from 500+ vendors across Nigeria — delivered to your door in 25 minutes or less.</p>
+        <div style={{ marginTop: 48, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {['⚡ 25-minute guaranteed delivery', '🛒 500+ vendors across Nigeria', '🔒 Secure payments via Paystack'].map(t => (
+            <div key={t} style={{ fontSize: 14, opacity: .85 }}>{t}</div>
+          ))}
+        </div>
+      </div>
+
+      <div className="auth-right">
+        <Link href="/" className="logo" style={{ marginBottom: 36, display: 'inline-flex' }}>
+          <span className="go">Go</span><span className="buy">Buy</span><span className="me">Me</span>
+        </Link>
+        <h2>Welcome back</h2>
+        <p className="sub">Sign in to your account</p>
+
+        <form onSubmit={submit}>
+          <div className="form-group">
+            <label className="label">Email address</label>
+            <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required />
+          </div>
+          <div className="form-group">
+            <div className="between" style={{ marginBottom: 6 }}>
+              <label className="label" style={{ margin: 0 }}>Password</label>
+              <Link href="/forgot-password" style={{ fontSize: 12, fontWeight: 700, color: 'var(--brand)' }}>Forgot password?</Link>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input className="input" type={show ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required style={{ paddingRight: 44 }} />
+              <button type="button" onClick={() => setShow(s => !s)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: 13 }}>
+                {show ? 'Hide' : 'Show'}
+              </button>
+            </div>
+          </div>
+
+          {err && <div className="input-error" style={{ marginBottom: 14, fontSize: 13 }}>{err}</div>}
+
+          <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={loading}>
+            {loading ? <><span className="spin" />Signing in…</> : 'Sign In'}
+          </button>
+        </form>
+
+        <p style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: 'var(--muted)' }}>
+          Don't have an account?{' '}
+          <Link href="/onboarding" style={{ color: 'var(--brand)', fontWeight: 700 }}>Register</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return <Suspense fallback={null}><LoginContent /></Suspense>;
+}

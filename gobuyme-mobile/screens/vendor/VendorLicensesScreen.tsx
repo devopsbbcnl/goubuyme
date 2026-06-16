@@ -161,7 +161,7 @@ export default function VendorLicensesScreen() {
       >
         {/* Back */}
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={() => router.navigate('/(vendor)/profile' as any)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="arrow-back" size={22} color={T.text} />
           </TouchableOpacity>
           <Text style={[styles.heading, { color: T.text }]}>Licenses & Permits</Text>

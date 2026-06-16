@@ -1,12 +1,18 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 import { getRidersSocket, connectSockets } from '@/services/socketService';
 import { useAuth } from '@/context/AuthContext';
 
-// Emits the rider's live GPS position to the backend via Socket.io.
+export interface RiderPosition {
+  latitude: number;
+  longitude: number;
+}
+
+// Emits the rider's live GPS position to the backend via Socket.io and returns it for map display.
 export function useRiderLocation(riderId: string | null, active: boolean) {
   const { user } = useAuth();
   const watchRef = useRef<Location.LocationSubscription | null>(null);
+  const [position, setPosition] = useState<RiderPosition | null>(null);
 
   useEffect(() => {
     if (!active || !riderId) return;
@@ -22,6 +28,7 @@ export function useRiderLocation(riderId: string | null, active: boolean) {
       watchRef.current = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 10 },
         ({ coords }) => {
+          setPosition({ latitude: coords.latitude, longitude: coords.longitude });
           const socket = getRidersSocket();
           if (!socket || !riderId) return;
           socket.emit('rider:updateLocation', {
@@ -39,4 +46,6 @@ export function useRiderLocation(riderId: string | null, active: boolean) {
       watchRef.current = null;
     };
   }, [active, riderId, user?.token]);
+
+  return { position };
 }

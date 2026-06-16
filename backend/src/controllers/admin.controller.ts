@@ -209,11 +209,6 @@ export const updateVendorStatus = catchAsync(async (req: AuthRequest, res: Respo
     select: { id: true, businessName: true, approvalStatus: true, user: { select: { email: true, name: true } } },
   });
 
-  if (status === 'APPROVED' || status === 'REJECTED') {
-    const docStatus = status === 'APPROVED' ? DocumentStatus.VERIFIED : DocumentStatus.REJECTED;
-    await prisma.vendorDocument.updateMany({ where: { vendorId: id }, data: { status: docStatus } });
-  }
-
   await prisma.auditLog.create({
     data: {
       userId: req.user!.userId,
@@ -348,11 +343,6 @@ export const updateRiderStatus = catchAsync(async (req: AuthRequest, res: Respon
     data: { approvalStatus: status as ApprovalStatus },
     select: { id: true, approvalStatus: true, user: { select: { email: true, name: true } } },
   });
-
-  if (status === 'APPROVED' || status === 'REJECTED') {
-    const docStatus = status === 'APPROVED' ? DocumentStatus.VERIFIED : DocumentStatus.REJECTED;
-    await prisma.riderDocument.updateMany({ where: { riderId: id }, data: { status: docStatus } });
-  }
 
   await prisma.auditLog.create({
     data: {

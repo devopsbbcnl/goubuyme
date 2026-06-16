@@ -29,6 +29,7 @@ export const getMyRiderProfile = catchAsync(async (req: AuthRequest, res: Respon
     include: {
       user: { select: { name: true, email: true, phone: true, avatar: true } },
       payoutAccount: { select: { bankName: true, accountNumber: true, accountName: true } },
+      document: { select: { guarantorName: true, guarantorPhone: true, guarantorAddress: true, status: true } },
     },
   });
   if (!rider) return apiResponse.error(res, 'Rider profile not found.', 404);
@@ -165,7 +166,7 @@ export const acceptJob = catchAsync(async (req: AuthRequest, res: Response) => {
     where: { id: orderId, status: OrderStatus.READY, riderId: null },
     include: {
       vendor: { select: { businessName: true, latitude: true, longitude: true } },
-      customer: { include: { user: { select: { id: true, name: true } } } },
+      customer: { include: { user: { select: { id: true, name: true, phone: true } } } },
     },
   });
   if (!order) return apiResponse.error(res, 'Job no longer available.', 404);
@@ -196,6 +197,7 @@ export const acceptJob = catchAsync(async (req: AuthRequest, res: Response) => {
     orderId: order.id,
     orderNumber: order.orderNumber,
     customerName: order.customer.user.name,
+    customerPhone: order.customer.user.phone ?? null,
     customerAddress: order.deliveryAddress,
     customerLat: order.deliveryLatitude,
     customerLng: order.deliveryLongitude,
@@ -217,7 +219,7 @@ export const getActiveDelivery = catchAsync(async (req: AuthRequest, res: Respon
       id: true, orderNumber: true, status: true, deliveryFee: true,
       deliveryAddress: true, deliveryLatitude: true, deliveryLongitude: true,
       vendor: { select: { businessName: true, latitude: true, longitude: true } },
-      customer: { include: { user: { select: { name: true } } } },
+      customer: { include: { user: { select: { name: true, phone: true } } } },
     },
   });
 
@@ -229,6 +231,7 @@ export const getActiveDelivery = catchAsync(async (req: AuthRequest, res: Respon
     status: order.status,
     fee: order.deliveryFee,
     customerName: order.customer.user.name,
+    customerPhone: order.customer.user.phone ?? null,
     customerAddress: order.deliveryAddress,
     customerLat: order.deliveryLatitude,
     customerLng: order.deliveryLongitude,
@@ -344,12 +347,22 @@ export const getRiderEarnings = catchAsync(async (req: AuthRequest, res: Respons
   if (!rider) return apiResponse.error(res, 'Rider not found.', 404);
 
   const now        = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+  const weekStart  = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0, 0, 0, 0);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [thisMonth, pending, allTime] = await Promise.all([
+  const [today, week, month, pending, allTime, history] = await Promise.all([
+    prisma.earning.aggregate({
+      where: { riderId: rider.id, createdAt: { gte: todayStart } },
+      _sum: { netAmount: true },
+    }),
+    prisma.earning.aggregate({
+      where: { riderId: rider.id, createdAt: { gte: weekStart } },
+      _sum: { netAmount: true },
+    }),
     prisma.earning.aggregate({
       where: { riderId: rider.id, createdAt: { gte: monthStart } },
-      _sum: { netAmount: true }, _count: true,
+      _sum: { netAmount: true },
     }),
     prisma.earning.aggregate({
       where: { riderId: rider.id, payoutStatus: 'PENDING' },
@@ -357,14 +370,38 @@ export const getRiderEarnings = catchAsync(async (req: AuthRequest, res: Respons
     }),
     prisma.earning.aggregate({
       where: { riderId: rider.id },
-      _sum: { netAmount: true }, _count: true,
+      _sum: { netAmount: true },
+    }),
+    prisma.earning.findMany({
+      where: { riderId: rider.id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: {
+        id: true, netAmount: true, createdAt: true,
+        order: {
+          select: {
+            orderNumber: true, deliveryFee: true,
+            vendor: { select: { businessName: true } },
+          },
+        },
+      },
     }),
   ]);
 
   return apiResponse.success(res, 'Earnings fetched.', {
-    thisMonth:     { amount: thisMonth._sum.netAmount ?? 0, deliveries: thisMonth._count },
+    today:         today._sum.netAmount ?? 0,
+    week:          week._sum.netAmount ?? 0,
+    month:         month._sum.netAmount ?? 0,
+    allTime:       allTime._sum.netAmount ?? 0,
     pendingPayout: pending._sum.netAmount ?? 0,
-    allTime:       { amount: allTime._sum.netAmount ?? 0, deliveries: allTime._count },
+    history: history.map(e => ({
+      id:          e.id,
+      amount:      e.netAmount,
+      deliveryFee: e.order?.deliveryFee ?? 0,
+      orderNumber: e.order?.orderNumber ?? '',
+      createdAt:   e.createdAt,
+      vendor:      { businessName: e.order?.vendor?.businessName ?? '' },
+    })),
   });
 });
 

@@ -181,7 +181,7 @@ export default function VendorPromotionsScreen() {
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={() => router.navigate('/(vendor)/profile' as any)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="arrow-back" size={22} color={T.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: T.text }]}>Promotions</Text>

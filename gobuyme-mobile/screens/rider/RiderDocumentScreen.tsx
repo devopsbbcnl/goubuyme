@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, Image,
 } from 'react-native';
 import { pickImage as openImagePicker } from '@/utils/pickImage';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,7 +44,7 @@ async function uploadImage(uri: string): Promise<string> {
 
 const STATUS_META: Record<string, { color: string; icon: string; label: string }> = {
   PENDING:  { color: '#F5A623', icon: 'time-outline',     label: 'Under Review' },
-  VERIFIED: { color: '#1A9E5F', icon: 'checkmark-circle', label: 'Verified' },
+  VERIFIED: { color: '#1A9E5F', icon: 'checkmark-circle', label: 'Verified — Update any expired documents below' },
   REJECTED: { color: '#E23B3B', icon: 'close-circle',     label: 'Rejected — Resubmit' },
 };
 
@@ -111,7 +112,25 @@ export default function RiderDocumentScreen() {
     type: 'nin' | 'selfie' | 'vehicle',
     aspect?: [number, number],
   ) => {
-    const uri = await openImagePicker({ aspect: aspect ?? [3, 2], quality: 0.9 });
+    let uri: string | null = null;
+
+    if (type === 'selfie') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Allow camera access to take your selfie.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9,
+      });
+      uri = result.canceled ? null : result.assets[0].uri;
+    } else {
+      uri = await openImagePicker({ aspect: aspect ?? [3, 2], quality: 0.9 });
+    }
+
     if (!uri) return;
 
     if (type === 'nin') { setNinImgUri(uri); setUploadingNin(true); }
@@ -164,8 +183,9 @@ export default function RiderDocumentScreen() {
         guarantorPhone: formattedGuarantorPhone || null,
         guarantorAddress: guarantorAddress.trim() || null,
       });
+      setExisting(prev => prev ? { ...prev, status: 'PENDING', reviewNote: null } : prev);
       Alert.alert('Submitted', 'Your documents have been submitted for review.', [
-        { text: 'OK', onPress: () => router.back() },
+        { text: 'OK', onPress: () => router.navigate('/(rider)/profile' as any) },
       ]);
     } catch {
       Alert.alert('Failed', 'Could not submit documents. Please try again.');
@@ -174,9 +194,18 @@ export default function RiderDocumentScreen() {
     }
   };
 
-  const isVerified = existing?.status === 'VERIFIED';
   const statusMeta = existing ? STATUS_META[existing.status] : null;
   const busy = saving || uploadingNin || uploadingSelfie || uploadingVehicle;
+
+  const isDirty = useMemo(() => {
+    if (!existing) return true; // first-time submission — always allow
+    return (
+      ninNumber.trim() !== existing.ninNumber ||
+      ninImgUri !== '' ||
+      selfieUri !== '' ||
+      vehicleImgUri !== ''
+    );
+  }, [existing, ninNumber, ninImgUri, selfieUri, vehicleImgUri]);
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
@@ -222,15 +251,14 @@ export default function RiderDocumentScreen() {
               placeholderTextColor={T.textMuted}
               keyboardType="numeric"
               maxLength={11}
-              editable={!isVerified}
-              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text, opacity: isVerified ? 0.6 : 1 }]}
+              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text }]}
             />
 
             <Text style={[styles.label, { color: T.textSec, marginTop: 14 }]}>NIN Slip / ID Card Image</Text>
             <ImgBox
               uri={ninImgUri || ninImgUrl}
               uploading={uploadingNin}
-              disabled={isVerified}
+              disabled={false}
               onPress={() => pickImg('nin')}
               icon="id-card-outline"
               hint="Tap to upload NIN slip"
@@ -241,7 +269,7 @@ export default function RiderDocumentScreen() {
             <ImgBox
               uri={selfieUri || selfieUrl}
               uploading={uploadingSelfie}
-              disabled={isVerified}
+              disabled={false}
               onPress={() => pickImg('selfie', [1, 1])}
               icon="person-circle-outline"
               hint="Tap to upload a clear selfie"
@@ -255,7 +283,7 @@ export default function RiderDocumentScreen() {
             <ImgBox
               uri={vehicleImgUri || vehicleImgUrl}
               uploading={uploadingVehicle}
-              disabled={isVerified}
+              disabled={false}
               onPress={() => pickImg('vehicle', [4, 3])}
               icon="car-outline"
               hint="Tap to upload vehicle photo"
@@ -264,49 +292,40 @@ export default function RiderDocumentScreen() {
 
             {/* Section: Guarantor */}
             <SectionLabel label="GUARANTOR" T={T} mt={24} />
-            <Text style={[styles.sectionSub, { color: T.textSec }]}>
-              A guarantor vouches for your reliability. This is strongly recommended.
-            </Text>
-            <Text style={[styles.sectionSub, { color: T.textSec, marginTop: 6 }]}>
-              Note that guarantor will be strictly verified. False information will lead to rejection and ban from the platform.
-            </Text>
 
-            <Text style={[styles.label, { color: T.textSec }]}>Guarantor Full Name</Text>
+            <View style={[styles.lockedBanner, { backgroundColor: T.surface2 ?? T.surface, borderColor: T.border }]}>
+              <Ionicons name="lock-closed" size={14} color={T.textMuted} style={{ marginTop: 1 }} />
+              <Text style={[styles.lockedText, { color: T.textSec }]}>
+                Guarantor details are locked after submission. Contact support to request an update.
+              </Text>
+            </View>
+
+            <Text style={[styles.label, { color: T.textSec, marginTop: 14 }]}>Guarantor Full Name</Text>
             <TextInput
               value={guarantorName}
-              onChangeText={setGuarantorName}
-              placeholder="e.g. Chukwudi Okafor"
-              placeholderTextColor={T.textMuted}
-              editable={!isVerified}
-              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text, opacity: isVerified ? 0.6 : 1 }]}
+              editable={false}
+              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.textSec, opacity: 0.6 }]}
             />
 
             <Text style={[styles.label, { color: T.textSec, marginTop: 14 }]}>Guarantor Phone Number</Text>
-            <View style={[styles.phoneRow, { backgroundColor: T.surface, borderColor: T.border, opacity: isVerified ? 0.6 : 1 }]}>
+            <View style={[styles.phoneRow, { backgroundColor: T.surface, borderColor: T.border, opacity: 0.6 }]}>
               <View style={[styles.phonePrefix, { borderRightColor: T.border }]}>
                 <Text style={[styles.phonePrefixText, { color: T.textSec }]}>+234</Text>
               </View>
               <TextInput
                 value={guarantorPhone}
-                onChangeText={setGuarantorPhone}
-                placeholder="8031234567"
-                placeholderTextColor={T.textMuted}
-                keyboardType="phone-pad"
-                editable={!isVerified}
-                style={[styles.phoneInput, { color: T.text }]}
+                editable={false}
+                style={[styles.phoneInput, { color: T.textSec }]}
               />
             </View>
 
             <Text style={[styles.label, { color: T.textSec, marginTop: 14 }]}>Guarantor Address</Text>
             <TextInput
               value={guarantorAddress}
-              onChangeText={setGuarantorAddress}
-              placeholder="Street address"
-              placeholderTextColor={T.textMuted}
+              editable={false}
               multiline
               numberOfLines={2}
-              editable={!isVerified}
-              style={[styles.textarea, { backgroundColor: T.surface, borderColor: T.border, color: T.text, opacity: isVerified ? 0.6 : 1 }]}
+              style={[styles.textarea, { backgroundColor: T.surface, borderColor: T.border, color: T.textSec, opacity: 0.6 }]}
             />
 
             {/* Privacy */}
@@ -322,19 +341,19 @@ export default function RiderDocumentScreen() {
         )}
       </ScrollView>
 
-      {!isVerified && !loading && (
+      {!loading && (
         <View style={[styles.footer, { backgroundColor: T.bg, borderTopColor: T.border, paddingBottom: insets.bottom + 16 }]}>
           <TouchableOpacity
             onPress={handleSubmit}
-            disabled={busy}
-            style={[styles.btn, { backgroundColor: busy ? T.surface3 : T.primary }]}
+            disabled={busy || !isDirty}
+            style={[styles.btn, { backgroundColor: (busy || !isDirty) ? T.surface3 : T.primary }]}
             activeOpacity={0.85}
           >
             {saving ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
               <Text style={styles.btnText}>
-                {existing ? 'Resubmit Documents' : 'Submit Documents'}
+                {existing ? 'Update Documents' : 'Submit Documents'}
               </Text>
             )}
           </TouchableOpacity>
@@ -430,6 +449,8 @@ const styles = StyleSheet.create({
     borderRadius: 4, paddingVertical: 4, paddingHorizontal: 8,
   },
   chipText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  lockedBanner: { flexDirection: 'row', gap: 8, borderRadius: 4, borderWidth: 1, padding: 12 },
+  lockedText: { flex: 1, fontSize: 12, lineHeight: 18, fontFamily: 'PlusJakartaSans_400Regular' },
   privacyBox: { flexDirection: 'row', gap: 8, borderRadius: 4, padding: 12, marginTop: 20 },
   privacyText: { flex: 1, fontSize: 12, lineHeight: 18, fontFamily: 'PlusJakartaSans_400Regular' },
   footer: { padding: 20, borderTopWidth: 1 },

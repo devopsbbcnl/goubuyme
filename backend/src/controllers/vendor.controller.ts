@@ -35,7 +35,7 @@ const vendorSelect = {
 
 export const getVendors = catchAsync(async (req: Request, res: Response) => {
   const {
-    lat, lng, radius, category, search,
+    lat, lng, radius, category, search, city,
     page = '1', limit = '20',
   } = req.query as Record<string, string>;
 
@@ -45,7 +45,13 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
 
   const where: Record<string, unknown> = { approvalStatus: ApprovalStatus.APPROVED };
   if (category && category !== 'ALL') where.category = category;
-  if (search) where.businessName = { contains: search, mode: 'insensitive' };
+  if (search) {
+    where.OR = [
+      { businessName: { contains: search, mode: 'insensitive' } },
+      { menuItems: { some: { name: { contains: search, mode: 'insensitive' } } } },
+    ];
+  }
+  if (city) where.city = { equals: city, mode: 'insensitive' };
 
   const vendors = await prisma.vendor.findMany({
     where,
@@ -1152,8 +1158,13 @@ export const deleteLicense = catchAsync(async (req: AuthRequest, res: Response) 
 
 // GET /vendors/active-promotions  (public — feeds the customer homescreen carousel)
 export const getActiveVendorPromotions = catchAsync(async (req: Request, res: Response) => {
+  const { city } = req.query as Record<string, string>;
+
+  const where: Record<string, unknown> = { isActive: true };
+  if (city) where.vendor = { city: { equals: city, mode: 'insensitive' } };
+
   const promos = await prisma.vendorPromotion.findMany({
-    where: { isActive: true },
+    where,
     select: {
       id: true, title: true, imageUrl: true, code: true,
       vendor: { select: { businessName: true } },
