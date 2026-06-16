@@ -9,6 +9,8 @@ import api from '@/services/api';
 const ROLE_LABELS: Record<string, string> = { customer: 'Customer', vendor: 'Vendor', rider: 'Rider' };
 const ROLE_ICONS: Record<string, string> = { customer: '🛒', vendor: '🏪', rider: '🏍️' };
 
+const PING_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1') + '/settings/public';
+
 function RegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -28,7 +30,7 @@ function RegisterContent() {
       try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 4000);
-        const res = await fetch('/api/health', { signal: ctrl.signal });
+        const res = await fetch(PING_URL, { signal: ctrl.signal });
         if (!res.ok) throw new Error('offline');
         clearTimeout(timer);
         if (!cancelled) setBackendOnline(true);
