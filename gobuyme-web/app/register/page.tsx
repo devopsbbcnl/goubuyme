@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
@@ -8,6 +8,9 @@ import api from '@/services/api';
 
 const ROLE_LABELS: Record<string, string> = { customer: 'Customer', vendor: 'Vendor', rider: 'Rider' };
 const ROLE_ICONS: Record<string, string> = { customer: '🛒', vendor: '🏪', rider: '🏍️' };
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
+const HEALTH_URL = API_BASE.replace(/\/api\/v1\/?$/, '') + '/health';
 
 function RegisterContent() {
   const router = useRouter();
@@ -20,6 +23,25 @@ function RegisterContent() {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [backendOnline, setBackendOnline] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
+        await fetch(HEALTH_URL, { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!cancelled) setBackendOnline(true);
+      } catch {
+        if (!cancelled) setBackendOnline(false);
+      }
+    };
+    check();
+    const id = setInterval(check, 5000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -52,7 +74,14 @@ function RegisterContent() {
         </p>
       </div>
 
-      <div className="auth-right">
+      <div className="auth-right" style={{ position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 20, right: 24 }}>
+          <div style={{
+            width: 10, height: 10, borderRadius: '50%',
+            background: backendOnline ? '#22C55E' : '#EF4444',
+          }} />
+        </div>
+
         <h2>Create your account</h2>
         <p className="sub">Registering as a <strong>{ROLE_LABELS[role]}</strong></p>
 

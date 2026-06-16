@@ -1,12 +1,14 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import api from '@/services/api';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
+const HEALTH_URL = API_BASE.replace(/\/api\/v1\/?$/, '') + '/health';
 
 function LoginContent() {
   const { login } = useAuth();
@@ -20,6 +22,25 @@ function LoginContent() {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [backendOnline, setBackendOnline] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
+        await fetch(HEALTH_URL, { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!cancelled) setBackendOnline(true);
+      } catch {
+        if (!cancelled) setBackendOnline(false);
+      }
+    };
+    check();
+    const id = setInterval(check, 5000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +82,14 @@ function LoginContent() {
         </div>
       </div>
 
-      <div className="auth-right">
+      <div className="auth-right" style={{ position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 20, right: 24 }}>
+          <div style={{
+            width: 10, height: 10, borderRadius: '50%',
+            background: backendOnline ? '#22C55E' : '#EF4444',
+          }} />
+        </div>
+
         <Link href="/" className="logo" style={{ marginBottom: 36, display: 'inline-flex' }}>
           <span className="go">Go</span><span className="buy">Buy</span><span className="me">Me</span>
         </Link>
