@@ -52,10 +52,11 @@ const app = express();
 const httpServer = http.createServer(app);
 
 const allowedOrigins = [
-  process.env.CLIENT_URL || '',
-  process.env.ADMIN_URL || '',
+  ...(process.env.CLIENT_URL ?? '').split(','),
+  ...(process.env.ADMIN_URL ?? '').split(','),
   'http://localhost:3000',
-].filter(Boolean);
+  'http://localhost:3001',
+].map(s => s.trim()).filter(Boolean);
 
 const io = new Server(httpServer, {
   // Temporary diagnostic: native/mobile Socket.IO handshakes may not present
