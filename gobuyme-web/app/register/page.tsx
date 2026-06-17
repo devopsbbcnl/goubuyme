@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
@@ -62,8 +63,8 @@ function RegisterContent() {
   return (
     <div className="auth-page">
       <div className="auth-left">
-        <Link href="/" className="logo" style={{ marginBottom: 40, fontSize: 26 }}>
-          <span className="go">Go</span><span style={{ color: 'rgba(255,255,255,.8)' }}>Buy</span><span style={{ color: 'rgba(255,255,255,.8)' }}>Me</span>
+        <Link href="/" style={{ marginBottom: 40, display: 'inline-block', background: '#fff', borderRadius: 8, padding: '6px 12px' }}>
+          <Image src="/images/logo.png" alt="GoBuyMe" width={140} height={46} style={{ objectFit: 'contain', display: 'block' }} />
         </Link>
         <div style={{ fontSize: 56, marginBottom: 24 }}>{ROLE_ICONS[role] ?? '🛒'}</div>
         <h1>Join as a<br />{ROLE_LABELS[role] ?? 'User'}</h1>

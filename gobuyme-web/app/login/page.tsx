@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -70,8 +71,8 @@ function LoginContent() {
   return (
     <div className="auth-page">
       <div className="auth-left">
-        <div className="logo" style={{ marginBottom: 32, fontSize: 28 }}>
-          <span className="go">Go</span><span style={{ color: 'rgba(255,255,255,.8)' }}>Buy</span><span className="go" style={{ color: 'rgba(255,255,255,.8)' }}>Me</span>
+        <div style={{ marginBottom: 32, display: 'inline-block', background: '#fff', borderRadius: 8, padding: '6px 12px' }}>
+          <Image src="/images/logo.png" alt="GoBuyMe" width={140} height={46} style={{ objectFit: 'contain', display: 'block' }} />
         </div>
         <h1>Hungry?<br />GoBuyMe.</h1>
         <p style={{ marginTop: 16 }}>Order food, groceries, and more from 500+ vendors across Nigeria — delivered to your door in 25 minutes or less.</p>
@@ -90,8 +91,8 @@ function LoginContent() {
           }} />
         </div>
 
-        <Link href="/" className="logo" style={{ marginBottom: 36, display: 'inline-flex' }}>
-          <span className="go">Go</span><span className="buy">Buy</span><span className="me">Me</span>
+        <Link href="/" style={{ marginBottom: 36, display: 'inline-block' }}>
+          <Image src="/images/logo.png" alt="GoBuyMe" width={140} height={46} style={{ objectFit: 'contain', display: 'block' }} />
         </Link>
         <h2>Welcome back</h2>
         <p className="sub">Sign in to your account</p>

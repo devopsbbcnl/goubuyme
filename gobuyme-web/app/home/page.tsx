@@ -12,8 +12,8 @@ import api from '@/services/api';
 
 interface Vendor {
   id: string; businessName: string; category: string; city: string;
-  logoUrl?: string; coverImageUrl?: string; averageRating?: number;
-  isOpen: boolean; deliveryTime?: number;
+  logo?: string | null; coverImage?: string | null; rating?: number;
+  isOpen: boolean; avgDeliveryTime?: number | null;
 }
 interface Promo { id: string; title: string; description?: string; imageUrl?: string; vendor: { businessName: string }; }
 
@@ -168,14 +168,14 @@ export default function HomePage() {
                 <div className="vendor-grid">
                   {vendors.map(v => (
                     <Link key={v.id} href={`/vendor/${v.id}`} className="vendor-card">
-                      {v.coverImageUrl ? <img className="cover" src={v.coverImageUrl} alt={v.businessName} /> : <div className="cover-ph">🏪</div>}
+                      {v.coverImage ? <img className="cover" src={v.coverImage} alt={v.businessName} /> : <div className="cover-ph">🏪</div>}
                       <div className="card-body">
-                        {v.logoUrl && <img className="vendor-logo" src={v.logoUrl} alt="" />}
+                        {v.logo && <img className="vendor-logo" src={v.logo} alt="" />}
                         <div className="vendor-name">{v.businessName}</div>
                         <div className="vendor-meta">
-                          {v.averageRating && <span className="rating">⭐ {v.averageRating.toFixed(1)}</span>}
+                          {v.rating && <span className="rating">⭐ {v.rating.toFixed(1)}</span>}
                           <span>{v.city}</span>
-                          {v.deliveryTime && <span>· {v.deliveryTime} min</span>}
+                          {v.avgDeliveryTime && <span>· {v.avgDeliveryTime} min</span>}
                         </div>
                         <span className={`badge-open${v.isOpen ? '' : ' badge-closed'}`}>{v.isOpen ? 'Open' : 'Closed'}</span>
                       </div>
