@@ -1156,6 +1156,50 @@ export const deleteLicense = catchAsync(async (req: AuthRequest, res: Response) 
   return apiResponse.success(res, 'License deleted.');
 });
 
+// GET /vendors/menu-items/search  (public — searches menu items across approved vendors)
+export const searchMenuItems = catchAsync(async (req: Request, res: Response) => {
+  const { search, city, category } = req.query as Record<string, string>;
+
+  if (!search?.trim()) return apiResponse.error(res, 'search query is required.', 400);
+
+  const vendorWhere: Record<string, unknown> = { approvalStatus: ApprovalStatus.APPROVED };
+  if (city) vendorWhere.city = { equals: city, mode: 'insensitive' };
+  if (category && category !== 'ALL') vendorWhere.category = category;
+
+  const items = await prisma.menuItem.findMany({
+    where: {
+      OR: [
+        { name: { contains: search.trim(), mode: 'insensitive' } },
+        { description: { contains: search.trim(), mode: 'insensitive' } },
+      ],
+      isAvailable: true,
+      stockQuantity: { gt: 0 },
+      vendor: vendorWhere,
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      price: true,
+      image: true,
+      category: true,
+      vendor: {
+        select: {
+          id: true,
+          businessName: true,
+          logo: true,
+          city: true,
+          isOpen: true,
+        },
+      },
+    },
+    orderBy: { name: 'asc' },
+    take: 60,
+  });
+
+  return apiResponse.success(res, 'Menu items fetched.', items);
+});
+
 // GET /vendors/active-promotions  (public — feeds the customer homescreen carousel)
 export const getActiveVendorPromotions = catchAsync(async (req: Request, res: Response) => {
   const { city } = req.query as Record<string, string>;

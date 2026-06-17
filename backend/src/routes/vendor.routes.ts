@@ -12,7 +12,7 @@ import {
   getMyBusinessVerification, submitBusinessVerification,
   getMyLicenses, submitLicense, deleteLicense,
   getMyPromotions, createPromotion, togglePromotion, deletePromotion,
-  getActiveVendorPromotions,
+  getActiveVendorPromotions, searchMenuItems,
 } from '../controllers/vendor.controller';
 import { verifyToken } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
@@ -69,6 +69,7 @@ router.delete('/me/promotions/:id',            ...vendorAuth, deletePromotion);
 
 // Public routes
 router.get('/active-promotions', getActiveVendorPromotions);
+router.get('/menu-items/search', searchMenuItems);
 router.get('/',        getVendors);
 router.get('/:id',     getVendorById);
 router.get('/:id/menu', getVendorMenu);
