@@ -29,7 +29,8 @@ function LoginContent() {
       try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 4000);
-        await fetch(PING_URL, { signal: ctrl.signal, mode: 'no-cors' });
+        const res = await fetch(PING_URL, { signal: ctrl.signal });
+        if (!res.ok) throw new Error('offline');
         clearTimeout(timer);
         if (!cancelled) setBackendOnline(true);
       } catch {
