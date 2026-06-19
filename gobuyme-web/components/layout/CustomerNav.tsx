@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
@@ -86,7 +86,6 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
   const { user, logout } = useAuth();
   const { totalCount } = useCart();
   const { selectedCity, setSelectedCity } = useCity();
-  const pathname = usePathname();
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [searchType, setSearchType] = useState<'all' | 'vendors' | 'menu_items'>('all');
@@ -94,6 +93,8 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
   const [bump, setBump] = useState(false);
   const [showPromo, setShowPromo] = useState(showPromoBar);
   const [cityOpen, setCityOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [openCat, setOpenCat] = useState<string | null>(null);
   const [allHoveredSub, setAllHoveredSub] = useState('RESTAURANT');
   const prevCount = useRef(totalCount);
@@ -131,6 +132,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,7 +284,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
             {/* Mobile search icon (hidden on desktop via .show-mobile) */}
             <button
               className="icon-btn show-mobile"
-              onClick={() => router.push('/vendors')}
+              onClick={() => { setSearchOpen(true); setMobileMenuOpen(false); }}
               aria-label="Search"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -292,6 +294,16 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18" strokeLinecap="round" strokeWidth="3"/></svg>
               Get App
             </a>
+            <button
+              className="icon-btn c-ham"
+              onClick={() => setMobileMenuOpen(o => !o)}
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            >
+              {mobileMenuOpen
+                ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              }
+            </button>
             {user ? (
               <>
                 <Link href="/notifications" className="icon-btn nav-notif" aria-label="Notifications">
@@ -301,7 +313,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                   {totalCount > 0 && <span className={`cart-badge${bump ? ' bump' : ''}`}>{totalCount}</span>}
                 </Link>
-                <Link href="/profile" style={{ display: 'flex', alignItems: 'center' }}>
+                <Link href="/profile" className="nav-avatar" style={{ display: 'flex', alignItems: 'center' }}>
                   <div className="avatar" style={{ width: 34, height: 34, fontSize: 13, ...(user.avatar ? {} : { background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)' }) }}>
                     {user.avatar ? <img src={user.avatar} alt="" /> : initials(user.name ?? 'U')}
                   </div>
@@ -313,13 +325,86 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                   {totalCount > 0 && <span className={`cart-badge${bump ? ' bump' : ''}`}>{totalCount}</span>}
                 </Link>
-                <Link href="/login" className="btn btn-ghost btn-sm">Sign in</Link>
+                <Link href="/login" className="btn btn-ghost btn-sm nav-sign-in">Sign in</Link>
                 <Link href="/onboarding" className="btn btn-primary btn-sm nav-register">Register</Link>
               </>
             )}
           </div>
         </div>
       </header>
+
+      {/* Mobile search overlay */}
+      {searchOpen && (
+        <div className="mob-search-overlay">
+          <form
+            className="mob-search-form"
+            onSubmit={(e) => { handleSearch(e); setSearchOpen(false); }}
+          >
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => setSearchOpen(false)}
+              aria-label="Close search"
+              style={{ flexShrink: 0 }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+            </button>
+            <div className="mob-search-wrap">
+              <input
+                type="search"
+                className="mob-search-input"
+                placeholder="Search vendors, food, groceries..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                autoFocus
+                autoComplete="off"
+                enterKeyHint="search"
+              />
+              <button type="submit" className="search-btn" aria-label="Search">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Mobile nav menu */}
+      {mobileMenuOpen && (
+        <div className="c-mob-menu">
+          <a href="https://app.gobuyme.shop/downloads" target="_blank" rel="noopener noreferrer" className="c-mob-item" onClick={() => setMobileMenuOpen(false)}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18" strokeLinecap="round" strokeWidth="3"/></svg>
+            Get App
+          </a>
+          <div className="c-mob-divider" />
+          {user ? (
+            <>
+              <Link href="/notifications" className="c-mob-item" onClick={() => setMobileMenuOpen(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                Notifications
+              </Link>
+              <Link href="/profile" className="c-mob-item" onClick={() => setMobileMenuOpen(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                My Profile
+              </Link>
+              <button className="c-mob-item danger" onClick={() => { logout(); setMobileMenuOpen(false); }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="c-mob-item" onClick={() => setMobileMenuOpen(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                Sign In
+              </Link>
+              <Link href="/onboarding" className="c-mob-item brand" onClick={() => setMobileMenuOpen(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                Register
+              </Link>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Category bar */}
       <nav className={`catbar${!showPromo ? ' no-promo' : ''}`}>
