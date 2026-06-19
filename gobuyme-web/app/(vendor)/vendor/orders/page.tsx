@@ -22,7 +22,7 @@ interface OrderSummary {
 }
 
 // Extra fields returned by the detail endpoint (optional enrichment)
-interface OrderDetail extends OrderSummary {
+interface OrderDetail extends Omit<OrderSummary, 'items'> {
   deliveryAddress?: string;
   cancelReason?: string;
   items: string[] | { id: string; name: string; quantity: number; unitPrice: number; lineTotal: number }[];
