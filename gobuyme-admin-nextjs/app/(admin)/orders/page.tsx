@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
@@ -143,6 +144,8 @@ const STATUS_TABS: Array<'ALL' | OrderStatus> = ['ALL', 'IN_TRANSIT', 'PREPARING
 
 export default function OrdersPage() {
   const { theme: T } = useTheme();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | OrderStatus>('ALL');
@@ -164,6 +167,14 @@ export default function OrdersPage() {
   }, []);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  useEffect(() => {
+    const openOrderId = searchParams.get('openOrderId');
+    if (!openOrderId) return;
+    openDetail(openOrderId);
+    router.replace('/orders');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openDetail = async (id: string) => {
     setDetailOpen(true);

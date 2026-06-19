@@ -58,7 +58,7 @@ export default function RiderActivePage() {
   return (
     <div>
       <h1 className="t-page" style={{ marginBottom: 24 }}>Active Delivery</h1>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 24, alignItems: 'start' }}>
+      <div className="layout-grid" style={{ gap: 24 }}>
 
         {/* Map placeholder */}
         <div style={{ background: 'var(--surface2)', borderRadius: 'var(--r)', height: 360, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 64, border: '1px solid var(--line)' }}>

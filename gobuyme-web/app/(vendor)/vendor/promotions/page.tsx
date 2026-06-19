@@ -1,17 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import api from '@/services/api';
+import { uploadToCloudinary } from '@/services/cloudinary';
 
 interface Promo { id: string; title: string; description?: string; imageUrl?: string; isActive: boolean; expiresAt?: string; }
 
 export default function VendorPromotionsPage() {
   const toast = useToast();
+  const fileRef   = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const [promos, setPromos] = useState<Promo[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', imageUrl: '', expiresAt: '' });
+  const [imgBusy, setImgBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tier, setTier] = useState<string | null>(null);
 
@@ -24,6 +28,19 @@ export default function VendorPromotionsPage() {
       setTier(vRes.data.data?.commissionTier ?? null);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
+
+  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setImgBusy(true);
+    try {
+      const url = await uploadToCloudinary(file, 'vendor-promotions');
+      setForm(f => ({ ...f, imageUrl: url }));
+      toast('Image uploaded', 'success');
+    } catch { toast('Upload failed', 'error'); }
+    finally { setImgBusy(false); }
+  };
 
   const create = async () => {
     if (!form.title) { toast('Title required', 'error'); return; }
@@ -70,7 +87,7 @@ export default function VendorPromotionsPage() {
     <div>
       <div className="between" style={{ marginBottom: 24 }}>
         <h1 className="t-page">Promotions</h1>
-        <button className="btn btn-primary" onClick={() => setModal(true)}>+ New Promotion</button>
+        <button className="btn btn-primary" onClick={() => { setForm({ title: '', description: '', imageUrl: '', expiresAt: '' }); setModal(true); }}>+ New Promotion</button>
       </div>
 
       {loading ? (
@@ -78,7 +95,7 @@ export default function VendorPromotionsPage() {
           {[...Array(3)].map((_, i) => <div key={i} className="sk" style={{ height: 200 }} />)}
         </div>
       ) : promos.length === 0 ? (
-        <div className="empty"><div className="emoji">🎁</div><h3>No promotions</h3><p>Create your first promotion to attract more customers.</p><button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => setModal(true)}>+ New Promotion</button></div>
+        <div className="empty"><div className="emoji">🎁</div><h3>No promotions</h3><p>Create your first promotion to attract more customers.</p><button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => { setForm({ title: '', description: '', imageUrl: '', expiresAt: '' }); setModal(true); }}>+ New Promotion</button></div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {promos.map(p => (
@@ -102,14 +119,41 @@ export default function VendorPromotionsPage() {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-head"><h3>New Promotion</h3><button onClick={() => setModal(false)}>✕</button></div>
             <div className="modal-body">
+              <input ref={fileRef}   type="file" accept="image/*"                      style={{ display: 'none' }} onChange={handleImageFile} />
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleImageFile} />
+
               <div className="form-group"><label className="label">Title *</label><input className="input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></div>
               <div className="form-group"><label className="label">Description</label><textarea className="textarea" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
-              <div className="form-group"><label className="label">Image URL</label><input className="input" value={form.imageUrl} onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))} placeholder="https://..." /></div>
+
+              {/* Image upload */}
+              <div className="form-group">
+                <label className="label">Promotion Image <span className="muted" style={{ fontSize: 11 }}>(1080×580 px, 1.86:1)</span></label>
+                <div style={{ width: '100%', height: 120, borderRadius: 4, border: '1.5px dashed var(--line)', background: 'var(--surface2)', overflow: 'hidden', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                  {imgBusy ? (
+                    <span className="spin" style={{ borderColor: 'var(--line)', borderTopColor: 'var(--brand)', width: 24, height: 24 }} />
+                  ) : form.imageUrl ? (
+                    <>
+                      <img src={form.imageUrl} alt="promo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button onClick={() => setForm(f => ({ ...f, imageUrl: '' }))} style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                    </>
+                  ) : (
+                    <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
+                      <div style={{ fontSize: 24, marginBottom: 4 }}>🖼️</div>
+                      <div style={{ fontSize: 11 }}>No image</div>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={imgBusy} onClick={() => fileRef.current?.click()}>📁 Choose File</button>
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={imgBusy} onClick={() => cameraRef.current?.click()}>📷 Camera</button>
+                </div>
+              </div>
+
               <div className="form-group"><label className="label">Expires At</label><input className="input" type="datetime-local" value={form.expiresAt} onChange={e => setForm(f => ({ ...f, expiresAt: e.target.value }))} /></div>
             </div>
             <div className="modal-foot">
               <button className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={create} disabled={saving}>{saving ? <><span className="spin" />Creating…</> : 'Create'}</button>
+              <button className="btn btn-primary" onClick={create} disabled={saving || imgBusy}>{saving ? <><span className="spin" />Creating…</> : 'Create'}</button>
             </div>
           </div>
         </div>

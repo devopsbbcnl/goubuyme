@@ -107,4 +107,5 @@ export const resendOtpSchema = Joi.object({
 export const changePasswordSchema = Joi.object({
   currentPassword: Joi.string().required(),
   newPassword: Joi.string().min(8).required(),
+  otp: Joi.string().length(6).required(),
 });

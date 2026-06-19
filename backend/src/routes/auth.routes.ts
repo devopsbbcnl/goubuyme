@@ -3,7 +3,7 @@ import passport from '../config/passport';
 import {
   register, login, refresh, logout,
   getMe, updateProfile, forgotPassword, resetPassword, changePassword,
-  verifyOtp, resendOtp, activationStatus,
+  verifyOtp, resendOtp, activationStatus, requestPasswordOtp,
 } from '../controllers/auth.controller';
 import { validate } from '../middleware/validate.middleware';
 import { verifyToken } from '../middleware/auth.middleware';
@@ -29,6 +29,7 @@ router.post('/logout', verifyToken, logout);
 router.get('/me', verifyToken, getMe);
 router.get('/activation-status', verifyToken, activationStatus);
 router.patch('/profile', verifyToken, updateProfile);
+router.post('/request-password-otp', verifyToken, requestPasswordOtp);
 router.patch('/change-password', verifyToken, requireMfa, validate(changePasswordSchema), changePassword);
 router.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), forgotPassword);
 router.post('/reset-password', validate(resetPasswordSchema), resetPassword);

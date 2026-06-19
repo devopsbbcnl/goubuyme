@@ -390,7 +390,7 @@ function CheckoutContent() {
     <div className="page-body">
       <div className="inner">
         <h1 className="t-page" style={{ marginBottom: 28 }}>Checkout</h1>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 28, alignItems: 'start' }}>
+        <div className="layout-grid">
 
           {/* Left column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -425,7 +425,7 @@ function CheckoutContent() {
           </div>
 
           {/* Right column — always visible */}
-          <div style={{ position: 'sticky', top: 'calc(var(--total-nav-h) + 20px)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="layout-sticky" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div className="card card-pad">
               <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 16 }}>Order Summary</h3>
               {items.length === 0 ? (

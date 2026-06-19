@@ -48,7 +48,7 @@ export default function OrderDetailPage() {
     <div className="page-body">
       <div className="inner">
         <h1 className="t-page" style={{ marginBottom: 28 }}>Order #{order.orderNumber}</h1>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, alignItems: 'start' }}>
+        <div className="layout-grid" style={{ gap: 24 }}>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {/* Progress */}

@@ -10,6 +10,7 @@ import {
   deleteVendor,
   getAdminRiders, getAdminRiderDetail, updateRiderStatus, updateRiderDocumentStatus,
   getAdminCustomers,
+  getCustomerAddresses,
   deleteCustomer,
   getAdminOrders,
   getAdminOrderDetail,
@@ -80,6 +81,7 @@ router.patch('/riders/:id/document/status',  ...opsAuth,  updateRiderDocumentSta
 
 // Customers & Orders
 router.get('/customers', ...readAuth, getAdminCustomers);
+router.get('/customers/:id/addresses', ...readAuth, getCustomerAddresses);
 router.delete('/customers/:id', ...superAdminAuth, deleteCustomer);
 router.get('/orders',    ...readAuth, getAdminOrders);
 router.get('/orders/:id', ...readAuth, getAdminOrderDetail);

@@ -6,15 +6,15 @@ import { useSearchParams } from 'next/navigation';
 import { useCity } from '@/context/CityContext';
 import api from '@/services/api';
 
-interface Vendor { id: string; businessName: string; category: string; city: string; logo?: string | null; coverImage?: string | null; rating?: number; isOpen: boolean; avgDeliveryTime?: number | null; }
+interface Vendor {
+  id: string; businessName: string; category: string; city: string;
+  logo?: string | null; coverImage?: string | null; rating?: number;
+  isOpen: boolean; avgDeliveryTime?: number | null;
+}
 
 interface MenuItem {
-  id: string;
-  name: string;
-  description?: string | null;
-  price: number;
-  image?: string | null;
-  category?: string | null;
+  id: string; name: string; description?: string | null; price: number;
+  image?: string | null; category?: string | null;
   vendor: { id: string; businessName: string; logo?: string | null; city: string; isOpen: boolean; };
 }
 
@@ -59,30 +59,77 @@ function MenuItemCard({ item }: { item: MenuItem }) {
   );
 }
 
+function VendorCard({ v }: { v: Vendor }) {
+  return (
+    <Link href={`/vendor/${v.id}`} className="vendor-card">
+      {v.coverImage ? <img className="cover" src={v.coverImage} alt={v.businessName} /> : <div className="cover-ph">🏪</div>}
+      <div className="card-body">
+        {v.logo && <img className="vendor-logo" src={v.logo} alt="" />}
+        <div className="vendor-name">{v.businessName}</div>
+        <div className="vendor-meta">
+          <span className="rating">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#FFD700" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }}>
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            {v.rating != null ? v.rating.toFixed(1) : '0.0'}
+          </span>
+          <span>{v.city}</span>
+          {v.avgDeliveryTime && <span>· {v.avgDeliveryTime} min</span>}
+        </div>
+        <span className={`badge-open${v.isOpen ? '' : ' badge-closed'}`}>{v.isOpen ? 'Open' : 'Closed'}</span>
+      </div>
+    </Link>
+  );
+}
+
 function VendorsContent() {
   const searchParams = useSearchParams();
   const { selectedCity } = useCity();
+
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Derived from URL params — synced in one effect so the fetch effect has a single dep set
   const [cat, setCat] = useState(searchParams.get('category') ?? '');
   const [q, setQ] = useState(searchParams.get('q') ?? '');
+  const [searchType, setSearchType] = useState(searchParams.get('type') ?? 'all');
+  const [urlCity, setUrlCity] = useState<string | null>(searchParams.get('city'));
 
+  const [activeTab, setActiveTab] = useState<'vendors' | 'menu_items'>('vendors');
+
+  // Sync all URL-derived state in one pass to avoid double-fetch
   useEffect(() => {
     setCat(searchParams.get('category') ?? '');
     setQ(searchParams.get('q') ?? '');
+    setSearchType(searchParams.get('type') ?? 'all');
+    setUrlCity(searchParams.get('city'));
   }, [searchParams]);
 
+  // Fetch — only depends on derived state, not on searchParams directly
   useEffect(() => {
     setLoading(true);
+
     if (q) {
-      const params = new URLSearchParams();
-      params.set('search', q);
+      const params = new URLSearchParams({ q });
+      if (searchType !== 'all') params.set('type', searchType);
       if (cat) params.set('category', cat);
-      if (selectedCity) params.set('city', selectedCity);
-      api.get(`/vendors/menu-items/search?${params}`)
-        .then(r => setMenuItems(r.data.data ?? []))
-        .catch(() => setMenuItems([]))
+      const effectiveCity = urlCity ?? selectedCity;
+      if (effectiveCity) params.set('city', effectiveCity);
+
+      api.get(`/vendors/search?${params}`)
+        .then(r => {
+          const data = r.data.data ?? {};
+          const v: Vendor[] = data.vendors ?? [];
+          const m: MenuItem[] = data.menuItems ?? [];
+          setVendors(v);
+          setMenuItems(m);
+          // Auto-select tab: prefer vendors if both have results
+          if (searchType === 'menu_items') setActiveTab('menu_items');
+          else if (searchType === 'vendors') setActiveTab('vendors');
+          else setActiveTab(v.length > 0 ? 'vendors' : 'menu_items');
+        })
+        .catch(() => { setVendors([]); setMenuItems([]); })
         .finally(() => setLoading(false));
     } else {
       setMenuItems([]);
@@ -94,33 +141,92 @@ function VendorsContent() {
         .catch(() => setVendors([]))
         .finally(() => setLoading(false));
     }
-  }, [cat, q, selectedCity]);
+  }, [cat, q, searchType, urlCity, selectedCity]);
 
   const isSearchMode = Boolean(q);
-  const resultCount = isSearchMode ? menuItems.length : vendors.length;
+  // Tabs only appear when the user searched with type=all
+  const showTabs = isSearchMode && searchType === 'all';
+
+  // Which content type is currently visible
+  const showingItems =
+    (isSearchMode && searchType === 'menu_items') ||
+    (showTabs && activeTab === 'menu_items');
+
+  // Count shown in the header (for non-tab layouts) or inside tabs
+  const activeCount = showTabs
+    ? (activeTab === 'vendors' ? vendors.length : menuItems.length)
+    : showingItems
+      ? menuItems.length
+      : vendors.length;
+
+  // Skeleton type during load: use searchType for single-type, activeTab for tabs
+  const skeletonIsItems = searchType === 'menu_items' || (showTabs && activeTab === 'menu_items');
+
+  const emptyLabel = showingItems ? 'items' : 'vendors';
 
   return (
     <div className="page-body">
       <div className="inner">
         <div className="between" style={{ marginBottom: 24 }}>
           <h1 className="t-page">
-            {q ? `Results for "${q}"` : selectedCity ? `Vendors in ${selectedCity}` : 'All Vendors'}
+            {q
+              ? `Results for "${q}"${urlCity ? ` in ${urlCity}` : ''}`
+              : selectedCity ? `Vendors in ${selectedCity}` : 'All Vendors'}
           </h1>
-          <span className="muted" style={{ fontSize: 13 }}>
-            {resultCount} {isSearchMode ? `item${resultCount !== 1 ? 's' : ''}` : `vendor${resultCount !== 1 ? 's' : ''}`}
-          </span>
+          {!showTabs && !loading && (
+            <span className="muted" style={{ fontSize: 13 }}>
+              {activeCount} {showingItems ? `item${activeCount !== 1 ? 's' : ''}` : `vendor${activeCount !== 1 ? 's' : ''}`}
+            </span>
+          )}
         </div>
 
         <div className="chip-row">
           {CATEGORIES.map(c => (
-            <button key={c.slug} className={`chip${cat === c.slug ? ' active' : ''}`} onClick={() => setCat(c.slug)}>{c.label}</button>
+            <button key={c.slug} className={`chip${cat === c.slug ? ' active' : ''}`} onClick={() => setCat(c.slug)}>
+              {c.label}
+            </button>
           ))}
         </div>
 
+        {/* Tabs — only for type=all searches */}
+        {showTabs && (
+          <div style={{ display: 'flex', marginBottom: 24, borderBottom: '2px solid var(--line)' }}>
+            {(['vendors', 'menu_items'] as const).map(tab => {
+              const count = tab === 'vendors' ? vendors.length : menuItems.length;
+              const label = tab === 'vendors' ? 'Vendors' : 'Menu Items';
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    padding: '10px 20px', border: 'none', background: 'transparent', cursor: 'pointer',
+                    fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
+                    color: isActive ? 'var(--brand)' : 'var(--text2)',
+                    borderBottom: isActive ? '2px solid var(--brand)' : '2px solid transparent',
+                    marginBottom: -2, transition: 'color .15s',
+                  }}
+                >
+                  {label}
+                  {!loading && (
+                    <span style={{
+                      marginLeft: 6, fontSize: 12, fontWeight: 500, padding: '1px 6px', borderRadius: 999,
+                      background: isActive ? 'var(--brand-tint)' : 'var(--surface2)',
+                      color: isActive ? 'var(--brand)' : 'var(--text2)',
+                    }}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {loading ? (
-          <div className={isSearchMode ? 'menu-grid' : 'vendor-grid'}>
+          <div className={skeletonIsItems ? 'menu-grid' : 'vendor-grid'}>
             {[...Array(12)].map((_, i) =>
-              isSearchMode ? (
+              skeletonIsItems ? (
                 <div key={i} className="menu-card" style={{ pointerEvents: 'none' }}>
                   <div className="sk" style={{ height: 130 }} />
                   <div style={{ padding: 12 }}>
@@ -141,33 +247,31 @@ function VendorsContent() {
               )
             )}
           </div>
-        ) : resultCount === 0 ? (
+        ) : activeCount === 0 ? (
           <div className="empty">
             <div className="emoji">🔍</div>
-            <h3>{isSearchMode ? `No items found for "${q}"` : selectedCity ? `No vendors in ${selectedCity}` : 'No vendors found'}</h3>
-            <p>{isSearchMode ? 'Try a different keyword or remove the city filter.' : selectedCity ? 'Try selecting a different city from the top bar.' : 'Try a different search or category.'}</p>
+            <h3>
+              {isSearchMode
+                ? `No ${emptyLabel} found for "${q}"`
+                : selectedCity ? `No vendors in ${selectedCity}` : 'No vendors found'}
+            </h3>
+            <p>
+              {isSearchMode
+                ? showTabs
+                  ? 'Try switching tabs or use a different keyword.'
+                  : 'Try a different keyword or remove the city filter.'
+                : selectedCity
+                  ? 'Try selecting a different city from the top bar.'
+                  : 'Try a different search or category.'}
+            </p>
           </div>
-        ) : isSearchMode ? (
+        ) : showingItems ? (
           <div className="menu-grid">
             {menuItems.map(item => <MenuItemCard key={item.id} item={item} />)}
           </div>
         ) : (
           <div className="vendor-grid">
-            {vendors.map(v => (
-              <Link key={v.id} href={`/vendor/${v.id}`} className="vendor-card">
-                {v.coverImage ? <img className="cover" src={v.coverImage} alt={v.businessName} /> : <div className="cover-ph">🏪</div>}
-                <div className="card-body">
-                  {v.logo && <img className="vendor-logo" src={v.logo} alt="" />}
-                  <div className="vendor-name">{v.businessName}</div>
-                  <div className="vendor-meta">
-                    <span className="rating"><svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>{v.rating != null ? v.rating.toFixed(1) : '0.0'}</span>
-                    <span>{v.city}</span>
-                    {v.avgDeliveryTime && <span>· {v.avgDeliveryTime} min</span>}
-                  </div>
-                  <span className={`badge-open${v.isOpen ? '' : ' badge-closed'}`}>{v.isOpen ? 'Open' : 'Closed'}</span>
-                </div>
-              </Link>
-            ))}
+            {vendors.map(v => <VendorCard key={v.id} v={v} />)}
           </div>
         )}
       </div>

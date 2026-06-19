@@ -173,7 +173,7 @@ export default function HomePage() {
                         {v.logo && <img className="vendor-logo" src={v.logo} alt="" />}
                         <div className="vendor-name">{v.businessName}</div>
                         <div className="vendor-meta">
-                          <span className="rating"><svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>{v.rating != null ? v.rating.toFixed(1) : '0.0'}</span>
+                          <span className="rating"><svg width="12" height="12" viewBox="0 0 24 24" fill="#FFD700" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>{v.rating != null ? v.rating.toFixed(1) : '0.0'}</span>
                           <span>{v.city}</span>
                           {v.avgDeliveryTime && <span>· {v.avgDeliveryTime} min</span>}
                         </div>
@@ -183,6 +183,24 @@ export default function HomePage() {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* ── DOWNLOAD APP ── */}
+            <div className="section">
+              <div style={{ background: 'linear-gradient(135deg, #FF521B 0%, #FF7A4D 100%)', borderRadius: 4, padding: '40px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
+                <div style={{ color: '#fff' }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.8px', opacity: .8, marginBottom: 8 }}>Mobile App</p>
+                  <h2 style={{ fontSize: 28, fontWeight: 800, marginBottom: 10, lineHeight: 1.2 }}>Order faster with our app</h2>
+                  <p style={{ fontSize: 15, opacity: .9, maxWidth: 380, lineHeight: 1.6, marginBottom: 0 }}>Track your delivery in real-time, save addresses, and get exclusive app-only deals. Download now and get free delivery on your first order.</p>
+                </div>
+                <a href="https://app.gobuyme.shop/downloads" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.35)', color: '#fff', fontWeight: 700, fontSize: 15, padding: '14px 28px', borderRadius: 4, textDecoration: 'none', flexShrink: 0, boxShadow: '0 4px 16px rgba(0,0,0,.15)', transition: 'transform .15s, box-shadow .15s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 24px rgba(0,0,0,.2)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(0,0,0,.15)'; }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18" strokeLinecap="round" strokeWidth="3"/></svg>
+                  Download the App
+                </a>
+              </div>
             </div>
 
             {/* ── TRUST ── */}

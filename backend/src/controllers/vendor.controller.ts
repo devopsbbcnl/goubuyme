@@ -941,6 +941,8 @@ export const submitDocument = catchAsync(async (req: AuthRequest, res: Response)
     },
   });
 
+  await prisma.vendor.update({ where: { id: vendor.id }, data: { approvalStatus: 'PENDING' } });
+
   return apiResponse.success(res, 'Document submitted for review.', {
     id: doc.id, type: doc.type, status: doc.status,
   });
@@ -1082,6 +1084,8 @@ export const submitBusinessVerification = catchAsync(async (req: AuthRequest, re
     },
   });
 
+  await prisma.vendor.update({ where: { id: vendor.id }, data: { approvalStatus: 'PENDING' } });
+
   return apiResponse.success(res, 'Business verification submitted for review.', {
     id: biz.id, status: biz.status,
   });
@@ -1132,6 +1136,8 @@ export const submitLicense = catchAsync(async (req: AuthRequest, res: Response) 
     },
   });
 
+  await prisma.vendor.update({ where: { id: vendor.id }, data: { approvalStatus: 'PENDING' } });
+
   return apiResponse.success(res, 'License submitted for review.', {
     id: license.id, type: license.type, status: license.status,
   }, 201);
@@ -1154,6 +1160,53 @@ export const deleteLicense = catchAsync(async (req: AuthRequest, res: Response) 
   await updateVendorBadge(vendor.id);
 
   return apiResponse.success(res, 'License deleted.');
+});
+
+// GET /vendors/search  (public — unified search: vendors and/or menu items)
+export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
+  const { q, type = 'all', city, category } = req.query as Record<string, string>;
+
+  if (!q?.trim()) return apiResponse.error(res, 'q query parameter is required.', 400);
+
+  const searchTerm = q.trim();
+  const searchType = ['vendors', 'menu_items', 'all'].includes(type) ? type : 'all';
+
+  const vendorFilter: Record<string, unknown> = { approvalStatus: ApprovalStatus.APPROVED };
+  if (city) vendorFilter.city = { equals: city, mode: 'insensitive' };
+  if (category && category !== 'ALL') vendorFilter.category = category;
+
+  const [vendors, menuItems] = await Promise.all([
+    searchType !== 'menu_items'
+      ? prisma.vendor.findMany({
+          where: { ...vendorFilter, businessName: { contains: searchTerm, mode: 'insensitive' } },
+          select: vendorSelect,
+          orderBy: { rating: 'desc' },
+          take: 30,
+        })
+      : Promise.resolve([]),
+
+    searchType !== 'vendors'
+      ? prisma.menuItem.findMany({
+          where: {
+            OR: [
+              { name: { contains: searchTerm, mode: 'insensitive' } },
+              { description: { contains: searchTerm, mode: 'insensitive' } },
+            ],
+            isAvailable: true,
+            stockQuantity: { gt: 0 },
+            vendor: vendorFilter,
+          },
+          select: {
+            id: true, name: true, description: true, price: true, image: true, category: true,
+            vendor: { select: { id: true, businessName: true, logo: true, city: true, isOpen: true } },
+          },
+          orderBy: { name: 'asc' },
+          take: 60,
+        })
+      : Promise.resolve([]),
+  ]);
+
+  return apiResponse.success(res, 'Search results fetched.', { vendors, menuItems });
 });
 
 // GET /vendors/menu-items/search  (public — searches menu items across approved vendors)

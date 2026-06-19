@@ -93,7 +93,7 @@ export default function RiderProfilePage() {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="two-col-grid" style={{ gap: 20 }}>
 
         {/* Header */}
         <div className="card card-pad" style={{ gridColumn: '1 / -1', display: 'flex', gap: 20, alignItems: 'center' }}>
@@ -163,7 +163,7 @@ export default function RiderProfilePage() {
         <div className="card card-pad" style={{ gridColumn: '1 / -1' }}>
           <h3 style={{ fontWeight: 800, fontSize: 16, marginBottom: 18 }}>Guarantor</h3>
           {src?.guarantorName || src?.guarantorPhone || src?.guarantorAddress ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            <div className="three-col-grid">
               <InfoRow label="Guarantor Name" value={src.guarantorName || '—'} />
               <InfoRow label="Guarantor Phone" value={src.guarantorPhone || '—'} />
               <InfoRow label="Guarantor Address" value={src.guarantorAddress || '—'} />

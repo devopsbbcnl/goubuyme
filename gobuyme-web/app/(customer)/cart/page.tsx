@@ -25,7 +25,7 @@ export default function CartPage() {
     <div className="page-body">
       <div className="inner">
         <h1 className="t-page" style={{ marginBottom: 28 }}>Your Cart</h1>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 28, alignItems: 'start' }}>
+        <div className="layout-grid">
 
           {/* Items */}
           <div className="card" style={{ overflow: 'hidden' }}>
@@ -54,7 +54,7 @@ export default function CartPage() {
           </div>
 
           {/* Summary */}
-          <div className="card card-pad" style={{ position: 'sticky', top: 'calc(var(--total-nav-h) + 20px)' }}>
+          <div className="card card-pad layout-sticky">
             <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 20 }}>Order Summary</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
               <div className="between"><span className="muted">Subtotal</span><span style={{ fontWeight: 700 }}>₦{totalAmount.toLocaleString()}</span></div>

@@ -181,6 +181,19 @@ export const resendOtp = catchAsync(async (req: Request, res: Response) => {
   return apiResponse.success(res, 'A new verification code has been sent to your email.');
 });
 
+export const requestPasswordOtp = catchAsync(async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.userId;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, name: true },
+  });
+  if (!user) return apiResponse.error(res, 'User not found.', 404);
+
+  await createAndDispatchOtp(user.id, user.email, user.name);
+
+  return apiResponse.success(res, 'Verification code sent to your email.');
+});
+
 export const login = catchAsync(async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
@@ -330,13 +343,24 @@ export const forgotPassword = catchAsync(async (req: Request, res: Response) => 
 });
 
 export const changePassword = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string };
+  const { currentPassword, newPassword, otp } = req.body as { currentPassword: string; newPassword: string; otp: string };
 
   const user = await prisma.user.findUnique({
     where: { id: req.user!.userId },
     select: { id: true, password: true },
   });
   if (!user || !user.password) return apiResponse.error(res, 'User not found.', 404);
+
+  const otpRecord = await prisma.emailOtp.findFirst({
+    where: { userId: user.id, used: false },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!otpRecord || otpRecord.expiresAt < new Date()) {
+    return apiResponse.error(res, 'Verification code expired. Request a new one.', 400);
+  }
+  if (otpRecord.code !== otp) {
+    return apiResponse.error(res, 'Invalid verification code.', 400);
+  }
 
   const valid = await bcrypt.compare(currentPassword, user.password);
   if (!valid) return apiResponse.error(res, 'Current password is incorrect.', 401);
@@ -346,7 +370,10 @@ export const changePassword = catchAsync(async (req: AuthRequest, res: Response)
   }
 
   const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
-  await prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: user.id }, data: { password: hashed } }),
+    prisma.emailOtp.update({ where: { id: otpRecord.id }, data: { used: true } }),
+  ]);
 
   return apiResponse.success(res, 'Password changed successfully.');
 });

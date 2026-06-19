@@ -89,6 +89,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [search, setSearch] = useState('');
+  const [searchType, setSearchType] = useState<'all' | 'vendors' | 'menu_items'>('all');
   const [activeVendor, setActiveVendor] = useState('');
   const [bump, setBump] = useState(false);
   const [showPromo, setShowPromo] = useState(showPromoBar);
@@ -133,7 +134,30 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (search.trim()) router.push(`/vendors?q=${encodeURIComponent(search.trim())}`);
+    let term = search.trim();
+    if (!term) return;
+
+    // Auto-detect a supported city in the query and strip it from the keyword
+    let detectedCity: string | null = null;
+    for (const city of SUPPORTED_CITIES) {
+      const re = new RegExp(`\\b${city.name}\\b`, 'i');
+      if (re.test(term)) {
+        detectedCity = city.name;
+        term = term.replace(re, '').replace(/\s+/g, ' ').trim();
+        break;
+      }
+    }
+
+    if (!term && detectedCity) {
+      // Pure city search — show vendors in that city
+      router.push(`/vendors?city=${encodeURIComponent(detectedCity)}`);
+      return;
+    }
+
+    const params = new URLSearchParams({ q: term });
+    if (searchType !== 'all') params.set('type', searchType);
+    if (detectedCity) params.set('city', detectedCity);
+    router.push(`/vendors?${params}`);
   };
 
   const handleVendorCat = (slug: string) => {
@@ -183,7 +207,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
       <header className={`topbar${!showPromo ? ' no-promo' : ''}`}>
         <div className="inner">
           {/* Logo */}
-          <Link href="/" className="logo">
+          <Link href="/" className="logo" style={{ background: 'rgba(255,255,255,0.22)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 4, padding: '4px 10px' }}>
             <Image src="/images/logo.png" alt="GoBuyMe" width={140} height={42} style={{ objectFit: 'contain' }} />
           </Link>
 
@@ -232,9 +256,19 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
 
           {/* Search */}
           <form className="search-wrap" onSubmit={handleSearch}>
+            <select
+              value={searchType}
+              onChange={e => setSearchType(e.target.value as 'all' | 'vendors' | 'menu_items')}
+              aria-label="Search type"
+              style={{ flexShrink: 0, border: 'none', background: 'transparent', fontSize: 12, fontWeight: 600, color: 'var(--text2)', cursor: 'pointer', padding: '0 6px 0 10px', borderRight: '1px solid var(--line)', height: '100%', outline: 'none', fontFamily: 'inherit' }}
+            >
+              <option value="all">All</option>
+              <option value="vendors">Vendors</option>
+              <option value="menu_items">Items</option>
+            </select>
             <input
               type="text"
-              placeholder={selectedCity ? `Search for your favorite meal or vendor in ${selectedCity}...` : 'Search vendors, food, groceries...'}
+              placeholder={selectedCity ? `Search in ${selectedCity}...` : 'Search vendors, food, groceries...'}
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -245,9 +279,22 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
 
           {/* Actions */}
           <div className="nav-actions">
+            {/* Mobile search icon (hidden on desktop via .show-mobile) */}
+            <button
+              className="icon-btn show-mobile"
+              onClick={() => router.push('/vendors')}
+              aria-label="Search"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </button>
+
+            <a href="https://app.gobuyme.shop/downloads" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm nav-get-app" style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18" strokeLinecap="round" strokeWidth="3"/></svg>
+              Get App
+            </a>
             {user ? (
               <>
-                <Link href="/notifications" className="icon-btn" aria-label="Notifications">
+                <Link href="/notifications" className="icon-btn nav-notif" aria-label="Notifications">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 </Link>
                 <Link href="/cart" className="icon-btn" aria-label="Cart">
@@ -255,7 +302,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                   {totalCount > 0 && <span className={`cart-badge${bump ? ' bump' : ''}`}>{totalCount}</span>}
                 </Link>
                 <Link href="/profile" style={{ display: 'flex', alignItems: 'center' }}>
-                  <div className="avatar" style={{ width: 34, height: 34, fontSize: 13 }}>
+                  <div className="avatar" style={{ width: 34, height: 34, fontSize: 13, ...(user.avatar ? {} : { background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)' }) }}>
                     {user.avatar ? <img src={user.avatar} alt="" /> : initials(user.name ?? 'U')}
                   </div>
                 </Link>
@@ -267,7 +314,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                   {totalCount > 0 && <span className={`cart-badge${bump ? ' bump' : ''}`}>{totalCount}</span>}
                 </Link>
                 <Link href="/login" className="btn btn-ghost btn-sm">Sign in</Link>
-                <Link href="/onboarding" className="btn btn-primary btn-sm">Register</Link>
+                <Link href="/onboarding" className="btn btn-primary btn-sm nav-register">Register</Link>
               </>
             )}
           </div>

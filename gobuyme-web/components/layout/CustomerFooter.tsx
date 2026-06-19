@@ -1,6 +1,6 @@
 import Image from 'next/image';
 
-const BASE = 'https://gobuyme.shop';
+const BASE = 'https://app.gobuyme.shop';
 
 export function CustomerFooter() {
   return (
@@ -8,7 +8,7 @@ export function CustomerFooter() {
       <div className="inner">
         <div className="footer-grid">
           <div className="footer-col">
-            <a href={BASE} className="footer-logo">
+            <a href={BASE} className="footer-logo" style={{ display: 'inline-block', background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 4, padding: '4px 10px' }}>
               <Image src="/images/logo.png" alt="GoBuyMe" width={130} height={40} style={{ objectFit: 'contain' }} />
             </a>
             <p style={{ fontSize: 13, lineHeight: 1.7, maxWidth: 260 }}>
@@ -34,6 +34,7 @@ export function CustomerFooter() {
             <a href={`${BASE}/contact`}>Contact Us</a>
             <a href={`${BASE}/privacy`}>Privacy Policy</a>
             <a href={`${BASE}/terms`}>Terms of Service</a>
+            <a href="https://app.gobuyme.shop/downloads" target="_blank" rel="noopener noreferrer">Download App</a>
           </div>
         </div>
         <div className="footer-bottom">

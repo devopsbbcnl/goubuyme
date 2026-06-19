@@ -424,6 +424,17 @@ export const getAdminCustomers = catchAsync(async (req: Request, res: Response) 
   });
 });
 
+// GET /admin/customers/:id/addresses
+export const getCustomerAddresses = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const addresses = await prisma.address.findMany({
+    where: { customerId: id },
+    select: { id: true, label: true, address: true, city: true, state: true, isDefault: true },
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+  });
+  return apiResponse.success(res, 'Addresses fetched.', addresses);
+});
+
 // GET /admin/audit
 export const getAuditLogs = catchAsync(async (req: Request, res: Response) => {
   const { action, entity, page = '1', limit = '20' } = req.query as Record<string, string>;
@@ -457,12 +468,13 @@ export const getAuditLogs = catchAsync(async (req: Request, res: Response) => {
 
 // GET /admin/orders
 export const getAdminOrders = catchAsync(async (req: Request, res: Response) => {
-  const { status, search, page = '1', limit = '20' } = req.query as Record<string, string>;
+  const { status, search, customerId, page = '1', limit = '20' } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, parseInt(limit));
 
   const where: Record<string, unknown> = {};
   if (status && status !== 'ALL') where.status = status as OrderStatus;
+  if (customerId) where.customerId = customerId;
   if (search) {
     where.OR = [
       { orderNumber: { contains: search, mode: 'insensitive' } },
