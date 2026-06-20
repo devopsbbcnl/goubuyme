@@ -64,10 +64,11 @@ export default function VendorDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTag, setActiveTag] = useState('');
 
-  // drawer
+  // drawer state
   const [drawerItem, setDrawerItem] = useState<MenuItem | null>(null);
-  const [selectedDrink, setSelectedDrink] = useState<string | null>(null);
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [drinkQtys, setDrinkQtys] = useState<Record<string, number>>({});
+  // groupId → { itemId → qty }
+  const [optionQtys, setOptionQtys] = useState<Record<string, Record<string, number>>>({});
   const [qty, setQty] = useState(1);
 
   useEffect(() => {
@@ -104,68 +105,95 @@ export default function VendorDetailPage() {
 
   const openDrawer = (item: MenuItem) => {
     setDrawerItem(item);
-    setSelectedDrink(null);
-    setSelectedOptions({});
+    setDrinkQtys({});
+    setOptionQtys({});
     setQty(1);
   };
 
   const closeDrawer = () => setDrawerItem(null);
 
-  const toggleOption = (groupId: string, optId: string) => {
-    setSelectedOptions(prev => {
-      if (prev[groupId] === optId) {
-        const { [groupId]: _, ...rest } = prev;
+  const adjustDrinkQty = (drinkId: string, delta: number) => {
+    setDrinkQtys(prev => {
+      const next = (prev[drinkId] ?? 0) + delta;
+      if (next <= 0) {
+        const { [drinkId]: _, ...rest } = prev;
         return rest;
       }
-      return { ...prev, [groupId]: optId };
+      return { ...prev, [drinkId]: next };
     });
   };
 
-  // ── Add with options ──────────────────────────────────────────────────────
-
-  const drawerTotal = (() => {
-    if (!drawerItem) return 0;
-    const drink = drawerItem.drinkOptions?.find(d => d.id === selectedDrink);
-    const extras = Object.values(selectedOptions).reduce((sum, optId) => {
-      for (const g of drawerItem.optionGroups ?? []) {
-        const opt = g.items.find(i => i.id === optId);
-        if (opt) return sum + opt.extraPrice;
+  const adjustOptionQty = (groupId: string, optId: string, delta: number) => {
+    setOptionQtys(prev => {
+      const group = prev[groupId] ?? {};
+      const next = (group[optId] ?? 0) + delta;
+      if (next <= 0) {
+        const { [optId]: _, ...rest } = group;
+        return { ...prev, [groupId]: rest };
       }
-      return sum;
+      return { ...prev, [groupId]: { ...group, [optId]: next } };
+    });
+  };
+
+  // ── Totals ────────────────────────────────────────────────────────────────
+
+  const calcDrinkTotal = (item: MenuItem) =>
+    Object.entries(drinkQtys).reduce((sum, [did, q]) => {
+      const d = item.drinkOptions?.find(d => d.id === did);
+      return sum + (d?.price ?? 0) * q;
     }, 0);
-    return (drawerItem.price + (drink?.price ?? 0) + extras) * qty;
-  })();
+
+  const calcExtras = (item: MenuItem) => {
+    let total = 0;
+    for (const g of item.optionGroups ?? []) {
+      const gQtys = optionQtys[g.id] ?? {};
+      for (const [optId, q] of Object.entries(gQtys)) {
+        const opt = g.items.find(i => i.id === optId);
+        if (opt) total += opt.extraPrice * q;
+      }
+    }
+    return total;
+  };
+
+  const drawerTotal = drawerItem
+    ? (drawerItem.price + calcDrinkTotal(drawerItem) + calcExtras(drawerItem)) * qty
+    : 0;
+
+  // ── Add with options ──────────────────────────────────────────────────────
 
   const addWithOptions = () => {
     if (!drawerItem || !vendor) return;
 
     for (const group of drawerItem.optionGroups ?? []) {
-      if (group.required && !selectedOptions[group.id]) {
-        toast(`Please select ${group.name}`, 'error');
-        return;
+      if (group.required) {
+        const total = Object.values(optionQtys[group.id] ?? {}).reduce((s, q) => s + q, 0);
+        if (total === 0) {
+          toast(`Please select ${group.name}`, 'error');
+          return;
+        }
       }
     }
 
-    const drinkPart = selectedDrink ?? 'nd';
-    const optPart = Object.entries(selectedOptions).sort().map(([k, v]) => `${k}:${v}`).join('|') || 'no';
+    const drinkPart = Object.entries(drinkQtys).sort().map(([k, v]) => `${k}x${v}`).join('|') || 'nd';
+    const optPart = Object.entries(optionQtys)
+      .sort()
+      .flatMap(([gid, its]) => Object.entries(its).sort().map(([iid, q]) => `${gid}:${iid}x${q}`))
+      .join('|') || 'no';
     const compositeId = `${vendor.id}-${drawerItem.id}-${drinkPart}-${optPart}`;
 
-    const drink = drawerItem.drinkOptions?.find(d => d.id === selectedDrink);
-    const drinkPrice = drink?.price ?? 0;
-    const extras = Object.values(selectedOptions).reduce((sum, optId) => {
-      for (const g of drawerItem.optionGroups ?? []) {
-        const opt = g.items.find(i => i.id === optId);
-        if (opt) return sum + opt.extraPrice;
-      }
-      return sum;
-    }, 0);
-    const unitPrice = drawerItem.price + drinkPrice + extras;
+    const unitPrice = drawerItem.price + calcDrinkTotal(drawerItem) + calcExtras(drawerItem);
 
     const labels: string[] = [];
-    if (drink) labels.push(drink.name);
+    Object.entries(drinkQtys).forEach(([did, q]) => {
+      const d = drawerItem.drinkOptions?.find(d => d.id === did);
+      if (d) labels.push(q > 1 ? `${q}x ${d.name}` : d.name);
+    });
     for (const g of drawerItem.optionGroups ?? []) {
-      const sel = g.items.find(i => i.id === selectedOptions[g.id]);
-      if (sel) labels.push(sel.name);
+      const gQtys = optionQtys[g.id] ?? {};
+      for (const [optId, q] of Object.entries(gQtys)) {
+        const opt = g.items.find(i => i.id === optId);
+        if (opt) labels.push(q > 1 ? `${q}x ${opt.name}` : opt.name);
+      }
     }
     const displayName = labels.length ? `${drawerItem.name} (${labels.join(', ')})` : drawerItem.name;
 
@@ -324,9 +352,9 @@ export default function VendorDetailPage() {
 
             {/* Head */}
             <div className="item-drawer-head">
-              <h3 style={{ fontSize: 17, fontWeight: 800, flex: 1, minWidth: 0 }}>{drawerItem.name}</h3>
+              <h3 style={{ fontSize: 15, fontWeight: 800, flex: 1, minWidth: 0 }}>{drawerItem.name}</h3>
               <button className="icon-btn" onClick={closeDrawer} aria-label="Close">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
               </button>
@@ -335,40 +363,49 @@ export default function VendorDetailPage() {
             {/* Body */}
             <div className="item-drawer-body">
               {drawerItem.image && (
-                <img src={drawerItem.image} alt={drawerItem.name} style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 'var(--r)' }} />
+                <img src={drawerItem.image} alt={drawerItem.name} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 'var(--r)' }} />
               )}
 
               <div>
-                <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--brand)', marginBottom: drawerItem.description ? 4 : 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--brand)', marginBottom: drawerItem.description ? 4 : 0 }}>
                   ₦{drawerItem.price.toLocaleString()}
                 </div>
                 {drawerItem.description && (
-                  <p className="muted" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 4 }}>{drawerItem.description}</p>
+                  <p className="muted" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 4 }}>{drawerItem.description}</p>
                 )}
               </div>
 
-              {/* Drink options */}
+              {/* Drink options — per-drink qty */}
               {(drawerItem.drinkOptions?.filter(d => d.isAvailable).length ?? 0) > 0 && (
                 <div>
-                  <div className="opt-group-title">Choose a drink <span className="muted" style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></div>
-                  {drawerItem.drinkOptions!.filter(d => d.isAvailable).map(drink => (
-                    <div
-                      key={drink.id}
-                      className={`opt-item${selectedDrink === drink.id ? ' selected' : ''}`}
-                      onClick={() => setSelectedDrink(p => p === drink.id ? null : drink.id)}
-                      role="checkbox"
-                      aria-checked={selectedDrink === drink.id}
-                    >
-                      <div style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{drink.name}</div>
-                      <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--brand)', flexShrink: 0 }}>
-                        +₦{drink.price.toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
+                  <div className="opt-group-title">
+                    Choose a drink
+                    <span className="muted" style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 4 }}>(optional)</span>
+                  </div>
+                  {drawerItem.drinkOptions!.filter(d => d.isAvailable).map(drink => {
+                    const q = drinkQtys[drink.id] ?? 0;
+                    return (
+                      <div key={drink.id} className={`opt-item${q > 0 ? ' selected' : ''}`} style={{ cursor: 'default' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 12 }}>{drink.name}</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand)', marginTop: 2 }}>+₦{drink.price.toLocaleString()}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                          {q > 0 && (
+                            <>
+                              <button className="qty-btn" onClick={() => adjustDrinkQty(drink.id, -1)} aria-label="Remove one">−</button>
+                              <span className="qty-val">{q}</span>
+                            </>
+                          )}
+                          <button className="qty-btn" onClick={() => adjustDrinkQty(drink.id, 1)} aria-label="Add one">+</button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
-              {/* Option groups */}
+              {/* Option groups — per-item qty */}
               {drawerItem.optionGroups?.filter(g => g.items.some(i => i.isAvailable)).map(group => (
                 <div key={group.id}>
                   <div className="opt-group-title">
@@ -378,22 +415,28 @@ export default function VendorDetailPage() {
                       : <span className="muted" style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 4 }}>(optional)</span>
                     }
                   </div>
-                  {group.items.filter(i => i.isAvailable).map(opt => (
-                    <div
-                      key={opt.id}
-                      className={`opt-item${selectedOptions[group.id] === opt.id ? ' selected' : ''}`}
-                      onClick={() => toggleOption(group.id, opt.id)}
-                      role="radio"
-                      aria-checked={selectedOptions[group.id] === opt.id}
-                    >
-                      <div style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{opt.name}</div>
-                      {opt.extraPrice > 0 && (
-                        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--brand)', flexShrink: 0 }}>
-                          +₦{opt.extraPrice.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                  {group.items.filter(i => i.isAvailable).map(opt => {
+                    const q = (optionQtys[group.id] ?? {})[opt.id] ?? 0;
+                    return (
+                      <div key={opt.id} className={`opt-item${q > 0 ? ' selected' : ''}`} style={{ cursor: 'default' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 12 }}>{opt.name}</div>
+                          {opt.extraPrice > 0 && (
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand)', marginTop: 2 }}>+₦{opt.extraPrice.toLocaleString()}</div>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                          {q > 0 && (
+                            <>
+                              <button className="qty-btn" onClick={() => adjustOptionQty(group.id, opt.id, -1)} aria-label="Remove one">−</button>
+                              <span className="qty-val">{q}</span>
+                            </>
+                          )}
+                          <button className="qty-btn" onClick={() => adjustOptionQty(group.id, opt.id, 1)} aria-label="Add one">+</button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
             </div>
@@ -401,7 +444,7 @@ export default function VendorDetailPage() {
             {/* Footer */}
             <div className="item-drawer-foot">
               <div className="between">
-                <span style={{ fontSize: 14, fontWeight: 600 }}>Quantity</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Quantity</span>
                 <div className="qty-row">
                   <button className="qty-btn" onClick={() => setQty(q => Math.max(1, q - 1))} aria-label="Decrease">−</button>
                   <span className="qty-val">{qty}</span>
@@ -410,7 +453,7 @@ export default function VendorDetailPage() {
               </div>
               <button
                 className="btn btn-primary"
-                style={{ width: '100%', height: 50, fontSize: 15, fontWeight: 800 }}
+                style={{ width: '100%', height: 48, fontSize: 14, fontWeight: 800 }}
                 onClick={addWithOptions}
                 disabled={!vendor.isOpen}
               >
