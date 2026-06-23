@@ -184,6 +184,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
   const handleCitySelect = (city: string | null) => {
     setSelectedCity(city);
     setCityOpen(false);
+    router.push(city ? `/vendors?city=${encodeURIComponent(city)}` : '/vendors');
   };
 
   const initials = (name: string) => name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();

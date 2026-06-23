@@ -4,7 +4,7 @@ import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { haversineDistance, estimateDeliveryMinutes } from '../services/distance.service';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
-import { ApprovalStatus, CommissionTier, LicenseType, OrderStatus, VerificationBadge } from '@prisma/client';
+import { ApprovalStatus, CommissionTier, LicenseType, OrderStatus, Prisma, VendorCategory, VerificationBadge } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
 
 // ── Badge recomputation ───────────────────────────────────────────────────────
@@ -43,8 +43,8 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
   const limitNum = Math.min(100, parseInt(limit));
   const radiusKm = parseFloat(radius || String(DEFAULT_RADIUS));
 
-  const where: Record<string, unknown> = { approvalStatus: ApprovalStatus.APPROVED };
-  if (category && category !== 'ALL') where.category = category;
+  const where: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
+  if (category && category !== 'ALL') where.category = category as VendorCategory;
   if (search) {
     where.OR = [
       { businessName: { contains: search, mode: 'insensitive' } },
@@ -1171,9 +1171,9 @@ export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
   const searchTerm = q.trim();
   const searchType = ['vendors', 'menu_items', 'all'].includes(type) ? type : 'all';
 
-  const vendorFilter: Record<string, unknown> = { approvalStatus: ApprovalStatus.APPROVED };
+  const vendorFilter: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
   if (city) vendorFilter.city = { equals: city, mode: 'insensitive' };
-  if (category && category !== 'ALL') vendorFilter.category = category;
+  if (category && category !== 'ALL') vendorFilter.category = category as VendorCategory;
 
   const [vendors, menuItems] = await Promise.all([
     searchType !== 'menu_items'
@@ -1215,9 +1215,9 @@ export const searchMenuItems = catchAsync(async (req: Request, res: Response) =>
 
   if (!search?.trim()) return apiResponse.error(res, 'search query is required.', 400);
 
-  const vendorWhere: Record<string, unknown> = { approvalStatus: ApprovalStatus.APPROVED };
+  const vendorWhere: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
   if (city) vendorWhere.city = { equals: city, mode: 'insensitive' };
-  if (category && category !== 'ALL') vendorWhere.category = category;
+  if (category && category !== 'ALL') vendorWhere.category = category as VendorCategory;
 
   const items = await prisma.menuItem.findMany({
     where: {

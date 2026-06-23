@@ -38,7 +38,7 @@ const FOOD_CATEGORIES = [
 
 export default function HomePage() {
   const { user, loading } = useAuth();
-  const { selectedCity, cityLoaded } = useCity();
+  const { selectedCity } = useCity();
   const router = useRouter();
   const [slide, setSlide] = useState(0);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -54,7 +54,6 @@ export default function HomePage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (!cityLoaded) return;
     setDataLoading(true);
     const params = new URLSearchParams({ limit: '12' });
     if (selectedCity) params.set('city', selectedCity);
@@ -69,7 +68,7 @@ export default function HomePage() {
       setVendors(vRes.data.data?.vendors ?? vRes.data.data ?? []);
       setPromos(pRes.data.data ?? []);
     }).finally(() => setDataLoading(false));
-  }, [selectedCity, cityLoaded]);
+  }, [selectedCity]);
 
   useEffect(() => {
     autoRef.current = setInterval(() => setSlide(s => (s + 1) % HERO_SLIDES.length), 5000);

@@ -99,7 +99,7 @@ function VendorCard({ v }: { v: Vendor }) {
 
 function VendorsContent() {
   const searchParams = useSearchParams();
-  const { selectedCity, cityLoaded } = useCity();
+  const { selectedCity } = useCity();
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -134,7 +134,6 @@ function VendorsContent() {
 
   // Fetch — only depends on derived state, not on searchParams directly
   useEffect(() => {
-    if (!cityLoaded) return;
     setLoading(true);
 
     const effectiveCity = urlCity ?? selectedCity;
@@ -177,7 +176,7 @@ function VendorsContent() {
         .catch(() => setVendors([]))
         .finally(() => setLoading(false));
     }
-  }, [cat, q, searchType, urlCity, selectedCity, cityLoaded, page]);
+  }, [cat, q, searchType, urlCity, selectedCity, page]);
 
   const isSearchMode = Boolean(q);
   const showTabs = isSearchMode && searchType === 'all';

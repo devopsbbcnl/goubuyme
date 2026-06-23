@@ -21,19 +21,16 @@ export const SUPPORTED_CITIES = [
 interface CityCtx {
   selectedCity: string | null;
   setSelectedCity: (city: string | null) => void;
-  cityLoaded: boolean;
 }
 
-const Ctx = createContext<CityCtx>({ selectedCity: null, setSelectedCity: () => {}, cityLoaded: false });
+const Ctx = createContext<CityCtx>({ selectedCity: null, setSelectedCity: () => {} });
 
 export function CityProvider({ children }: { children: ReactNode }) {
   const [selectedCity, setSelectedCityState] = useState<string | null>(null);
-  const [cityLoaded, setCityLoaded] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) setSelectedCityState(saved);
-    setCityLoaded(true);
   }, []);
 
   const setSelectedCity = (city: string | null) => {
@@ -42,7 +39,7 @@ export function CityProvider({ children }: { children: ReactNode }) {
     else localStorage.removeItem(STORAGE_KEY);
   };
 
-  return <Ctx.Provider value={{ selectedCity, setSelectedCity, cityLoaded }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ selectedCity, setSelectedCity }}>{children}</Ctx.Provider>;
 }
 
 export const useCity = () => useContext(Ctx);
