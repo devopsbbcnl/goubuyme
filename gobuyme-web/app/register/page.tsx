@@ -63,7 +63,7 @@ function RegisterContent() {
   return (
     <div className="auth-page">
       <div className="auth-left">
-        <Link href="/" style={{ marginBottom: 40, display: 'inline-block', background: '#fff', borderRadius: 8, padding: '6px 12px' }}>
+        <Link href="/" className="footer-logo" style={{ marginBottom: 40 }}>
           <Image src="/images/logo.png" alt="GoBuyMe" width={140} height={46} style={{ objectFit: 'contain', display: 'block' }} />
         </Link>
         <div style={{ fontSize: 56, marginBottom: 24 }}>{ROLE_ICONS[role] ?? '🛒'}</div>

@@ -66,6 +66,7 @@ model Vendor {
   logo                 String?
   coverImage           String?
   category             VendorCategory
+  subcategory          String?
   address              String
   city                 String
   state                String                      @default("Rivers")
@@ -738,6 +739,8 @@ enum VendorCategory {
   RESTAURANT
   GROCERY
   PHARMACY
+  HOME_KITCHEN
+  BEAUTY
   ERRAND
 }
 

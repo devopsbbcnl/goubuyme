@@ -71,7 +71,7 @@ function LoginContent() {
   return (
     <div className="auth-page">
       <div className="auth-left">
-        <div style={{ marginBottom: 32, display: 'inline-block', background: '#fff', borderRadius: 8, padding: '6px 12px' }}>
+        <div className="footer-logo" style={{ marginBottom: 32 }}>
           <Image src="/images/logo.png" alt="GoBuyMe" width={140} height={46} style={{ objectFit: 'contain', display: 'block' }} />
         </div>
         <h1>Hungry?<br />GoBuyMe.</h1>
