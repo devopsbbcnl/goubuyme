@@ -86,6 +86,9 @@ model Vendor {
   updatedAt            DateTime                    @updatedAt
   tierChangedAt        DateTime?
   verificationBadge    VerificationBadge           @default(UNVERIFIED)
+  isFeatured           Boolean                     @default(false)
+  featuredUntil        DateTime?
+  displayOrder         Int                         @default(0)
   favorites            Favorite[]
   menuItems            MenuItem[]
   orders               Order[]
@@ -101,6 +104,8 @@ model Vendor {
   @@index([city])
   @@index([category])
   @@index([createdAt])
+  @@index([isFeatured])
+  @@index([displayOrder])
   @@map("vendors")
 }
 

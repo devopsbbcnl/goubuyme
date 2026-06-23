@@ -10,6 +10,7 @@ interface Vendor {
   id: string; businessName: string; category: string; city: string;
   logo?: string | null; coverImage?: string | null; rating?: number;
   isOpen: boolean; avgDeliveryTime?: number | null;
+  isFeatured?: boolean; verificationBadge?: string;
 }
 
 interface MenuItem {
@@ -74,13 +75,37 @@ function MenuItemCard({ item }: { item: MenuItem }) {
   );
 }
 
+const BADGE_LABEL: Record<string, string> = {
+  ID_VERIFIED: 'ID Verified',
+  BUSINESS_VERIFIED: 'Business Verified',
+  PREMIUM_VERIFIED: 'Premium',
+};
+
 function VendorCard({ v }: { v: Vendor }) {
+  const badgeLabel = v.verificationBadge ? BADGE_LABEL[v.verificationBadge] : null;
   return (
-    <Link href={`/vendor/${v.id}`} className="vendor-card">
+    <Link href={`/vendor/${v.id}`} className="vendor-card" style={{ position: 'relative' }}>
+      {v.isFeatured && (
+        <span style={{
+          position: 'absolute', top: 8, left: 8, zIndex: 2,
+          background: '#FF521B', color: '#fff', fontSize: 10, fontWeight: 700,
+          padding: '3px 8px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '.6px',
+        }}>Featured</span>
+      )}
       {v.coverImage ? <img className="cover" src={v.coverImage} alt={v.businessName} /> : <div className="cover-ph">🏪</div>}
       <div className="card-body">
         {v.logo && <img className="vendor-logo" src={v.logo} alt="" />}
-        <div className="vendor-name">{v.businessName}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <div className="vendor-name" style={{ flex: 1 }}>{v.businessName}</div>
+          {badgeLabel && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+              background: 'var(--brand-tint)', color: 'var(--brand)', flexShrink: 0,
+            }}>
+              ✓ {badgeLabel}
+            </span>
+          )}
+        </div>
         <div className="vendor-meta">
           <span className="rating">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="#FFD700" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }}>

@@ -31,6 +31,7 @@ const vendorSelect = {
   latitude: true, longitude: true, isOpen: true, rating: true,
   totalRatings: true, openingTime: true, closingTime: true,
   avgDeliveryTime: true, commissionTier: true, verificationBadge: true,
+  isFeatured: true, featuredUntil: true, displayOrder: true,
 };
 
 export const getVendors = catchAsync(async (req: Request, res: Response) => {
@@ -51,7 +52,7 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
       { menuItems: { some: { name: { contains: search, mode: 'insensitive' } } } },
     ];
   }
-  if (city) where.city = { equals: city, mode: 'insensitive' };
+  if (city) where.city = city;
 
   const vendors = await prisma.vendor.findMany({
     where,
@@ -59,13 +60,22 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
       ...vendorSelect,
       menuItems: { select: { price: true }, where: { isAvailable: true, stockQuantity: { gt: 0 } }, take: 1, orderBy: { price: 'asc' } },
     },
-    orderBy: { rating: 'desc' },
+    orderBy: [
+      { isOpen: 'desc' },
+      { displayOrder: 'desc' },
+      { isFeatured: 'desc' },
+      { verificationBadge: 'desc' },
+      { rating: 'desc' },
+      { totalRatings: 'desc' },
+      { createdAt: 'desc' },
+    ],
   });
 
   const userLat = parseFloat(lat);
   const userLng = parseFloat(lng);
   const hasLocation = !isNaN(userLat) && !isNaN(userLng);
 
+  const now = new Date();
   const enriched = vendors
     .map((v) => {
       const distanceKm =
@@ -80,6 +90,7 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
         estimatedMinutes: distanceKm ? estimateDeliveryMinutes(distanceKm) : null,
         minOrderPrice: v.menuItems[0]?.price ?? 0,
         menuItems: undefined,
+        isFeatured: v.isFeatured && (!v.featuredUntil || v.featuredUntil > now),
       };
     })
     .filter((v) => !hasLocation || v.distanceKm === null || v.distanceKm <= radiusKm)
@@ -1172,7 +1183,7 @@ export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
   const searchType = ['vendors', 'menu_items', 'all'].includes(type) ? type : 'all';
 
   const vendorFilter: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
-  if (city) vendorFilter.city = { equals: city, mode: 'insensitive' };
+  if (city) vendorFilter.city = city;
   if (category && category !== 'ALL') vendorFilter.category = category as VendorCategory;
 
   const [vendors, menuItems] = await Promise.all([
@@ -1180,7 +1191,14 @@ export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
       ? prisma.vendor.findMany({
           where: { ...vendorFilter, businessName: { contains: searchTerm, mode: 'insensitive' } },
           select: vendorSelect,
-          orderBy: { rating: 'desc' },
+          orderBy: [
+            { isOpen: 'desc' },
+            { displayOrder: 'desc' },
+            { isFeatured: 'desc' },
+            { verificationBadge: 'desc' },
+            { rating: 'desc' },
+            { totalRatings: 'desc' },
+          ],
           take: 30,
         })
       : Promise.resolve([]),
@@ -1216,7 +1234,7 @@ export const searchMenuItems = catchAsync(async (req: Request, res: Response) =>
   if (!search?.trim()) return apiResponse.error(res, 'search query is required.', 400);
 
   const vendorWhere: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
-  if (city) vendorWhere.city = { equals: city, mode: 'insensitive' };
+  if (city) vendorWhere.city = city;
   if (category && category !== 'ALL') vendorWhere.category = category as VendorCategory;
 
   const items = await prisma.menuItem.findMany({

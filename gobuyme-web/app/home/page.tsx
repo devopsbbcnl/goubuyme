@@ -14,6 +14,7 @@ interface Vendor {
   id: string; businessName: string; category: string; city: string;
   logo?: string | null; coverImage?: string | null; rating?: number;
   isOpen: boolean; avgDeliveryTime?: number | null;
+  isFeatured?: boolean; verificationBadge?: string;
 }
 interface Promo { id: string; title: string; description?: string; imageUrl?: string; vendor: { businessName: string }; }
 
@@ -171,11 +172,19 @@ export default function HomePage() {
               ) : (
                 <div className="vendor-grid">
                   {vendors.map(v => (
-                    <Link key={v.id} href={`/vendor/${v.id}`} className="vendor-card">
+                    <Link key={v.id} href={`/vendor/${v.id}`} className="vendor-card" style={{ position: 'relative' }}>
+                      {v.isFeatured && (
+                        <span style={{ position: 'absolute', top: 8, left: 8, zIndex: 2, background: '#FF521B', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '.6px' }}>Featured</span>
+                      )}
                       {v.coverImage ? <img className="cover" src={v.coverImage} alt={v.businessName} /> : <div className="cover-ph">🏪</div>}
                       <div className="card-body">
                         {v.logo && <img className="vendor-logo" src={v.logo} alt="" />}
-                        <div className="vendor-name">{v.businessName}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <div className="vendor-name" style={{ flex: 1 }}>{v.businessName}</div>
+                          {v.verificationBadge && v.verificationBadge !== 'UNVERIFIED' && (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: 'var(--brand-tint)', color: 'var(--brand)', flexShrink: 0 }}>✓ Verified</span>
+                          )}
+                        </div>
                         <div className="vendor-meta">
                           <span className="rating"><svg width="12" height="12" viewBox="0 0 24 24" fill="#FFD700" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>{v.rating != null ? v.rating.toFixed(1) : '0.0'}</span>
                           <span>{v.city}</span>

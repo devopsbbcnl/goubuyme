@@ -4,7 +4,7 @@ import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { ApprovalStatus, CommissionTier, DocumentStatus, DocumentType, LicenseStatus, OrderStatus, PaymentStatus, PayoutStatus, Role, VendorCategory } from '@prisma/client';
+import { ApprovalStatus, CommissionTier, DocumentStatus, DocumentType, LicenseStatus, OrderStatus, PaymentStatus, PayoutStatus, Prisma, Role, VendorCategory } from '@prisma/client';
 import { updateVendorBadge } from './vendor.controller';
 import { notifyUser } from '../services/notification.service';
 import { sendVendorApprovalEmail, sendRiderApprovalEmail } from '../services/email.service';
@@ -1523,4 +1523,42 @@ export const deleteCustomer = catchAsync(async (req: AuthRequest, res: Response)
   });
 
   return apiResponse.success(res, 'Customer deleted successfully.', { id, name: customer.user.name });
+});
+
+// PATCH /admin/vendors/:id/feature
+export const featureVendor = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { isFeatured, featuredUntil, displayOrder } = req.body as {
+    isFeatured?: boolean;
+    featuredUntil?: string | null;
+    displayOrder?: number;
+  };
+
+  const vendor = await prisma.vendor.findUnique({ where: { id }, select: { id: true, businessName: true } });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+
+  const data: Prisma.VendorUpdateInput = {};
+  if (typeof isFeatured === 'boolean') data.isFeatured = isFeatured;
+  if (featuredUntil !== undefined) {
+    data.featuredUntil = featuredUntil ? new Date(featuredUntil) : null;
+  }
+  if (typeof displayOrder === 'number') data.displayOrder = Math.max(0, Math.round(displayOrder));
+
+  const updated = await prisma.vendor.update({
+    where: { id },
+    data,
+    select: { id: true, businessName: true, isFeatured: true, featuredUntil: true, displayOrder: true },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user!.userId,
+      action: 'VENDOR_FEATURE_UPDATED',
+      entity: 'Vendor',
+      entityId: id,
+      meta: { businessName: vendor.businessName, isFeatured: updated.isFeatured, displayOrder: updated.displayOrder },
+    },
+  });
+
+  return apiResponse.success(res, 'Vendor feature settings updated.', updated);
 });
