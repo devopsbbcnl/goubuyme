@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
 
 type OrderStatus = 'IN_TRANSIT' | 'PREPARING' | 'DELIVERED' | 'CANCELLED' | 'CONFIRMED' | 'PENDING' | 'READY' | 'PICKED_UP';
@@ -150,6 +151,8 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | OrderStatus>('ALL');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -198,6 +201,10 @@ export default function OrdersPage() {
       o.vendorName.toLowerCase().includes(search.toLowerCase()) ||
       (o.riderName ?? '').toLowerCase().includes(search.toLowerCase()))
   );
+
+  useEffect(() => { setPage(1); }, [filter, search]);
+
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
   const inTransitCount = orders.filter(o => o.status === 'IN_TRANSIT').length;
   const preparingCount = orders.filter(o => o.status === 'PREPARING').length;
@@ -262,7 +269,7 @@ export default function OrdersPage() {
                     No orders match the current filter.
                   </td>
                 </tr>
-              ) : filtered.map(o => (
+              ) : paginated.map(o => (
                 <tr
                   key={o.id}
                   onClick={() => openDetail(o.id)}
@@ -281,6 +288,13 @@ export default function OrdersPage() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            total={filtered.length}
+            page={page}
+            perPage={perPage}
+            onPageChange={setPage}
+            onPerPageChange={(size) => { setPerPage(size); setPage(1); }}
+          />
         </div>
       </div>
 

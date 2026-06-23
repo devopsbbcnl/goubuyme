@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
 
 type ActionType =
@@ -43,6 +44,8 @@ export default function AuditPage() {
   const { theme: T } = useTheme();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
 
   useEffect(() => {
     api.get<{ data: AuditLog[] }>('/admin/audit')
@@ -82,6 +85,8 @@ export default function AuditPage() {
   const getColor = (action: string) => actionColor[action as ActionType] ?? actionColor.default;
   const getBg = (action: string) => actionBg[action as ActionType] ?? actionBg.default;
 
+  const paginated = logs.slice((page - 1) * perPage, page * perPage);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
@@ -96,7 +101,7 @@ export default function AuditPage() {
           <div style={{ padding: '32px 20px', textAlign: 'center', fontSize: 13, color: T.textSec }}>Loading…</div>
         ) : logs.length === 0 ? (
           <div style={{ padding: '32px 20px', textAlign: 'center', fontSize: 13, color: T.textSec }}>No audit logs found.</div>
-        ) : logs.map((log, i) => (
+        ) : paginated.map((log, i) => (
           <div key={log.id} style={{
             display: 'flex', alignItems: 'flex-start', gap: 16, padding: '16px 20px',
             borderTop: i > 0 ? `1px solid ${T.border}` : 'none',
@@ -125,6 +130,13 @@ export default function AuditPage() {
             </div>
           </div>
         ))}
+        <Pagination
+          total={logs.length}
+          page={page}
+          perPage={perPage}
+          onPageChange={setPage}
+          onPerPageChange={(size) => { setPerPage(size); setPage(1); }}
+        />
       </div>
     </div>
   );

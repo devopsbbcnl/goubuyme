@@ -5,6 +5,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
+import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
 
 interface Customer {
@@ -42,6 +43,8 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -88,6 +91,10 @@ export default function CustomersPage() {
     (filter === 'ALL' || (filter === 'ACTIVE' ? c.isActive : !c.isActive)) &&
     (!search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.phone ?? '').includes(search))
   );
+
+  useEffect(() => { setPage(1); }, [filter, search]);
+
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
   const activeCount = customers.filter(c => c.isActive).length;
 
@@ -330,7 +337,7 @@ export default function CustomersPage() {
                   No customers found.
                 </td>
               </tr>
-            ) : filtered.map(c => (
+            ) : paginated.map(c => (
               <tr
                 key={c.id}
                 onClick={() => setSelectedCustomer(c)}
@@ -363,6 +370,13 @@ export default function CustomersPage() {
             ))}
           </tbody>
         </table>
+        <Pagination
+          total={filtered.length}
+          page={page}
+          perPage={perPage}
+          onPageChange={setPage}
+          onPerPageChange={(size) => { setPerPage(size); setPage(1); }}
+        />
       </div>
     </div>
   );

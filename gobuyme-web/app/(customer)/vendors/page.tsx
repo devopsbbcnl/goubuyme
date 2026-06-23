@@ -19,10 +19,13 @@ interface MenuItem {
 }
 
 const CATEGORIES = [
-  { label: 'All', slug: '' }, { label: 'Restaurants', slug: 'RESTAURANT' },
-  { label: 'Groceries', slug: 'GROCERY' }, { label: 'Pharmacy', slug: 'PHARMACY' },
-  { label: 'Electronics', slug: 'ELECTRONICS' }, { label: 'Fashion', slug: 'FASHION' },
-  { label: 'Bakery', slug: 'BAKERY' }, { label: 'Beverages', slug: 'BEVERAGES' },
+  { label: 'All',          slug: '' },
+  { label: 'Restaurants',  slug: 'RESTAURANT' },
+  { label: 'Groceries',    slug: 'GROCERY' },
+  { label: 'Pharmacy',     slug: 'PHARMACY' },
+  { label: 'Home Kitchen', slug: 'HOME_KITCHEN' },
+  { label: 'Beauty',       slug: 'BEAUTY' },
+  { label: 'Errand',       slug: 'ERRAND' },
 ];
 
 function fmtPrice(n: number) {
@@ -84,7 +87,7 @@ function VendorCard({ v }: { v: Vendor }) {
 
 function VendorsContent() {
   const searchParams = useSearchParams();
-  const { selectedCity } = useCity();
+  const { selectedCity, cityLoaded } = useCity();
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -108,6 +111,7 @@ function VendorsContent() {
 
   // Fetch — only depends on derived state, not on searchParams directly
   useEffect(() => {
+    if (!cityLoaded) return;
     setLoading(true);
 
     if (q) {
@@ -141,7 +145,7 @@ function VendorsContent() {
         .catch(() => setVendors([]))
         .finally(() => setLoading(false));
     }
-  }, [cat, q, searchType, urlCity, selectedCity]);
+  }, [cat, q, searchType, urlCity, selectedCity, cityLoaded]);
 
   const isSearchMode = Boolean(q);
   // Tabs only appear when the user searched with type=all

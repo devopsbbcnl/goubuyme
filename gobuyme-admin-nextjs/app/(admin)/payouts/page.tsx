@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
 
 type PayoutStatus = 'PENDING' | 'PAID';
@@ -19,6 +20,8 @@ export default function PayoutsPage() {
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | PayoutStatus | PayoutType>('ALL');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
 
   useEffect(() => {
     api.get<{ data: Payout[] }>('/admin/payouts')
@@ -37,6 +40,10 @@ export default function PayoutsPage() {
     if (filter === 'PENDING' || filter === 'PAID') return p.status === filter;
     return p.type === filter;
   });
+
+  useEffect(() => { setPage(1); }, [filter]);
+
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
   const pendingPayouts = payouts.filter(p => p.status === 'PENDING');
   const paidPayouts = payouts.filter(p => p.status === 'PAID');
@@ -108,7 +115,7 @@ export default function PayoutsPage() {
               <tr>
                 <td colSpan={6} style={{ padding: '24px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>No payouts found.</td>
               </tr>
-            ) : filtered.map(p => (
+            ) : paginated.map(p => (
               <tr key={p.id} style={{ borderTop: `1px solid ${T.border}` }}>
                 <td style={{ padding: '13px 16px' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{p.name}</div>
@@ -145,6 +152,13 @@ export default function PayoutsPage() {
             ))}
           </tbody>
         </table>
+        <Pagination
+          total={filtered.length}
+          page={page}
+          perPage={perPage}
+          onPageChange={setPage}
+          onPerPageChange={(size) => { setPerPage(size); setPage(1); }}
+        />
       </div>
     </div>
   );

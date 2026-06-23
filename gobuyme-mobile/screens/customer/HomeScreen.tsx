@@ -41,11 +41,13 @@ type CarouselItem =
   | { kind: 'vendor';   id: string; title: string; imageUrl: string; code: string | null; vendorName: string };
 
 const CATEGORIES = [
-  { id: 'all', label: 'All', icon: '🍽️' },
-  { id: 'food', label: 'Food', icon: '🍛' },
-  { id: 'grocery', label: 'Grocery', icon: '🛒' },
-  { id: 'pharmacy', label: 'Pharmacy', icon: '💊' },
-  { id: 'errand', label: 'Errand', icon: '📦' },
+  { id: 'all',          label: 'All',      icon: '🍽️' },
+  { id: 'RESTAURANT',   label: 'Food',     icon: '🍛' },
+  { id: 'GROCERY',      label: 'Grocery',  icon: '🛒' },
+  { id: 'PHARMACY',     label: 'Pharmacy', icon: '💊' },
+  { id: 'HOME_KITCHEN', label: 'Home',     icon: '🏠' },
+  { id: 'BEAUTY',       label: 'Beauty',   icon: '💄' },
+  { id: 'ERRAND',       label: 'Errand',   icon: '📦' },
 ];
 
 type VerificationBadge = 'UNVERIFIED' | 'ID_VERIFIED' | 'BUSINESS_VERIFIED' | 'PREMIUM_VERIFIED';
@@ -65,17 +67,9 @@ interface Vendor {
   verificationBadge: VerificationBadge;
 }
 
-const CAT_KEYWORDS: Record<string, string[]> = {
-  food:     ['food', 'restaurant', 'kitchen', 'cuisine', 'meal', 'grill', 'suya', 'nigerian', 'fast'],
-  grocery:  ['grocery', 'supermarket', 'market', 'store'],
-  pharmacy: ['pharmacy', 'drug', 'chemist', 'health'],
-  errand:   ['errand', 'delivery', 'logistics'],
-};
-
 function matchCat(vendorCat: string, selected: string): boolean {
   if (selected === 'all') return true;
-  const lower = vendorCat.toLowerCase();
-  return (CAT_KEYWORDS[selected] ?? [selected]).some(k => lower.includes(k));
+  return vendorCat === selected;
 }
 
 function deriveTag(v: Vendor): string | null {
@@ -150,7 +144,7 @@ export default function HomeScreen() {
     } catch {}
   }, [selectedCity]);
 
-  useEffect(() => { fetchPromos(); }, [fetchPromos]);
+  useEffect(() => { if (cityLoaded) fetchPromos(); }, [fetchPromos, cityLoaded]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -177,7 +171,7 @@ export default function HomeScreen() {
     }
   }, [selectedCity]);
 
-  useEffect(() => { fetchVendors(); }, [fetchVendors]);
+  useEffect(() => { if (cityLoaded) fetchVendors(); }, [fetchVendors, cityLoaded]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);

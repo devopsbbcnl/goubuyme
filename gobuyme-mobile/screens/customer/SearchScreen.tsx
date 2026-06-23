@@ -17,6 +17,8 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+type Timeout = ReturnType<typeof setTimeout>;
+
 interface Vendor {
 	id: string;
 	businessName: string;
@@ -39,32 +41,43 @@ function formatTime(mins: number | null): string {
 export default function SearchScreen() {
 	const { theme: T } = useTheme();
 	const insets = useSafeAreaInsets();
-	const { selectedCity } = useCity();
+	const { selectedCity, cityLoaded } = useCity();
 	const [query, setQuery] = useState('');
 	const [vendors, setVendors] = useState<Vendor[]>([]);
 	const [loading, setLoading] = useState(true);
 	const inputRef = useRef<TextInput>(null);
+	const debounceRef = useRef<Timeout>();
 
-	const fetchVendors = useCallback(async () => {
+	const fetchVendors = useCallback(async (search?: string) => {
 		try {
-			const params = selectedCity ? { city: selectedCity } : {};
+			const params: Record<string, string> = {};
+			if (selectedCity) params.city = selectedCity;
+			if (search && search.length >= 2) params.search = search;
 			const res = await api.get('/vendors', { params });
 			setVendors(res.data.data ?? []);
 		} catch {
-			// show whatever we have
+			// keep whatever we have
 		} finally {
 			setLoading(false);
 		}
 	}, [selectedCity]);
 
-	useEffect(() => { fetchVendors(); }, [fetchVendors]);
+	useEffect(() => {
+		if (cityLoaded) fetchVendors();
+	}, [fetchVendors, cityLoaded]);
 
-	const filtered = vendors.filter(
-		(v) =>
-			!query ||
-			v.businessName.toLowerCase().includes(query.toLowerCase()) ||
-			v.category.toLowerCase().includes(query.toLowerCase()),
-	);
+	const handleQueryChange = useCallback((text: string) => {
+		setQuery(text);
+		clearTimeout(debounceRef.current);
+		setLoading(true);
+		if (text.length === 0) {
+			fetchVendors();
+		} else {
+			debounceRef.current = setTimeout(() => fetchVendors(text), 400);
+		}
+	}, [fetchVendors]);
+
+	const filtered = vendors;
 
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
@@ -78,8 +91,8 @@ export default function SearchScreen() {
 					<TextInput
 						ref={inputRef}
 						value={query}
-						onChangeText={setQuery}
-						placeholder="Search food, restaurant..."
+						onChangeText={handleQueryChange}
+						placeholder="Search food, restaurant, or item..."
 						placeholderTextColor={T.textMuted}
 						style={[styles.searchInput, { color: T.text }]}
 						autoFocus

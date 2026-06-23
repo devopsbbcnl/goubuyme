@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { AddVendorModal } from '@/components/vendor/AddVendorModal';
+import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
 
 type Status = 'APPROVED' | 'PENDING' | 'REJECTED' | 'SUSPENDED';
@@ -90,6 +91,8 @@ export default function VendorsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | Status>('ALL');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
 
   // Detail modal
   const [addVendorOpen, setAddVendorOpen] = useState(false);
@@ -216,6 +219,11 @@ export default function VendorsPage() {
     (!search || v.businessName.toLowerCase().includes(search.toLowerCase()))
   );
 
+  // Reset to page 1 when filter or search changes
+  useEffect(() => { setPage(1); }, [filter, search]);
+
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+
   const tabs: Array<'ALL' | Status> = ['ALL', 'PENDING', 'APPROVED', 'SUSPENDED', 'REJECTED'];
 
   return (
@@ -301,7 +309,7 @@ export default function VendorsPage() {
                     No vendors match the current filter.
                   </td>
                 </tr>
-              ) : filtered.map(v => (
+              ) : paginated.map(v => (
                 <tr
                   key={v.id}
                   onClick={() => openDetail(v.id)}
@@ -341,6 +349,13 @@ export default function VendorsPage() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            total={filtered.length}
+            page={page}
+            perPage={perPage}
+            onPageChange={setPage}
+            onPerPageChange={(size) => { setPerPage(size); setPage(1); }}
+          />
         </div>
       </div>
 

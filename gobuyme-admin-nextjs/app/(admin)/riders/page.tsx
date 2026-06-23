@@ -4,6 +4,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { AddRiderModal } from '@/components/rider/AddRiderModal';
+import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
 
 type RiderStatus = 'APPROVED' | 'PENDING' | 'SUSPENDED';
@@ -57,6 +58,8 @@ export default function RidersPage() {
   const [addRiderOpen, setAddRiderOpen] = useState(false);
   const [filter, setFilter] = useState<'ALL' | RiderStatus>('ALL');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<RiderDetail | null>(null);
@@ -127,6 +130,10 @@ export default function RidersPage() {
     (filter === 'ALL' || r.approvalStatus === filter) &&
     (!search || r.name.toLowerCase().includes(search.toLowerCase()))
   );
+
+  useEffect(() => { setPage(1); }, [filter, search]);
+
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
   const tabs: Array<'ALL' | RiderStatus> = ['ALL', 'PENDING', 'APPROVED', 'SUSPENDED'];
   const onlineCount = riders.filter(r => r.isOnline).length;
@@ -200,7 +207,7 @@ export default function RidersPage() {
                     No riders match the current filter.
                   </td>
                 </tr>
-              ) : filtered.map(r => (
+              ) : paginated.map(r => (
                 <tr
                   key={r.id}
                   onClick={() => openDetail(r.id)}
@@ -241,6 +248,13 @@ export default function RidersPage() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            total={filtered.length}
+            page={page}
+            perPage={perPage}
+            onPageChange={setPage}
+            onPerPageChange={(size) => { setPerPage(size); setPage(1); }}
+          />
         </div>
       </div>
 
