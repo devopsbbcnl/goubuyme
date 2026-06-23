@@ -831,6 +831,7 @@ async function seedBulk() {
               role: Role.VENDOR,
               isEmailVerified: true,
               isActive: true,
+              referralCode: `BLK${String(flatIndex).padStart(6, '0')}`,
               vendor: {
                 create: {
                   businessName,
