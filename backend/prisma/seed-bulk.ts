@@ -806,8 +806,7 @@ async function seedBulk() {
           const businessName = fill(archetype.nameTemplate, city);
           const slug = slugify(businessName);
           const email = `${slug}@${BULK_DOMAIN}`;
-          const flatIndex = (CITIES.indexOf(city) * 28 * 5) + (subIdx * 5) + archIdx;
-          const phone = `+2348${String(10000000 + flatIndex).substring(1)}`;
+          const phone = `+2348${String(1005000000 + totalVendors).substring(1)}`;
 
           const streetIdx = (subIdx + archIdx) % city.streets.length;
           const houseNo = (archIdx + 1) * 7;
@@ -831,7 +830,7 @@ async function seedBulk() {
               role: Role.VENDOR,
               isEmailVerified: true,
               isActive: true,
-              referralCode: `BLK${String(flatIndex).padStart(6, '0')}`,
+              referralCode: `BLK${String(totalVendors).padStart(6, '0')}`,
               vendor: {
                 create: {
                   businessName,
