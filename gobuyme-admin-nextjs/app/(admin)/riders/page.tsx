@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
@@ -54,12 +54,16 @@ const DOC_STATUS_COLORS: Record<DocStatus, { bg: string; text: string }> = {
 export default function RidersPage() {
   const { theme: T } = useTheme();
   const [riders, setRiders] = useState<Rider[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [addRiderOpen, setAddRiderOpen] = useState(false);
   const [filter, setFilter] = useState<'ALL' | RiderStatus>('ALL');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refresh = () => setRefreshKey(k => k + 1);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<RiderDetail | null>(null);
@@ -67,19 +71,21 @@ export default function RidersPage() {
   const [reviewNote, setReviewNote] = useState('');
   const [docActing, setDocActing] = useState(false);
 
-  const fetchRiders = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.get<{ data: Rider[] }>('/admin/riders?limit=100');
-      setRiders(res.data);
-    } catch {
-      // keep existing data on error
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  useEffect(() => {
+    const t = setTimeout(() => { setPage(1); setDebouncedSearch(search); }, 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  useEffect(() => { fetchRiders(); }, [fetchRiders]);
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(page), limit: String(perPage) });
+    if (filter !== 'ALL') params.set('status', filter);
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    api.get<{ data: Rider[]; pagination: { total: number } }>(`/admin/riders?${params}`)
+      .then(res => { setRiders(res.data); setTotal(res.pagination.total); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [page, perPage, filter, debouncedSearch, refreshKey]);
 
   const setStatus = async (id: string, status: RiderStatus) => {
     setRiders(rs => rs.map(r => r.id === id ? { ...r, approvalStatus: status } : r));
@@ -87,7 +93,7 @@ export default function RidersPage() {
     try {
       await api.patch(`/admin/riders/${id}/status`, { status });
     } catch {
-      fetchRiders();
+      refresh();
     }
   };
 
@@ -126,15 +132,6 @@ export default function RidersPage() {
     }
   };
 
-  const filtered = riders.filter(r =>
-    (filter === 'ALL' || r.approvalStatus === filter) &&
-    (!search || r.name.toLowerCase().includes(search.toLowerCase()))
-  );
-
-  useEffect(() => { setPage(1); }, [filter, search]);
-
-  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
-
   const tabs: Array<'ALL' | RiderStatus> = ['ALL', 'PENDING', 'APPROVED', 'SUSPENDED'];
   const onlineCount = riders.filter(r => r.isOnline).length;
 
@@ -143,7 +140,7 @@ export default function RidersPage() {
       <AddRiderModal
         open={addRiderOpen}
         onClose={() => setAddRiderOpen(false)}
-        onCreated={() => { setAddRiderOpen(false); fetchRiders(); }}
+        onCreated={() => { setAddRiderOpen(false); refresh(); }}
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -151,7 +148,7 @@ export default function RidersPage() {
           <div>
             <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Riders</div>
             <div style={{ fontSize: 13, color: T.textSec }}>
-              {loading ? 'Loading…' : `${riders.length} total · ${riders.filter(r => r.approvalStatus === 'PENDING').length} pending · ${onlineCount} online`}
+              {loading ? 'Loading…' : `${total} total · ${onlineCount} online`}
             </div>
           </div>
           <button onClick={() => setAddRiderOpen(true)} style={{ padding: '10px 20px', borderRadius: 4, background: T.primary, border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
@@ -162,7 +159,7 @@ export default function RidersPage() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: 6 }}>
             {tabs.map(t => (
-              <button key={t} onClick={() => setFilter(t)} style={{
+              <button key={t} onClick={() => { setFilter(t); setPage(1); }} style={{
                 padding: '7px 14px', borderRadius: 4,
                 border: filter === t ? `1px solid ${T.primary}` : 'none',
                 background: filter === t ? T.primaryTint : T.surface2,
@@ -170,11 +167,6 @@ export default function RidersPage() {
                 fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
               }}>
                 {t}
-                {t !== 'ALL' && (
-                  <span style={{ opacity: 0.6, marginLeft: 4 }}>
-                    {riders.filter(r => r.approvalStatus === t).length}
-                  </span>
-                )}
               </button>
             ))}
           </div>
@@ -201,13 +193,13 @@ export default function RidersPage() {
                     Loading riders…
                   </td>
                 </tr>
-              ) : filtered.length === 0 ? (
+              ) : riders.length === 0 ? (
                 <tr>
                   <td colSpan={10} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
                     No riders match the current filter.
                   </td>
                 </tr>
-              ) : paginated.map(r => (
+              ) : riders.map(r => (
                 <tr
                   key={r.id}
                   onClick={() => openDetail(r.id)}
@@ -249,7 +241,7 @@ export default function RidersPage() {
             </tbody>
           </table>
           <Pagination
-            total={filtered.length}
+            total={total}
             page={page}
             perPage={perPage}
             onPageChange={setPage}

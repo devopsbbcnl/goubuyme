@@ -43,16 +43,19 @@ const timeAgo = (iso: string) => {
 export default function AuditPage() {
   const { theme: T } = useTheme();
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
 
   useEffect(() => {
-    api.get<{ data: AuditLog[] }>('/admin/audit')
-      .then(res => setLogs(res.data))
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(page), limit: String(perPage) });
+    api.get<{ data: AuditLog[]; pagination: { total: number } }>(`/admin/audit?${params}`)
+      .then(res => { setLogs(res.data); setTotal(res.pagination.total); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [page, perPage]);
 
   const actionColor: Partial<Record<ActionType, string>> & { default: string } = {
     VENDOR_APPROVED:   T.success,
@@ -85,14 +88,13 @@ export default function AuditPage() {
   const getColor = (action: string) => actionColor[action as ActionType] ?? actionColor.default;
   const getBg = (action: string) => actionBg[action as ActionType] ?? actionBg.default;
 
-  const paginated = logs.slice((page - 1) * perPage, page * perPage);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Audit Logs</div>
         <div style={{ fontSize: 13, color: T.textSec, marginTop: 2 }}>
-          {loading ? 'Loading…' : `${logs.length} recent events`}
+          {loading ? 'Loading…' : `${total} total events`}
         </div>
       </div>
 
@@ -101,7 +103,7 @@ export default function AuditPage() {
           <div style={{ padding: '32px 20px', textAlign: 'center', fontSize: 13, color: T.textSec }}>Loading…</div>
         ) : logs.length === 0 ? (
           <div style={{ padding: '32px 20px', textAlign: 'center', fontSize: 13, color: T.textSec }}>No audit logs found.</div>
-        ) : paginated.map((log, i) => (
+        ) : logs.map((log, i) => (
           <div key={log.id} style={{
             display: 'flex', alignItems: 'flex-start', gap: 16, padding: '16px 20px',
             borderTop: i > 0 ? `1px solid ${T.border}` : 'none',
@@ -131,7 +133,7 @@ export default function AuditPage() {
           </div>
         ))}
         <Pagination
-          total={logs.length}
+          total={total}
           page={page}
           perPage={perPage}
           onPageChange={setPage}

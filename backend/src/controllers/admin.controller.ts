@@ -366,21 +366,22 @@ export const updateRiderStatus = catchAsync(async (req: AuthRequest, res: Respon
 
 // GET /admin/customers
 export const getAdminCustomers = catchAsync(async (req: Request, res: Response) => {
-  const { search, page = '1', limit = '20' } = req.query as Record<string, string>;
+  const { search, isActive, page = '1', limit = '20' } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, parseInt(limit));
 
-  const where: Record<string, unknown> = search
-    ? {
-        user: {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { phone: { contains: search, mode: 'insensitive' } },
-            { email: { contains: search, mode: 'insensitive' } },
-          ],
-        },
-      }
-    : {};
+  const userWhere: Record<string, unknown> = {};
+  if (search) {
+    userWhere.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { phone: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+  if (isActive !== undefined && isActive !== '') {
+    userWhere.isActive = isActive === 'true';
+  }
+  const where: Record<string, unknown> = Object.keys(userWhere).length > 0 ? { user: userWhere } : {};
 
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({

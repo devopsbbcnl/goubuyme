@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
@@ -40,11 +40,15 @@ export default function CustomersPage() {
   const { theme: T } = useTheme();
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refresh = () => setRefreshKey(k => k + 1);
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -57,19 +61,22 @@ export default function CustomersPage() {
   const [deleteCustomerName, setDeleteCustomerName] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const fetchCustomers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.get<{ data: Customer[] }>('/admin/customers?limit=100');
-      setCustomers(res.data);
-    } catch {
-      // keep existing data on error
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  useEffect(() => {
+    const t = setTimeout(() => { setPage(1); setDebouncedSearch(search); }, 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(page), limit: String(perPage) });
+    if (filter === 'ACTIVE') params.set('isActive', 'true');
+    if (filter === 'INACTIVE') params.set('isActive', 'false');
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    api.get<{ data: Customer[]; pagination: { total: number } }>(`/admin/customers?${params}`)
+      .then(res => { setCustomers(res.data); setTotal(res.pagination.total); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [page, perPage, filter, debouncedSearch, refreshKey]);
 
   useEffect(() => {
     if (!selectedCustomer) { setAddresses([]); setOrders([]); return; }
@@ -87,15 +94,6 @@ export default function CustomersPage() {
       .finally(() => setOrdersLoading(false));
   }, [selectedCustomer]);
 
-  const filtered = customers.filter(c =>
-    (filter === 'ALL' || (filter === 'ACTIVE' ? c.isActive : !c.isActive)) &&
-    (!search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.phone ?? '').includes(search))
-  );
-
-  useEffect(() => { setPage(1); }, [filter, search]);
-
-  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
-
   const activeCount = customers.filter(c => c.isActive).length;
 
   const deleteCustomerHandler = async () => {
@@ -104,6 +102,7 @@ export default function CustomersPage() {
     try {
       await api.del(`/admin/customers/${deleteCustomerId}`);
       setCustomers(cs => cs.filter(c => c.id !== deleteCustomerId));
+      setTotal(t => t - 1);
       setDeleteCustomerId(null);
       setDeleteCustomerName('');
     } catch {
@@ -284,7 +283,7 @@ export default function CustomersPage() {
         <div>
           <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Customers</div>
           <div style={{ fontSize: 13, color: T.textSec }}>
-            {loading ? 'Loading…' : `${customers.length} total · ${activeCount} active`}
+            {loading ? 'Loading…' : `${total} total`}
           </div>
         </div>
       </div>
@@ -292,7 +291,7 @@ export default function CustomersPage() {
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: 6 }}>
           {(['ALL', 'ACTIVE', 'INACTIVE'] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)} style={{
+            <button key={f} onClick={() => { setFilter(f); setPage(1); }} style={{
               padding: '7px 14px', borderRadius: 4,
               border: filter === f ? `1px solid ${T.primary}` : 'none',
               background: filter === f ? T.primaryTint : T.surface2,
@@ -300,11 +299,6 @@ export default function CustomersPage() {
               fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
             }}>
               {f.charAt(0) + f.slice(1).toLowerCase()}
-              {f !== 'ALL' && (
-                <span style={{ opacity: 0.6, marginLeft: 4 }}>
-                  {f === 'ACTIVE' ? activeCount : customers.length - activeCount}
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -331,13 +325,13 @@ export default function CustomersPage() {
                   Loading customers…
                 </td>
               </tr>
-            ) : filtered.length === 0 ? (
+            ) : customers.length === 0 ? (
               <tr>
                 <td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
                   No customers found.
                 </td>
               </tr>
-            ) : paginated.map(c => (
+            ) : customers.map(c => (
               <tr
                 key={c.id}
                 onClick={() => setSelectedCustomer(c)}
@@ -371,7 +365,7 @@ export default function CustomersPage() {
           </tbody>
         </table>
         <Pagination
-          total={filtered.length}
+          total={total}
           page={page}
           perPage={perPage}
           onPageChange={setPage}

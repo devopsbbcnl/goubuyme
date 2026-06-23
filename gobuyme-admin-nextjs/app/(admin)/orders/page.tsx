@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/Badge';
@@ -148,28 +148,32 @@ export default function OrdersPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | OrderStatus>('ALL');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const fetchOrders = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.get<{ data: Order[] }>('/admin/orders?limit=100');
-      setOrders(res.data);
-    } catch {
-      // keep existing data on error
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  useEffect(() => {
+    const t = setTimeout(() => { setPage(1); setDebouncedSearch(search); }, 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(page), limit: String(perPage) });
+    if (filter !== 'ALL') params.set('status', filter);
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    api.get<{ data: Order[]; pagination: { total: number } }>(`/admin/orders?${params}`)
+      .then(res => { setOrders(res.data); setTotal(res.pagination.total); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [page, perPage, filter, debouncedSearch]);
 
   useEffect(() => {
     const openOrderId = searchParams.get('openOrderId');
@@ -193,19 +197,6 @@ export default function OrdersPage() {
     }
   };
 
-  const filtered = orders.filter(o =>
-    (filter === 'ALL' || o.status === filter) &&
-    (!search ||
-      o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
-      o.customerName.toLowerCase().includes(search.toLowerCase()) ||
-      o.vendorName.toLowerCase().includes(search.toLowerCase()) ||
-      (o.riderName ?? '').toLowerCase().includes(search.toLowerCase()))
-  );
-
-  useEffect(() => { setPage(1); }, [filter, search]);
-
-  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
-
   const inTransitCount = orders.filter(o => o.status === 'IN_TRANSIT').length;
   const preparingCount = orders.filter(o => o.status === 'PREPARING').length;
 
@@ -216,7 +207,7 @@ export default function OrdersPage() {
           <div>
             <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Orders</div>
             <div style={{ fontSize: 13, color: T.textSec }}>
-              {loading ? 'Loading...' : `${orders.length} total - ${inTransitCount} in transit - ${preparingCount} preparing`}
+              {loading ? 'Loading...' : `${total} total · ${inTransitCount} in transit · ${preparingCount} preparing`}
             </div>
           </div>
         </div>
@@ -224,7 +215,7 @@ export default function OrdersPage() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {STATUS_TABS.map(s => (
-              <button key={s} onClick={() => setFilter(s)} style={{
+              <button key={s} onClick={() => { setFilter(s); setPage(1); }} style={{
                 padding: '7px 14px', borderRadius: 4,
                 border: filter === s ? `1px solid ${T.primary}` : 'none',
                 background: filter === s ? T.primaryTint : T.surface2,
@@ -232,11 +223,6 @@ export default function OrdersPage() {
                 fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
               }}>
                 {s === 'ALL' ? 'All' : labelize(s)}
-                {s !== 'ALL' && (
-                  <span style={{ opacity: 0.6, marginLeft: 4 }}>
-                    {orders.filter(o => o.status === s).length}
-                  </span>
-                )}
               </button>
             ))}
           </div>
@@ -263,13 +249,13 @@ export default function OrdersPage() {
                     Loading orders...
                   </td>
                 </tr>
-              ) : filtered.length === 0 ? (
+              ) : orders.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
                     No orders match the current filter.
                   </td>
                 </tr>
-              ) : paginated.map(o => (
+              ) : orders.map(o => (
                 <tr
                   key={o.id}
                   onClick={() => openDetail(o.id)}
@@ -289,7 +275,7 @@ export default function OrdersPage() {
             </tbody>
           </table>
           <Pagination
-            total={filtered.length}
+            total={total}
             page={page}
             perPage={perPage}
             onPageChange={setPage}

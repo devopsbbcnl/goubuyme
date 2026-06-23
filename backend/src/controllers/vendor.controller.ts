@@ -40,7 +40,7 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
   } = req.query as Record<string, string>;
 
   const pageNum = Math.max(1, parseInt(page));
-  const limitNum = Math.min(50, parseInt(limit));
+  const limitNum = Math.min(100, parseInt(limit));
   const radiusKm = parseFloat(radius || String(DEFAULT_RADIUS));
 
   const where: Record<string, unknown> = { approvalStatus: ApprovalStatus.APPROVED };

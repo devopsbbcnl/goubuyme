@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
@@ -88,11 +88,15 @@ const LICENSE_LABELS: Record<LicenseType, string> = {
 export default function VendorsPage() {
   const { theme: T } = useTheme();
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | Status>('ALL');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refresh = () => setRefreshKey(k => k + 1);
 
   // Detail modal
   const [addVendorOpen, setAddVendorOpen] = useState(false);
@@ -110,19 +114,21 @@ export default function VendorsPage() {
   const [deleteVendorName, setDeleteVendorName] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const fetchVendors = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.get<{ data: Vendor[] }>('/admin/vendors?limit=100');
-      setVendors(res.data);
-    } catch {
-      // keep existing data on error
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  useEffect(() => {
+    const t = setTimeout(() => { setPage(1); setDebouncedSearch(search); }, 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  useEffect(() => { fetchVendors(); }, [fetchVendors]);
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(page), limit: String(perPage) });
+    if (filter !== 'ALL') params.set('status', filter);
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    api.get<{ data: Vendor[]; pagination: { total: number } }>(`/admin/vendors?${params}`)
+      .then(res => { setVendors(res.data); setTotal(res.pagination.total); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [page, perPage, filter, debouncedSearch, refreshKey]);
 
   const setStatus = async (id: string, status: Status) => {
     setVendors(vs => vs.map(v => v.id === id ? { ...v, approvalStatus: status } : v));
@@ -130,7 +136,7 @@ export default function VendorsPage() {
     try {
       await api.patch(`/admin/vendors/${id}/status`, { status });
     } catch {
-      fetchVendors();
+      refresh();
     }
   };
 
@@ -198,6 +204,7 @@ export default function VendorsPage() {
     try {
       await api.del(`/admin/vendors/${deleteVendorId}`);
       setVendors(vs => vs.filter(v => v.id !== deleteVendorId));
+      setTotal(t => t - 1);
       if (detail?.id === deleteVendorId) setDetailOpen(false);
       setDeleteVendorId(null);
       setDeleteVendorName('');
@@ -214,16 +221,6 @@ export default function VendorsPage() {
     setDeleteModalOpen(true);
   };
 
-  const filtered = vendors.filter(v =>
-    (filter === 'ALL' || v.approvalStatus === filter) &&
-    (!search || v.businessName.toLowerCase().includes(search.toLowerCase()))
-  );
-
-  // Reset to page 1 when filter or search changes
-  useEffect(() => { setPage(1); }, [filter, search]);
-
-  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
-
   const tabs: Array<'ALL' | Status> = ['ALL', 'PENDING', 'APPROVED', 'SUSPENDED', 'REJECTED'];
 
   return (
@@ -231,7 +228,7 @@ export default function VendorsPage() {
       <AddVendorModal
         open={addVendorOpen}
         onClose={() => setAddVendorOpen(false)}
-        onCreated={() => { setAddVendorOpen(false); fetchVendors(); }}
+        onCreated={() => { setAddVendorOpen(false); refresh(); }}
       />
 
       <ConfirmDeleteModal
@@ -250,7 +247,7 @@ export default function VendorsPage() {
           <div>
             <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Vendors</div>
             <div style={{ fontSize: 13, color: T.textSec }}>
-              {loading ? 'Loading…' : `${vendors.length} total · ${vendors.filter(v => v.approvalStatus === 'PENDING').length} pending`}
+              {loading ? 'Loading…' : `${total} total`}
             </div>
           </div>
           <button onClick={() => setAddVendorOpen(true)} style={{ padding: '10px 20px', borderRadius: 4, background: T.primary, border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
@@ -261,7 +258,7 @@ export default function VendorsPage() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: 6 }}>
             {tabs.map(t => (
-              <button key={t} onClick={() => setFilter(t)} style={{
+              <button key={t} onClick={() => { setFilter(t); setPage(1); }} style={{
                 padding: '7px 14px', borderRadius: 4,
                 border: filter === t ? `1px solid ${T.primary}` : 'none',
                 background: filter === t ? T.primaryTint : T.surface2,
@@ -269,11 +266,6 @@ export default function VendorsPage() {
                 fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
               }}>
                 {t}
-                {t !== 'ALL' && (
-                  <span style={{ opacity: 0.6, marginLeft: 4 }}>
-                    {vendors.filter(v => v.approvalStatus === t).length}
-                  </span>
-                )}
               </button>
             ))}
           </div>
@@ -303,13 +295,13 @@ export default function VendorsPage() {
                     Loading vendors…
                   </td>
                 </tr>
-              ) : filtered.length === 0 ? (
+              ) : vendors.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
                     No vendors match the current filter.
                   </td>
                 </tr>
-              ) : paginated.map(v => (
+              ) : vendors.map(v => (
                 <tr
                   key={v.id}
                   onClick={() => openDetail(v.id)}
@@ -350,7 +342,7 @@ export default function VendorsPage() {
             </tbody>
           </table>
           <Pagination
-            total={filtered.length}
+            total={total}
             page={page}
             perPage={perPage}
             onPageChange={setPage}

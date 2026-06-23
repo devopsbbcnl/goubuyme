@@ -28,6 +28,18 @@ const CATEGORIES = [
   { label: 'Errand',       slug: 'ERRAND' },
 ];
 
+const PAGE_SIZE = 24;
+
+function getPageNumbers(current: number, total: number): (number | '...')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | '...')[] = [1];
+  if (current > 3) pages.push('...');
+  for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) pages.push(p);
+  if (current < total - 2) pages.push('...');
+  pages.push(total);
+  return pages;
+}
+
 function fmtPrice(n: number) {
   return '₦' + n.toLocaleString('en-NG');
 }
@@ -93,7 +105,12 @@ function VendorsContent() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Derived from URL params — synced in one effect so the fetch effect has a single dep set
+  // Pagination (browse mode only)
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalVendors, setTotalVendors] = useState(0);
+
+  // Derived from URL params
   const [cat, setCat] = useState(searchParams.get('category') ?? '');
   const [q, setQ] = useState(searchParams.get('q') ?? '');
   const [searchType, setSearchType] = useState(searchParams.get('type') ?? 'all');
@@ -101,24 +118,32 @@ function VendorsContent() {
 
   const [activeTab, setActiveTab] = useState<'vendors' | 'menu_items'>('vendors');
 
-  // Sync all URL-derived state in one pass to avoid double-fetch
+  // Sync all URL-derived state in one pass; reset page to 1 on any filter change
   useEffect(() => {
     setCat(searchParams.get('category') ?? '');
     setQ(searchParams.get('q') ?? '');
     setSearchType(searchParams.get('type') ?? 'all');
     setUrlCity(searchParams.get('city'));
+    setPage(1);
   }, [searchParams]);
+
+  // Scroll to top when page changes
+  useEffect(() => {
+    if (page > 1) window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [page]);
 
   // Fetch — only depends on derived state, not on searchParams directly
   useEffect(() => {
     if (!cityLoaded) return;
     setLoading(true);
 
+    const effectiveCity = urlCity ?? selectedCity;
+
     if (q) {
+      // Search mode — no client pagination (API returns up to 30 vendors / 60 items)
       const params = new URLSearchParams({ q });
       if (searchType !== 'all') params.set('type', searchType);
       if (cat) params.set('category', cat);
-      const effectiveCity = urlCity ?? selectedCity;
       if (effectiveCity) params.set('city', effectiveCity);
 
       api.get(`/vendors/search?${params}`)
@@ -128,7 +153,8 @@ function VendorsContent() {
           const m: MenuItem[] = data.menuItems ?? [];
           setVendors(v);
           setMenuItems(m);
-          // Auto-select tab: prefer vendors if both have results
+          setTotalVendors(v.length);
+          setTotalPages(1);
           if (searchType === 'menu_items') setActiveTab('menu_items');
           else if (searchType === 'vendors') setActiveTab('vendors');
           else setActiveTab(v.length > 0 ? 'vendors' : 'menu_items');
@@ -136,37 +162,40 @@ function VendorsContent() {
         .catch(() => { setVendors([]); setMenuItems([]); })
         .finally(() => setLoading(false));
     } else {
+      // Browse mode — paginated
       setMenuItems([]);
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
       if (cat) params.set('category', cat);
-      if (selectedCity) params.set('city', selectedCity);
+      if (effectiveCity) params.set('city', effectiveCity);
+
       api.get(`/vendors?${params}`)
-        .then(r => setVendors(r.data.data?.vendors ?? r.data.data ?? []))
+        .then(r => {
+          setVendors(r.data.data ?? []);
+          setTotalPages(r.data.pagination?.totalPages ?? 1);
+          setTotalVendors(r.data.pagination?.total ?? 0);
+        })
         .catch(() => setVendors([]))
         .finally(() => setLoading(false));
     }
-  }, [cat, q, searchType, urlCity, selectedCity, cityLoaded]);
+  }, [cat, q, searchType, urlCity, selectedCity, cityLoaded, page]);
 
   const isSearchMode = Boolean(q);
-  // Tabs only appear when the user searched with type=all
   const showTabs = isSearchMode && searchType === 'all';
 
-  // Which content type is currently visible
   const showingItems =
     (isSearchMode && searchType === 'menu_items') ||
     (showTabs && activeTab === 'menu_items');
 
-  // Count shown in the header (for non-tab layouts) or inside tabs
   const activeCount = showTabs
     ? (activeTab === 'vendors' ? vendors.length : menuItems.length)
     : showingItems
       ? menuItems.length
-      : vendors.length;
+      : isSearchMode ? vendors.length : totalVendors;
 
-  // Skeleton type during load: use searchType for single-type, activeTab for tabs
   const skeletonIsItems = searchType === 'menu_items' || (showTabs && activeTab === 'menu_items');
-
   const emptyLabel = showingItems ? 'items' : 'vendors';
+
+  const pageNums = getPageNumbers(page, totalPages);
 
   return (
     <div className="page-body">
@@ -174,19 +203,25 @@ function VendorsContent() {
         <div className="between" style={{ marginBottom: 24 }}>
           <h1 className="t-page">
             {q
-              ? `Results for "${q}"${urlCity ? ` in ${urlCity}` : ''}`
+              ? `Results for "${q}"${urlCity ? ` in ${urlCity}` : selectedCity ? ` in ${selectedCity}` : ''}`
               : selectedCity ? `Vendors in ${selectedCity}` : 'All Vendors'}
           </h1>
-          {!showTabs && !loading && (
+          {!loading && (
             <span className="muted" style={{ fontSize: 13 }}>
-              {activeCount} {showingItems ? `item${activeCount !== 1 ? 's' : ''}` : `vendor${activeCount !== 1 ? 's' : ''}`}
+              {isSearchMode
+                ? `${activeCount} ${showingItems ? `item${activeCount !== 1 ? 's' : ''}` : `vendor${activeCount !== 1 ? 's' : ''}`}`
+                : `${totalVendors.toLocaleString()} vendor${totalVendors !== 1 ? 's' : ''}`}
             </span>
           )}
         </div>
 
         <div className="chip-row">
           {CATEGORIES.map(c => (
-            <button key={c.slug} className={`chip${cat === c.slug ? ' active' : ''}`} onClick={() => setCat(c.slug)}>
+            <button
+              key={c.slug}
+              className={`chip${cat === c.slug ? ' active' : ''}`}
+              onClick={() => { setCat(c.slug); setPage(1); }}
+            >
               {c.label}
             </button>
           ))}
@@ -229,7 +264,7 @@ function VendorsContent() {
 
         {loading ? (
           <div className={skeletonIsItems ? 'menu-grid' : 'vendor-grid'}>
-            {[...Array(12)].map((_, i) =>
+            {[...Array(PAGE_SIZE)].map((_, i) =>
               skeletonIsItems ? (
                 <div key={i} className="menu-card" style={{ pointerEvents: 'none' }}>
                   <div className="sk" style={{ height: 130 }} />
@@ -278,6 +313,52 @@ function VendorsContent() {
             {vendors.map(v => <VendorCard key={v.id} v={v} />)}
           </div>
         )}
+
+        {/* Pagination — browse mode only */}
+        {!isSearchMode && !loading && totalPages > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 40, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              style={{ padding: '8px 16px', borderRadius: 4, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, fontWeight: 600, fontSize: 13, fontFamily: 'inherit', transition: 'opacity .15s' }}
+            >
+              ← Prev
+            </button>
+
+            {pageNums.map((p, i) =>
+              p === '...'
+                ? <span key={`ellipsis-${i}`} style={{ padding: '0 6px', color: 'var(--muted)', fontSize: 14 }}>…</span>
+                : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p as number)}
+                    style={{
+                      width: 36, height: 36, borderRadius: 4, border: '1px solid',
+                      borderColor: page === p ? 'var(--brand)' : 'var(--line)',
+                      background: page === p ? 'var(--brand)' : 'var(--surface)',
+                      color: page === p ? '#fff' : 'var(--text)',
+                      cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit', transition: 'all .15s',
+                    }}
+                  >
+                    {p}
+                  </button>
+                )
+            )}
+
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              style={{ padding: '8px 16px', borderRadius: 4, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, fontWeight: 600, fontSize: 13, fontFamily: 'inherit', transition: 'opacity .15s' }}
+            >
+              Next →
+            </button>
+
+            <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>
+              {((page - 1) * PAGE_SIZE + 1).toLocaleString()}–{Math.min(page * PAGE_SIZE, totalVendors).toLocaleString()} of {totalVendors.toLocaleString()}
+            </span>
+          </div>
+        )}
+
       </div>
     </div>
   );
