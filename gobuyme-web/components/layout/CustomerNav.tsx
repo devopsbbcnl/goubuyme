@@ -158,14 +158,16 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
 
     const params = new URLSearchParams({ q: term });
     if (searchType !== 'all') params.set('type', searchType);
-    if (detectedCity) params.set('city', detectedCity);
+    const cityForSearch = detectedCity ?? selectedCity;
+    if (cityForSearch) params.set('city', cityForSearch);
     router.push(`/vendors?${params}`);
   };
 
   const handleVendorCat = (slug: string) => {
     setActiveVendor(slug);
     setOpenCat(null);
-    router.push(slug ? `/vendors?category=${slug}` : '/vendors');
+    const cp = selectedCity ? `&city=${encodeURIComponent(selectedCity)}` : '';
+    router.push(slug ? `/vendors?category=${slug}${cp}` : (selectedCity ? `/vendors?city=${encodeURIComponent(selectedCity)}` : '/vendors'));
   };
 
   const openDropdown = (key: string) => {
@@ -459,7 +461,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                   <div className="mega-subs">
                     {CATEGORY_DATA[allHoveredSub]?.subs.map(sub => (
                       <button key={sub} className="mega-sub-item"
-                        onClick={() => { router.push(`/vendors?category=${allHoveredSub}&q=${encodeURIComponent(sub)}`); setOpenCat(null); }}
+                        onClick={() => { const cp = selectedCity ? `&city=${encodeURIComponent(selectedCity)}` : ''; router.push(`/vendors?category=${allHoveredSub}&q=${encodeURIComponent(sub)}${cp}`); setOpenCat(null); }}
                       >
                         {sub}
                       </button>
@@ -471,7 +473,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                       <div className="mega-subs">
                         {group.subs.map(sub => (
                           <button key={sub} className="mega-sub-item"
-                            onClick={() => { router.push(`/vendors?category=${allHoveredSub}&q=${encodeURIComponent(sub)}`); setOpenCat(null); }}
+                            onClick={() => { const cp = selectedCity ? `&city=${encodeURIComponent(selectedCity)}` : ''; router.push(`/vendors?category=${allHoveredSub}&q=${encodeURIComponent(sub)}${cp}`); setOpenCat(null); }}
                           >
                             {sub}
                           </button>
@@ -495,7 +497,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                 <div className="cat-drop-grid">
                   {CATEGORY_DATA[openCat].subs.map(sub => (
                     <button key={sub} className="cat-drop-item"
-                      onClick={() => { router.push(`/vendors?category=${openCat}&q=${encodeURIComponent(sub)}`); setOpenCat(null); }}
+                      onClick={() => { const cp = selectedCity ? `&city=${encodeURIComponent(selectedCity)}` : ''; router.push(`/vendors?category=${openCat}&q=${encodeURIComponent(sub)}${cp}`); setOpenCat(null); }}
                     >
                       {sub}
                     </button>
@@ -507,7 +509,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                     <div className="cat-drop-grid" style={{ marginTop: 8 }}>
                       {group.subs.map(sub => (
                         <button key={sub} className="cat-drop-item"
-                          onClick={() => { router.push(`/vendors?category=${openCat}&q=${encodeURIComponent(sub)}`); setOpenCat(null); }}
+                          onClick={() => { const cp = selectedCity ? `&city=${encodeURIComponent(selectedCity)}` : ''; router.push(`/vendors?category=${openCat}&q=${encodeURIComponent(sub)}${cp}`); setOpenCat(null); }}
                         >
                           {sub}
                         </button>

@@ -51,7 +51,7 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
       { menuItems: { some: { name: { contains: search, mode: 'insensitive' } } } },
     ];
   }
-  if (city) where.city = city;
+  if (city) where.city = { equals: city, mode: 'insensitive' };
 
   const vendors = await prisma.vendor.findMany({
     where,
@@ -1172,7 +1172,7 @@ export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
   const searchType = ['vendors', 'menu_items', 'all'].includes(type) ? type : 'all';
 
   const vendorFilter: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
-  if (city) vendorFilter.city = city;
+  if (city) vendorFilter.city = { equals: city, mode: 'insensitive' };
   if (category && category !== 'ALL') vendorFilter.category = category as VendorCategory;
 
   const [vendors, menuItems] = await Promise.all([
@@ -1216,7 +1216,7 @@ export const searchMenuItems = catchAsync(async (req: Request, res: Response) =>
   if (!search?.trim()) return apiResponse.error(res, 'search query is required.', 400);
 
   const vendorWhere: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
-  if (city) vendorWhere.city = city;
+  if (city) vendorWhere.city = { equals: city, mode: 'insensitive' };
   if (category && category !== 'ALL') vendorWhere.category = category as VendorCategory;
 
   const items = await prisma.menuItem.findMany({

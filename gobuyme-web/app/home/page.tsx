@@ -54,6 +54,7 @@ export default function HomePage() {
   }, [user, loading, router]);
 
   useEffect(() => {
+    let cancelled = false;
     setDataLoading(true);
     const params = new URLSearchParams({ limit: '12' });
     if (selectedCity) params.set('city', selectedCity);
@@ -65,9 +66,12 @@ export default function HomePage() {
       api.get(`/vendors?${params}`).catch(() => ({ data: { data: [] } })),
       api.get(`/vendors/active-promotions?${promoParams}`).catch(() => ({ data: { data: [] } })),
     ]).then(([vRes, pRes]) => {
+      if (cancelled) return;
       setVendors(vRes.data.data?.vendors ?? vRes.data.data ?? []);
       setPromos(pRes.data.data ?? []);
-    }).finally(() => setDataLoading(false));
+    }).finally(() => { if (!cancelled) setDataLoading(false); });
+
+    return () => { cancelled = true; };
   }, [selectedCity]);
 
   useEffect(() => {
@@ -115,7 +119,7 @@ export default function HomePage() {
               <div className="section-head"><h2 className="section-title">What are you craving?</h2></div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 12 }}>
                 {FOOD_CATEGORIES.map(c => (
-                  <button key={c.label} onClick={() => router.push(`/vendors?q=${encodeURIComponent(c.label)}&category=${c.cat}`)}
+                  <button key={c.label} onClick={() => { const cp = selectedCity ? `&city=${encodeURIComponent(selectedCity)}` : ''; router.push(`/vendors?q=${encodeURIComponent(c.label)}&category=${c.cat}${cp}`); }}
                     className="card card-pad" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 8px', cursor: 'pointer', transition: 'all .15s', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--brand)'; (e.currentTarget as HTMLElement).style.color = 'var(--brand)'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--line)'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; }}

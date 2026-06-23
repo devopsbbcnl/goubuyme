@@ -134,6 +134,7 @@ function VendorsContent() {
 
   // Fetch — only depends on derived state, not on searchParams directly
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
 
     const effectiveCity = urlCity ?? selectedCity;
@@ -147,6 +148,7 @@ function VendorsContent() {
 
       api.get(`/vendors/search?${params}`)
         .then(r => {
+          if (cancelled) return;
           const data = r.data.data ?? {};
           const v: Vendor[] = data.vendors ?? [];
           const m: MenuItem[] = data.menuItems ?? [];
@@ -158,8 +160,8 @@ function VendorsContent() {
           else if (searchType === 'vendors') setActiveTab('vendors');
           else setActiveTab(v.length > 0 ? 'vendors' : 'menu_items');
         })
-        .catch(() => { setVendors([]); setMenuItems([]); })
-        .finally(() => setLoading(false));
+        .catch(() => { if (!cancelled) { setVendors([]); setMenuItems([]); } })
+        .finally(() => { if (!cancelled) setLoading(false); });
     } else {
       // Browse mode — paginated
       setMenuItems([]);
@@ -169,13 +171,16 @@ function VendorsContent() {
 
       api.get(`/vendors?${params}`)
         .then(r => {
+          if (cancelled) return;
           setVendors(r.data.data ?? []);
           setTotalPages(r.data.pagination?.totalPages ?? 1);
           setTotalVendors(r.data.pagination?.total ?? 0);
         })
-        .catch(() => setVendors([]))
-        .finally(() => setLoading(false));
+        .catch(() => { if (!cancelled) setVendors([]); })
+        .finally(() => { if (!cancelled) setLoading(false); });
     }
+
+    return () => { cancelled = true; };
   }, [cat, q, searchType, urlCity, selectedCity, page]);
 
   const isSearchMode = Boolean(q);
