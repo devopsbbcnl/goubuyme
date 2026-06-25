@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export interface CartItem {
-  id: string;
+  id?: string;
   menuItemId: string;
   name: string;
   price: number;
@@ -11,6 +11,7 @@ export interface CartItem {
   image?: string;
   vendorId: string;
   vendorName: string;
+  compositeKey?: string;
 }
 
 interface CartCtx {

@@ -274,6 +274,7 @@ model Order {
   rider               Rider?        @relation(fields: [riderId], references: [id])
   vendor              Vendor        @relation(fields: [vendorId], references: [id])
   conversation        Conversation?
+  earning             Earning?
 
   @@index([customerId])
   @@index([vendorId])
@@ -321,6 +322,7 @@ model Earning {
   createdAt     DateTime     @default(now())
   payoutBatch   PayoutBatch? @relation(fields: [payoutBatchId], references: [id])
   rider         Rider        @relation(fields: [riderId], references: [id])
+  order         Order        @relation(fields: [orderId], references: [id])
 
   @@index([riderId])
   @@index([payoutStatus])

@@ -147,7 +147,7 @@ export default function ItemDetailPage() {
   const canOrder    = item.isAvailable && vendor.isOpen;
 
   const cartEntry   = items.find(i => i.menuItemId === item.id && !i.compositeKey);
-  const cartQty     = cartEntry?.quantity ?? 0;
+  const cartQty     = cartEntry?.qty ?? 0;
 
   const drinkTotal  = item.drinkOptions.reduce((s, d) => s + (drinkQtys[d.id] ?? 0) * d.price, 0);
   const optTotal    = item.optionGroups.reduce((s, g) =>
