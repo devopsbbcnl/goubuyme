@@ -742,11 +742,8 @@ enum Role {
 
 enum VendorCategory {
   RESTAURANT
-  GROCERY
+  EMART
   PHARMACY
-  HOME_KITCHEN
-  BEAUTY
-  ERRAND
 }
 
 enum CommissionTier {

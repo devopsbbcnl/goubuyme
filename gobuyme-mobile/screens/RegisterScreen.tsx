@@ -53,9 +53,8 @@ const ROLE_LABELS: Record<
 
 const CATEGORIES = [
 	{ value: 'RESTAURANT', label: 'Restaurant' },
-	{ value: 'GROCERY', label: 'Grocery' },
-	{ value: 'PHARMACY', label: 'Pharmacy' },
-	{ value: 'ERRAND', label: 'Errand' },
+	{ value: 'EMART',      label: 'EMART Mart' },
+	{ value: 'PHARMACY',   label: 'Pharmacy'   },
 ];
 
 const FIELD_LABELS: Record<string, keyof RegisterErrors> = {

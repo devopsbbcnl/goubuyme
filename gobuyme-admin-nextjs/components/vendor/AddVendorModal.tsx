@@ -12,10 +12,9 @@ type Tier    = 'TIER_1' | 'TIER_2';
 type Step    = 1 | 2 | 3;
 
 const CATEGORIES = [
-  { value: 'RESTAURANT', label: 'Restaurant' },
-  { value: 'GROCERY',    label: 'Grocery'    },
-  { value: 'PHARMACY',   label: 'Pharmacy'   },
-  { value: 'ERRAND',     label: 'Errand'     },
+  { value: 'RESTAURANT', label: 'Restaurant'            },
+  { value: 'EMART',      label: 'EMART (Grocery & More)' },
+  { value: 'PHARMACY',   label: 'Pharmacy'               },
 ];
 
 const DOC_META: Record<DocType, { label: string; numberLabel: string; placeholder: string; backRequired: boolean }> = {

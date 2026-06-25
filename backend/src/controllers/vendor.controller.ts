@@ -1189,7 +1189,13 @@ export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
   const [vendors, menuItems] = await Promise.all([
     searchType !== 'menu_items'
       ? prisma.vendor.findMany({
-          where: { ...vendorFilter, businessName: { contains: searchTerm, mode: 'insensitive' } },
+          where: {
+            ...vendorFilter,
+            OR: [
+              { businessName: { contains: searchTerm, mode: 'insensitive' } },
+              { menuItems: { some: { OR: [{ name: { contains: searchTerm, mode: 'insensitive' } }, { description: { contains: searchTerm, mode: 'insensitive' } }], isAvailable: true } } },
+            ],
+          },
           select: vendorSelect,
           orderBy: [
             { isOpen: 'desc' },
@@ -1271,21 +1277,155 @@ export const searchMenuItems = catchAsync(async (req: Request, res: Response) =>
   return apiResponse.success(res, 'Menu items fetched.', items);
 });
 
-// GET /vendors/active-promotions  (public — feeds the customer homescreen carousel)
+// GET /vendors/menu-items/:id  (public — single menu item detail with vendor info)
+export const getMenuItemById = catchAsync(async (req: Request, res: Response) => {
+  const item = await prisma.menuItem.findFirst({
+    where: { id: req.params.id, vendor: { approvalStatus: ApprovalStatus.APPROVED } },
+    select: {
+      id: true, name: true, description: true, price: true, image: true,
+      category: true, isAvailable: true, stockQuantity: true, isFeatured: true,
+      drinkOptions: {
+        where: { isAvailable: true },
+        select: { id: true, name: true, price: true, isAvailable: true },
+      },
+      optionGroups: {
+        select: {
+          id: true, name: true, required: true,
+          items: {
+            where: { isAvailable: true },
+            select: { id: true, name: true, extraPrice: true, isAvailable: true },
+          },
+        },
+      },
+      vendor: {
+        select: {
+          id: true, businessName: true, logo: true, coverImage: true,
+          category: true, city: true, rating: true, totalRatings: true,
+          isOpen: true, avgDeliveryTime: true, verificationBadge: true,
+        },
+      },
+    },
+  });
+  if (!item) return apiResponse.error(res, 'Item not found.', 404);
+  return apiResponse.success(res, 'Item fetched.', item);
+});
+
+// GET /vendors/menu-items/:id/similar  (public — featured vendors, same city, keyword-matched)
+export const getSimilarMenuItems = catchAsync(async (req: Request, res: Response) => {
+  const source = await prisma.menuItem.findFirst({
+    where: { id: req.params.id, vendor: { approvalStatus: ApprovalStatus.APPROVED } },
+    select: { id: true, name: true, description: true, category: true, vendor: { select: { id: true, city: true } } },
+  });
+  if (!source) return apiResponse.success(res, 'Similar items fetched.', []);
+
+  // Extract meaningful keywords: split on spaces/punctuation, drop short/common words
+  const stopWords = new Set(['and', 'or', 'the', 'a', 'an', 'of', 'in', 'with', 'for', 'to', 'is', 'on', 'at', 'by', 'as']);
+  const raw = `${source.name} ${source.description ?? ''} ${source.category ?? ''}`;
+  const keywords = [...new Set(
+    raw.toLowerCase().split(/[\s,.\-\/()]+/).filter(w => w.length >= 3 && !stopWords.has(w))
+  )].slice(0, 8);
+
+  if (!keywords.length) return apiResponse.success(res, 'Similar items fetched.', []);
+
+  const keywordConditions: Prisma.MenuItemWhereInput[] = keywords.map(kw => ({
+    OR: [
+      { name:        { contains: kw, mode: 'insensitive' } },
+      { description: { contains: kw, mode: 'insensitive' } },
+      { category:    { contains: kw, mode: 'insensitive' } },
+    ],
+  }));
+
+  const now = new Date();
+  const items = await prisma.menuItem.findMany({
+    where: {
+      isAvailable: true,
+      id: { not: source.id },
+      vendor: {
+        id:             { not: source.vendor.id },
+        approvalStatus: ApprovalStatus.APPROVED,
+        city:           source.vendor.city,
+        isFeatured:     true,
+        featuredUntil:  { gte: now },
+      },
+      OR: keywordConditions,
+    },
+    select: {
+      id: true, name: true, price: true, image: true, category: true,
+      vendor: { select: { id: true, businessName: true, logo: true, city: true, isOpen: true, isFeatured: true } },
+    },
+    orderBy: [{ isFeatured: 'desc' }, { name: 'asc' }],
+    take: 12,
+  });
+
+  return apiResponse.success(res, 'Similar items fetched.', items);
+});
+
+// GET /vendors/browse-items  (public — cross-vendor product category browse)
+export const browseItems = catchAsync(async (req: Request, res: Response) => {
+  const {
+    vendorCategory, itemCategory, city,
+    page = '1', limit = '20',
+  } = req.query as Record<string, string>;
+
+  const pageNum  = Math.max(1, parseInt(page));
+  const limitNum = Math.min(60, parseInt(limit));
+
+  const vendorWhere: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
+  if (vendorCategory && vendorCategory !== 'ALL') {
+    vendorWhere.category = vendorCategory as VendorCategory;
+  }
+  if (city) vendorWhere.city = city;
+
+  const itemWhere: Prisma.MenuItemWhereInput = {
+    isAvailable: true,
+    stockQuantity: { gt: 0 },
+    vendor: vendorWhere,
+  };
+  if (itemCategory) {
+    itemWhere.category = { equals: itemCategory, mode: 'insensitive' };
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.menuItem.findMany({
+      where: itemWhere,
+      select: {
+        id: true, name: true, description: true, price: true, image: true, category: true,
+        vendor: { select: { id: true, businessName: true, logo: true, city: true, isOpen: true } },
+      },
+      orderBy: [{ isFeatured: 'desc' }, { name: 'asc' }],
+      skip: (pageNum - 1) * limitNum,
+      take: limitNum,
+    }),
+    prisma.menuItem.count({ where: itemWhere }),
+  ]);
+
+  return apiResponse.paginated(res, 'Items fetched.', items, {
+    page: pageNum, limit: limitNum, total,
+    totalPages: Math.ceil(total / limitNum),
+  });
+});
+
+// GET /vendors/active-promotions  (public — feeds the customer homescreen carousel and deals page)
 export const getActiveVendorPromotions = catchAsync(async (req: Request, res: Response) => {
-  const { city } = req.query as Record<string, string>;
+  const { city, limit = '50' } = req.query as Record<string, string>;
 
   const where: Record<string, unknown> = { isActive: true };
-  if (city) where.vendor = { city: { equals: city, mode: 'insensitive' } };
+  if (city) where.vendor = { city: { equals: city, mode: 'insensitive' }, approvalStatus: ApprovalStatus.APPROVED };
 
   const promos = await prisma.vendorPromotion.findMany({
     where,
     select: {
       id: true, title: true, imageUrl: true, code: true,
-      vendor: { select: { businessName: true } },
+      vendor: {
+        select: {
+          id: true, businessName: true, logo: true, coverImage: true,
+          category: true, city: true, rating: true, isOpen: true,
+          verificationBadge: true,
+        },
+      },
     },
     orderBy: { updatedAt: 'desc' },
-    take: 10,
+    take: Math.min(100, parseInt(limit) || 50),
   });
   return apiResponse.success(res, 'OK', promos);
 });

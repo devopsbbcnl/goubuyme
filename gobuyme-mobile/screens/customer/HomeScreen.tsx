@@ -40,15 +40,42 @@ type CarouselItem =
   | { kind: 'platform'; id: string; tag: string; headline: string; code: string; bg: string }
   | { kind: 'vendor';   id: string; title: string; imageUrl: string; code: string | null; vendorName: string };
 
-const CATEGORIES = [
-  { id: 'all',          label: 'All',      icon: '🍽️' },
-  { id: 'RESTAURANT',   label: 'Food',     icon: '🍛' },
-  { id: 'GROCERY',      label: 'Grocery',  icon: '🛒' },
-  { id: 'PHARMACY',     label: 'Pharmacy', icon: '💊' },
-  { id: 'HOME_KITCHEN', label: 'Home',     icon: '🏠' },
-  { id: 'BEAUTY',       label: 'Beauty',   icon: '💄' },
-  { id: 'ERRAND',       label: 'Errand',   icon: '📦' },
+const TOP_CATEGORIES = [
+  { id: 'all',        label: 'All',      icon: '🏠' },
+  { id: 'RESTAURANT', label: 'Food',     icon: '🍛' },
+  { id: 'EMART',      label: 'EMART',    icon: '🛒' },
+  { id: 'PHARMACY',   label: 'Pharmacy', icon: '💊' },
 ];
+
+const EMART_PRODUCT_CATS = [
+  { id: 'Alcohol & Cigarettes', icon: '🍺' },
+  { id: 'Snacks',               icon: '🍿' },
+  { id: 'Drinks',               icon: '🥤' },
+  { id: 'Water',                icon: '💧' },
+  { id: 'Fruits & Vegetables',  icon: '🥦' },
+  { id: 'Food',                 icon: '🍚' },
+  { id: 'Meat & Chicken',       icon: '🍗' },
+  { id: 'Basic Food',           icon: '🥫' },
+  { id: 'Dairy & Breakfast',    icon: '🥛' },
+  { id: 'Bakery',               icon: '🥐' },
+  { id: 'Ice Cream',            icon: '🍦' },
+  { id: 'Fit & Form',           icon: '💪' },
+  { id: 'Home Care',            icon: '🧹' },
+  { id: 'Home Life',            icon: '🏡' },
+  { id: 'Personal Care',        icon: '🧴' },
+  { id: 'Technology',           icon: '📱' },
+  { id: 'Sexual Health',        icon: '❤️' },
+  { id: 'Baby',                 icon: '👶' },
+  { id: 'Clothing',             icon: '👕' },
+  { id: 'Stationery',           icon: '📝' },
+  { id: 'Pets',                 icon: '🐾' },
+];
+
+const CATEGORY_LABEL: Record<string, string> = {
+  RESTAURANT: 'Restaurant',
+  EMART:      'EMART Mart',
+  PHARMACY:   'Pharmacy',
+};
 
 type VerificationBadge = 'UNVERIFIED' | 'ID_VERIFIED' | 'BUSINESS_VERIFIED' | 'PREMIUM_VERIFIED';
 
@@ -67,9 +94,23 @@ interface Vendor {
   verificationBadge: VerificationBadge;
 }
 
+interface BrowseItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  image: string | null;
+  category: string | null;
+  vendor: { id: string; businessName: string; logo: string | null; city: string; isOpen: boolean };
+}
+
 function matchCat(vendorCat: string, selected: string): boolean {
   if (selected === 'all') return true;
   return vendorCat === selected;
+}
+
+function fmtPrice(n: number) {
+  return '₦' + n.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 function deriveTag(v: Vendor): string | null {
@@ -109,7 +150,10 @@ export default function HomeScreen() {
   const { addresses, selected, selectAddress } = useAddress();
   const { selectedCity, setSelectedCity, cityLoaded } = useCity();
 
-  const [activeCat,    setActiveCat]    = useState('all');
+  const [activeCat,      setActiveCat]      = useState('all');
+  const [activeEmartCat, setActiveEmartCat] = useState<string | null>(null);
+  const [emartItems,     setEmartItems]     = useState<BrowseItem[]>([]);
+  const [browseLoading,  setBrowseLoading]  = useState(false);
   const [addrModal,    setAddrModal]    = useState(false);
   const [cityModal,    setCityModal]    = useState(false);
   const [vendors,      setVendors]      = useState<Vendor[]>([]);
@@ -173,10 +217,41 @@ export default function HomeScreen() {
 
   useEffect(() => { if (cityLoaded) fetchVendors(); }, [fetchVendors, cityLoaded]);
 
+  const fetchEmartItems = useCallback(async (category: string) => {
+    setBrowseLoading(true);
+    try {
+      const params: Record<string, string> = { vendorCategory: 'EMART', itemCategory: category };
+      if (selectedCity) params.city = selectedCity;
+      const res = await api.get('/vendors/browse-items', { params });
+      setEmartItems(res.data.data ?? []);
+    } catch {
+      setEmartItems([]);
+    } finally {
+      setBrowseLoading(false);
+    }
+  }, [selectedCity]);
+
+  const handleTopCatChange = useCallback((catId: string) => {
+    setActiveCat(catId);
+    setActiveEmartCat(null);
+    setEmartItems([]);
+  }, []);
+
+  const handleEmartCatSelect = useCallback((cat: string) => {
+    if (activeEmartCat === cat) {
+      setActiveEmartCat(null);
+      setEmartItems([]);
+      return;
+    }
+    setActiveEmartCat(cat);
+    fetchEmartItems(cat);
+  }, [activeEmartCat, fetchEmartItems]);
+
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchVendors();
-  }, [fetchVendors]);
+    if (activeEmartCat) fetchEmartItems(activeEmartCat);
+    else fetchVendors();
+  }, [fetchVendors, fetchEmartItems, activeEmartCat]);
 
   const handleCitySelect = useCallback(async (cityName: string) => {
     await setSelectedCity(cityName);
@@ -187,6 +262,7 @@ export default function HomeScreen() {
 
   const hasAddresses = addresses.length > 0;
   const filtered = vendors.filter(v => matchCat(v.category, activeCat));
+  const showingBrowse = activeCat === 'EMART' && activeEmartCat !== null;
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
@@ -310,10 +386,10 @@ export default function HomeScreen() {
         {/* Categories */}
         <Text style={[styles.sectionTitle, { color: T.text }]}>Categories</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categories}>
-          {CATEGORIES.map(c => (
+          {TOP_CATEGORIES.map(c => (
             <TouchableOpacity
               key={c.id}
-              onPress={() => setActiveCat(c.id)}
+              onPress={() => handleTopCatChange(c.id)}
               style={[
                 styles.catChip,
                 { backgroundColor: activeCat === c.id ? T.primary : T.surface, borderColor: T.border,
@@ -326,17 +402,98 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
-        {/* Vendors */}
+        {/* EMART product category row */}
+        {activeCat === 'EMART' && (
+          <>
+            <Text style={[styles.sectionTitle, { color: T.text, fontSize: 14 }]}>Browse by category</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.categories, { marginBottom: 16 }]}>
+              {EMART_PRODUCT_CATS.map(c => (
+                <TouchableOpacity
+                  key={c.id}
+                  onPress={() => handleEmartCatSelect(c.id)}
+                  style={[
+                    styles.catChip,
+                    { backgroundColor: activeEmartCat === c.id ? '#FF521B22' : T.surface,
+                      borderColor: activeEmartCat === c.id ? T.primary : T.border,
+                      borderWidth: 1 },
+                  ]}
+                >
+                  <Text style={styles.catIcon}>{c.icon}</Text>
+                  <Text style={[styles.catLabel, { color: activeEmartCat === c.id ? T.primary : T.textSec }]}>{c.id}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </>
+        )}
+
+        {/* Section header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <Text style={[styles.sectionTitle, { color: T.text, marginBottom: 0 }]}>
-            {selectedCity ? `Vendors in ${selectedCity}` : 'All Vendors'}
+            {showingBrowse
+              ? activeEmartCat
+              : selectedCity ? `Vendors in ${selectedCity}` : 'All Vendors'}
           </Text>
-          <TouchableOpacity onPress={() => router.push('/search')}>
-            <Text style={{ fontSize: 13, color: T.primary, fontWeight: '600' }}>See All</Text>
-          </TouchableOpacity>
+          {!showingBrowse && (
+            <TouchableOpacity onPress={() => router.push('/search')}>
+              <Text style={{ fontSize: 13, color: T.primary, fontWeight: '600' }}>See All</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
-        {loading ? (
+        {/* Browse items view (EMART product category selected) */}
+        {showingBrowse ? (
+          browseLoading ? (
+            <ActivityIndicator color={T.primary} style={{ marginTop: 32 }} />
+          ) : emartItems.length === 0 ? (
+            <View style={[styles.emptyState, { backgroundColor: T.surface, borderColor: T.border }]}>
+              <Text style={{ fontSize: 32, marginBottom: 8 }}>🛒</Text>
+              <Text style={[styles.emptyText, { color: T.textSec }]}>
+                No {activeEmartCat} items available{selectedCity ? ` in ${selectedCity}` : ''} yet.
+              </Text>
+            </View>
+          ) : (
+            emartItems.map(item => (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => router.push({ pathname: '/vendor/[id]', params: { id: item.vendor.id } })}
+                activeOpacity={0.9}
+                style={[styles.browseCard, { backgroundColor: T.surface, borderColor: T.border, ...shadows.card }]}
+              >
+                {item.image ? (
+                  <Image source={{ uri: item.image }} style={styles.browseImg} />
+                ) : (
+                  <View style={[styles.browseImg, { backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' }]}>
+                    <Text style={{ fontSize: 28 }}>🛒</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1, padding: 12 }}>
+                  <Text style={[styles.vendorName, { color: T.text, fontSize: 14 }]} numberOfLines={1}>{item.name}</Text>
+                  {item.description ? (
+                    <Text style={[{ fontSize: 12, color: T.textSec, marginTop: 2 }]} numberOfLines={1}>{item.description}</Text>
+                  ) : null}
+                  <Text style={[{ fontSize: 14, fontWeight: '700', color: T.primary, marginTop: 4 }]}>{fmtPrice(item.price)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                    {item.vendor.logo ? (
+                      <Image source={{ uri: item.vendor.logo }} style={{ width: 18, height: 18, borderRadius: 4 }} />
+                    ) : (
+                      <Text style={{ fontSize: 14 }}>🏪</Text>
+                    )}
+                    <Text style={[{ fontSize: 11, color: T.textSec, flex: 1 }]} numberOfLines={1}>{item.vendor.businessName}</Text>
+                    <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999,
+                      backgroundColor: item.vendor.isOpen ? '#E8F8F1' : '#FEE2E2' }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700',
+                        color: item.vendor.isOpen ? '#065F46' : '#991B1B' }}>
+                        {item.vendor.isOpen ? 'Open' : 'Closed'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          )
+        ) : (
+          /* Vendor list view */
+          loading ? (
           <ActivityIndicator color={T.primary} style={{ marginTop: 32 }} />
         ) : filtered.length === 0 ? (
           <View style={[styles.emptyState, { backgroundColor: T.surface, borderColor: T.border }]}>
@@ -394,7 +551,7 @@ export default function HomeScreen() {
                         <VerifBadge badge={v.verificationBadge} />
                       )}
                     </View>
-                    <Text style={[styles.vendorCat, { color: T.textSec }]}>{v.category}</Text>
+                    <Text style={[styles.vendorCat, { color: T.textSec }]}>{CATEGORY_LABEL[v.category] ?? v.category}</Text>
                     <View style={styles.vendorMeta}>
                       <Text style={[styles.metaText, { color: T.text }]}>⭐ {v.rating.toFixed(1)}</Text>
                       <View style={[styles.metaDot, { backgroundColor: T.border }]} />
@@ -411,6 +568,7 @@ export default function HomeScreen() {
               </TouchableOpacity>
             );
           })
+        )
         )}
       </ScrollView>
 
@@ -566,4 +724,6 @@ const styles = StyleSheet.create({
   cityIconWrap:      { width: 36, height: 36, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
   cityName:          { fontSize: 15, fontWeight: '700' },
   cityState:         { fontSize: 12, marginTop: 2 },
+  browseCard:        { flexDirection: 'row', borderRadius: 4, overflow: 'hidden', borderWidth: 1, marginBottom: 12 },
+  browseImg:         { width: 100, height: 100 },
 });

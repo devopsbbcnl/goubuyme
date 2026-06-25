@@ -113,6 +113,7 @@ async function seedDemo() {
       logo: 'https://picsum.photos/seed/mamachika-logo/200/200',
       coverImage: 'https://picsum.photos/seed/mamachika-cover/1080/580',
       category: VendorCategory.RESTAURANT,
+      subcategory: 'Local Buka',
       address: '22 Trans Amadi Road',
       city: 'Port Harcourt',
       state: 'Rivers',
@@ -127,20 +128,23 @@ async function seedDemo() {
       totalRatings: 142,
       avgDeliveryTime: 35,
       verificationBadge: VerificationBadge.BUSINESS_VERIFIED,
+      isFeatured: true,
+      featuredUntil: new Date('2026-12-31'),
+      displayOrder: 1,
     },
   });
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: vendor1.id, name: 'Jollof Rice + Chicken', description: 'Party jollof with smoky oven chicken', price: 2500, image: 'https://picsum.photos/seed/jollof/400/300', category: 'Rice Dishes', isFeatured: true },
-      { vendorId: vendor1.id, name: 'Egusi Soup + Pounded Yam', description: 'Fresh egusi with assorted meat and stockfish', price: 3200, image: 'https://picsum.photos/seed/egusi/400/300', category: 'Soups & Swallow' },
-      { vendorId: vendor1.id, name: 'Banga Soup + Starch', description: 'Delta-style palm nut soup with wrap', price: 3500, image: 'https://picsum.photos/seed/banga/400/300', category: 'Soups & Swallow' },
-      { vendorId: vendor1.id, name: 'Fried Rice + Plantain', description: 'Special fried rice with golden dodo', price: 2800, image: 'https://picsum.photos/seed/friedrice/400/300', category: 'Rice Dishes', isFeatured: true },
-      { vendorId: vendor1.id, name: 'Catfish Pepper Soup', description: 'Spicy point-and-kill style with utazi', price: 4500, image: 'https://picsum.photos/seed/peppersoup/400/300', category: 'Specials' },
-      { vendorId: vendor1.id, name: 'Moi Moi + Ogi', description: 'Traditional breakfast combo', price: 1200, image: 'https://picsum.photos/seed/moimoi/400/300', category: 'Breakfast' },
-      { vendorId: vendor1.id, name: 'Oha Soup + Fufu', description: 'Oha leaves simmered with assorted meat', price: 3000, image: 'https://picsum.photos/seed/ohasoup/400/300', category: 'Soups & Swallow' },
-      { vendorId: vendor1.id, name: 'Zobo Drink (Large)', description: 'Chilled hibiscus with ginger and pineapple', price: 600, image: 'https://picsum.photos/seed/zobo/400/300', category: 'Drinks' },
-      { vendorId: vendor1.id, name: 'Chapman Cocktail', description: 'Classic Nigerian party mocktail', price: 800, image: 'https://picsum.photos/seed/chapman/400/300', category: 'Drinks' },
+      { vendorId: vendor1.id, name: 'Jollof Rice + Chicken', description: 'Party jollof with smoky oven chicken', price: 2500, image: 'https://picsum.photos/seed/jollof/400/300', category: 'Meals', isFeatured: true, stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Egusi Soup + Pounded Yam', description: 'Fresh egusi with assorted meat and stockfish', price: 3200, image: 'https://picsum.photos/seed/egusi/400/300', category: 'Meals', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Banga Soup + Starch', description: 'Delta-style palm nut soup with wrap', price: 3500, image: 'https://picsum.photos/seed/banga/400/300', category: 'Meals', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Fried Rice + Plantain', description: 'Special fried rice with golden dodo', price: 2800, image: 'https://picsum.photos/seed/friedrice/400/300', category: 'Meals', isFeatured: true, stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Catfish Pepper Soup', description: 'Spicy point-and-kill style with utazi', price: 4500, image: 'https://picsum.photos/seed/peppersoup/400/300', category: 'Specials', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Moi Moi + Ogi', description: 'Traditional breakfast combo', price: 1200, image: 'https://picsum.photos/seed/moimoi/400/300', category: 'Snacks', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Oha Soup + Fufu', description: 'Oha leaves simmered with assorted meat', price: 3000, image: 'https://picsum.photos/seed/ohasoup/400/300', category: 'Meals', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Zobo Drink (Large)', description: 'Chilled hibiscus with ginger and pineapple', price: 600, image: 'https://picsum.photos/seed/zobo/400/300', category: 'Drinks', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Chapman Cocktail', description: 'Classic Nigerian party mocktail', price: 800, image: 'https://picsum.photos/seed/chapman/400/300', category: 'Drinks', stockQuantity: 999 },
     ],
   });
 
@@ -202,7 +206,8 @@ async function seedDemo() {
       description: 'Fresh groceries, household essentials, and more — delivered to your door in under 40 minutes.',
       logo: 'https://picsum.photos/seed/quickmart-logo/200/200',
       coverImage: 'https://picsum.photos/seed/quickmart-cover/1080/580',
-      category: VendorCategory.GROCERY,
+      category: VendorCategory.EMART,
+      subcategory: 'Supermarket',
       address: '5 Rumuola Road',
       city: 'Port Harcourt',
       state: 'Rivers',
@@ -217,19 +222,21 @@ async function seedDemo() {
       totalRatings: 87,
       avgDeliveryTime: 28,
       verificationBadge: VerificationBadge.ID_VERIFIED,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: vendor2.id, name: 'Tomatoes (1 kg)', price: 800, image: 'https://picsum.photos/seed/tomatoes/400/300', category: 'Vegetables & Fruits' },
-      { vendorId: vendor2.id, name: 'Indomie Noodles (Pack of 10)', price: 2200, image: 'https://picsum.photos/seed/indomie/400/300', category: 'Dry Goods', isFeatured: true },
-      { vendorId: vendor2.id, name: 'Hollandia Yoghurt (1 L)', price: 1800, image: 'https://picsum.photos/seed/yoghurt/400/300', category: 'Dairy' },
-      { vendorId: vendor2.id, name: 'Golden Morn (500 g)', price: 1400, image: 'https://picsum.photos/seed/goldenmorn/400/300', category: 'Cereals' },
-      { vendorId: vendor2.id, name: 'Canola Cooking Oil (1 L)', price: 2600, image: 'https://picsum.photos/seed/cookingoil/400/300', category: 'Cooking Essentials' },
-      { vendorId: vendor2.id, name: 'Dangote Sugar (1 kg)', price: 1200, image: 'https://picsum.photos/seed/sugar/400/300', category: 'Cooking Essentials' },
-      { vendorId: vendor2.id, name: 'Frozen Chicken (1 kg)', price: 4500, image: 'https://picsum.photos/seed/chicken/400/300', category: 'Meat & Fish', isFeatured: true },
-      { vendorId: vendor2.id, name: 'Peak Milk Powder (400 g)', price: 2100, image: 'https://picsum.photos/seed/peakmilk/400/300', category: 'Dairy' },
+      { vendorId: vendor2.id, name: 'Tomatoes (1 kg)', price: 800, image: 'https://picsum.photos/seed/tomatoes/400/300', category: 'Fruits & Vegetables', isFeatured: true, stockQuantity: 200 },
+      { vendorId: vendor2.id, name: 'Indomie Noodles (Pack of 10)', price: 2200, image: 'https://picsum.photos/seed/indomie/400/300', category: 'Basic Food', isFeatured: true, stockQuantity: 150 },
+      { vendorId: vendor2.id, name: 'Hollandia Yoghurt (1 L)', price: 1800, image: 'https://picsum.photos/seed/yoghurt/400/300', category: 'Dairy & Breakfast', stockQuantity: 80 },
+      { vendorId: vendor2.id, name: 'Golden Morn (500 g)', price: 1400, image: 'https://picsum.photos/seed/goldenmorn/400/300', category: 'Dairy & Breakfast', stockQuantity: 120 },
+      { vendorId: vendor2.id, name: 'Canola Cooking Oil (1 L)', price: 2600, image: 'https://picsum.photos/seed/cookingoil/400/300', category: 'Food', stockQuantity: 60 },
+      { vendorId: vendor2.id, name: 'Dangote Sugar (1 kg)', price: 1200, image: 'https://picsum.photos/seed/sugar/400/300', category: 'Food', stockQuantity: 200 },
+      { vendorId: vendor2.id, name: 'Frozen Chicken (1 kg)', price: 4500, image: 'https://picsum.photos/seed/chicken/400/300', category: 'Meat & Chicken', isFeatured: true, stockQuantity: 50 },
+      { vendorId: vendor2.id, name: 'Peak Milk Powder (400 g)', price: 2100, image: 'https://picsum.photos/seed/peakmilk/400/300', category: 'Dairy & Breakfast', stockQuantity: 90 },
     ],
   });
 
@@ -269,6 +276,7 @@ async function seedDemo() {
       logo: 'https://picsum.photos/seed/healthplus-logo/200/200',
       coverImage: 'https://picsum.photos/seed/healthplus-cover/1080/580',
       category: VendorCategory.PHARMACY,
+      subcategory: 'Medications',
       address: '12 Peter Odili Road',
       city: 'Port Harcourt',
       state: 'Rivers',
@@ -284,17 +292,20 @@ async function seedDemo() {
       avgDeliveryTime: 25,
       verificationBadge: VerificationBadge.PREMIUM_VERIFIED,
       isPharmacyFlagged: true,
+      isFeatured: true,
+      featuredUntil: new Date('2026-12-31'),
+      displayOrder: 2,
     },
   });
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: vendor3.id, name: 'Paracetamol (Strip)', price: 200, image: 'https://picsum.photos/seed/paracetamol/400/300', category: 'Pain Relief', isFeatured: true },
-      { vendorId: vendor3.id, name: 'Vitamin C 1000 mg (30 tablets)', price: 1800, image: 'https://picsum.photos/seed/vitaminc/400/300', category: 'Vitamins' },
-      { vendorId: vendor3.id, name: 'Oral Rehydration Salts (ORS)', price: 350, image: 'https://picsum.photos/seed/ors/400/300', category: 'Essentials' },
-      { vendorId: vendor3.id, name: 'Blood Pressure Monitor', price: 25000, image: 'https://picsum.photos/seed/bpmonitor/400/300', category: 'Devices' },
-      { vendorId: vendor3.id, name: 'Hand Sanitizer (500 ml)', price: 1500, image: 'https://picsum.photos/seed/sanitizer/400/300', category: 'Hygiene' },
-      { vendorId: vendor3.id, name: 'Malaria Rapid Test Kit', price: 2500, image: 'https://picsum.photos/seed/malariakit/400/300', category: 'Test Kits', isFeatured: true },
+      { vendorId: vendor3.id, name: 'Paracetamol (Strip)', price: 200, image: 'https://picsum.photos/seed/paracetamol/400/300', category: 'OTC Medications', isFeatured: true, stockQuantity: 500 },
+      { vendorId: vendor3.id, name: 'Vitamin C 1000 mg (30 tablets)', price: 1800, image: 'https://picsum.photos/seed/vitaminc/400/300', category: 'Vitamins & Supplements', stockQuantity: 200 },
+      { vendorId: vendor3.id, name: 'Oral Rehydration Salts (ORS)', price: 350, image: 'https://picsum.photos/seed/ors/400/300', category: 'OTC Medications', stockQuantity: 300 },
+      { vendorId: vendor3.id, name: 'Blood Pressure Monitor', price: 25000, image: 'https://picsum.photos/seed/bpmonitor/400/300', category: 'Diagnostics & Monitoring', stockQuantity: 30 },
+      { vendorId: vendor3.id, name: 'Hand Sanitizer (500 ml)', price: 1500, image: 'https://picsum.photos/seed/sanitizer/400/300', category: 'Personal Hygiene', stockQuantity: 150 },
+      { vendorId: vendor3.id, name: 'Malaria Rapid Test Kit', price: 2500, image: 'https://picsum.photos/seed/malariakit/400/300', category: 'Diagnostics & Monitoring', isFeatured: true, stockQuantity: 100 },
     ],
   });
 
@@ -334,30 +345,31 @@ async function seedDemo() {
 
   console.log(`✓ Vendor 3 created: ${vendor3User.email} (Pharmacy)`);
 
-  // ─── VENDOR 4 — GoFetch Errands (Errand, TIER_1, Unverified) ──────────────
+  // ─── VENDOR 4 — NovaMart PH (EMART, TIER_1, ID Verified) ──────────────────
 
   const vendor4User = await prisma.user.create({
     data: {
       name: 'Bayo Adeleke',
-      email: `gofetch@${DEMO_DOMAIN}`,
+      email: `novamart@${DEMO_DOMAIN}`,
       phone: '+2348084445566',
       password,
       role: Role.VENDOR,
       isEmailVerified: true,
       isActive: true,
-      referralCode: 'DEMO-GOFETCH',
+      referralCode: 'DEMO-NOVAMART',
     },
   });
 
   const vendor4 = await prisma.vendor.create({
     data: {
       userId: vendor4User.id,
-      businessName: 'GoFetch Errands',
-      slug: 'gofetch-errands',
-      description: 'We run your errands — pick up packages, documents, or anything you need moved across town fast.',
-      logo: 'https://picsum.photos/seed/gofetch-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/gofetch-cover/1080/580',
-      category: VendorCategory.ERRAND,
+      businessName: 'NovaMart PH',
+      slug: 'novamart-ph',
+      description: 'Electronics, home appliances, personal care, and everyday essentials — all in one place.',
+      logo: 'https://picsum.photos/seed/novamart-logo/200/200',
+      coverImage: 'https://picsum.photos/seed/novamart-cover/1080/580',
+      category: VendorCategory.EMART,
+      subcategory: 'Electronics & Home',
       address: '7 Aggrey Road, Mile 1',
       city: 'Port Harcourt',
       state: 'Rivers',
@@ -366,25 +378,40 @@ async function seedDemo() {
       isOpen: true,
       approvalStatus: ApprovalStatus.APPROVED,
       commissionTier: CommissionTier.TIER_1,
-      openingTime: '07:30',
+      openingTime: '08:00',
       closingTime: '20:00',
-      rating: 4.5,
-      totalRatings: 33,
-      avgDeliveryTime: 45,
-      verificationBadge: VerificationBadge.UNVERIFIED,
+      rating: 4.2,
+      totalRatings: 29,
+      avgDeliveryTime: 40,
+      verificationBadge: VerificationBadge.ID_VERIFIED,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: vendor4.id, name: 'Document Pickup & Delivery', description: 'Collect and deliver documents anywhere in PH', price: 1500, image: 'https://picsum.photos/seed/errand-doc/400/300', category: 'Documents', isFeatured: true },
-      { vendorId: vendor4.id, name: 'Small Package (up to 5 kg)', description: 'Pickup and drop-off of lightweight parcels', price: 1800, image: 'https://picsum.photos/seed/errand-pkg/400/300', category: 'Packages' },
-      { vendorId: vendor4.id, name: 'Large Package (5–20 kg)', description: 'Heavier items, secure handling guaranteed', price: 3500, image: 'https://picsum.photos/seed/errand-large/400/300', category: 'Packages' },
-      { vendorId: vendor4.id, name: 'Supermarket Run', description: 'We shop on your behalf with your list', price: 2000, image: 'https://picsum.photos/seed/supermarket/400/300', category: 'Shopping', isFeatured: true },
+      { vendorId: vendor4.id, name: 'USB-C Fast Charger (65 W)', description: 'Universal GaN charger compatible with phones and laptops', price: 4500, image: 'https://picsum.photos/seed/usbc-charger/400/300', category: 'Electronics', isFeatured: true, stockQuantity: 80 },
+      { vendorId: vendor4.id, name: 'Wireless Earbuds', description: 'Bluetooth 5.3, 24-hour battery life, noise isolation', price: 12000, image: 'https://picsum.photos/seed/wireless-earbuds/400/300', category: 'Electronics', isFeatured: true, stockQuantity: 50 },
+      { vendorId: vendor4.id, name: 'LED Desk Lamp', description: 'Adjustable brightness and colour temperature, USB powered', price: 6500, image: 'https://picsum.photos/seed/desk-lamp/400/300', category: 'Home Life', stockQuantity: 60 },
+      { vendorId: vendor4.id, name: 'Electric Kettle (1.5 L)', description: 'Stainless steel, auto shut-off, fast boil', price: 8000, image: 'https://picsum.photos/seed/electric-kettle/400/300', category: 'Home Life', stockQuantity: 45 },
+      { vendorId: vendor4.id, name: 'Men\'s Body Wash (500 ml)', description: 'Energising citrus scent, sulphate-free formula', price: 2200, image: 'https://picsum.photos/seed/body-wash/400/300', category: 'Personal Care', stockQuantity: 120 },
+      { vendorId: vendor4.id, name: 'Phone Screen Protector', description: 'Universal tempered glass, fits most 6–6.9 inch phones', price: 1500, image: 'https://picsum.photos/seed/screen-protector/400/300', category: 'Electronics', stockQuantity: 200 },
     ],
   });
 
-  console.log(`✓ Vendor 4 created: ${vendor4User.email} (Errand)`);
+  await prisma.vendorDocument.create({
+    data: {
+      vendorId: vendor4.id,
+      type: DocumentType.NIN,
+      number: '55566677788',
+      imageUrl: 'https://picsum.photos/seed/nin-doc4/400/300',
+      selfieUrl: 'https://picsum.photos/seed/selfie4/400/300',
+      status: DocumentStatus.VERIFIED,
+    },
+  });
+
+  console.log(`✓ Vendor 4 created: ${vendor4User.email} (EMART · Electronics & Home · TIER_1)`);
 
   // ─── VENDOR 5 — Spicy Kings Shawarma (Restaurant, TIER_2, ID Verified) ──────
 
@@ -410,6 +437,7 @@ async function seedDemo() {
       logo: 'https://picsum.photos/seed/spicykings-logo/200/200',
       coverImage: 'https://picsum.photos/seed/spicykings-cover/1080/580',
       category: VendorCategory.RESTAURANT,
+      subcategory: 'Shawarma & Grills',
       address: '45 Rumuobiakani Road',
       city: 'Port Harcourt',
       state: 'Rivers',
@@ -424,6 +452,8 @@ async function seedDemo() {
       totalRatings: 78,
       avgDeliveryTime: 25,
       verificationBadge: VerificationBadge.ID_VERIFIED,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
 
@@ -484,7 +514,8 @@ async function seedDemo() {
       description: 'Your one-stop grocery store — fresh produce, beverages, and household essentials at great prices.',
       logo: 'https://picsum.photos/seed/freshmart-logo/200/200',
       coverImage: 'https://picsum.photos/seed/freshmart-cover/1080/580',
-      category: VendorCategory.GROCERY,
+      category: VendorCategory.EMART,
+      subcategory: 'Supermarket',
       address: '18 Aba Road, GRA',
       city: 'Port Harcourt',
       state: 'Rivers',
@@ -499,10 +530,12 @@ async function seedDemo() {
       verificationBadge: VerificationBadge.UNVERIFIED,
       rating: 0,
       totalRatings: 0,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
 
-  console.log(`✓ Vendor 6 created: ${vendor6User.email} (Grocery · Pending approval — visible in admin dashboard)`);
+  console.log(`✓ Vendor 6 created: ${vendor6User.email} (EMART · Pending approval — visible in admin dashboard)`);
 
   // ─── RIDER 1 — Emeka Eze (Motorcycle, Online & Available) ─────────────────
 
@@ -1170,6 +1203,7 @@ async function seedDemo() {
       logo: 'https://picsum.photos/seed/yellowchilli-logo/200/200',
       coverImage: 'https://picsum.photos/seed/yellowchilli-cover/1080/580',
       category: VendorCategory.RESTAURANT,
+      subcategory: 'West African Cuisine',
       address: '14 Admiralty Way, Lekki Phase 1',
       city: 'Lagos',
       state: 'Lagos',
@@ -1184,6 +1218,9 @@ async function seedDemo() {
       totalRatings: 203,
       avgDeliveryTime: 30,
       verificationBadge: VerificationBadge.BUSINESS_VERIFIED,
+      isFeatured: true,
+      featuredUntil: new Date('2026-12-31'),
+      displayOrder: 3,
     },
   });
 
@@ -1231,7 +1268,8 @@ async function seedDemo() {
       description: 'Quality groceries and fresh produce delivered fast across Lagos Island and Mainland.',
       logo: 'https://picsum.photos/seed/freshbasket-logo/200/200',
       coverImage: 'https://picsum.photos/seed/freshbasket-cover/1080/580',
-      category: VendorCategory.GROCERY,
+      category: VendorCategory.EMART,
+      subcategory: 'Supermarket',
       address: '7 Kofo Abayomi Street, Victoria Island',
       city: 'Lagos',
       state: 'Lagos',
@@ -1246,15 +1284,17 @@ async function seedDemo() {
       totalRatings: 118,
       avgDeliveryTime: 35,
       verificationBadge: VerificationBadge.ID_VERIFIED,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: lagosV2.id, name: 'Semovita (2 kg)', price: 2800, image: 'https://picsum.photos/seed/semovita/400/300', category: 'Dry Goods', isFeatured: true, stockQuantity: 999 },
-      { vendorId: lagosV2.id, name: 'Titus Fish (1 kg)', description: 'Frozen titus mackerel', price: 3500, image: 'https://picsum.photos/seed/titus-fish/400/300', category: 'Meat & Fish', stockQuantity: 999 },
-      { vendorId: lagosV2.id, name: 'Groundnut Oil (2 L)', price: 4200, image: 'https://picsum.photos/seed/gnut-oil/400/300', category: 'Cooking Essentials', isFeatured: true, stockQuantity: 999 },
-      { vendorId: lagosV2.id, name: 'Tomato Paste (800 g)', price: 1100, image: 'https://picsum.photos/seed/tom-paste/400/300', category: 'Cooking Essentials', stockQuantity: 999 },
+      { vendorId: lagosV2.id, name: 'Semovita (2 kg)', price: 2800, image: 'https://picsum.photos/seed/semovita/400/300', category: 'Basic Food', isFeatured: true, stockQuantity: 999 },
+      { vendorId: lagosV2.id, name: 'Titus Fish (1 kg)', description: 'Frozen titus mackerel', price: 3500, image: 'https://picsum.photos/seed/titus-fish/400/300', category: 'Meat & Chicken', stockQuantity: 999 },
+      { vendorId: lagosV2.id, name: 'Groundnut Oil (2 L)', price: 4200, image: 'https://picsum.photos/seed/gnut-oil/400/300', category: 'Food', isFeatured: true, stockQuantity: 999 },
+      { vendorId: lagosV2.id, name: 'Tomato Paste (800 g)', price: 1100, image: 'https://picsum.photos/seed/tom-paste/400/300', category: 'Food', stockQuantity: 999 },
     ],
   });
 
@@ -1283,6 +1323,7 @@ async function seedDemo() {
       logo: 'https://picsum.photos/seed/bukaspot-logo/200/200',
       coverImage: 'https://picsum.photos/seed/bukaspot-cover/1080/580',
       category: VendorCategory.RESTAURANT,
+      subcategory: 'Northern Nigerian',
       address: '3 Aminu Kano Crescent, Wuse 2',
       city: 'Abuja',
       state: 'FCT',
@@ -1297,6 +1338,8 @@ async function seedDemo() {
       totalRatings: 89,
       avgDeliveryTime: 40,
       verificationBadge: VerificationBadge.ID_VERIFIED,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
 
@@ -1344,6 +1387,7 @@ async function seedDemo() {
       logo: 'https://picsum.photos/seed/capitalpharm-logo/200/200',
       coverImage: 'https://picsum.photos/seed/capitalpharm-cover/1080/580',
       category: VendorCategory.PHARMACY,
+      subcategory: 'Medications',
       address: '22 Gana Street, Maitama',
       city: 'Abuja',
       state: 'FCT',
@@ -1359,6 +1403,8 @@ async function seedDemo() {
       avgDeliveryTime: 30,
       verificationBadge: VerificationBadge.ID_VERIFIED,
       isPharmacyFlagged: true,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
 
@@ -1393,6 +1439,7 @@ async function seedDemo() {
       logo: 'https://picsum.photos/seed/annang-logo/200/200',
       coverImage: 'https://picsum.photos/seed/annang-cover/1080/580',
       category: VendorCategory.RESTAURANT,
+      subcategory: 'Southern Nigerian',
       address: '8 Oron Road, Uyo',
       city: 'Uyo', state: 'Akwa Ibom',
       latitude: 5.0377, longitude: 7.9128,
@@ -1401,6 +1448,8 @@ async function seedDemo() {
       openingTime: '09:00', closingTime: '21:00',
       rating: 4.6, totalRatings: 61, avgDeliveryTime: 35,
       verificationBadge: VerificationBadge.ID_VERIFIED,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
   await prisma.menuItem.createMany({
@@ -1431,6 +1480,7 @@ async function seedDemo() {
       logo: 'https://picsum.photos/seed/efikseafood-logo/200/200',
       coverImage: 'https://picsum.photos/seed/efikseafood-cover/1080/580',
       category: VendorCategory.RESTAURANT,
+      subcategory: 'Southern Nigerian',
       address: '14 MCC Road, Calabar',
       city: 'Calabar', state: 'Cross River',
       latitude: 4.9757, longitude: 8.3417,
@@ -1439,6 +1489,8 @@ async function seedDemo() {
       openingTime: '09:00', closingTime: '22:00',
       rating: 4.7, totalRatings: 95, avgDeliveryTime: 30,
       verificationBadge: VerificationBadge.ID_VERIFIED,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
   await prisma.menuItem.createMany({
@@ -1478,6 +1530,7 @@ async function seedDemo() {
       logo: 'https://picsum.photos/seed/minersgrill-logo/200/200',
       coverImage: 'https://picsum.photos/seed/minersgrill-cover/1080/580',
       category: VendorCategory.RESTAURANT,
+      subcategory: 'Igbo Cuisine',
       address: '33 Ogui Road, Enugu',
       city: 'Enugu', state: 'Enugu',
       latitude: 6.4584, longitude: 7.5464,
@@ -1486,6 +1539,8 @@ async function seedDemo() {
       openingTime: '08:00', closingTime: '21:00',
       rating: 4.8, totalRatings: 112, avgDeliveryTime: 30,
       verificationBadge: VerificationBadge.ID_VERIFIED,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
   await prisma.menuItem.createMany({
@@ -1515,7 +1570,8 @@ async function seedDemo() {
       description: 'Enugu\'s favourite grocery stop — fresh produce, packaged goods, and household essentials delivered fast.',
       logo: 'https://picsum.photos/seed/coalcitymart-logo/200/200',
       coverImage: 'https://picsum.photos/seed/coalcitymart-cover/1080/580',
-      category: VendorCategory.GROCERY,
+      category: VendorCategory.EMART,
+      subcategory: 'Supermarket',
       address: '7 Zik Avenue, Uwani, Enugu',
       city: 'Enugu', state: 'Enugu',
       latitude: 6.4510, longitude: 7.5392,
@@ -1524,13 +1580,15 @@ async function seedDemo() {
       openingTime: '07:00', closingTime: '21:00',
       rating: 4.3, totalRatings: 44, avgDeliveryTime: 40,
       verificationBadge: VerificationBadge.UNVERIFIED,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: enuguV2.id, name: 'Semovita (2 kg)', price: 2600, image: 'https://picsum.photos/seed/semo-enugu/400/300', category: 'Dry Goods', isFeatured: true, stockQuantity: 999 },
-      { vendorId: enuguV2.id, name: 'Palm Oil (1 L)', price: 1800, image: 'https://picsum.photos/seed/palmoil/400/300', category: 'Cooking Essentials', stockQuantity: 999 },
-      { vendorId: enuguV2.id, name: 'Ogiri Okpei (Igbo Seasoning)', description: 'Traditional fermented seed seasoning', price: 400, image: 'https://picsum.photos/seed/ogiri/400/300', category: 'Seasonings', stockQuantity: 999 },
+      { vendorId: enuguV2.id, name: 'Semovita (2 kg)', price: 2600, image: 'https://picsum.photos/seed/semo-enugu/400/300', category: 'Basic Food', isFeatured: true, stockQuantity: 999 },
+      { vendorId: enuguV2.id, name: 'Palm Oil (1 L)', price: 1800, image: 'https://picsum.photos/seed/palmoil/400/300', category: 'Food', stockQuantity: 999 },
+      { vendorId: enuguV2.id, name: 'Ogiri Okpei (Igbo Seasoning)', description: 'Traditional fermented seed seasoning', price: 400, image: 'https://picsum.photos/seed/ogiri/400/300', category: 'Food', stockQuantity: 999 },
     ],
   });
   console.log(`✓ Enugu Vendor 2 created: ${enuguV2User.email} (Grocery)`);
@@ -1554,6 +1612,7 @@ async function seedDemo() {
       logo: 'https://picsum.photos/seed/ariariacoph-logo/200/200',
       coverImage: 'https://picsum.photos/seed/ariariacoph-cover/1080/580',
       category: VendorCategory.RESTAURANT,
+      subcategory: 'Local Buka',
       address: '2 Factory Road, Aba',
       city: 'Aba', state: 'Abia',
       latitude: 5.1049, longitude: 7.3672,
@@ -1562,6 +1621,8 @@ async function seedDemo() {
       openingTime: '07:00', closingTime: '20:00',
       rating: 4.4, totalRatings: 57, avgDeliveryTime: 25,
       verificationBadge: VerificationBadge.UNVERIFIED,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
   await prisma.menuItem.createMany({
@@ -1592,6 +1653,7 @@ async function seedDemo() {
       logo: 'https://picsum.photos/seed/owerrenchaa-logo/200/200',
       coverImage: 'https://picsum.photos/seed/owerrenchaa-cover/1080/580',
       category: VendorCategory.RESTAURANT,
+      subcategory: 'Igbo Cuisine',
       address: '5 Douglas Road, Owerri',
       city: 'Owerri', state: 'Imo',
       latitude: 5.4836, longitude: 7.0333,
@@ -1600,6 +1662,8 @@ async function seedDemo() {
       openingTime: '09:00', closingTime: '22:00',
       rating: 4.7, totalRatings: 83, avgDeliveryTime: 35,
       verificationBadge: VerificationBadge.ID_VERIFIED,
+      isFeatured: false,
+      displayOrder: 0,
     },
   });
   await prisma.menuItem.createMany({
@@ -1630,12 +1694,12 @@ async function seedDemo() {
   console.log(`  Vendor 1        : mamachika@${DEMO_DOMAIN}      (Restaurant · TIER_2 · Business Verified)`);
   console.log(`  Vendor 2        : quickmart@${DEMO_DOMAIN}      (Grocery · TIER_1 · ID Verified)`);
   console.log(`  Vendor 3        : healthplus@${DEMO_DOMAIN}     (Pharmacy · TIER_2 · Premium Verified)`);
-  console.log(`  Vendor 4        : gofetch@${DEMO_DOMAIN}        (Errand · TIER_1 · Unverified)`);
+  console.log(`  Vendor 4        : novamart@${DEMO_DOMAIN}        (EMART · TIER_1 · ID Verified)`);
   console.log(`  Vendor 5        : spicykings@${DEMO_DOMAIN}     (Restaurant · TIER_2 · promo active)`);
-  console.log(`  Vendor 6        : freshmart@${DEMO_DOMAIN}      (Grocery · TIER_1 · PENDING)`);
+  console.log(`  Vendor 6        : freshmart@${DEMO_DOMAIN}      (EMART · TIER_1 · PENDING)`);
   console.log('  — Lagos vendors —');
   console.log(`  Lagos Vendor 1  : yellowchilli@${DEMO_DOMAIN}   (Restaurant · TIER_2 · promo active)`);
-  console.log(`  Lagos Vendor 2  : freshbasket@${DEMO_DOMAIN}    (Grocery · TIER_1 · ID Verified)`);
+  console.log(`  Lagos Vendor 2  : freshbasket@${DEMO_DOMAIN}    (EMART · TIER_1 · ID Verified)`);
   console.log('  — Abuja vendors —');
   console.log(`  Abuja Vendor 1  : thebukaspot@${DEMO_DOMAIN}    (Restaurant · TIER_2 · promo active)`);
   console.log(`  Abuja Vendor 2  : capitalpharmacy@${DEMO_DOMAIN} (Pharmacy · TIER_1 · ID Verified)`);
@@ -1643,7 +1707,7 @@ async function seedDemo() {
   console.log(`  Uyo Vendor      : annangkitchen@${DEMO_DOMAIN}    (Restaurant · TIER_1)`);
   console.log(`  Calabar Vendor  : efikseafood@${DEMO_DOMAIN}      (Restaurant · TIER_2 · promo active)`);
   console.log(`  Enugu Vendor 1  : minersgrill@${DEMO_DOMAIN}      (Restaurant · TIER_2)`);
-  console.log(`  Enugu Vendor 2  : coalcitymart@${DEMO_DOMAIN}     (Grocery · TIER_1)`);
+  console.log(`  Enugu Vendor 2  : coalcitymart@${DEMO_DOMAIN}     (EMART · TIER_1)`);
   console.log(`  Aba Vendor      : ariariachophouse@${DEMO_DOMAIN} (Restaurant · TIER_1)`);
   console.log(`  Owerri Vendor   : owerrenchaa@${DEMO_DOMAIN}      (Restaurant · TIER_2 · promo active)`);
   console.log('  — Riders —');

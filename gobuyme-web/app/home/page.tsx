@@ -21,20 +21,20 @@ interface Promo { id: string; title: string; description?: string; imageUrl?: st
 const HERO_SLIDES = [
   { bg: 'linear-gradient(135deg, #FF521B 0%, #FF7A4D 100%)', title: 'Hungry? GoBuyMe.', sub: 'Order food, groceries, and more — delivered in 25 minutes.', cta: 'Order Now', href: '/vendors' },
   { bg: 'linear-gradient(135deg, #1A6EFF 0%, #0077FF 100%)', title: 'Shop Anything, Anytime', sub: '500+ vendors across Nigeria ready to deliver to your door.', cta: 'Browse Vendors', href: '/vendors' },
-  { bg: 'linear-gradient(135deg, #1A9E5F 0%, #22C77A 100%)', title: 'Fresh Groceries Daily', sub: 'Farm-fresh produce and household essentials delivered fast.', cta: 'Shop Groceries', href: '/vendors?category=GROCERY' },
+  { bg: 'linear-gradient(135deg, #1A9E5F 0%, #22C77A 100%)', title: 'Shop at EMART', sub: 'Groceries, household essentials, and more — delivered fast.', cta: 'Shop EMART', href: '/vendors?category=EMART' },
 ];
 
 const FOOD_CATEGORIES = [
-  { icon: '🍚', label: 'Jollof Rice', cat: 'RESTAURANT' },
-  { icon: '🍕', label: 'Pizza', cat: 'RESTAURANT' },
-  { icon: '🍔', label: 'Burgers', cat: 'RESTAURANT' },
-  { icon: '🍢', label: 'Suya', cat: 'RESTAURANT' },
-  { icon: '🌯', label: 'Shawarma', cat: 'RESTAURANT' },
-  { icon: '🍗', label: 'Chicken', cat: 'RESTAURANT' },
-  { icon: '🥗', label: 'Salads', cat: 'RESTAURANT' },
-  { icon: '🥤', label: 'Drinks', cat: 'GROCERY' },
-  { icon: '🥐', label: 'Bakery', cat: 'RESTAURANT' },
-  { icon: '🍜', label: 'Noodles', cat: 'RESTAURANT' },
+  { icon: '🍚', label: 'Jollof Rice',   cat: 'RESTAURANT' },
+  { icon: '🍕', label: 'Pizza',         cat: 'RESTAURANT' },
+  { icon: '🍔', label: 'Burgers',       cat: 'RESTAURANT' },
+  { icon: '🍢', label: 'Suya',          cat: 'RESTAURANT' },
+  { icon: '🌯', label: 'Shawarma',      cat: 'RESTAURANT' },
+  { icon: '🍗', label: 'Chicken',       cat: 'RESTAURANT' },
+  { icon: '🥗', label: 'Salads',        cat: 'RESTAURANT' },
+  { icon: '🛒', label: 'EMART',         cat: 'EMART' },
+  { icon: '🥐', label: 'Bakery',        cat: 'RESTAURANT' },
+  { icon: '💊', label: 'Pharmacy',      cat: 'PHARMACY' },
 ];
 
 export default function HomePage() {
@@ -135,7 +135,7 @@ export default function HomePage() {
             {/* ── PROMOS ── */}
             {promos.length > 0 && (
               <div className="section">
-                <div className="section-head"><h2 className="section-title">Deals & Promotions</h2><Link href="/vendors" className="see-all">See all</Link></div>
+                <div className="section-head"><h2 className="section-title">Deals & Promotions</h2><Link href={selectedCity ? `/deals?city=${encodeURIComponent(selectedCity)}` : '/deals'} className="see-all">See all</Link></div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
                   {promos.slice(0, 4).map(p => (
                     <div key={p.id} className="card" style={{ overflow: 'hidden' }}>

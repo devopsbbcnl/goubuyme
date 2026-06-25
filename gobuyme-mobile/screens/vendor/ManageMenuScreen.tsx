@@ -78,15 +78,26 @@ const EMPTY_FORM: FormState = {
 	stockQuantity: '',
 };
 
-const CATEGORIES = [
-	'Meals',
-	'Drinks',
-	'Snacks',
-	'Pastries',
-	'Sides',
-	'Desserts',
-	'Other',
+const RESTAURANT_CATS = ['Meals', 'Drinks', 'Snacks', 'Pastries', 'Sides', 'Desserts', 'Specials', 'Other'];
+
+const EMART_CATS = [
+	'Alcohol & Cigarettes', 'Snacks', 'Drinks', 'Water', 'Fruits & Vegetables',
+	'Food', 'Meat & Chicken', 'Basic Food', 'Dairy & Breakfast', 'Bakery',
+	'Ice Cream', 'Fit & Form', 'Home Care', 'Home Life', 'Personal Care',
+	'Technology', 'Sexual Health', 'Baby', 'Clothing', 'Stationery', 'Pets',
 ];
+
+const PHARMACY_CATS = [
+	'OTC Medications', 'Vitamins & Supplements', 'Prescription', 'First Aid',
+	'Mother & Baby', 'Sexual Health', 'Skincare', 'Dental Care', 'Eye Care',
+	'Diagnostics & Monitoring', 'Herbal & Natural', 'Personal Hygiene',
+];
+
+function getCatList(vendorCategory: string | null): string[] {
+	if (vendorCategory === 'EMART') return EMART_CATS;
+	if (vendorCategory === 'PHARMACY') return PHARMACY_CATS;
+	return RESTAURANT_CATS;
+}
 
 const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
@@ -131,6 +142,7 @@ export default function ManageMenuScreen() {
 	const insets = useSafeAreaInsets();
 	const { height: screenHeight } = useWindowDimensions();
 
+	const [vendorCategory, setVendorCategory] = useState<string | null>(null);
 	const [items, setItems] = useState<MenuItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [sheetVisible, setSheetVisible] = useState(false);
@@ -138,6 +150,7 @@ export default function ManageMenuScreen() {
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
 	const [saving, setSaving] = useState(false);
 	const [catOpen, setCatOpen] = useState(false);
+	const categoryList = getCatList(vendorCategory);
 
 	// Drink options sheet state
 	const [drinkSheetItem, setDrinkSheetItem] = useState<MenuItem | null>(null);
@@ -167,9 +180,13 @@ export default function ManageMenuScreen() {
 
 	const fetchItems = useCallback(async () => {
 		try {
-			const res = await api.get('/vendors/me/menu');
-			const data = (res.data.data ?? []).map(normalizeMenuItem);
+			const [menuRes, profileRes] = await Promise.all([
+				api.get('/vendors/me/menu'),
+				api.get('/vendors/me'),
+			]);
+			const data = (menuRes.data.data ?? []).map(normalizeMenuItem);
 			setItems(data);
+			setVendorCategory(profileRes.data.data?.category ?? null);
 		} catch {
 			Alert.alert('Error', 'Could not load menu items.');
 		} finally {
@@ -907,7 +924,7 @@ export default function ManageMenuScreen() {
 							</TouchableOpacity>
 							{catOpen && (
 								<View style={[styles.catDropdown, { backgroundColor: T.surface, borderColor: T.border }]}>
-									{CATEGORIES.map((cat) => (
+									{categoryList.map((cat) => (
 										<TouchableOpacity
 											key={cat}
 											onPress={() => { setForm((f) => ({ ...f, category: cat })); setCatOpen(false); }}

@@ -31,7 +31,7 @@ export const registerSchema = Joi.object({
   }),
   category: Joi.when('role', {
     is: 'VENDOR',
-    then: Joi.string().valid('RESTAURANT', 'GROCERY', 'PHARMACY', 'ERRAND').required(),
+    then: Joi.string().valid('RESTAURANT', 'EMART', 'PHARMACY').required(),
     otherwise: Joi.forbidden(),
   }),
   address: Joi.when('role', {

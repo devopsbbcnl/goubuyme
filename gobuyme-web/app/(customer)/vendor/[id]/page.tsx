@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/components/ui/Toast';
 import api from '@/services/api';
@@ -56,6 +56,7 @@ const hasOptions = (item: MenuItem) =>
 
 export default function VendorDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { addItem, items, updateQty } = useCart();
   const toast = useToast();
 
@@ -311,7 +312,12 @@ export default function VendorDetailPage() {
           ) : (
             <div className="menu-grid">
               {filtered.map(item => (
-                <div key={item.id} className={`menu-card${!item.isAvailable ? ' unavailable' : ''}`}>
+                <div
+                  key={item.id}
+                  className={`menu-card${!item.isAvailable ? ' unavailable' : ''}`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => router.push(`/item/${item.id}`)}
+                >
                   {item.image
                     ? <img className="img" src={item.image} alt={item.name} />
                     : <div className="img-ph">🍽️</div>
@@ -325,16 +331,10 @@ export default function VendorDetailPage() {
                     <div className="price">₦{item.price.toLocaleString()}</div>
                     <button
                       className="add-btn"
-                      disabled={!item.isAvailable || !vendor.isOpen}
-                      onClick={() => hasOptions(item) ? openDrawer(item) : addDirect(item)}
+                      disabled={!item.isAvailable}
+                      onClick={e => { e.stopPropagation(); router.push(`/item/${item.id}`); }}
                     >
-                      {!item.isAvailable
-                        ? 'Unavailable'
-                        : hasOptions(item)
-                          ? 'Buy now'
-                          : cartQty(item.id) > 0
-                            ? `In cart (${cartQty(item.id)})`
-                            : '+ Add to Cart'}
+                      {item.isAvailable ? 'Buy now' : 'Unavailable'}
                     </button>
                   </div>
                 </div>

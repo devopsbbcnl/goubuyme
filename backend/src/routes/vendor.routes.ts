@@ -12,7 +12,7 @@ import {
   getMyBusinessVerification, submitBusinessVerification,
   getMyLicenses, submitLicense, deleteLicense,
   getMyPromotions, createPromotion, togglePromotion, deletePromotion,
-  getActiveVendorPromotions, searchMenuItems, unifiedSearch,
+  getActiveVendorPromotions, searchMenuItems, unifiedSearch, browseItems, getMenuItemById, getSimilarMenuItems,
 } from '../controllers/vendor.controller';
 import { verifyToken } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
@@ -68,11 +68,14 @@ router.patch('/me/promotions/:id/toggle',      ...vendorAuth, togglePromotion);
 router.delete('/me/promotions/:id',            ...vendorAuth, deletePromotion);
 
 // Public routes
-router.get('/active-promotions', getActiveVendorPromotions);
-router.get('/search', unifiedSearch);
-router.get('/menu-items/search', searchMenuItems);
-router.get('/',        getVendors);
-router.get('/:id',     getVendorById);
-router.get('/:id/menu', getVendorMenu);
+router.get('/active-promotions',  getActiveVendorPromotions);
+router.get('/browse-items',       browseItems);
+router.get('/search',             unifiedSearch);
+router.get('/menu-items/search',  searchMenuItems);
+router.get('/menu-items/:id/similar', getSimilarMenuItems);
+router.get('/menu-items/:id',         getMenuItemById);
+router.get('/',                       getVendors);
+router.get('/:id',                getVendorById);
+router.get('/:id/menu',           getVendorMenu);
 
 export default router;

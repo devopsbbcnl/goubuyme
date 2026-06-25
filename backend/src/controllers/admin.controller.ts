@@ -141,12 +141,13 @@ export const updateAdminSettings = catchAsync(async (req: AuthRequest, res: Resp
 
 // GET /admin/vendors
 export const getAdminVendors = catchAsync(async (req: Request, res: Response) => {
-  const { status, search, page = '1', limit = '20' } = req.query as Record<string, string>;
+  const { status, search, category, page = '1', limit = '20' } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, parseInt(limit));
 
   const where: Record<string, unknown> = {};
   if (status && status !== 'ALL') where.approvalStatus = status as ApprovalStatus;
+  if (category && category !== '') where.category = category as VendorCategory;
   if (search) where.businessName = { contains: search, mode: 'insensitive' };
 
   const [vendors, total] = await Promise.all([
@@ -1201,6 +1202,9 @@ export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Respon
 
   if (!name?.trim() || !email?.trim() || !password || !businessName?.trim() || !category || !address?.trim() || !city?.trim()) {
     return apiResponse.error(res, 'Name, email, password, business name, category, address, and city are required.', 400);
+  }
+  if (!['RESTAURANT', 'EMART', 'PHARMACY'].includes(category)) {
+    return apiResponse.error(res, 'Category must be RESTAURANT, EMART, or PHARMACY.', 400);
   }
 
   const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });

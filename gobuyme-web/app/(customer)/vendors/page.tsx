@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCity } from '@/context/CityContext';
@@ -19,17 +19,7 @@ interface MenuItem {
   vendor: { id: string; businessName: string; logo?: string | null; city: string; isOpen: boolean; };
 }
 
-const CATEGORIES = [
-  { label: 'All',          slug: '' },
-  { label: 'Restaurants',  slug: 'RESTAURANT' },
-  { label: 'Groceries',    slug: 'GROCERY' },
-  { label: 'Pharmacy',     slug: 'PHARMACY' },
-  { label: 'Home Kitchen', slug: 'HOME_KITCHEN' },
-  { label: 'Beauty',       slug: 'BEAUTY' },
-  { label: 'Errand',       slug: 'ERRAND' },
-];
-
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 25;
 
 function getPageNumbers(current: number, total: number): (number | '...')[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -47,7 +37,7 @@ function fmtPrice(n: number) {
 
 function MenuItemCard({ item }: { item: MenuItem }) {
   return (
-    <Link href={`/vendor/${item.vendor.id}`} className="menu-card">
+    <Link href={`/item/${item.id}`} className="menu-card">
       {item.image
         ? <img className="img" src={item.image} alt={item.name} />
         : <div className="img-ph">🍽️</div>}
@@ -126,46 +116,47 @@ function VendorsContent() {
   const searchParams = useSearchParams();
   const { selectedCity } = useCity();
 
+  // Derive filter values directly from URL — no intermediate state copy.
+  // This eliminates the two-effect race where Effect 1 (URL→state) would cancel
+  // Effect 2 (fetch) before data arrived, causing a blank page on first load.
+  const cat        = searchParams.get('category') ?? '';
+  const q          = searchParams.get('q') ?? '';
+  const searchType = searchParams.get('type') ?? 'all';
+  const urlCity    = searchParams.get('city');
+
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Pagination (browse mode only)
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalVendors, setTotalVendors] = useState(0);
-
-  // Derived from URL params
-  const [cat, setCat] = useState(searchParams.get('category') ?? '');
-  const [q, setQ] = useState(searchParams.get('q') ?? '');
-  const [searchType, setSearchType] = useState(searchParams.get('type') ?? 'all');
-  const [urlCity, setUrlCity] = useState<string | null>(searchParams.get('city'));
-
   const [activeTab, setActiveTab] = useState<'vendors' | 'menu_items'>('vendors');
 
-  // Sync all URL-derived state in one pass; reset page to 1 on any filter change
-  useEffect(() => {
-    setCat(searchParams.get('category') ?? '');
-    setQ(searchParams.get('q') ?? '');
-    setSearchType(searchParams.get('type') ?? 'all');
-    setUrlCity(searchParams.get('city'));
-    setPage(1);
-  }, [searchParams]);
+  // Reset to page 1 whenever URL params change (synchronous — avoids a second effect)
+  const searchKey = searchParams.toString();
+  const prevKeyRef = useRef('');
+  if (prevKeyRef.current !== searchKey) {
+    prevKeyRef.current = searchKey;
+    if (page !== 1) setPage(1);
+  }
 
-  // Scroll to top when page changes
+  // Scroll to top when navigating pages
   useEffect(() => {
     if (page > 1) window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [page]);
 
-  // Fetch — only depends on derived state, not on searchParams directly
+  // Single fetch effect. City comes from the URL param only — selectedCity is
+  // already written into the URL by handleCitySelect, so we don't need it here.
+  // This means CityContext loading from localStorage cannot cancel this fetch.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
+    // Prefer URL city param; fall back to context city for the first render
+    // before the user has navigated (e.g. direct visit with a stored city pref).
     const effectiveCity = urlCity ?? selectedCity;
 
     if (q) {
-      // Search mode — no client pagination (API returns up to 30 vendors / 60 items)
       const params = new URLSearchParams({ q });
       if (searchType !== 'all') params.set('type', searchType);
       if (cat) params.set('category', cat);
@@ -188,7 +179,6 @@ function VendorsContent() {
         .catch(() => { if (!cancelled) { setVendors([]); setMenuItems([]); } })
         .finally(() => { if (!cancelled) setLoading(false); });
     } else {
-      // Browse mode — paginated
       setMenuItems([]);
       const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
       if (cat) params.set('category', cat);
@@ -206,7 +196,7 @@ function VendorsContent() {
     }
 
     return () => { cancelled = true; };
-  }, [cat, q, searchType, urlCity, selectedCity, page]);
+  }, [cat, q, searchType, urlCity, page]); // selectedCity intentionally omitted — city is in URL
 
   const isSearchMode = Boolean(q);
   const showTabs = isSearchMode && searchType === 'all';
@@ -226,14 +216,23 @@ function VendorsContent() {
 
   const pageNums = getPageNumbers(page, totalPages);
 
+  const CATEGORY_LABELS: Record<string, string> = {
+    RESTAURANT: 'Restaurants',
+    EMART: 'Stores',
+    PHARMACY: 'Pharmacies',
+  };
+  const cityLabel = urlCity ?? selectedCity;
+  const categoryLabel = cat ? (CATEGORY_LABELS[cat] ?? cat) : 'Locations';
+  const pageTitle = q
+    ? `Results for "${q}"${cityLabel ? ` in ${cityLabel}` : ''}`
+    : `${categoryLabel}${cityLabel ? ` in ${cityLabel}` : ''}`;
+
   return (
     <div className="page-body">
       <div className="inner">
-        <div className="between" style={{ marginBottom: 24 }}>
-          <h1 className="t-page">
-            {q
-              ? `Results for "${q}"${urlCity ? ` in ${urlCity}` : selectedCity ? ` in ${selectedCity}` : ''}`
-              : selectedCity ? `Vendors in ${selectedCity}` : 'All Vendors'}
+        <div className="between" style={{ marginBottom: 20, marginTop: 32 }}>
+          <h1 className="t-page" style={{ fontSize: 20, fontWeight: 700 }}>
+            {pageTitle}
           </h1>
           {!loading && (
             <span className="muted" style={{ fontSize: 13 }}>
@@ -244,24 +243,12 @@ function VendorsContent() {
           )}
         </div>
 
-        <div className="chip-row">
-          {CATEGORIES.map(c => (
-            <button
-              key={c.slug}
-              className={`chip${cat === c.slug ? ' active' : ''}`}
-              onClick={() => { setCat(c.slug); setPage(1); }}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-
         {/* Tabs — only for type=all searches */}
         {showTabs && (
           <div style={{ display: 'flex', marginBottom: 24, borderBottom: '2px solid var(--line)' }}>
             {(['vendors', 'menu_items'] as const).map(tab => {
               const count = tab === 'vendors' ? vendors.length : menuItems.length;
-              const label = tab === 'vendors' ? 'Vendors' : 'Menu Items';
+              const label = tab === 'vendors' ? 'Merchant' : 'Items';
               const isActive = activeTab === tab;
               return (
                 <button

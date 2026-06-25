@@ -91,6 +91,7 @@ export default function VendorsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | Status>('ALL');
+  const [catFilter, setCatFilter] = useState<'' | 'RESTAURANT' | 'EMART' | 'PHARMACY'>('');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -123,12 +124,13 @@ export default function VendorsPage() {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: String(perPage) });
     if (filter !== 'ALL') params.set('status', filter);
+    if (catFilter) params.set('category', catFilter);
     if (debouncedSearch) params.set('search', debouncedSearch);
     api.get<{ data: Vendor[]; pagination: { total: number } }>(`/admin/vendors?${params}`)
       .then(res => { setVendors(res.data); setTotal(res.pagination.total); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [page, perPage, filter, debouncedSearch, refreshKey]);
+  }, [page, perPage, filter, catFilter, debouncedSearch, refreshKey]);
 
   const setStatus = async (id: string, status: Status) => {
     setVendors(vs => vs.map(v => v.id === id ? { ...v, approvalStatus: status } : v));
@@ -269,14 +271,29 @@ export default function VendorsPage() {
               </button>
             ))}
           </div>
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search vendors…"
-            style={{
-              background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
-              padding: '8px 14px', color: T.text, fontSize: 13, outline: 'none', width: 220,
-            }}
-          />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <select
+              value={catFilter}
+              onChange={e => { setCatFilter(e.target.value as typeof catFilter); setPage(1); }}
+              style={{
+                background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
+                padding: '8px 12px', color: T.text, fontSize: 13, outline: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <option value="">All Categories</option>
+              <option value="RESTAURANT">Restaurant</option>
+              <option value="EMART">EMART</option>
+              <option value="PHARMACY">Pharmacy</option>
+            </select>
+            <input
+              value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search vendors…"
+              style={{
+                background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
+                padding: '8px 14px', color: T.text, fontSize: 13, outline: 'none', width: 220,
+              }}
+            />
+          </div>
         </div>
 
         <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden' }}>

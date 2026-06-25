@@ -14,7 +14,8 @@
     "demo:unseed": "ts-node prisma/unseed-demo.ts",
     "bulk:seed": "ts-node prisma/seed-bulk.ts",
     "bulk:unseed": "ts-node prisma/unseed-bulk.ts",
-    "geocode:vendors": "ts-node scripts/geocode-vendors.ts"
+    "geocode:vendors": "ts-node scripts/geocode-vendors.ts",
+    "patch:images": "ts-node prisma/patch-images.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.14.0",

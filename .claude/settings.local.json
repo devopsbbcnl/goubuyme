@@ -73,7 +73,16 @@
       "Bash(npx next *)",
       "Bash(Start-Sleep -Seconds 5)",
       "Bash(Invoke-WebRequest -Uri \"http://localhost:3001\" -MaximumRedirection 3 -UseBasicParsing)",
-      "Bash(Select-Object -First 5)"
+      "Bash(Select-Object -First 5)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); const s=p.scripts; Object.keys\\(s\\).filter\\(k=>k.includes\\('seed'\\)||k.includes\\('unseed'\\)\\).forEach\\(k=>console.log\\(k+': '+s[k]\\)\\)\")",
+      "Bash(npm run *)",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:5000/api/v1/vendors?page=1&limit=5\" -UseBasicParsing; $r.StatusCode; \\($r.Content | ConvertFrom-Json\\).pagination } catch { $_.Exception.Message })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:5000/api/v1/vendors?page=1&limit=5&category=RESTAURANT\" -UseBasicParsing; $r.StatusCode; \\($r.Content | ConvertFrom-Json\\).pagination } catch { $_.Exception.Message })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:5000/api/v1/vendors?page=1&limit=5\" -UseBasicParsing; $r.Content } catch { try { $e = $_.ErrorDetails.Message | ConvertFrom-Json; $e } catch { $_.Exception.Message } })",
+      "Bash(PGPASSWORD=password123 psql -U postgres -d gobuyme_db -c \"SELECT category, COUNT\\(*\\) FROM vendors GROUP BY category ORDER BY category;\")",
+      "PowerShell(Get-Process *)",
+      "Bash(python3 scripts/search.py \"ecommerce product detail page food delivery Nigeria\" --design-system -p \"GoBuyMe Item Detail\" -f markdown)",
+      "WebFetch(domain:www.konga.com)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"

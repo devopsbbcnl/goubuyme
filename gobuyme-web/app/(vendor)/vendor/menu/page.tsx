@@ -402,8 +402,14 @@ export default function VendorMenuPage() {
 
               <div className="form-group"><label className="label">Name *</label><input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
               <div className="form-group"><label className="label">Price (₦) *</label><input className="input" type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} /></div>
-              <div className="form-group"><label className="label">Category Tag</label><input className="input" value={form.categoryTag} onChange={e => setForm(f => ({ ...f, categoryTag: e.target.value }))} placeholder="e.g. Starters, Mains, Drinks" /></div>
-              <div className="form-group"><label className="label">Description</label><textarea className="textarea" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
+              <div className="form-group"><label className="label">Category Tag</label><input className="input" value={form.categoryTag} onChange={e => setForm(f => ({ ...f, categoryTag: e.target.value }))} placeholder="e.g. Starters, Mains, Grills, Drinks" /></div>
+              <div className="form-group">
+                <label className="label">Description</label>
+                <textarea className="textarea" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe this item — include keywords customers might search for (e.g. ingredients, style, brand, flavour)" />
+                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 5, lineHeight: 1.5 }}>
+                  Tip: include searchable keywords — e.g. &quot;grilled chicken with jollof rice&quot;, &quot;Indomie noodles&quot;, &quot;Paracetamol 500mg&quot;. This helps customers discover your item.
+                </p>
+              </div>
             </div>
             <div className="modal-foot">
               <button className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>

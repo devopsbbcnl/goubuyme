@@ -20,7 +20,7 @@ interface VendorProfile {
   closingTime?: string;
 }
 
-const CATEGORIES = ['RESTAURANT', 'GROCERY', 'PHARMACY', 'ELECTRONICS', 'FASHION', 'BAKERY', 'BEVERAGES'];
+const CATEGORIES = ['RESTAURANT', 'EMART', 'PHARMACY'];
 
 function ImgUpload({
   label, value, folder, onUploaded,
