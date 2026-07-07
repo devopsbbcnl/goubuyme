@@ -44,8 +44,8 @@ npm run build
 echo "==> 7/7 Restarting API"
 pm2 restart gobuyme-api
 
-# Optional: clear test file uploads (uncomment if desired)
-# rm -rf uploads/*
+# Note: images live on Cloudinary, not on this server. The repo-root uploads/
+# folder is unused by the backend — delete it manually if you want it gone.
 
 echo ""
 echo "Done. Next steps:"
