@@ -12,6 +12,7 @@ import api from '@/services/api';
 import { connectSockets } from '@/services/socketService';
 import { useAuth } from '@/context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCommissionRates } from '@/hooks/useCommissionRates';
 
 type OrderStatus = 'new' | 'preparing' | 'ready';
 
@@ -21,6 +22,7 @@ interface Order {
   customer: string;
   items: string[];
   subtotal: number;
+  netAmount: number | null;  // vendor take-home stored on the order; null until backend provides it
   time: string;
   status: OrderStatus;
 }
@@ -63,6 +65,7 @@ export default function VendorDashboardScreen() {
   const { theme: T } = useTheme();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const rates = useCommissionRates();
 
   const [storeOpen,       setStoreOpen]       = useState(false);
   const [storeName,       setStoreName]       = useState('My Store');
@@ -99,6 +102,7 @@ export default function VendorDashboardScreen() {
         customer: o.customer,
         items: o.items,
         subtotal: o.subtotal ?? 0,
+        netAmount: o.netAmount ?? null,
         time: new Date(o.createdAt).toLocaleString('en-NG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }),
         status: mapStatus(o.status),
       }));
@@ -142,8 +146,8 @@ export default function VendorDashboardScreen() {
         id:       order.orderNumber,
         customer: order.customer ?? '—',
         items:    (order.items ?? []).map((i: any) => `${i.name} x${i.quantity}`),
-        subtotal:    order.subtotal ?? 0,
         subtotal: order.subtotal ?? 0,
+        netAmount: order.netAmount ?? null,
         time:     new Date(order.createdAt).toLocaleString('en-NG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
         status:   'new',
       };
@@ -365,7 +369,7 @@ export default function VendorDashboardScreen() {
                     <View style={styles.orderBottom}>
                       <View>
                         <Text style={[styles.orderTotal, { color: T.text }]}>₦{o.subtotal.toLocaleString()}</Text>
-                        <Text style={[styles.orderEarnings, { color: '#1A9E5F' }]}>You earn ₦{Math.round(o.subtotal * (commissionTier === 'TIER_1' ? 0.97 : 0.925)).toLocaleString()}</Text>
+                        <Text style={[styles.orderEarnings, { color: '#1A9E5F' }]}>You earn ₦{Math.round(o.netAmount ?? o.subtotal * (rates[commissionTier].vendorPercent / 100)).toLocaleString()}</Text>
                         <Text style={[styles.orderTime, { color: T.textMuted }]}>{o.time}</Text>
                       </View>
                       <View style={{ flexDirection: 'row', gap: 8 }}>

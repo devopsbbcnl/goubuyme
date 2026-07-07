@@ -78,16 +78,14 @@ export const updateAdminSettings = catchAsync(async (req: AuthRequest, res: Resp
   const body = req.body as Record<string, unknown>;
   const patch: PlatformSettingsPatch = {};
 
-  if ('platformName' in body) {
-    const platformName = String(body.platformName ?? '').trim();
-    if (!platformName) return apiResponse.error(res, 'Platform name is required.', 400);
-    patch.platformName = platformName;
-  }
+  // Every setting is independent and optional: absent, empty, or null values leave the saved value unchanged.
+  const platformName = String(body.platformName ?? '').trim();
+  if (platformName) patch.platformName = platformName;
 
-  if ('supportEmail' in body) {
-    const supportEmail = String(body.supportEmail ?? '').trim().toLowerCase();
+  const supportEmail = String(body.supportEmail ?? '').trim().toLowerCase();
+  if (supportEmail) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supportEmail)) {
-      return apiResponse.error(res, 'A valid support email is required.', 400);
+      return apiResponse.error(res, 'Support email must be a valid email address.', 400);
     }
     patch.supportEmail = supportEmail;
   }
@@ -97,7 +95,9 @@ export const updateAdminSettings = catchAsync(async (req: AuthRequest, res: Resp
     | 'deliveryPerKmRate'
     | 'deliveryMaxFee'
     | 'maxDeliveryRadiusKm'
-    | 'cancellationWindowMinutes';
+    | 'cancellationWindowMinutes'
+    | 'tier1CommissionPercent'
+    | 'tier2CommissionPercent';
 
   const numericFields: Array<[NumericSettingKey, string, number, number]> = [
     ['deliveryBaseFee', 'Delivery base fee', 0, 100_000],
@@ -105,10 +105,12 @@ export const updateAdminSettings = catchAsync(async (req: AuthRequest, res: Resp
     ['deliveryMaxFee', 'Delivery max fee', 0, 1_000_000],
     ['maxDeliveryRadiusKm', 'Max delivery radius', 1, 500],
     ['cancellationWindowMinutes', 'Cancellation window', 0, 240],
+    ['tier1CommissionPercent', 'Tier 1 commission percent', 0, 50],
+    ['tier2CommissionPercent', 'Tier 2 commission percent', 0, 50],
   ];
 
   for (const [key, label, min, max] of numericFields) {
-    if (!(key in body)) continue;
+    if (!(key in body) || body[key] === '' || body[key] === null || body[key] === undefined) continue;
     const value = asFiniteNumber(body[key]);
     if (value === null || value < min || value > max) {
       return apiResponse.error(res, `${label} must be between ${min} and ${max}.`, 400);
@@ -868,9 +870,13 @@ export const triggerPayoutBatch = catchAsync(async (_req: AuthRequest, res: Resp
 });
 
 const TIER_COOLDOWN_DAYS = 14;
-const TIER_RATE_LABELS: Record<CommissionTier, string> = {
-  TIER_1: '3%',
-  TIER_2: '7.5%',
+
+const tierRateLabel = async (tier: CommissionTier): Promise<string> => {
+  const settings = await getPlatformSettings();
+  const percent = tier === CommissionTier.TIER_1
+    ? settings.tier1CommissionPercent
+    : settings.tier2CommissionPercent;
+  return `${percent}%`;
 };
 
 const asFiniteNumber = (value: unknown): number | null => {
@@ -927,9 +933,10 @@ export const updateVendorTier = catchAsync(async (req: AuthRequest, res: Respons
     },
   });
 
+  const rateLabel = await tierRateLabel(tier as CommissionTier);
   notifyUser(vendor.userId, {
     title: 'Commission Tier Updated',
-    body: `Your commission tier has been changed to ${tier} (${TIER_RATE_LABELS[tier as CommissionTier]} platform fee). This applies to all future orders.`,
+    body: `Your commission tier has been changed to ${tier} (${rateLabel} platform fee). This applies to all future orders.`,
     type: 'account',
     data: { from: previousTier, to: tier },
   }).catch(() => {});

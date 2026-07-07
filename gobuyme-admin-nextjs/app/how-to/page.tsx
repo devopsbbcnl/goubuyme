@@ -317,7 +317,7 @@ function GettingStartedContent({ role, T }: { role: Role; T: Record<string, stri
             'Upload business logo and cover photo',
             'Write business description',
             'Set opening and closing hours',
-            'Choose commission tier (TIER_1: 3% or TIER_2: 7.5%)',
+            'Choose commission tier (TIER_1: Starter or TIER_2: Growth — rates set in admin Settings)',
             'Upload KYC document (NIN, Driver\'s License, or Passport)',
             'For food/pharmacy: Upload NAFDAC certificate'
           ]
@@ -586,8 +586,9 @@ function PaymentsContent({ role, T }: { role: Role; T: Record<string, string> })
             <div style={{ padding: 20, background: '#F0E6FF', borderRadius: 4, border: '1px solid #E0D0FF' }}>
               <h3 style={{ fontSize: 16, fontWeight: 700, color: '#6B21A8', marginBottom: 8 }}>Vendor Commission</h3>
               <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: '#444', lineHeight: 1.8 }}>
-                <li><strong>TIER_1 (Starter)</strong>: 3% commission per order</li>
-                <li><strong>TIER_2 (Growth)</strong>: 7.5% commission per order</li>
+                <li><strong>TIER_1 (Starter)</strong>: lower commission per order (default 3%)</li>
+                <li><strong>TIER_2 (Growth)</strong>: higher commission per order (default 7.5%)</li>
+                <li>Rates are configurable by Super Admins in Settings → Commission Tiers</li>
                 <li>TIER_2 includes promotional banner access</li>
                 <li>Can switch tiers (14-day cooldown applies)</li>
               </ul>

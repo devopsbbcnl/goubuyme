@@ -12,6 +12,8 @@ export const DEFAULT_PLATFORM_SETTINGS = {
   maxDeliveryRadiusKm: parseFloat(process.env.MAX_DELIVERY_RADIUS_KM || '25'),
   cancellationWindowMinutes: parseInt(process.env.CANCELLATION_WINDOW_MINUTES || '10', 10),
   maintenanceMode: false,
+  tier1CommissionPercent: parseFloat(process.env.COMMISSION_TIER_1_RATE || '0.03') * 100,
+  tier2CommissionPercent: parseFloat(process.env.COMMISSION_TIER_2_RATE || '0.075') * 100,
 };
 
 export const getPlatformSettings = async () =>
@@ -30,6 +32,8 @@ export type PlatformSettingsPatch = Partial<{
   maxDeliveryRadiusKm: number;
   cancellationWindowMinutes: number;
   maintenanceMode: boolean;
+  tier1CommissionPercent: number;
+  tier2CommissionPercent: number;
 }>;
 
 export const updatePlatformSettings = async (data: PlatformSettingsPatch) =>

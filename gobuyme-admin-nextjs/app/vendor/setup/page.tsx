@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, CSSProperties, FormEvent, ChangeEvent, ReactNode } from 'react';
+import { useState, useRef, useEffect, CSSProperties, FormEvent, ChangeEvent, ReactNode } from 'react';
 import Image from 'next/image';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -17,12 +17,19 @@ const DOC_META: Record<DocType, { label: string; numberLabel: string; placeholde
   PASSPORT:        { label: 'Passport',           numberLabel: 'Passport Number', placeholder: 'e.g. A12345678',                 backRequired: false },
 };
 
-const PLAN_DETAILS: Record<Tier, { title: string; bestFor: string; features: string[]; example: string }> = {
+type TierRates = Record<Tier, number>;
+const DEFAULT_TIER_RATES: TierRates = { TIER_1: 3, TIER_2: 7.5 };
+
+const naira = (n: number) => `₦${Math.round(n).toLocaleString()}`;
+const exampleLine = (percent: number) =>
+  `On a ₦10,000 order: GoBuyMe earns ${naira(10_000 * percent / 100)} · You receive ${naira(10_000 * (100 - percent) / 100)}`;
+
+const planDetails = (rates: TierRates): Record<Tier, { title: string; bestFor: string; features: string[]; example: string }> => ({
   TIER_2: {
     title: 'Growth Plan',
     bestFor: 'Vendors starting out or scaling up on GoBuyMe.',
     features: [
-      '7.5% commission deducted from each order subtotal',
+      `${rates.TIER_2}% commission deducted from each order subtotal`,
       'Promotions / Adverts & Analytics',
       'Priority listing in search results',
       'Full platform access',
@@ -30,21 +37,21 @@ const PLAN_DETAILS: Record<Tier, { title: string; bestFor: string; features: str
       'Daily payouts processed at 11:30 AM',
       'Dedicated vendor support',
     ],
-    example: 'On a ₦10,000 order: GoBuyMe earns ₦750 · You receive ₦9,250',
+    example: exampleLine(rates.TIER_2),
   },
   TIER_1: {
     title: 'Starter Plan',
     bestFor: 'Established vendors with consistent, high order volumes.',
     features: [
-      '3% commission deducted from each order subtotal',
+      `${rates.TIER_1}% commission deducted from each order subtotal`,
       'Full platform access',
       'Secure payment processing via Paystack',
       'Daily payouts processed at 11:30 AM',
       'Dedicated vendor support',
     ],
-    example: 'On a ₦10,000 order: GoBuyMe earns ₦300 · You receive ₦9,700',
+    example: exampleLine(rates.TIER_1),
   },
-};
+});
 
 type MenuItem = { id: string; name: string; price: string };
 
@@ -73,6 +80,20 @@ export default function VendorSetupPage() {
 
   const [step, setStep] = useState<Step>('login');
   const [token, setToken] = useState('');
+  const [tierRates, setTierRates] = useState<TierRates>(DEFAULT_TIER_RATES);
+  const PLAN_DETAILS = planDetails(tierRates);
+
+  useEffect(() => {
+    fetch(`${BASE}/vendors/commission-rates`)
+      .then(res => res.json())
+      .then(json => {
+        const data = (json as { data?: { TIER_1?: { platformPercent?: number }; TIER_2?: { platformPercent?: number } } }).data;
+        if (data?.TIER_1?.platformPercent != null && data?.TIER_2?.platformPercent != null) {
+          setTierRates({ TIER_1: data.TIER_1.platformPercent, TIER_2: data.TIER_2.platformPercent });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Login
   const [email, setEmail] = useState('');
@@ -392,10 +413,10 @@ export default function VendorSetupPage() {
                   <RadioDot selected={selected} />
                 </div>
                 <div style={{ fontSize: 13, color: '#444', marginBottom: 4 }}>
-                  {isGrowth ? '✓ 7.5% commission per order' : '✓ 3% commission per order'}
+                  ✓ {tierRates[t]}% commission per order
                 </div>
                 <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
-                  {isGrowth ? 'e.g. ₦10k order → you get ₦9,250' : 'e.g. ₦10k order → you get ₦9,700'}
+                  e.g. ₦10k order → you get {naira(10_000 * (100 - tierRates[t]) / 100)}
                 </div>
                 <button
                   onClick={e => { e.stopPropagation(); setPlanModal(t); }}

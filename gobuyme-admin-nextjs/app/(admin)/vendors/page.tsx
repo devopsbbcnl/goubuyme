@@ -114,6 +114,13 @@ export default function VendorsPage() {
   const [deleteVendorId, setDeleteVendorId] = useState<string | null>(null);
   const [deleteVendorName, setDeleteVendorName] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [tierRates, setTierRates] = useState<{ TIER_1: number; TIER_2: number }>({ TIER_1: 3, TIER_2: 7.5 });
+
+  useEffect(() => {
+    api.get<{ data: { TIER_1: { platformPercent: number }; TIER_2: { platformPercent: number } } }>('/vendors/commission-rates')
+      .then(r => setTierRates({ TIER_1: r.data.TIER_1.platformPercent, TIER_2: r.data.TIER_2.platformPercent }))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => { setPage(1); setDebouncedSearch(search); }, 400);
@@ -423,7 +430,7 @@ export default function VendorsPage() {
                 <SectionHead label="Business Info" T={T} />
                 <InfoGrid rows={[
                   ['Category', capFirst(detail.category)],
-                  ['Tier', detail.commissionTier === 'TIER_2' ? 'Growth (7.5%)' : 'Starter (3%)'],
+                  ['Tier', detail.commissionTier === 'TIER_2' ? `Growth (${tierRates.TIER_2}%)` : `Starter (${tierRates.TIER_1}%)`],
                   ['Status', detail.approvalStatus],
                   ['Address', detail.address],
                   ['City / State', `${detail.city}, ${detail.state}`],

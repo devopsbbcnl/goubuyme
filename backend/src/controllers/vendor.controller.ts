@@ -6,6 +6,22 @@ import { haversineDistance, estimateDeliveryMinutes } from '../services/distance
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { ApprovalStatus, CommissionTier, LicenseType, OrderStatus, Prisma, VendorCategory, VerificationBadge } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { getPlatformSettings } from '../services/settings.service';
+
+// GET /vendors/commission-rates (public) — live tier rates for client display
+export const getPublicCommissionRates = catchAsync(async (_req: Request, res: Response) => {
+  const settings = await getPlatformSettings();
+  return apiResponse.success(res, 'Commission rates fetched.', {
+    TIER_1: {
+      platformPercent: settings.tier1CommissionPercent,
+      vendorPercent: Math.round((100 - settings.tier1CommissionPercent) * 100) / 100,
+    },
+    TIER_2: {
+      platformPercent: settings.tier2CommissionPercent,
+      vendorPercent: Math.round((100 - settings.tier2CommissionPercent) * 100) / 100,
+    },
+  });
+});
 
 // ── Badge recomputation ───────────────────────────────────────────────────────
 export async function updateVendorBadge(vendorId: string): Promise<void> {
@@ -226,7 +242,7 @@ export const toggleStoreStatus = catchAsync(async (req: AuthRequest, res: Respon
 export const getVendorDashboardStats = catchAsync(async (req: AuthRequest, res: Response) => {
   const vendor = await prisma.vendor.findUnique({
     where: { userId: req.user!.userId },
-    select: { id: true, rating: true },
+    select: { id: true, rating: true, isOpen: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
@@ -262,6 +278,7 @@ export const getVendorDashboardStats = catchAsync(async (req: AuthRequest, res: 
     todayRevenue: todayRevenue._sum.subtotal ?? 0,
     rating: vendor.rating,
     weeklyOrders,
+    isOpen: vendor.isOpen,
   });
 });
 
@@ -304,6 +321,8 @@ export const getMyOrders = catchAsync(async (req: AuthRequest, res: Response) =>
     customerPhone: o.customer.user.phone,
     items: o.items.map(i => `${i.name} x${i.quantity}`),
     subtotal: o.subtotal,
+    platformFee: o.platformFee,
+    netAmount: Math.round((o.subtotal - o.platformFee) * 100) / 100,
     commissionTier: vendor.commissionTier,
     status: o.status,
     paymentMethod: o.paymentMethod,
@@ -353,6 +372,8 @@ export const getMyOrderById = catchAsync(async (req: AuthRequest, res: Response)
     subtotal: order.subtotal,
     deliveryFee: order.deliveryFee,
     totalAmount: order.totalAmount,
+    platformFee: order.platformFee,
+    netAmount: Math.round((order.subtotal - order.platformFee) * 100) / 100,
     commissionTier: vendor.commissionTier,
     note: order.note ?? null,
     estimatedTime: order.estimatedTime ?? null,

@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
+import { useCommissionRates } from '@/hooks/useCommissionRates';
 
 type RawStatus =
   | 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY'
@@ -27,6 +28,8 @@ interface OrderDetail {
   subtotal: number;
   deliveryFee: number;
   totalAmount: number;
+  platformFee: number | null;   // commission captured at checkout; null on older API responses
+  netAmount: number | null;
   commissionTier: 'TIER_1' | 'TIER_2';
   note: string | null;
   estimatedTime: number | null;
@@ -47,6 +50,7 @@ const STATUS_META: Record<RawStatus, { label: string; color: string; bg: string 
 export default function VendorOrderDetailScreen() {
   const { theme: T } = useTheme();
   const insets = useSafeAreaInsets();
+  const rates = useCommissionRates();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
@@ -116,9 +120,12 @@ export default function VendorOrderDetailScreen() {
   const isPending   = order.status === 'PENDING';
   const isPreparing = order.status === 'ACCEPTED' || order.status === 'PREPARING';
   const isTerminal  = order.status === 'DELIVERED' || order.status === 'CANCELLED';
-  const vendorRate  = order.commissionTier === 'TIER_1' ? 0.97 : 0.925;
-  const netEarnings = Math.round(order.subtotal * vendorRate);
-  const commission  = order.subtotal - netEarnings;
+  const tierPercent = rates[order.commissionTier].platformPercent;
+  const commission  = Math.round(order.platformFee ?? order.subtotal * (tierPercent / 100));
+  const netEarnings = Math.round(order.netAmount ?? order.subtotal - commission);
+  const commissionPercent = order.subtotal > 0 && order.platformFee != null
+    ? Math.round((order.platformFee / order.subtotal) * 1000) / 10
+    : tierPercent;
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
@@ -203,7 +210,7 @@ export default function VendorOrderDetailScreen() {
           </View>
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryKey, { color: T.textSec }]}>
-              Platform commission ({order.commissionTier === 'TIER_1' ? '3%' : '7.5%'})
+              Platform commission ({commissionPercent}%)
             </Text>
             <Text style={[styles.summaryVal, { color: '#E23B3B' }]}>−₦{commission.toLocaleString()}</Text>
           </View>

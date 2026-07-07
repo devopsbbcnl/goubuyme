@@ -172,7 +172,7 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
 
   const originalDeliveryFee = pricingResult.finalFee;
   const { fee: deliveryFee, creditUsed } = await applyFreeDelivery(customer.id, originalDeliveryFee);
-  const { platformFee, netAmount } = calcVendorFee(subtotal, vendor.commissionTier);
+  const { platformFee, netAmount } = await calcVendorFee(subtotal, vendor.commissionTier);
   const totalAmount = subtotal + deliveryFee;
   const estimatedTime = pricingResult.durationMinutes;
 

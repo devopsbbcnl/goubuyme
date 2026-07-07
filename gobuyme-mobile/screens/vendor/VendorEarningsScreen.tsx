@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { shadows } from '@/theme';
 import api from '@/services/api';
+import { useCommissionRates, CommissionRates } from '@/hooks/useCommissionRates';
 import MfaCodeModal from '@/components/MfaCodeModal';
 
 interface Earnings {
@@ -72,32 +73,32 @@ interface TierInfo {
   tierChangedAt: string | null;
 }
 
-const TIER_META = {
+const tierMeta = (rates: CommissionRates) => ({
   TIER_1: {
     name: 'Standard Plan',
-    platformRate: '3%',
-    vendorRate: '97%',
+    platformRate: `${rates.TIER_1.platformPercent}%`,
+    vendorRate: `${rates.TIER_1.vendorPercent}%`,
     color: '#1A9E5F',
     bullets: [
-      'You keep 97% of every order subtotal',
-      'Platform commission is 3% per order',
+      `You keep ${rates.TIER_1.vendorPercent}% of every order subtotal`,
+      `Platform commission is ${rates.TIER_1.platformPercent}% per order`,
       'Standard search ranking on the app',
       'Best for established vendors with a loyal customer base',
     ],
   },
   TIER_2: {
     name: 'Growth Plan',
-    platformRate: '7.5%',
-    vendorRate: '92.5%',
+    platformRate: `${rates.TIER_2.platformPercent}%`,
+    vendorRate: `${rates.TIER_2.vendorPercent}%`,
     color: '#FF521B',
     bullets: [
-      'You keep 92.5% of every order subtotal',
-      'Platform commission is 7.5% per order',
+      `You keep ${rates.TIER_2.vendorPercent}% of every order subtotal`,
+      `Platform commission is ${rates.TIER_2.platformPercent}% per order`,
       'Priority placement in search and featured sections',
       'Best for vendors looking to grow their customer base',
     ],
   },
-};
+});
 
 const fmt = (n: number) => {
   if (n >= 1_000_000) return `₦${(n / 1_000_000).toFixed(2)}M`;
@@ -115,6 +116,7 @@ const fmtDate = (iso: string) =>
 export default function VendorEarningsScreen() {
   const { theme: T } = useTheme();
   const insets = useSafeAreaInsets();
+  const TIER_META = tierMeta(useCommissionRates());
 
   const [earnings, setEarnings] = useState<Earnings | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);

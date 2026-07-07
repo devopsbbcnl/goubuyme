@@ -18,6 +18,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
+import { useCommissionRates } from '@/hooks/useCommissionRates';
 
 type RawStatus =
 	| 'PENDING'
@@ -35,6 +36,7 @@ interface Order {
 	customerPhone: string | null;
 	items: string[];
 	subtotal: number;
+	netAmount: number | null;  // vendor take-home stored on the order; null until backend provides it
 	commissionTier: 'TIER_1' | 'TIER_2';
 	status: RawStatus;
 	createdAt: string;
@@ -109,6 +111,7 @@ function formatDate(iso: string) {
 export default function VendorOrdersScreen() {
 	const { theme: T } = useTheme();
 	const insets = useSafeAreaInsets();
+	const rates = useCommissionRates();
 	const [activeTab, setActiveTab] = useState<TabKey>('ALL');
 	const [orders, setOrders] = useState<Order[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -133,6 +136,7 @@ export default function VendorOrdersScreen() {
 					customerPhone: o.customerPhone ?? null,
 					items: o.items,
 					subtotal: o.subtotal ?? 0,
+					netAmount: o.netAmount ?? null,
 					commissionTier: o.commissionTier ?? 'TIER_2',
 					status: o.status as RawStatus,
 					createdAt: o.createdAt,
@@ -382,7 +386,7 @@ export default function VendorOrdersScreen() {
 												₦{order.subtotal.toLocaleString()}
 											</Text>
 											<Text style={[styles.earnings, { color: '#1A9E5F' }]}>
-												You earn ₦{Math.round(order.subtotal * (order.commissionTier === 'TIER_1' ? 0.97 : 0.925)).toLocaleString()}
+												You earn ₦{Math.round(order.netAmount ?? order.subtotal * (rates[order.commissionTier].vendorPercent / 100)).toLocaleString()}
 											</Text>
 											<Text style={[styles.date, { color: T.textMuted }]}>
 												{formatDate(order.createdAt)}

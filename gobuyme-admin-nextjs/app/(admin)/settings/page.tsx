@@ -11,6 +11,8 @@ interface SettingsApi {
   maxDeliveryRadiusKm: number;
   cancellationWindowMinutes: number;
   maintenanceMode: boolean;
+  tier1CommissionPercent: number;
+  tier2CommissionPercent: number;
 }
 
 interface SettingsState {
@@ -20,6 +22,8 @@ interface SettingsState {
   maxDeliveryRadiusKm: string;
   cancellationWindowMinutes: string;
   maintenanceMode: boolean;
+  tier1CommissionPercent: string;
+  tier2CommissionPercent: string;
 }
 
 const EMPTY: SettingsState = {
@@ -29,6 +33,8 @@ const EMPTY: SettingsState = {
   maxDeliveryRadiusKm: '',
   cancellationWindowMinutes: '',
   maintenanceMode: false,
+  tier1CommissionPercent: '',
+  tier2CommissionPercent: '',
 };
 
 const toState = (s: SettingsApi | undefined): SettingsState => {
@@ -42,10 +48,10 @@ const toState = (s: SettingsApi | undefined): SettingsState => {
     maxDeliveryRadiusKm: String(s.maxDeliveryRadiusKm ?? ''),
     cancellationWindowMinutes: String(s.cancellationWindowMinutes ?? ''),
     maintenanceMode: Boolean(s.maintenanceMode),
+    tier1CommissionPercent: String(s.tier1CommissionPercent ?? ''),
+    tier2CommissionPercent: String(s.tier2CommissionPercent ?? ''),
   };
 };
-
-const toNumber = (value: string) => Number(value || 0);
 
 export default function SettingsPage() {
   const { theme: T } = useTheme();
@@ -59,10 +65,10 @@ export default function SettingsPage() {
   const canSave = user?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
-    api.get<SettingsApi>('/admin/settings')
+    api.get<{ data: SettingsApi }>('/admin/settings')
       .then(res => {
-        // api.get<T>() returns T directly (not wrapped in { data })
-        setCfg(toState(res));
+        // Backend responses are enveloped: { status, message, data }
+        setCfg(toState(res.data));
       })
       .catch(err => {
         setError(err instanceof Error ? err.message : 'Failed to load settings');
@@ -85,16 +91,22 @@ export default function SettingsPage() {
     setError('');
 
     try {
-      const payload = {
-        deliveryBaseFee: toNumber(cfg.deliveryBaseFee),
-        deliveryPerKmRate: toNumber(cfg.deliveryPerKmRate),
-        deliveryMaxFee: toNumber(cfg.deliveryMaxFee),
-        maxDeliveryRadiusKm: toNumber(cfg.maxDeliveryRadiusKm),
-        cancellationWindowMinutes: Math.round(toNumber(cfg.cancellationWindowMinutes)),
-        maintenanceMode: cfg.maintenanceMode,
-      };
-      const res = await api.patch<SettingsApi>('/admin/settings', payload);
-      setCfg(toState(res));
+      // Each field is independent: empty inputs are simply not sent, leaving the saved value unchanged.
+      const payload: Record<string, number | boolean> = { maintenanceMode: cfg.maintenanceMode };
+      const numericKeys = [
+        'deliveryBaseFee', 'deliveryPerKmRate', 'deliveryMaxFee',
+        'maxDeliveryRadiusKm', 'cancellationWindowMinutes',
+        'tier1CommissionPercent', 'tier2CommissionPercent',
+      ] as const;
+      for (const key of numericKeys) {
+        const raw = cfg[key].trim();
+        if (raw === '') continue;
+        const n = Number(raw);
+        if (!Number.isFinite(n)) continue;
+        payload[key] = key === 'cancellationWindowMinutes' ? Math.round(n) : n;
+      }
+      const res = await api.patch<{ data: SettingsApi }>('/admin/settings', payload);
+      setCfg(toState(res.data));
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
@@ -230,6 +242,29 @@ export default function SettingsPage() {
           <div>
             <label style={labelStyle}>Max Radius (km)</label>
             <input style={inputStyle} type="number" min="1" value={cfg.maxDeliveryRadiusKm} onChange={e => set('maxDeliveryRadiusKm', e.target.value)} />
+          </div>
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={sectionHeader}>Commission Tiers</div>
+        <div style={sectionBody}>
+          <div>
+            <label style={labelStyle}>Tier 1 — Starter Commission (%)</label>
+            <input style={inputStyle} type="number" min="0" max="50" step="0.1" value={cfg.tier1CommissionPercent} onChange={e => set('tier1CommissionPercent', e.target.value)} />
+            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 5 }}>
+              Platform cut per order for Starter Plan vendors. No promotions access.
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Tier 2 — Growth Commission (%)</label>
+            <input style={inputStyle} type="number" min="0" max="50" step="0.1" value={cfg.tier2CommissionPercent} onChange={e => set('tier2CommissionPercent', e.target.value)} />
+            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 5 }}>
+              Platform cut per order for Growth Plan vendors. Includes promotion cards.
+            </div>
+          </div>
+          <div style={{ gridColumn: '1 / -1', fontSize: 11, color: T.textMuted }}>
+            Rate changes apply to new orders only — existing orders keep the commission captured at checkout.
           </div>
         </div>
       </div>

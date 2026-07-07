@@ -133,7 +133,7 @@ function welcomeCustomer(name: string): string {
     </p>`);
 }
 
-function welcomeVendor(name: string, businessName: string): string {
+function welcomeVendor(name: string, businessName: string, tier1Percent: number, tier2Percent: number): string {
   const setupUrl = `${DASHBOARD_URL}/vendor/setup`;
 
   return emailLayout(`
@@ -145,7 +145,7 @@ function welcomeVendor(name: string, businessName: string): string {
 
     <table cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #F0F0F0;">
       ${step(1, 'Complete your business profile', 'Add your logo, cover photo, opening hours, and a short description so customers know what to expect.')}
-      ${step(2, 'Choose your commission plan', 'Pick between the Growth Plan (7.5% commission) and the Starter Plan (3% commission). Both have no monthly fee — you can compare details on the setup page.')}
+      ${step(2, 'Choose your commission plan', `Pick between the Growth Plan (${tier2Percent}% commission) and the Starter Plan (${tier1Percent}% commission). Both have no monthly fee — you can compare details on the setup page.`)}
       ${step(3, 'Add your menu', 'Upload your items with names, prices, and photos. A well-stocked menu gets approved faster.')}
       ${step(4, 'Wait for approval', 'Our team reviews every vendor before going live — usually within 1–2 business days. You\'ll receive an email once approved.')}
     </table>
@@ -309,7 +309,11 @@ export const sendWelcomeEmail = async (
   if (role === 'CUSTOMER') {
     await sendEmail(to, `Welcome to GoBuyMe, ${name}!`, welcomeCustomer(name));
   } else if (role === 'VENDOR') {
-    await sendEmail(to, 'Welcome to GoBuyMe – Complete your vendor setup', welcomeVendor(name, businessName ?? name));
+    const { getPlatformSettings } = await import('./settings.service');
+    const settings = await getPlatformSettings().catch(() => null);
+    const tier1Percent = settings?.tier1CommissionPercent ?? 3;
+    const tier2Percent = settings?.tier2CommissionPercent ?? 7.5;
+    await sendEmail(to, 'Welcome to GoBuyMe – Complete your vendor setup', welcomeVendor(name, businessName ?? name, tier1Percent, tier2Percent));
   } else if (role === 'RIDER') {
     await sendEmail(to, 'Welcome to GoBuyMe – Complete your rider profile', welcomeRider(name));
   }

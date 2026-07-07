@@ -581,6 +581,8 @@ model PlatformSetting {
   updatedAt                 DateTime @updatedAt
   createdAt                 DateTime @default(now())
   riderPayoutPercentage     Float    @default(85)
+  tier1CommissionPercent    Float    @default(3)
+  tier2CommissionPercent    Float    @default(7.5)
 
   @@map("platform_settings")
 }

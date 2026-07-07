@@ -11,6 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 import { forwardGeocode } from '@/services/geocoding';
+import { useCommissionRates, CommissionRates } from '@/hooks/useCommissionRates';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -48,17 +49,21 @@ type MenuItemDraft = {
   optionGroups: OptionGroup[];
 };
 
-const PLAN_DETAILS: Record<Tier, {
+const naira = (n: number) => `₦${Math.round(n).toLocaleString()}`;
+const exampleLine = (platformPercent: number) =>
+  `On a ₦10,000 order: GoBuyMe earns ${naira(10_000 * platformPercent / 100)} · You receive ${naira(10_000 * (100 - platformPercent) / 100)}`;
+
+const planDetails = (rates: CommissionRates): Record<Tier, {
   title: string;
   bestFor: string;
   features: string[];
   example: string;
-}> = {
+}> => ({
   TIER_2: {
     title: 'Growth Plan',
     bestFor: 'Vendors starting out or scaling up on GoBuyMe.',
     features: [
-      '7.5% commission deducted from each order subtotal',
+      `${rates.TIER_2.platformPercent}% commission deducted from each order subtotal`,
       'Promotions/Adverts & Analytics',
       'Priority listing in search results',
       'Full platform access',
@@ -66,21 +71,21 @@ const PLAN_DETAILS: Record<Tier, {
       'Daily payouts processed at 11:30 AM',
       'Dedicated vendor support',
     ],
-    example: 'On a ₦10,000 order: GoBuyMe earns ₦750 · You receive ₦9,250',
+    example: exampleLine(rates.TIER_2.platformPercent),
   },
   TIER_1: {
     title: 'Starter Plan',
     bestFor: 'Established vendors with consistent, high order volumes.',
     features: [
-      '3% commission deducted from each order subtotal',
+      `${rates.TIER_1.platformPercent}% commission deducted from each order subtotal`,
       'Full platform access',
       'Secure payment processing via Paystack',
       'Daily payouts processed at 11:30 AM',
       'Dedicated vendor support',
     ],
-    example: 'On a ₦10,000 order: GoBuyMe earns ₦300 · You receive ₦9,700',
+    example: exampleLine(rates.TIER_1.platformPercent),
   },
-};
+});
 
 async function uploadImage(uri: string): Promise<string> {
   if (!CLOUD_NAME || !UPLOAD_PRESET) throw new Error('Image upload is not configured. Contact support.');
@@ -129,6 +134,8 @@ export default function VendorCompleteProfileScreen() {
   const { theme: T } = useTheme();
   const { updateApprovalStatus } = useAuth();
   const insets = useSafeAreaInsets();
+  const rates = useCommissionRates();
+  const PLAN_DETAILS = planDetails(rates);
 
   const [logo, setLogo] = useState('');
   const [coverImage, setCoverImage] = useState('');
@@ -476,7 +483,7 @@ export default function VendorCompleteProfileScreen() {
             onDetails={() => setModalTier('TIER_2')}
             title="Growth Plan"
             badge="RECOMMENDED"
-            lines={['7.5% commission per order']}
+            lines={[`${rates.TIER_2.platformPercent}% commission per order`]}
             T={T}
           />
           <TierCard
@@ -484,7 +491,7 @@ export default function VendorCompleteProfileScreen() {
             onPress={() => setTier('TIER_1')}
             onDetails={() => setModalTier('TIER_1')}
             title="Starter Plan"
-            lines={['3% commission per order']}
+            lines={[`${rates.TIER_1.platformPercent}% commission per order`]}
             T={T}
           />
         </View>
