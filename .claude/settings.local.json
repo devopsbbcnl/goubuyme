@@ -82,7 +82,16 @@
       "Bash(PGPASSWORD=password123 psql -U postgres -d gobuyme_db -c \"SELECT category, COUNT\\(*\\) FROM vendors GROUP BY category ORDER BY category;\")",
       "PowerShell(Get-Process *)",
       "Bash(python3 scripts/search.py \"ecommerce product detail page food delivery Nigeria\" --design-system -p \"GoBuyMe Item Detail\" -f markdown)",
-      "WebFetch(domain:www.konga.com)"
+      "WebFetch(domain:www.konga.com)",
+      "Bash(awk '/^model User/,/^}/' prisma/schema.prisma)",
+      "Bash(ls node_modules/next/dist/docs/)",
+      "Bash(ls services *)",
+      "Bash(npx eslint *)",
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(awk '/^model Vendor /,/^}/' prisma/schema.prisma)",
+      "Bash(awk '/^enum DocumentType/,/^}/' prisma/schema.prisma)",
+      "Bash(awk '/^model VendorDocument/,/^}/' prisma/schema.prisma)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"

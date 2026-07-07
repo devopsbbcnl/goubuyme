@@ -4,9 +4,9 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 const STAFF = [
-  { name: 'GoBuyMe Admin',      email: 'admin@gobuyme.shop',      role: Role.SUPER_ADMIN,       password: 'Admin@2026!' },
-  { name: 'Operations Manager', email: 'ops@gobuyme.shop',        role: Role.OPERATIONS_ADMIN,  password: 'Ops@2026!' },
-  { name: 'Support Agent',      email: 'support@gobuyme.shop',    role: Role.SUPPORT_ADMIN,     password: 'Support@2026!' },
+  { name: 'GoBuyMe Admin',      email: 'user747-777@gobuyme.shop',      role: Role.SUPER_ADMIN,       password: 'X?M#r!=97#CHZjT+V75!v}F;' },
+  { name: 'Operations Manager', email: 'ops@gobuyme.shop',        role: Role.OPERATIONS_ADMIN,  password: 'Z%_eNW=?t06}' },
+  { name: 'Support Agent',      email: 'support@gobuyme.shop',    role: Role.SUPPORT_ADMIN,     password: 'fWZ:vHv:ga)!' },
 ];
 
 async function main() {
