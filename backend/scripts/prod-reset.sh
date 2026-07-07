@@ -17,9 +17,12 @@ fi
 
 DATABASE_URL=$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d '=' -f2- | tr -d '"' | tr -d "'")
 
+# pg_dump rejects Prisma's ?schema= URI parameter — strip it, keep any other params
+PG_URL=$(printf '%s' "$DATABASE_URL" | sed -E 's/([?&])schema=[^&]*&/\1/; s/[?&]schema=[^&]*$//')
+
 echo "==> 1/7 Backing up current database"
 BACKUP="db-backup-$(date +%Y%m%d-%H%M%S).sql"
-pg_dump "$DATABASE_URL" > "$BACKUP"
+pg_dump "$PG_URL" > "$BACKUP"
 echo "    Saved backend/$BACKUP — keep this until you are sure the reset is good."
 
 echo "==> 2/7 Pulling latest code"
