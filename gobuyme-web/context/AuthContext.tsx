@@ -12,6 +12,7 @@ export interface AuthUser {
   avatar?: string;
   role: 'customer' | 'vendor' | 'rider' | null;
   token: string;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 }
 
 interface AuthCtx {

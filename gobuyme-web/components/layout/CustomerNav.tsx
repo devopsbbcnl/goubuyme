@@ -23,7 +23,7 @@ const CATEGORY_DATA: Record<string, CategoryEntry> = {
   RESTAURANT: {
     label: 'Restaurants', icon: '🍽️',
     subs: ['Jollof Rice', 'Fried Rice', 'Pepper Soup', 'Egusi Soup', 'Pounded Yam', 'Amala', 'Shawarma', 'Suya', 'Grilled Chicken', 'Burger', 'Seafood', 'Pasta', 'Puff Puff', 'Smoothies', 'Breakfast', 'Small Chops'],
-    visual: { gradient: 'linear-gradient(135deg,#FF521B,#FF9A3C)', emoji: '🍽️', imageUrl: '/images/restaurant.jpg' },
+    visual: { gradient: 'linear-gradient(135deg,#FF521B,#FF9A3C)', emoji: '🍽️', imageUrl: '/images/restaurant.png' },
   },
   EMART: {
     label: 'EMART', icon: '🛒',
@@ -303,7 +303,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             </button>
 
-            <a href="https://app.gobuyme.shop/downloads" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm nav-get-app" style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+            <a href="/downloads" className="btn btn-ghost btn-sm nav-get-app" style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18" strokeLinecap="round" strokeWidth="3"/></svg>
               Get App
             </a>
@@ -384,7 +384,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
       {/* Mobile nav menu */}
       {mobileMenuOpen && (
         <div className="c-mob-menu">
-          <a href="https://app.gobuyme.shop/downloads" target="_blank" rel="noopener noreferrer" className="c-mob-item" onClick={() => setMobileMenuOpen(false)}>
+          <a href="/downloads" className="c-mob-item" onClick={() => setMobileMenuOpen(false)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18" strokeLinecap="round" strokeWidth="3"/></svg>
             Get App
           </a>

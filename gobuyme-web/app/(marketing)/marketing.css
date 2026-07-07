@@ -1,0 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* GoBuyMe — Kinetic Pop Maximalist
+   All colors HSL. Orange-led, cream canvas, ink black. */
+
+@layer base {
+  :root {
+    --background: 36 60% 96%;        /* warm cream */
+    --foreground: 20 14% 8%;         /* deep ink */
+
+    --card: 36 60% 98%;
+    --card-foreground: 20 14% 8%;
+
+    --popover: 36 60% 98%;
+    --popover-foreground: 20 14% 8%;
+
+    --primary: 22 100% 54%;          /* gobuyme orange */
+    --primary-foreground: 36 60% 98%;
+
+    --secondary: 20 14% 8%;          /* ink as secondary action */
+    --secondary-foreground: 36 60% 98%;
+
+    --muted: 36 30% 90%;
+    --muted-foreground: 20 14% 35%;
+
+    --accent: 48 100% 60%;           /* highlighter yellow */
+    --accent-foreground: 20 14% 8%;
+
+    --hot: 8 92% 56%;                /* tomato red accent */
+    --hot-foreground: 36 60% 98%;
+
+    --leaf: 142 60% 38%;             /* fresh green for grocery */
+    --leaf-foreground: 36 60% 98%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 36 60% 98%;
+
+    --border: 20 14% 8%;
+    --input: 20 14% 86%;
+    --ring: 22 100% 54%;
+
+    --radius: 1.25rem;
+
+    --gradient-sun: linear-gradient(135deg, hsl(48 100% 60%), hsl(22 100% 54%) 55%, hsl(8 92% 56%));
+    --gradient-warm: linear-gradient(180deg, hsl(36 60% 96%) 0%, hsl(36 70% 92%) 100%);
+    --shadow-pop: 8px 8px 0 0 hsl(var(--foreground));
+    --shadow-pop-sm: 4px 4px 0 0 hsl(var(--foreground));
+    --shadow-pop-orange: 8px 8px 0 0 hsl(var(--primary));
+
+    --sidebar-background: 36 60% 96%;
+    --sidebar-foreground: 20 14% 8%;
+    --sidebar-primary: 22 100% 54%;
+    --sidebar-primary-foreground: 36 60% 98%;
+    --sidebar-accent: 36 30% 90%;
+    --sidebar-accent-foreground: 20 14% 8%;
+    --sidebar-border: 20 14% 8%;
+    --sidebar-ring: 22 100% 54%;
+  }
+
+  .dark {
+    --background: 20 14% 6%;
+    --foreground: 36 60% 96%;
+    --card: 20 14% 9%;
+    --card-foreground: 36 60% 96%;
+    --popover: 20 14% 9%;
+    --popover-foreground: 36 60% 96%;
+    --primary: 22 100% 54%;
+    --primary-foreground: 20 14% 6%;
+    --secondary: 36 60% 96%;
+    --secondary-foreground: 20 14% 6%;
+    --muted: 20 14% 14%;
+    --muted-foreground: 36 30% 70%;
+    --accent: 48 100% 60%;
+    --accent-foreground: 20 14% 6%;
+    --border: 36 60% 96%;
+    --input: 20 14% 18%;
+    --ring: 22 100% 54%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-feature-settings: 'ss01', 'ss02';
+  }
+  ::selection { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+}
+
+@layer utilities {
+  .font-display { font-family: 'Archivo Black', 'Space Grotesk', sans-serif; letter-spacing: -0.02em; }
+  .font-mono-pop { font-family: 'JetBrains Mono', monospace; }
+
+  .text-stroke {
+    -webkit-text-stroke: 2px hsl(var(--foreground));
+    color: transparent;
+  }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(hsl(var(--foreground) / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.06) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .bg-dots {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.18) 1.2px, transparent 1.2px);
+    background-size: 18px 18px;
+  }
+
+  .shadow-pop { box-shadow: var(--shadow-pop); }
+  .shadow-pop-sm { box-shadow: var(--shadow-pop-sm); }
+  .shadow-pop-orange { box-shadow: var(--shadow-pop-orange); }
+
+  .border-ink { border-color: hsl(var(--foreground)); }
+
+  .ticker {
+    animation: ticker 30s linear infinite;
+  }
+  .ticker-slow { animation: ticker 60s linear infinite; }
+  .ticker-reverse { animation: ticker-reverse 40s linear infinite; }
+
+  .wiggle { animation: wiggle 4s ease-in-out infinite; }
+  .float-y { animation: float-y 6s ease-in-out infinite; }
+  .spin-slow { animation: spin 18s linear infinite; }
+}
+
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes ticker-reverse {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
