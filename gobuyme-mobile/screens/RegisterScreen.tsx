@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generatePassword } from '@/utils/generatePassword';
 import { forwardGeocode } from '@/services/geocoding';
+import { useGoogleSignIn } from '@/hooks/useGoogleSignIn';
 
 type RoleParam = 'customer' | 'vendor' | 'rider';
 
@@ -184,6 +185,7 @@ export default function RegisterScreen() {
 	const [busy, setBusy] = useState(false);
 	const [errors, setErrors] = useState<RegisterErrors>({});
 	const [pwGenerated, setPwGenerated] = useState(false);
+	const { promptGoogleSignIn, googleBusy, googleReady, googleError } = useGoogleSignIn();
 
 	const handleGeneratePassword = () => {
 		const pw = generatePassword();
@@ -338,6 +340,30 @@ export default function RegisterScreen() {
 			
 			<Text style={[styles.title, { color: T.text }]}>{meta.title}</Text>
 			<Text style={[styles.sub, { color: T.textSec }]}>{meta.sub}</Text>
+
+			{role === 'customer' && (
+				<>
+					{!!googleError && (
+						<Text style={[styles.errorText, { color: '#E53E3E', textAlign: 'center' }]}>{googleError}</Text>
+					)}
+					<TouchableOpacity
+						style={[styles.googleBtn, { borderColor: T.border }]}
+						onPress={promptGoogleSignIn}
+						disabled={!googleReady || googleBusy}
+						activeOpacity={0.7}
+					>
+						<Ionicons name="logo-google" size={18} color={T.text} />
+						<Text style={[styles.googleText, { color: T.text }]}>
+							{googleBusy ? 'Signing up…' : 'Continue with Google'}
+						</Text>
+					</TouchableOpacity>
+					<View style={styles.divider}>
+						<View style={[styles.line, { backgroundColor: T.border }]} />
+						<Text style={[styles.orText, { color: T.textSec }]}>OR SIGN UP WITH EMAIL</Text>
+						<View style={[styles.line, { backgroundColor: T.border }]} />
+					</View>
+				</>
+			)}
 
 			<AppInput
 				label="Full Name"
@@ -747,6 +773,15 @@ const styles = StyleSheet.create({
 		fontFamily: 'PlusJakartaSans_500Medium',
 	},
 	loginLink: { alignItems: 'center', marginTop: 24 },
+	divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 },
+	line: { flex: 1, height: 1 },
+	orText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, fontFamily: 'PlusJakartaSans_700Bold' },
+	googleBtn: {
+		flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+		gap: 10, borderWidth: 1, borderRadius: 4,
+		paddingVertical: 14, paddingHorizontal: 20,
+	},
+	googleText: { fontSize: 14, fontWeight: '600', fontFamily: 'PlusJakartaSans_600SemiBold' },
 	termsRow: {
 		flexDirection: 'row',
 		alignItems: 'flex-start',

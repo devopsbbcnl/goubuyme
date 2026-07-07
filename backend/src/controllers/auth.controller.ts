@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
@@ -14,6 +15,17 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { Role, CommissionTier, VendorCategory } from '@prisma/client';
 
 const SALT_ROUNDS = 12;
+
+const GOOGLE_CLIENT_IDS = [
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_WEB_CLIENT_ID,
+  process.env.GOOGLE_IOS_CLIENT_ID,
+  process.env.GOOGLE_ANDROID_CLIENT_ID,
+]
+  .flatMap((id) => (id || '').split(','))
+  .map((id) => id.trim())
+  .filter(Boolean);
+const googleClient = new OAuth2Client();
 
 const buildUserPayload = (user: {
   id: string; name: string; email: string; phone: string | null; role: Role; avatar: string | null;
@@ -227,6 +239,80 @@ export const login = catchAsync(async (req: Request, res: Response) => {
 
   return apiResponse.success(res, 'Login successful.', {
     user: { ...buildUserPayload(user), ...(approvalStatus !== undefined ? { approvalStatus } : {}) },
+    accessToken,
+    refreshToken,
+  });
+});
+
+export const googleAuth = catchAsync(async (req: Request, res: Response) => {
+  const { idToken, referralCode } = req.body;
+
+  if (GOOGLE_CLIENT_IDS.length === 0) {
+    return apiResponse.error(res, 'Google sign-in is not configured on the server.', 500);
+  }
+
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_IDS });
+    payload = ticket.getPayload();
+  } catch {
+    return apiResponse.error(res, 'Invalid or expired Google token.', 401);
+  }
+
+  if (!payload?.email) return apiResponse.error(res, 'Google account has no email address.', 400);
+
+  const email = payload.email.toLowerCase();
+  let user = await prisma.user.findUnique({ where: { email } });
+
+  if (user) {
+    if (!user.isActive) return apiResponse.error(res, 'Account suspended. Contact support.', 403);
+    if (user.role !== 'CUSTOMER') {
+      return apiResponse.error(res, 'This email is already registered as a different account type. Sign in with your password instead.', 409);
+    }
+    if (!user.googleId || !user.isEmailVerified) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { googleId: payload.sub, isEmailVerified: true },
+      });
+    }
+  } else {
+    let referredById: string | undefined;
+    if (referralCode) {
+      const referrer = await prisma.user.findUnique({ where: { referralCode } });
+      if (referrer) referredById = referrer.id;
+    }
+
+    user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          name: payload.name || email.split('@')[0],
+          email,
+          googleId: payload.sub,
+          role: Role.CUSTOMER,
+          isEmailVerified: true,
+          avatar: payload.picture,
+          referralCode: generateReferralCode(),
+          referredById,
+        },
+      });
+
+      await tx.customer.create({ data: { userId: newUser.id } });
+      if (referredById) {
+        await tx.referral.create({ data: { referrerId: referredById, refereeId: newUser.id } });
+      }
+
+      return newUser;
+    });
+
+    void sendWelcomeEmail(user.email, user.name, user.role);
+  }
+
+  const accessToken = generateAccessToken({ userId: user.id, role: user.role });
+  const refreshToken = generateRefreshToken({ userId: user.id, role: user.role });
+  await prisma.user.update({ where: { id: user.id }, data: { refreshToken } });
+
+  return apiResponse.success(res, 'Signed in with Google.', {
+    user: buildUserPayload(user),
     accessToken,
     refreshToken,
   });

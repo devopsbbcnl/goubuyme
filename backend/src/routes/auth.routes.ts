@@ -1,7 +1,6 @@
 import { Router } from 'express';
-import passport from '../config/passport';
 import {
-  register, login, refresh, logout,
+  register, login, refresh, logout, googleAuth,
   getMe, updateProfile, forgotPassword, resetPassword, changePassword,
   verifyOtp, resendOtp, activationStatus, requestPasswordOtp,
 } from '../controllers/auth.controller';
@@ -10,7 +9,7 @@ import { verifyToken } from '../middleware/auth.middleware';
 import { requireMfa } from '../middleware/mfa.middleware';
 import { authLimiter } from '../middleware/rateLimiter.middleware';
 import {
-  registerSchema, loginSchema, forgotPasswordSchema,
+  registerSchema, loginSchema, googleAuthSchema, forgotPasswordSchema,
   resetPasswordSchema, refreshTokenSchema, verifyOtpSchema, resendOtpSchema,
   changePasswordSchema,
 } from '../validators/auth.validator';
@@ -24,6 +23,7 @@ router.post('/register', authLimiter, validate(registerSchema), register);
 router.post('/verify-otp', validate(verifyOtpSchema), verifyOtp);
 router.post('/resend-otp', authLimiter, validate(resendOtpSchema), resendOtp);
 router.post('/login', authLimiter, validate(loginSchema), login);
+router.post('/google', authLimiter, validate(googleAuthSchema), googleAuth);
 router.post('/refresh', validate(refreshTokenSchema), refresh);
 router.post('/logout', verifyToken, logout);
 router.get('/me', verifyToken, getMe);

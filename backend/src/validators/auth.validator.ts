@@ -78,7 +78,6 @@ export const loginSchema = Joi.object({
 
 export const googleAuthSchema = Joi.object({
   idToken: Joi.string().required(),
-  role: Joi.string().valid('CUSTOMER', 'VENDOR', 'RIDER').optional(),
   referralCode: Joi.string().optional(),
 });
 

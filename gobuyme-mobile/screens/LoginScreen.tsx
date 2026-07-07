@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert,
 } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth, UserRole } from '@/context/AuthContext';
 import { AppInput } from '@/components/ui/AppInput';
@@ -11,6 +12,7 @@ import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { connectSockets, subscribeBackendStatus } from '@/services/socketService';
+import { useGoogleSignIn } from '@/hooks/useGoogleSignIn';
 
 const ROLE_ROUTE: Record<string, string> = {
   customer: '/(customer)',
@@ -58,6 +60,7 @@ export default function LoginScreen() {
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
   const [backendOnline, setBackendOnline] = useState(false);
+  const { promptGoogleSignIn, googleBusy, googleReady, googleError } = useGoogleSignIn();
 
 
   const validateLogin = () => {
@@ -210,6 +213,28 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <PrimaryButton onPress={handleLogin} loading={busy}>Sign In</PrimaryButton>
+
+        <View style={styles.divider}>
+          <View style={[styles.line, { backgroundColor: T.border }]} />
+          <Text style={[styles.orText, { color: T.textSec }]}>OR</Text>
+          <View style={[styles.line, { backgroundColor: T.border }]} />
+        </View>
+
+        {!!googleError && (
+          <Text style={[styles.errorText, { color: '#E53E3E', textAlign: 'center' }]}>{googleError}</Text>
+        )}
+
+        <TouchableOpacity
+          style={[styles.googleBtn, { borderColor: T.border }]}
+          onPress={promptGoogleSignIn}
+          disabled={!googleReady || googleBusy}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="logo-google" size={18} color={T.text} />
+          <Text style={[styles.googleText, { color: T.text }]}>
+            {googleBusy ? 'Signing in…' : 'Continue with Google'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.footer}>
