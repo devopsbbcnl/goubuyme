@@ -164,7 +164,7 @@ async function findDeliveryZone(
 /**
  * Calculate fee based on distance buckets
  */
-function calculateBucketFee(
+export function calculateBucketFee(
   distanceKm: number,
   buckets: any[],
 ): { fee: number; bucket: any } {
@@ -193,7 +193,7 @@ function calculateBucketFee(
 /**
  * Calculate applicable surcharges based on conditions
  */
-function calculateSurcharges(
+export function calculateSurcharges(
   modifiers: any[],
   orderTime: Date,
   weatherCondition?: string,

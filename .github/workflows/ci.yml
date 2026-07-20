@@ -1,6 +1,7 @@
 name: CI
 
-# Report-only: typechecks each app on pull requests. Does not build for deploy,
+# Report-only: typechecks each app on pull requests, and runs backend unit
+# tests (the only app with a test suite so far). Does not build for deploy,
 # run migrations, or touch any environment — no deploy credentials are
 # referenced here. Merge is not blocked unless branch protection is turned on
 # separately. (Lint is intentionally left out for now: `next lint` is broken
@@ -28,6 +29,7 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx tsc --noEmit
+      - run: npm test
 
   admin:
     runs-on: ubuntu-latest
