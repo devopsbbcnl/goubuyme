@@ -419,7 +419,7 @@ export default function RiderEarningsScreen() {
 								) : (
 									<TouchableOpacity
 										style={[styles.formBtn, { backgroundColor: '#1A9E5F', flex: 1 }]}
-										onPress={saveBankAccount}
+										onPress={() => saveBankAccount()}
 										disabled={saving}
 										activeOpacity={0.85}
 									>

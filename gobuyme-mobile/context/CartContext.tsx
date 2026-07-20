@@ -11,6 +11,7 @@ export interface CartItem {
 
 type CartCtx = {
   carts: Record<string, CartItem[]>;
+  count: number;
   addItem: (item: Omit<CartItem, 'qty'>, delta: number, vendorId: string) => void;
   replaceItem: (item: Omit<CartItem, 'qty'>, qty: number, vendorId: string) => void;
   clearCart: (vendorId?: string) => void;
@@ -21,6 +22,7 @@ type CartCtx = {
 
 const CartContext = createContext<CartCtx>({
   carts: {},
+  count: 0,
   addItem: () => {},
   replaceItem: () => {},
   clearCart: () => {},
@@ -70,8 +72,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const getTotal = (vendorId: string) => (carts[vendorId] ?? []).reduce((s, i) => s + i.price * i.qty, 0);
   const getCount = (vendorId: string) => (carts[vendorId] ?? []).reduce((s, i) => s + i.qty, 0);
 
+  // Total items across every vendor's cart — used for the global cart badge.
+  const count = Object.values(carts).reduce((s, items) => s + items.reduce((si, i) => si + i.qty, 0), 0);
+
   return (
-    <CartContext.Provider value={{ carts, addItem, replaceItem, clearCart, getItems, getTotal, getCount }}>
+    <CartContext.Provider value={{ carts, count, addItem, replaceItem, clearCart, getItems, getTotal, getCount }}>
       {children}
     </CartContext.Provider>
   );

@@ -12,7 +12,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
-import { calculateDistance, calculateRouteDistance } from '@/services/geocoding';
+import { calculateDistance, calculateRouteDistance, calculateDeliveryFee, forwardGeocode } from '@/services/geocoding';
 import Constants from 'expo-constants';
 
 const TYPE_ICONS: Record<string, any> = { home: 'home', work: 'business', other: 'location-on' };
@@ -40,8 +40,21 @@ export default function CheckoutScreen() {
     city?: string | null;
     state?: string | null;
   } | null>(null);
+  const [feeSettings, setFeeSettings] = useState<{
+    deliveryBaseFee: number;
+    deliveryPerKmRate: number;
+    deliveryMaxFee: number;
+  } | null>(null);
 
   const { popup } = usePaystack();
+
+  // Live delivery-fee settings (admin-adjustable) — falls back to the same
+  // defaults calculateDeliveryFee already uses if this fetch fails.
+  useEffect(() => {
+    api.get('/settings/public')
+      .then(res => setFeeSettings(res.data?.data ?? null))
+      .catch(err => console.warn('[Checkout] Failed to fetch fee settings, using defaults:', err?.message));
+  }, []);
 
   const subtotal   = total;
   const grandTotal = subtotal + (deliveryFee ?? 0);
