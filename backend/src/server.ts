@@ -144,6 +144,11 @@ app.get('/health', cors({ origin: '*' }), async (_req, res) => {
   }
 });
 
+// TEMPORARY — remove after confirming Sentry receives this in the dashboard.
+app.get('/debug-sentry', () => {
+  throw new Error('Sentry test from VPS');
+});
+
 if (process.env.SENTRY_DSN) {
   Sentry.setupExpressErrorHandler(app);
 }
