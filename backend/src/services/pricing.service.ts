@@ -168,21 +168,36 @@ export function calculateBucketFee(
   distanceKm: number,
   buckets: any[],
 ): { fee: number; bucket: any } {
-  // Sort buckets by minDistanceKm
-  const sortedBuckets = buckets.sort((a, b) => a.minDistanceKm - b.minDistanceKm);
+  // Sort by minDistanceKm without mutating the caller's array.
+  const sortedBuckets = [...buckets].sort((a, b) => a.minDistanceKm - b.minDistanceKm);
 
   for (const bucket of sortedBuckets) {
-    // Check if distance falls within this bucket
-    if (distanceKm >= bucket.minDistanceKm) {
-      if (bucket.maxDistanceKm === null || distanceKm < bucket.maxDistanceKm) {
-        return { fee: bucket.fee, bucket };
-      }
-      // If this is the last bucket (no max), use perKmRate for extra distance
-      if (bucket.maxDistanceKm === null && bucket.perKmRate) {
+    if (distanceKm < bucket.minDistanceKm) continue;
+
+    const isOpenEnded = bucket.maxDistanceKm === null || bucket.maxDistanceKm === undefined;
+
+    // Bounded bucket ([minDistanceKm, maxDistanceKm)) — flat fee.
+    if (!isOpenEnded && distanceKm < bucket.maxDistanceKm) {
+      return { fee: bucket.fee, bucket };
+    }
+
+    // Open-ended bucket (the last one, no maxDistanceKm) — this MUST be
+    // checked separately from the bounded case above, not folded into the
+    // same condition: the previous version's condition was
+    // `bucket.maxDistanceKm === null || distanceKm < bucket.maxDistanceKm`,
+    // which returned the flat fee immediately whenever maxDistanceKm was
+    // null, before the perKmRate branch below it could ever run. That made
+    // perKmRate on the terminal bucket dead code — every distance past the
+    // last bounded bucket paid the same flat fee regardless of how far past
+    // it was. Extra distance beyond minDistanceKm is now billed at
+    // perKmRate when one is configured, and falls back to the flat fee
+    // otherwise (unchanged behavior for buckets with no perKmRate set).
+    if (isOpenEnded) {
+      if (bucket.perKmRate) {
         const extraKm = distanceKm - bucket.minDistanceKm;
-        const extraFee = extraKm * bucket.perKmRate;
-        return { fee: bucket.fee + extraFee, bucket };
+        return { fee: bucket.fee + extraKm * bucket.perKmRate, bucket };
       }
+      return { fee: bucket.fee, bucket };
     }
   }
 

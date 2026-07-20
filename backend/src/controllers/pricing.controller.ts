@@ -194,17 +194,78 @@ export const deletePricingProfile = catchAsync(async (req: AuthRequest, res: Res
 
 // ─── Pricing Buckets ─────────────────────────────────────────────────────
 
+const asFiniteNumber = (value: unknown): number | null => {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  return Number.isFinite(n) ? n : null;
+};
+
+// Only one open-ended ("N km and beyond") bucket makes sense per profile —
+// calculateBucketFee returns on the first bucket whose minDistanceKm the
+// distance reaches, so a second open-ended bucket with a higher minDistanceKm
+// would be unreachable dead configuration, silently never applying.
+const hasConflictingOpenEndedBucket = async (
+  pricingProfileId: string,
+  excludeBucketId?: string,
+): Promise<boolean> => {
+  const existing = await prisma.pricingBucket.findFirst({
+    where: {
+      pricingProfileId,
+      maxDistanceKm: null,
+      ...(excludeBucketId && { id: { not: excludeBucketId } }),
+    },
+  });
+  return existing !== null;
+};
+
 export const createPricingBucket = catchAsync(async (req: AuthRequest, res: Response) => {
   const { pricingProfileId, minDistanceKm, maxDistanceKm, fee, perKmRate, description } = req.body;
+
+  if (!pricingProfileId || typeof pricingProfileId !== 'string') {
+    return apiResponse.error(res, 'pricingProfileId is required.', 400);
+  }
+  const profile = await prisma.pricingProfile.findUnique({ where: { id: pricingProfileId } });
+  if (!profile) {
+    return apiResponse.error(res, 'Pricing profile not found.', 404);
+  }
+
+  const min = asFiniteNumber(minDistanceKm);
+  if (min === null || min < 0) {
+    return apiResponse.error(res, 'minDistanceKm must be a number of 0 or greater.', 400);
+  }
+
+  let max: number | null = null;
+  if (maxDistanceKm !== undefined && maxDistanceKm !== null) {
+    max = asFiniteNumber(maxDistanceKm);
+    if (max === null || max <= min) {
+      return apiResponse.error(res, 'maxDistanceKm must be a number greater than minDistanceKm, or left empty for an open-ended bucket.', 400);
+    }
+  }
+
+  const feeValue = asFiniteNumber(fee);
+  if (feeValue === null || feeValue < 0) {
+    return apiResponse.error(res, 'fee must be a number of 0 or greater.', 400);
+  }
+
+  let perKmRateValue: number | null = null;
+  if (perKmRate !== undefined && perKmRate !== null && perKmRate !== '') {
+    perKmRateValue = asFiniteNumber(perKmRate);
+    if (perKmRateValue === null || perKmRateValue < 0) {
+      return apiResponse.error(res, 'perKmRate must be a number of 0 or greater.', 400);
+    }
+  }
+
+  if (max === null && await hasConflictingOpenEndedBucket(pricingProfileId)) {
+    return apiResponse.error(res, 'This profile already has an open-ended bucket (no maxDistanceKm). Only one is allowed — edit the existing one instead.', 400);
+  }
 
   const bucket = await prisma.pricingBucket.create({
     data: {
       pricingProfileId,
-      minDistanceKm,
-      maxDistanceKm,
-      fee,
-      perKmRate,
-      description,
+      minDistanceKm: min,
+      maxDistanceKm: max,
+      fee: feeValue,
+      perKmRate: perKmRateValue,
+      description: description || null,
     },
   });
 
@@ -215,14 +276,70 @@ export const updatePricingBucket = catchAsync(async (req: AuthRequest, res: Resp
   const { id } = req.params;
   const { minDistanceKm, maxDistanceKm, fee, perKmRate, description } = req.body;
 
+  const existing = await prisma.pricingBucket.findUnique({ where: { id } });
+  if (!existing) {
+    return apiResponse.error(res, 'Pricing bucket not found.', 404);
+  }
+
+  let min = existing.minDistanceKm;
+  if (minDistanceKm !== undefined) {
+    const parsed = asFiniteNumber(minDistanceKm);
+    if (parsed === null || parsed < 0) {
+      return apiResponse.error(res, 'minDistanceKm must be a number of 0 or greater.', 400);
+    }
+    min = parsed;
+  }
+
+  let max: number | null = existing.maxDistanceKm;
+  if (maxDistanceKm !== undefined) {
+    if (maxDistanceKm === null) {
+      max = null;
+    } else {
+      const parsed = asFiniteNumber(maxDistanceKm);
+      if (parsed === null || parsed <= min) {
+        return apiResponse.error(res, 'maxDistanceKm must be a number greater than minDistanceKm, or left empty for an open-ended bucket.', 400);
+      }
+      max = parsed;
+    }
+  } else if (max !== null && max <= min) {
+    // minDistanceKm alone moved past the existing maxDistanceKm.
+    return apiResponse.error(res, 'minDistanceKm must be less than this bucket\'s maxDistanceKm.', 400);
+  }
+
+  let feeValue = existing.fee;
+  if (fee !== undefined) {
+    const parsed = asFiniteNumber(fee);
+    if (parsed === null || parsed < 0) {
+      return apiResponse.error(res, 'fee must be a number of 0 or greater.', 400);
+    }
+    feeValue = parsed;
+  }
+
+  let perKmRateValue = existing.perKmRate;
+  if (perKmRate !== undefined) {
+    if (perKmRate === null || perKmRate === '') {
+      perKmRateValue = null;
+    } else {
+      const parsed = asFiniteNumber(perKmRate);
+      if (parsed === null || parsed < 0) {
+        return apiResponse.error(res, 'perKmRate must be a number of 0 or greater.', 400);
+      }
+      perKmRateValue = parsed;
+    }
+  }
+
+  if (max === null && await hasConflictingOpenEndedBucket(existing.pricingProfileId, id)) {
+    return apiResponse.error(res, 'This profile already has an open-ended bucket (no maxDistanceKm). Only one is allowed — edit that one instead.', 400);
+  }
+
   const updated = await prisma.pricingBucket.update({
     where: { id },
     data: {
-      ...(minDistanceKm !== undefined && { minDistanceKm }),
-      ...(maxDistanceKm !== undefined && { maxDistanceKm }),
-      ...(fee !== undefined && { fee }),
-      ...(perKmRate !== undefined && { perKmRate }),
-      ...(description !== undefined && { description }),
+      minDistanceKm: min,
+      maxDistanceKm: max,
+      fee: feeValue,
+      perKmRate: perKmRateValue,
+      ...(description !== undefined && { description: description || null }),
     },
   });
 

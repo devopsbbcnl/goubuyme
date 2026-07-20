@@ -18,23 +18,25 @@ describe('calculateBucketFee', () => {
     expect(calculateBucketFee(5, buckets).fee).toBe(800);
   });
 
-  it('BUG: perKmRate on the open-ended last bucket is never applied — every distance past its minimum charges the same flat fee', () => {
-    // calculateBucketFee's first condition is:
-    //   bucket.maxDistanceKm === null || distanceKm < bucket.maxDistanceKm
-    // For the terminal bucket (maxDistanceKm === null), that's always true,
-    // so it returns bucket.fee immediately. The perKmRate branch right below
-    // it is dead code — it can never run, because the condition above it
-    // already caught `maxDistanceKm === null` and returned first.
-    //
-    // Net effect: a customer at 10.1km and a customer at 100km are charged
-    // the exact same fee (1000) despite this bucket having a perKmRate of
-    // 100 configured — that rate is silently ignored for every order past
-    // the last bounded bucket. This test documents the CURRENT production
-    // behavior, not the intended one — flagged separately, not fixed here,
-    // since correcting it changes live delivery pricing and is a business
-    // call, not a unit-test call.
-    expect(calculateBucketFee(10.1, buckets).fee).toBe(1000);
-    expect(calculateBucketFee(100, buckets).fee).toBe(1000); // same fee as 10.1km
+  it('applies perKmRate to extra distance past the open-ended last bucket, instead of a flat fee no matter how far', () => {
+    // Previously fixed bug: the terminal bucket's flat-fee condition
+    // (`maxDistanceKm === null`) short-circuited before the perKmRate branch
+    // could ever run, so any distance past the last bounded bucket paid the
+    // same flat fee regardless of how far past it was. Now extra distance
+    // beyond minDistanceKm is billed at perKmRate.
+    // At 10.1km: 1000 flat + (0.1km extra * 100/km) = 1010.
+    expect(calculateBucketFee(10.1, buckets).fee).toBeCloseTo(1010);
+    // At 15km: 1000 flat + (5km extra * 100/km) = 1500 — scales with distance,
+    // unlike the old flat-1000-forever behavior.
+    expect(calculateBucketFee(15, buckets).fee).toBe(1500);
+  });
+
+  it('an open-ended bucket with no perKmRate configured still falls back to its flat fee', () => {
+    const flatOnlyBuckets = [
+      { minDistanceKm: 0, maxDistanceKm: 5, fee: 500, perKmRate: null },
+      { minDistanceKm: 5, maxDistanceKm: null, fee: 900, perKmRate: null },
+    ];
+    expect(calculateBucketFee(50, flatOnlyBuckets).fee).toBe(900);
   });
 
   it('falls back to the first bucket fee if no bucket matches (e.g. an empty distance)', () => {

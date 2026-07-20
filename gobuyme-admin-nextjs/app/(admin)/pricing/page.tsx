@@ -181,6 +181,24 @@ export default function PricingPage() {
   });
   const [surgeSaving, setSurgeSaving] = useState(false);
 
+  // Buckets (distance-based pricing rows within a profile)
+  const [bucketsModalOpen, setBucketsModalOpen] = useState(false);
+  const [bucketsProfile, setBucketsProfile] = useState<PricingProfile & { buckets: PricingBucket[] } | null>(null);
+  const [bucketsLoading, setBucketsLoading] = useState(false);
+  const [bucketFormModalOpen, setBucketFormModalOpen] = useState(false);
+  const [selectedBucket, setSelectedBucket] = useState<PricingBucket | null>(null);
+  const [bucketForm, setBucketForm] = useState({
+    minDistanceKm: '0',
+    maxDistanceKm: '',
+    fee: '',
+    perKmRate: '',
+    description: '',
+  });
+  const [bucketSaving, setBucketSaving] = useState(false);
+  const [bucketError, setBucketError] = useState('');
+  const [bucketDeleteTarget, setBucketDeleteTarget] = useState<PricingBucket | null>(null);
+  const [bucketDeleting, setBucketDeleting] = useState(false);
+
   // Simulation
   const [simulating, setSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
@@ -411,6 +429,105 @@ export default function PricingPage() {
     }
   };
 
+  // ── Buckets ──
+  const openBucketsModal = async (profile: PricingProfile) => {
+    setBucketsModalOpen(true);
+    setBucketsLoading(true);
+    try {
+      const res = await api.get<{ data: PricingProfile & { buckets: PricingBucket[] } }>(`/admin/pricing/profiles/${profile.id}`);
+      setBucketsProfile(res.data);
+    } catch (err) {
+      console.error('Failed to fetch buckets:', err);
+      setBucketsProfile(null);
+    } finally {
+      setBucketsLoading(false);
+    }
+  };
+
+  const refetchBuckets = async () => {
+    if (!bucketsProfile) return;
+    try {
+      const res = await api.get<{ data: PricingProfile & { buckets: PricingBucket[] } }>(`/admin/pricing/profiles/${bucketsProfile.id}`);
+      setBucketsProfile(res.data);
+      // Keep the read-only bucket count on the profile card in sync too.
+      setProfiles(prev => prev.map(p => p.id === res.data.id ? { ...p, _count: { ...p._count, buckets: res.data.buckets.length } } : p));
+    } catch (err) {
+      console.error('Failed to refresh buckets:', err);
+    }
+  };
+
+  const openBucketForm = (bucket?: PricingBucket) => {
+    setBucketError('');
+    if (bucket) {
+      setSelectedBucket(bucket);
+      setBucketForm({
+        minDistanceKm: String(bucket.minDistanceKm),
+        maxDistanceKm: bucket.maxDistanceKm !== null ? String(bucket.maxDistanceKm) : '',
+        fee: String(bucket.fee),
+        perKmRate: bucket.perKmRate !== null ? String(bucket.perKmRate) : '',
+        description: bucket.description || '',
+      });
+    } else {
+      setSelectedBucket(null);
+      const lastMax = bucketsProfile?.buckets
+        .filter(b => b.maxDistanceKm !== null)
+        .reduce((max, b) => Math.max(max, b.maxDistanceKm as number), 0) ?? 0;
+      setBucketForm({
+        minDistanceKm: String(lastMax),
+        maxDistanceKm: '',
+        fee: '',
+        perKmRate: '',
+        description: '',
+      });
+    }
+    setBucketFormModalOpen(true);
+  };
+
+  const handleBucketSubmit = async () => {
+    if (!bucketsProfile) return;
+    setBucketError('');
+    setBucketSaving(true);
+    try {
+      const payload = {
+        pricingProfileId: bucketsProfile.id,
+        minDistanceKm: parseFloat(bucketForm.minDistanceKm),
+        maxDistanceKm: bucketForm.maxDistanceKm.trim() === '' ? null : parseFloat(bucketForm.maxDistanceKm),
+        fee: parseFloat(bucketForm.fee),
+        perKmRate: bucketForm.perKmRate.trim() === '' ? null : parseFloat(bucketForm.perKmRate),
+        description: bucketForm.description || null,
+      };
+
+      if (selectedBucket) {
+        await api.patch(`/admin/pricing/buckets/${selectedBucket.id}`, payload);
+      } else {
+        await api.post('/admin/pricing/buckets', payload);
+      }
+      await refetchBuckets();
+      setBucketFormModalOpen(false);
+      setSelectedBucket(null);
+    } catch (err: any) {
+      // Server-side validation errors (e.g. overlapping ranges, a second
+      // open-ended bucket) surface here instead of failing silently.
+      setBucketError(err?.message || 'Failed to save bucket.');
+    } finally {
+      setBucketSaving(false);
+    }
+  };
+
+  const handleDeleteBucket = async () => {
+    if (!bucketDeleteTarget) return;
+    setBucketDeleting(true);
+    try {
+      await api.del(`/admin/pricing/buckets/${bucketDeleteTarget.id}`);
+      await refetchBuckets();
+    } catch (err) {
+      console.error('Failed to delete bucket:', err);
+    } finally {
+      setBucketDeleting(false);
+      setBucketDeleteTarget(null);
+    }
+  };
+
   const openProfileModal = (profile?: PricingProfile) => {
     if (profile) {
       setSelectedProfile(profile);
@@ -626,6 +743,20 @@ export default function PricingPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => openBucketsModal(profile)}
+                      style={{
+                        padding: '6px 12px',
+                        background: T.surface2,
+                        border: `1px solid ${T.border}`,
+                        borderRadius: 4,
+                        fontSize: 12,
+                        color: T.text,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Buckets ({profile._count.buckets})
+                    </button>
                     <button
                       onClick={() => openProfileModal(profile)}
                       style={{
@@ -1901,6 +2032,294 @@ export default function PricingPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Buckets List Modal */}
+      <Modal
+        open={bucketsModalOpen}
+        onClose={() => { setBucketsModalOpen(false); setBucketsProfile(null); }}
+        title={bucketsProfile ? `Distance Buckets — ${bucketsProfile.name}` : 'Distance Buckets'}
+        width={640}
+      >
+        <div style={{ padding: 20 }}>
+          <p style={{ fontSize: 13, color: T.textSec, marginBottom: 16, lineHeight: 1.6 }}>
+            Buckets set the delivery fee by distance range within this profile — e.g. "0–5km costs ₦500"
+            or "10km and beyond costs ₦1000 plus ₦100 per extra km." Only the last (open-ended) bucket's
+            per-km rate is ever applied; bounded buckets always charge their flat fee.
+          </p>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button
+              onClick={() => openBucketForm()}
+              style={{
+                padding: '8px 16px',
+                background: T.primary,
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              + Add Bucket
+            </button>
+          </div>
+
+          {bucketsLoading ? (
+            <div style={{ padding: 24, textAlign: 'center', color: T.textSec, fontSize: 13 }}>Loading...</div>
+          ) : !bucketsProfile || bucketsProfile.buckets.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: T.textSec, fontSize: 13 }}>
+              No buckets yet — delivery fee for this profile falls back to its base fee alone until at least one bucket is added.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {bucketsProfile.buckets.map(bucket => (
+                <div
+                  key={bucket.id}
+                  style={{
+                    background: T.bg,
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 6,
+                    padding: 14,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>
+                      {bucket.maxDistanceKm !== null
+                        ? `${bucket.minDistanceKm} – ${bucket.maxDistanceKm} km`
+                        : `${bucket.minDistanceKm} km and beyond`}
+                    </div>
+                    <div style={{ fontSize: 13, color: T.textSec, marginTop: 2 }}>
+                      {fmtCurrency(bucket.fee)}
+                      {bucket.maxDistanceKm === null && bucket.perKmRate ? ` + ${fmtCurrency(bucket.perKmRate)}/km beyond ${bucket.minDistanceKm}km` : ''}
+                      {bucket.description ? ` · ${bucket.description}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => openBucketForm(bucket)}
+                      style={{
+                        padding: '6px 12px',
+                        background: T.surface2,
+                        border: `1px solid ${T.border}`,
+                        borderRadius: 4,
+                        fontSize: 12,
+                        color: T.text,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setBucketDeleteTarget(bucket)}
+                      style={{
+                        padding: '6px 12px',
+                        background: '#FEE2E2',
+                        border: '1px solid #FCA5A5',
+                        borderRadius: 4,
+                        fontSize: 12,
+                        color: '#DC2626',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Bucket Form Modal */}
+      <Modal
+        open={bucketFormModalOpen}
+        onClose={() => { setBucketFormModalOpen(false); setSelectedBucket(null); }}
+        title={selectedBucket ? 'Edit Bucket' : 'Add Bucket'}
+        width={480}
+      >
+        <div style={{ padding: 20 }}>
+          <div style={{ display: 'grid', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 500, color: T.textSec, marginBottom: 4, display: 'block' }}>
+                  Min Distance (km) *
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={bucketForm.minDistanceKm}
+                  onChange={e => setBucketForm({ ...bucketForm, minDistanceKm: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    background: T.bg,
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 4,
+                    fontSize: 13,
+                    color: T.text,
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 500, color: T.textSec, marginBottom: 4, display: 'block' }}>
+                  Max Distance (km)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={bucketForm.maxDistanceKm}
+                  onChange={e => setBucketForm({ ...bucketForm, maxDistanceKm: e.target.value })}
+                  placeholder="Empty = open-ended"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    background: T.bg,
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 4,
+                    fontSize: 13,
+                    color: T.text,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 500, color: T.textSec, marginBottom: 4, display: 'block' }}>
+                Fee (₦) *
+              </label>
+              <input
+                type="number"
+                step="1"
+                min="0"
+                value={bucketForm.fee}
+                onChange={e => setBucketForm({ ...bucketForm, fee: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: T.bg,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 4,
+                  fontSize: 13,
+                  color: T.text,
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 500, color: T.textSec, marginBottom: 4, display: 'block' }}>
+                Per-KM Rate (₦)
+              </label>
+              <input
+                type="number"
+                step="1"
+                min="0"
+                value={bucketForm.perKmRate}
+                onChange={e => setBucketForm({ ...bucketForm, perKmRate: e.target.value })}
+                placeholder="Only used if Max Distance is empty"
+                disabled={bucketForm.maxDistanceKm.trim() !== ''}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: bucketForm.maxDistanceKm.trim() !== '' ? T.surface2 : T.bg,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 4,
+                  fontSize: 13,
+                  color: bucketForm.maxDistanceKm.trim() !== '' ? T.textSec : T.text,
+                }}
+              />
+              <div style={{ fontSize: 11, color: T.textSec, marginTop: 4 }}>
+                Charged per km past Min Distance — only takes effect on the open-ended bucket (no Max Distance).
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 500, color: T.textSec, marginBottom: 4, display: 'block' }}>
+                Description
+              </label>
+              <input
+                type="text"
+                value={bucketForm.description}
+                onChange={e => setBucketForm({ ...bucketForm, description: e.target.value })}
+                placeholder="Optional internal note"
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: T.bg,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 4,
+                  fontSize: 13,
+                  color: T.text,
+                }}
+              />
+            </div>
+
+            {bucketError && (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #fecaca',
+                borderRadius: 4, padding: 10, fontSize: 13, color: '#dc2626',
+              }}>
+                {bucketError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button
+                onClick={() => { setBucketFormModalOpen(false); setSelectedBucket(null); }}
+                style={{
+                  padding: '8px 16px',
+                  background: T.surface2,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 6,
+                  fontSize: 13,
+                  color: T.text,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBucketSubmit}
+                disabled={bucketSaving}
+                style={{
+                  padding: '8px 16px',
+                  background: T.primary,
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: bucketSaving ? 'not-allowed' : 'pointer',
+                  opacity: bucketSaving ? 0.6 : 1,
+                }}
+              >
+                {bucketSaving ? 'Saving...' : 'Save Bucket'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDeleteModal
+        open={!!bucketDeleteTarget}
+        onClose={() => setBucketDeleteTarget(null)}
+        title="Delete Bucket"
+        message="This bucket will no longer apply to any delivery fee calculation for this profile."
+        itemName={bucketDeleteTarget
+          ? (bucketDeleteTarget.maxDistanceKm !== null
+              ? `${bucketDeleteTarget.minDistanceKm} – ${bucketDeleteTarget.maxDistanceKm} km — ${fmtCurrency(bucketDeleteTarget.fee)}`
+              : `${bucketDeleteTarget.minDistanceKm} km and beyond — ${fmtCurrency(bucketDeleteTarget.fee)}`)
+          : ''}
+        onConfirm={handleDeleteBucket}
+        isLoading={bucketDeleting}
+        isDangerous
+      />
     </div>
   );
 }
