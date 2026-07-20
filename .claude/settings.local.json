@@ -91,7 +91,11 @@
       "Bash(echo \"EXIT: $?\")",
       "Bash(awk '/^model Vendor /,/^}/' prisma/schema.prisma)",
       "Bash(awk '/^enum DocumentType/,/^}/' prisma/schema.prisma)",
-      "Bash(awk '/^model VendorDocument/,/^}/' prisma/schema.prisma)"
+      "Bash(awk '/^model VendorDocument/,/^}/' prisma/schema.prisma)",
+      "Skill(artifact-design)",
+      "Artifact",
+      "Bash(xargs -I{} echo {})",
+      "Bash(grep -rn \"https://\\\\|http://\" next.config.ts app/layout.tsx)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"
