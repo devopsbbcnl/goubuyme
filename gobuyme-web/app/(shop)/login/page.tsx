@@ -56,9 +56,8 @@ function LoginContent() {
         id: d.user.id, name: d.user.name, email: d.user.email,
         phone: d.user.phone, avatar: d.user.avatar,
         role: d.user.role?.toLowerCase() ?? null,
-        token: d.accessToken,
         approvalStatus: d.user.approvalStatus,
-      }, d.refreshToken);
+      });
       toast('Welcome back!', 'success');
       const role = d.user.role?.toLowerCase();
       if (role === 'vendor') router.replace(await resolveVendorRoute(d.user.approvalStatus));

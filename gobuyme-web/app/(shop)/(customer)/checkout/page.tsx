@@ -75,7 +75,7 @@ function GuestAuthPanel() {
     try {
       const { data } = await api.post('/auth/login', { email: lEmail.trim().toLowerCase(), password: lPw });
       const d = data.data;
-      login({ id: d.user.id, name: d.user.name, email: d.user.email, phone: d.user.phone, avatar: d.user.avatar, role: d.user.role?.toLowerCase() ?? null, token: d.accessToken }, d.refreshToken);
+      login({ id: d.user.id, name: d.user.name, email: d.user.email, phone: d.user.phone, avatar: d.user.avatar, role: d.user.role?.toLowerCase() ?? null });
       toast('Welcome back!', 'success');
     } catch (err: any) {
       const status = err?.response?.status;
@@ -141,14 +141,14 @@ function GuestAuthPanel() {
     try {
       const { data } = await api.post('/auth/verify-otp', { email: pendingEmail.current, otp: code });
       const d = data.data;
-      if (d?.accessToken) {
-        login({ id: d.user.id, name: d.user.name, email: d.user.email, phone: d.user.phone, role: 'customer', token: d.accessToken }, d.refreshToken);
+      if (d?.user) {
+        login({ id: d.user.id, name: d.user.name, email: d.user.email, phone: d.user.phone, role: 'customer' });
         toast('Email verified! You\'re now signed in.', 'success');
       } else {
         // Fallback: auto-login with known credentials
         const res = await api.post('/auth/login', { email: pendingEmail.current, password: pendingPw.current });
         const r = res.data.data;
-        login({ id: r.user.id, name: r.user.name, email: r.user.email, phone: r.user.phone, role: 'customer', token: r.accessToken }, r.refreshToken);
+        login({ id: r.user.id, name: r.user.name, email: r.user.email, phone: r.user.phone, role: 'customer' });
         toast('Email verified! You\'re now signed in.', 'success');
       }
     } catch (err: any) {

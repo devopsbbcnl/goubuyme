@@ -13,7 +13,36 @@ const FORM_OVERRIDES: Record<string, { to?: string; subjectPrefix?: string }> = 
   },
 };
 
+// In-memory per-IP limiter. This route is unauthenticated and sends an email per
+// request, so it needs some abuse ceiling even before a shared store exists.
+// Note: on a serverless/Netlify deployment each cold start resets this map, so it
+// only throttles bursts within a warm instance, not globally — a real backstop
+// (Upstash Redis, or moving this behind the backend's express-rate-limit) is the
+// follow-up if abuse shows up in practice.
+const WINDOW_MS = 10 * 60 * 1000;
+const MAX_PER_WINDOW = 5;
+const hits = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = hits.get(ip);
+  if (!entry || now > entry.resetAt) {
+    hits.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > MAX_PER_WINDOW;
+}
+
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim()
+    ?? req.headers.get('x-real-ip')
+    ?? 'unknown';
+
+  if (isRateLimited(ip)) {
+    return NextResponse.json({ error: 'Too many submissions. Please try again later.' }, { status: 429 });
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const { formId, fields } = body as { formId?: unknown; fields?: unknown };

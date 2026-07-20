@@ -44,8 +44,7 @@ export default function GoogleSignInButton({ next = '/', label = 'continue_with'
         id: d.user.id, name: d.user.name, email: d.user.email,
         phone: d.user.phone, avatar: d.user.avatar,
         role: d.user.role?.toLowerCase() ?? null,
-        token: d.accessToken,
-      }, d.refreshToken);
+      });
       toast('Signed in with Google!', 'success');
       router.replace(next);
     } catch (e: unknown) {
