@@ -1,0 +1,60 @@
+# Local development only — this does NOT describe how the app is deployed to
+# the production VPS (that stays on PM2, see backend/ecosystem.config.js).
+# Run everything:      docker compose up
+# Run in background:   docker compose up -d
+# Stop everything:     docker compose down
+# Stop AND wipe data:  docker compose down -v   (only if you want a clean DB)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: gobuyme_db
+    ports:
+      # HOST:CONTAINER — lets you still connect with a local tool (e.g.
+      # Prisma Studio, TablePlus, psql) at localhost:5432 if you want to.
+      - "5432:5432"
+    volumes:
+      # Named volume — Docker manages where this actually lives on disk.
+      # Without this, `docker compose down` would delete all your data.
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      # Reuses all your existing secrets (Paystack, Cloudinary, Resend, JWT)
+      # from the .env you already have — nothing to duplicate.
+      - ./backend/.env
+    environment:
+      # These two override whatever is in backend/.env, because inside
+      # Docker's network "localhost" means "this container," not your
+      # machine — the backend must reach Postgres/Redis by service name.
+      DATABASE_URL: postgresql://postgres:password123@postgres:5432/gobuyme_db?schema=public
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+volumes:
+  postgres_data:
