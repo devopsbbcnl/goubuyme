@@ -26,8 +26,9 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import * as Sentry from '@sentry/node';
 
-import { connectDB } from './config/db';
+import prisma, { connectDB } from './config/db';
 import { setIO } from './config/socket';
 import passport from './config/passport';
 import { setupSockets } from './sockets';
@@ -48,6 +49,14 @@ import supportRoutes from './routes/support.routes';
 import messageRoutes from './routes/message.routes';
 import logger from './utils/logger';
 
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV,
+    tracesSampleRate: 0.1,
+  });
+}
+
 const app = express();
 const httpServer = http.createServer(app);
 
@@ -58,11 +67,17 @@ const allowedOrigins = [
   'http://localhost:3001',
 ].map(s => s.trim()).filter(Boolean);
 
+// Native/mobile Socket.IO clients (socket.io-client on React Native) don't send a
+// browser-style Origin header, so they're allowed through unconditionally. Any
+// request that DOES present an Origin header (web app, admin dashboard) must match
+// the same allowlist used for the REST API below.
+const socketOriginCheck = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+  if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+  return callback(new Error('Not allowed by CORS'));
+};
+
 const io = new Server(httpServer, {
-  // Temporary diagnostic: native/mobile Socket.IO handshakes may not present
-  // an Origin header matching CLIENT_URL/ADMIN_URL exactly.
-  // If sockets connect after this change, we know it's a CORS/origin issue.
-  cors: { origin: '*', methods: ['GET', 'POST'] },
+  cors: { origin: socketOriginCheck, methods: ['GET', 'POST'] },
 });
 setIO(io);
 
@@ -105,7 +120,19 @@ app.get('/api/v1/settings/public', async (_req, res) => {
   }
 });
 
-app.get('/health', cors({ origin: '*' }), (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/health', cors({ origin: '*' }), async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return res.json({ status: 'ok', db: 'ok', timestamp: new Date().toISOString() });
+  } catch (error) {
+    logger.error('Health check DB probe failed', { error: (error as Error).message });
+    return res.status(503).json({ status: 'error', db: 'down', timestamp: new Date().toISOString() });
+  }
+});
+
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 app.use(errorHandler);
 
