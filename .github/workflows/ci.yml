@@ -1,0 +1,75 @@
+name: CI
+
+# Report-only: typechecks each app on pull requests. Does not build for deploy,
+# run migrations, or touch any environment — no deploy credentials are
+# referenced here. Merge is not blocked unless branch protection is turned on
+# separately. (Lint is intentionally left out for now: `next lint` is broken
+# under admin's Next 16 setup, and gobuyme-web has ~90 pre-existing lint errors
+# in marketing copy — both are separate cleanups from this pass.)
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
+
+  admin:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gobuyme-admin-nextjs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: gobuyme-admin-nextjs/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gobuyme-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: gobuyme-web/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gobuyme-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: gobuyme-mobile/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
