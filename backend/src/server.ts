@@ -20,13 +20,27 @@ for (const key of REQUIRED_ENV) {
   }
 }
 
+// Sentry's auto-instrumentation patches Express at require-time, so Sentry.init()
+// must run before `express` is ever imported — otherwise it silently instruments
+// nothing (logs "express is not instrumented" and just never captures anything
+// route-related). This project compiles to CommonJS with imports executing in
+// source order, so putting this block above `import express` is what makes it work.
+import * as Sentry from '@sentry/node';
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV,
+    tracesSampleRate: 0.1,
+  });
+}
+
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import * as Sentry from '@sentry/node';
 
 import prisma, { connectDB } from './config/db';
 import { setIO } from './config/socket';
@@ -49,16 +63,16 @@ import supportRoutes from './routes/support.routes';
 import messageRoutes from './routes/message.routes';
 import logger from './utils/logger';
 
-if (process.env.SENTRY_DSN) {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    environment: process.env.NODE_ENV,
-    tracesSampleRate: 0.1,
-  });
-}
-
 const app = express();
 const httpServer = http.createServer(app);
+
+// This API runs behind a reverse proxy (nginx) on the VPS, which sets
+// X-Forwarded-For. Without `trust proxy`, express-rate-limit refuses to key
+// off that header (rightly — trusting it blindly would let a client spoof
+// their own IP and dodge every limit) and throws instead of limiting.
+// `1` means "trust exactly one hop" — the proxy directly in front of Node —
+// matching this deployment's actual topology (client -> nginx -> Node).
+app.set('trust proxy', 1);
 
 const allowedOrigins = [
   ...(process.env.CLIENT_URL ?? '').split(','),
