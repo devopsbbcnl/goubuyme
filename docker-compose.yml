@@ -56,5 +56,39 @@ services:
       redis:
         condition: service_started
 
+  admin:
+    build:
+      context: ./gobuyme-admin-nextjs
+    restart: unless-stopped
+    ports:
+      # Matches the convention baked into backend/.env's ADMIN_URL and the
+      # CORS allowlist in backend/src/server.ts — must stay 3000 on the host.
+      - "3000:3000"
+    env_file:
+      - ./gobuyme-admin-nextjs/.env.local
+    environment:
+      # Overrides .env.local's localhost default so the container's own
+      # server-side API routes (app/api/proxy, app/api/auth/*) reach the
+      # backend over the compose network by service name, not by bouncing
+      # out to the host and back in. NEXT_PUBLIC_* values are unaffected —
+      # those were already baked into the client bundle at image build time.
+      BACKEND_API_URL: http://backend:5000/api/v1
+    depends_on:
+      - backend
+
+  web:
+    build:
+      context: ./gobuyme-web
+    restart: unless-stopped
+    ports:
+      # Matches backend/.env's CLIENT_URL — must stay 3001 on the host.
+      - "3001:3000"
+    env_file:
+      - ./gobuyme-web/.env.local
+    environment:
+      BACKEND_API_URL: http://backend:5000/api/v1
+    depends_on:
+      - backend
+
 volumes:
   postgres_data:

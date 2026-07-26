@@ -1,7 +1,10 @@
 import type { MetadataRoute } from 'next';
 import { SITE_URL, SEO_CITIES } from '@/lib/seo';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+// Server-only — see app/api/health/route.ts for why BACKEND_API_URL (a
+// runtime-read server var) is preferred over NEXT_PUBLIC_API_URL (baked into
+// the bundle at build time) for fetches that only ever happen server-side.
+const API_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
 interface VendorEntry { id: string; updatedAt?: string; }
 
