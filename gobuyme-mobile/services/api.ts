@@ -1,11 +1,10 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { requirePublicEnv } from './env';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-
-// Debug: confirm EAS env injection in the bundled app
-console.log('[api.ts] EXPO_PUBLIC_API_URL =', process.env.EXPO_PUBLIC_API_URL);
-console.log('[api.ts] resolved BASE_URL =', BASE_URL);
+// Fails fast in production builds if the URL is missing, instead of silently
+// falling back to localhost (which on a device points at the phone itself).
+const BASE_URL = requirePublicEnv('EXPO_PUBLIC_API_URL', 'http://localhost:5000/api/v1');
 
 const api = axios.create({ baseURL: BASE_URL, timeout: 10000 });
 

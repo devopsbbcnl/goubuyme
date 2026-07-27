@@ -22,10 +22,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Platform-default promo cards (shown when no vendor promos are live)
 const PLATFORM_PROMOS = [
-  { id: 'p1', tag: 'LIMITED TIME',  headline: 'Get 50% off\nyour first order!',        code: 'FIRST50',  bg: '#CC3D0E' },
-  { id: 'p2', tag: 'FREE DELIVERY', headline: 'Free delivery on\norders over ₦5,000',  code: 'FREESHIP', bg: '#1A7F5A' },
-  { id: 'p3', tag: 'WEEKEND DEAL',  headline: '20% off all\ngrocery orders',            code: 'WKEND20',  bg: '#5B3EC8' },
-  { id: 'p4', tag: 'REFER A FRIEND',headline: 'Earn ₦1,000 credit\nfor every referral', code: 'REFER1K',  bg: '#0A6E8A' },
+  { id: 'p1', tag: 'LIMITED TIME',  headline: 'Get 50% off\nyour first order!',        code: 'FIRST50',  codeLabel: 'Use:',   bg: '#CC3D0E' },
+  { id: 'p2', tag: 'FREE DELIVERY', headline: 'Free delivery on\norders over ₦5,000',  code: 'FREESHIP', codeLabel: 'Use:',   bg: '#1A7F5A' },
+  { id: 'p3', tag: 'WEEKEND DEAL',  headline: '20% off all\ngrocery orders',            code: 'WKEND20',  codeLabel: 'Use:',   bg: '#5B3EC8' },
+  { id: 'p4', tag: 'REFER A FRIEND',headline: 'Give a free delivery,\nget one free',    code: '',        codeLabel: 'Share:', bg: '#0A6E8A' },
 ];
 
 interface VendorPromo {
@@ -37,7 +37,7 @@ interface VendorPromo {
 }
 
 type CarouselItem =
-  | { kind: 'platform'; id: string; tag: string; headline: string; code: string; bg: string }
+  | { kind: 'platform'; id: string; tag: string; headline: string; code: string; codeLabel: string; bg: string }
   | { kind: 'vendor';   id: string; title: string; imageUrl: string; code: string | null; vendorName: string };
 
 const TOP_CATEGORIES = [
@@ -161,6 +161,7 @@ export default function HomeScreen() {
   const [refreshing,   setRefreshing]   = useState(false);
   const [activePromo,  setActivePromo]  = useState(0);
   const [vendorPromos, setVendorPromos] = useState<VendorPromo[]>([]);
+  const [referralCode, setReferralCode] = useState('');
   const promoRef = useRef<FlatList>(null);
   const isUserScrolling = useRef(false);
 
@@ -169,6 +170,13 @@ export default function HomeScreen() {
     if (cityLoaded && !selectedCity) setCityModal(true);
   }, [cityLoaded, selectedCity]);
 
+  // The "Refer a friend" card surfaces the signed-in user's own referral code to share.
+  const platformCards: CarouselItem[] = PLATFORM_PROMOS.map(p => ({
+    kind: 'platform' as const,
+    ...p,
+    code: p.id === 'p4' ? referralCode : p.code,
+  }));
+
   const carouselItems: CarouselItem[] = vendorPromos.length > 0
     ? [
         ...vendorPromos.map(p => ({
@@ -176,9 +184,9 @@ export default function HomeScreen() {
           id: p.id, title: p.title, imageUrl: p.imageUrl,
           code: p.code, vendorName: p.vendor.businessName,
         })),
-        ...PLATFORM_PROMOS.map(p => ({ kind: 'platform' as const, ...p })),
+        ...platformCards,
       ]
-    : PLATFORM_PROMOS.map(p => ({ kind: 'platform' as const, ...p }));
+    : platformCards;
 
   const fetchPromos = useCallback(async () => {
     try {
@@ -189,6 +197,12 @@ export default function HomeScreen() {
   }, [selectedCity]);
 
   useEffect(() => { if (cityLoaded) fetchPromos(); }, [fetchPromos, cityLoaded]);
+
+  useEffect(() => {
+    api.get('/customers/referral')
+      .then(res => setReferralCode(res.data?.data?.code ?? ''))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -356,9 +370,11 @@ export default function HomeScreen() {
               <View style={[styles.promoBanner, { backgroundColor: item.bg, width: PROMO_CARD_WIDTH }]}>
                 <Text style={styles.promoTag}>{item.tag}</Text>
                 <Text style={styles.promoHeadline}>{item.headline}</Text>
-                <View style={[styles.promoCode, { backgroundColor: 'rgba(255,255,255,0.22)' }]}>
-                  <Text style={styles.promoCodeText}>Use: {item.code}</Text>
-                </View>
+                {item.code ? (
+                  <View style={[styles.promoCode, { backgroundColor: 'rgba(255,255,255,0.22)' }]}>
+                    <Text style={styles.promoCodeText}>{item.codeLabel} {item.code}</Text>
+                  </View>
+                ) : null}
               </View>
             );
           }}

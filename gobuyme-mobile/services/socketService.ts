@@ -1,10 +1,10 @@
 import { io, Socket } from 'socket.io-client';
+import { requirePublicEnv } from './env';
 
-const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || 'http://localhost:5000';
-
-// Debug: confirm EAS env injection in the bundled app
-console.log('[socketService.ts] EXPO_PUBLIC_SOCKET_URL =', process.env.EXPO_PUBLIC_SOCKET_URL);
-console.log('[socketService.ts] resolved SOCKET_URL =', SOCKET_URL);
+// Fails fast in production builds if the URL is missing, instead of silently
+// falling back to localhost (which on a device points at the phone itself and
+// surfaces as a socket.io connection error).
+const SOCKET_URL = requirePublicEnv('EXPO_PUBLIC_SOCKET_URL', 'http://localhost:5000');
 
 let ordersSocket: Socket | null = null;
 let ridersSocket: Socket | null = null;
@@ -31,6 +31,10 @@ const attachStatusListeners = () => {
     // ensure orders socket exists; if not, we create it without auth
     if (!ordersSocket) {
       ordersSocket = io(`${SOCKET_URL}/orders`, {
+        // WebSocket-only: the backend runs in PM2 cluster mode, where HTTP
+        // long-polling breaks (each poll can hit a different worker => "Session
+        // ID unknown" => xhr post error). A single persistent WS pins to one
+        // worker and sidesteps that entirely. Cloudflare passes the WS upgrade.
         transports: ['websocket'],
         reconnection: true,
         reconnectionDelay: 2000,
@@ -43,8 +47,14 @@ const attachStatusListeners = () => {
 
   // socket.io-client emits `connect`/`disconnect` for connectivity to the namespace server.
   s.on('connect', () => notifyBackend(true));
-  s.on('disconnect', () => notifyBackend(false));
-  s.on('connect_error', () => notifyBackend(false));
+  s.on('disconnect', (reason) => {
+    console.log('[socketService.ts] /orders disconnect:', reason);
+    notifyBackend(false);
+  });
+  s.on('connect_error', (err) => {
+    console.log('[socketService.ts] /orders connect_error:', err.message);
+    notifyBackend(false);
+  });
 };
 
 export const subscribeBackendStatus = (cb: (online: boolean) => void) => {
@@ -69,7 +79,7 @@ export const connectSockets = (token?: string) => {
   if (!ordersSocket) {
     ordersSocket = io(`${SOCKET_URL}/orders`, {
       ...authOpts,
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: 2000,
     });
@@ -81,7 +91,7 @@ export const connectSockets = (token?: string) => {
   if (!ridersSocket) {
     ridersSocket = io(`${SOCKET_URL}/riders`, {
       ...authOpts,
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: 2000,
     });

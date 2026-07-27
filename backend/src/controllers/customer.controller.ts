@@ -290,15 +290,19 @@ export const getReferral = catchAsync(async (req: AuthRequest, res: Response) =>
   });
   if (!user) return apiResponse.error(res, 'User not found.', 404);
 
-  const activeReferrals = await prisma.referral.count({
-    where: { referrerId: req.user!.userId, isActive: true },
-  });
+  const [activeReferrals, pendingReferrals] = await Promise.all([
+    prisma.referral.count({ where: { referrerId: req.user!.userId, isActive: true } }),
+    prisma.referral.count({ where: { referrerId: req.user!.userId, isActive: false } }),
+  ]);
 
   return apiResponse.success(res, 'Referral data fetched.', {
     code: user.referralCode,
     credits: user.freeDeliveryCredits,
+    // Each friend who signs up with your code and pays for their first order earns you both a
+    // free-delivery credit.
     activeReferrals,
-    nextCreditAt: 10 - (activeReferrals % 10),
+    pendingReferrals,
+    creditsPerReferral: 1,
   });
 });
 

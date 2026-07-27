@@ -6,6 +6,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { calculateDeliveryFee } from '../services/pricing.service';
 import { calcVendorFee } from '../services/commission.service';
 import { applyFreeDelivery } from '../services/referral.service';
+import { evaluatePromo } from '../services/offer.service';
 import { getPlatformSettings } from '../services/settings.service';
 import { getIO } from '../config/socket';
 import { notifyUser } from '../services/notification.service';
@@ -31,7 +32,7 @@ export const estimateDeliveryFee = catchAsync(async (req: AuthRequest, res: Resp
           items: {
             include: {
               menuItem: {
-                select: { vendorId: true }
+                select: { vendorId: true, price: true }
               }
             }
           }
@@ -89,6 +90,11 @@ export const estimateDeliveryFee = catchAsync(async (req: AuthRequest, res: Resp
     return apiResponse.error(res, 'Vendor not found or missing coordinates.', 404);
   }
 
+  const subtotal = (customer.cart?.items ?? []).reduce(
+    (sum, i) => sum + (i.unitPrice ?? i.menuItem.price) * i.quantity,
+    0,
+  );
+
   // Use new pricing engine
   const pricingResult = await calculateDeliveryFee({
     vendorLat: vendor.latitude,
@@ -99,17 +105,70 @@ export const estimateDeliveryFee = catchAsync(async (req: AuthRequest, res: Resp
     state: vendor.state,
     city: vendor.city,
     vendorId: vendor.id,
+    subtotal,
   });
 
-  return apiResponse.success(res, 'Delivery fee estimated.', { 
-    deliveryFee: pricingResult.finalFee, 
+  // Preview the fee the customer will actually be charged. Read-only: no credit is consumed here
+  // (placeOrder decrements the credit). Threshold wins over credit, matching placeOrder's order.
+  const originalDeliveryFee = pricingResult.finalFee;
+  let deliveryFee = originalDeliveryFee;
+  let freeDeliveryReason: 'THRESHOLD' | 'CREDIT' | null = null;
+  if (pricingResult.freeDeliveryApplied) {
+    deliveryFee = 0;
+    freeDeliveryReason = 'THRESHOLD';
+  } else if (originalDeliveryFee > 0) {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { freeDeliveryCredits: true },
+    });
+    if (user && user.freeDeliveryCredits > 0) {
+      deliveryFee = 0;
+      freeDeliveryReason = 'CREDIT';
+    }
+  }
+
+  return apiResponse.success(res, 'Delivery fee estimated.', {
+    deliveryFee,
+    originalDeliveryFee,
+    freeDelivery: freeDeliveryReason !== null,
+    freeDeliveryReason,
+    freeDeliveryThreshold: pricingResult.freeDeliveryThreshold,
     distanceKm: pricingResult.distanceKm,
     breakdown: pricingResult,
   });
 });
 
+// GET /orders/validate-promo?code=&vendorId=
+export const validatePromo = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { code, vendorId } = req.query as { code?: string; vendorId?: string };
+  if (!code) return apiResponse.error(res, 'Promo code is required.', 400);
+
+  const customer = await prisma.customer.findUnique({
+    where: { userId: req.user!.userId },
+    include: {
+      cart: { include: { items: { include: { menuItem: { select: { vendorId: true, price: true } } } } } },
+    },
+  });
+  if (!customer) return apiResponse.error(res, 'Customer not found.', 404);
+
+  const items = customer.cart?.items ?? [];
+  if (!items.length) return apiResponse.error(res, 'Your cart is empty.', 400);
+
+  const subtotal = items.reduce((sum, i) => sum + (i.unitPrice ?? i.menuItem.price) * i.quantity, 0);
+  const cartVendorId = vendorId || customer.cart?.vendorId || items[0].menuItem.vendorId;
+
+  const result = await evaluatePromo({
+    code,
+    userId: req.user!.userId,
+    vendorId: cartVendorId!,
+    subtotal,
+  });
+
+  return apiResponse.success(res, result.valid ? 'Promo code applied.' : (result.reason ?? 'Invalid promo code.'), result);
+});
+
 export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { deliveryAddressId, paymentMethod, note } = req.body;
+  const { deliveryAddressId, paymentMethod, note, promoCode } = req.body;
 
   const customer = await prisma.customer.findUnique({
     where: { userId: req.user!.userId },
@@ -168,12 +227,44 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
     state: vendor.state,
     city: vendor.city,
     vendorId: vendor.id,
+    subtotal,
   });
 
   const originalDeliveryFee = pricingResult.finalFee;
-  const { fee: deliveryFee, creditUsed } = await applyFreeDelivery(customer.id, originalDeliveryFee);
+
+  // Validate any promo code up front. A code that was supplied but doesn't apply fails the order,
+  // so the customer isn't silently charged full price when they expected a discount.
+  const promo = promoCode
+    ? await evaluatePromo({ code: promoCode, userId: req.user!.userId, vendorId: vendor.id, subtotal })
+    : null;
+  if (promo && !promo.valid) {
+    return apiResponse.error(res, promo.reason ?? 'Invalid promo code.', 400);
+  }
+
+  const freeByThreshold = pricingResult.freeDeliveryApplied;
+  const freeByPromo = !!promo?.valid && promo.freeDelivery;
+
+  // Free-delivery resolution order: threshold / free-delivery promo first (neither burns a credit),
+  // then a referral credit only if the fee is still payable.
+  let deliveryFee = originalDeliveryFee;
+  let creditUsed = false;
+  if (freeByThreshold || freeByPromo) {
+    deliveryFee = 0;
+  } else if (originalDeliveryFee > 0) {
+    const credit = await applyFreeDelivery(customer.id, originalDeliveryFee);
+    deliveryFee = credit.fee;
+    creditUsed = credit.creditUsed;
+  }
+
+  const subtotalDiscount = promo?.valid ? promo.subtotalDiscount : 0;
+  // A free-delivery promo only "counts" when it actually saved the delivery fee (i.e. delivery
+  // wasn't already free via the threshold). Otherwise the redemption isn't recorded/consumed.
+  const deliverySavedByPromo = freeByPromo && !freeByThreshold ? originalDeliveryFee : 0;
+  const promoApplied = !!promo?.valid && (subtotalDiscount > 0 || deliverySavedByPromo > 0);
+  const promoDiscount = subtotalDiscount + deliverySavedByPromo;
+
   const { platformFee, netAmount } = await calcVendorFee(subtotal, vendor.commissionTier);
-  const totalAmount = subtotal + deliveryFee;
+  const totalAmount = subtotal + deliveryFee - subtotalDiscount;
   const estimatedTime = pricingResult.durationMinutes;
 
   let order: any;
@@ -205,6 +296,8 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
           platformFee,
           totalAmount,
           freeDeliveryUsed: creditUsed,
+          promoCode: promoApplied ? promo!.code : null,
+          promoDiscount: promoApplied ? promoDiscount : 0,
           deliveryAddress: deliveryAddress.address,
           deliveryLatitude: deliveryAddress.latitude,
           deliveryLongitude: deliveryAddress.longitude,
@@ -225,6 +318,20 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
         include: { items: true },
       });
 
+      if (promoApplied) {
+        // The unique (offerId, userId) constraint makes this the atomic guard against a customer
+        // redeeming the same code twice via concurrent requests.
+        await tx.offerRedemption.create({
+          data: {
+            offerId: promo!.offerId!,
+            userId: req.user!.userId,
+            orderId: newOrder.id,
+            code: promo!.code!,
+            discount: promoDiscount,
+          },
+        });
+      }
+
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
       return newOrder;
@@ -233,6 +340,9 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
     if (typeof err?.message === 'string' && err.message.startsWith('INSUFFICIENT_STOCK:')) {
       const itemName = err.message.replace('INSUFFICIENT_STOCK:', '');
       return apiResponse.error(res, `${itemName} does not have enough stock.`, 400);
+    }
+    if (err?.code === 'P2002' && Array.isArray(err?.meta?.target) && err.meta.target.includes('offerId')) {
+      return apiResponse.error(res, 'You have already used this promo code.', 400);
     }
     throw err;
   }

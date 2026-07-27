@@ -343,7 +343,13 @@ function CheckoutContent() {
   const [note, setNote] = useState('');
   const [placing, setPlacing] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
+  const [originalDeliveryFee, setOriginalDeliveryFee] = useState<number | null>(null);
+  const [freeDeliveryReason, setFreeDeliveryReason] = useState<'THRESHOLD' | 'CREDIT' | null>(null);
   const [feeLoading, setFeeLoading] = useState(false);
+  const [promoInput, setPromoInput] = useState('');
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promo, setPromo] = useState<{ code: string; subtotalDiscount: number; freeDelivery: boolean } | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -356,13 +362,44 @@ function CheckoutContent() {
   }, [user]);
 
   useEffect(() => {
-    if (!user || !selectedAddr || !items.length) { setDeliveryFee(null); return; }
+    if (!user || !selectedAddr || !items.length) {
+      setDeliveryFee(null); setOriginalDeliveryFee(null); setFreeDeliveryReason(null); return;
+    }
     setFeeLoading(true);
     api.get('/orders/estimate-fee', { params: { addressId: selectedAddr, vendorId: items[0].vendorId } })
-      .then(r => setDeliveryFee(r.data.data.deliveryFee))
-      .catch(() => setDeliveryFee(null))
+      .then(r => {
+        const d = r.data.data;
+        setDeliveryFee(d.deliveryFee);
+        setOriginalDeliveryFee(d.originalDeliveryFee ?? d.deliveryFee);
+        setFreeDeliveryReason(d.freeDelivery ? (d.freeDeliveryReason ?? null) : null);
+      })
+      .catch(() => { setDeliveryFee(null); setOriginalDeliveryFee(null); setFreeDeliveryReason(null); })
       .finally(() => setFeeLoading(false));
   }, [selectedAddr, user, items]);
+
+  const applyPromo = async () => {
+    const code = promoInput.trim();
+    if (!code) return;
+    setPromoLoading(true);
+    setPromoError(null);
+    try {
+      const { data } = await api.get('/orders/validate-promo', {
+        params: { code, vendorId: items[0]?.vendorId },
+      });
+      const r = data.data;
+      if (r?.valid) {
+        setPromo({ code: r.code, subtotalDiscount: r.subtotalDiscount ?? 0, freeDelivery: !!r.freeDelivery });
+      } else {
+        setPromo(null);
+        setPromoError(r?.reason ?? 'Invalid promo code.');
+      }
+    } catch (e: any) {
+      setPromo(null);
+      setPromoError(e?.response?.data?.message ?? 'Could not validate promo code.');
+    } finally { setPromoLoading(false); }
+  };
+
+  const clearPromo = () => { setPromo(null); setPromoInput(''); setPromoError(null); };
 
   const place = async () => {
     if (!selectedAddr) { toast('Select a delivery address', 'error'); return; }
@@ -371,6 +408,7 @@ function CheckoutContent() {
     try {
       const { data } = await api.post('/orders', {
         deliveryAddressId: selectedAddr, paymentMethod: payMethod, note,
+        ...(promo ? { promoCode: promo.code } : {}),
       });
       if (data.data?.paystackUrl) {
         window.location.href = data.data.paystackUrl;
@@ -383,6 +421,12 @@ function CheckoutContent() {
       toast(e?.response?.data?.message ?? 'Failed to place order.', 'error');
     } finally { setPlacing(false); }
   };
+
+  const promoFreeDelivery = !!promo?.freeDelivery;
+  const deliveryIsFree = (deliveryFee === 0 && !!freeDeliveryReason) || promoFreeDelivery;
+  const effectiveDelivery = deliveryIsFree ? 0 : (deliveryFee ?? 0);
+  const promoSubtotalDiscount = promo?.subtotalDiscount ?? 0;
+  const grandTotal = totalAmount + effectiveDelivery - promoSubtotalDiscount;
 
   if (authLoading) return null;
 
@@ -443,14 +487,62 @@ function CheckoutContent() {
                   <div className="between" style={{ marginBottom: 8 }}>
                     <span className="muted">Delivery</span>
                     <span style={{ fontWeight: 700 }}>
-                      {feeLoading ? '…' : deliveryFee !== null ? `₦${deliveryFee.toLocaleString()}` : '—'}
+                      {feeLoading ? '…' : deliveryFee === null ? '—'
+                        : deliveryIsFree ? (
+                          <>
+                            {(originalDeliveryFee || deliveryFee) ? (
+                              <span style={{ color: 'var(--muted)', textDecoration: 'line-through', fontWeight: 500, marginRight: 6 }}>
+                                ₦{(originalDeliveryFee || deliveryFee).toLocaleString()}
+                              </span>
+                            ) : null}
+                            <span style={{ color: 'var(--brand)' }}>FREE</span>
+                          </>
+                        ) : `₦${deliveryFee.toLocaleString()}`}
                     </span>
                   </div>
+                  {deliveryIsFree ? (
+                    <div style={{ fontSize: 12, color: 'var(--brand)', marginTop: -4, marginBottom: 8 }}>
+                      {promoFreeDelivery ? `Free delivery from code ${promo?.code} 🎉`
+                        : freeDeliveryReason === 'THRESHOLD' ? 'Free delivery unlocked on this order 🎉'
+                        : 'Free delivery credit applied 🎉'}
+                    </div>
+                  ) : null}
+                  {promoSubtotalDiscount > 0 ? (
+                    <div className="between" style={{ marginBottom: 8 }}>
+                      <span className="muted">Promo ({promo?.code})</span>
+                      <span style={{ fontWeight: 700, color: 'var(--brand)' }}>−₦{promoSubtotalDiscount.toLocaleString()}</span>
+                    </div>
+                  ) : null}
+
+                  {/* Promo code */}
+                  {promo ? (
+                    <div className="between" style={{ marginBottom: 8, fontSize: 13 }}>
+                      <span style={{ color: 'var(--brand)', fontWeight: 700 }}>✓ {promo.code} applied</span>
+                      <button onClick={clearPromo} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 13, textDecoration: 'underline' }}>Remove</button>
+                    </div>
+                  ) : (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          className="input"
+                          placeholder="Promo code"
+                          value={promoInput}
+                          onChange={e => { setPromoInput(e.target.value.toUpperCase()); setPromoError(null); }}
+                          onKeyDown={e => { if (e.key === 'Enter') applyPromo(); }}
+                          style={{ flex: 1, textTransform: 'uppercase' }}
+                        />
+                        <button className="btn btn-ghost" onClick={applyPromo} disabled={promoLoading || !promoInput.trim()}>
+                          {promoLoading ? '…' : 'Apply'}
+                        </button>
+                      </div>
+                      {promoError ? <div style={{ fontSize: 12, color: 'var(--danger, #e5484d)', marginTop: 6 }}>{promoError}</div> : null}
+                    </div>
+                  )}
                   <div className="divider" />
                   <div className="between" style={{ marginBottom: 24 }}>
                     <span style={{ fontWeight: 700 }}>Total</span>
                     <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--brand)' }}>
-                      {deliveryFee !== null ? `₦${(totalAmount + deliveryFee).toLocaleString()}` : `₦${totalAmount.toLocaleString()}`}
+                      {deliveryFee !== null ? `₦${grandTotal.toLocaleString()}` : `₦${(totalAmount - promoSubtotalDiscount).toLocaleString()}`}
                     </span>
                   </div>
                 </>

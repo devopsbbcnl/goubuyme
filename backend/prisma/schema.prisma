@@ -37,6 +37,7 @@ model User {
   referredBy             User?      @relation("Referrals", fields: [referredById], references: [id])
   referrals              User[]     @relation("Referrals")
   vendor                 Vendor?
+  offerRedemptions       OfferRedemption[]
 
   @@index([role])
   @@index([createdAt])
@@ -253,6 +254,8 @@ model Order {
   platformFee         Float
   totalAmount         Float
   freeDeliveryUsed    Boolean       @default(false)
+  promoCode           String?
+  promoDiscount       Float         @default(0)
   deliveryAddress     String
   deliveryLatitude    Float?
   deliveryLongitude   Float?
@@ -275,6 +278,7 @@ model Order {
   vendor              Vendor        @relation(fields: [vendorId], references: [id])
   conversation        Conversation?
   earning             Earning?
+  offerRedemption     OfferRedemption?
 
   @@index([customerId])
   @@index([vendorId])
@@ -406,8 +410,26 @@ model Offer {
   expiresAt   DateTime?
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
+  redemptions OfferRedemption[]
 
   @@map("offers")
+}
+
+model OfferRedemption {
+  id        String   @id @default(uuid())
+  offerId   String
+  userId    String
+  orderId   String   @unique
+  code      String
+  discount  Float
+  createdAt DateTime @default(now())
+  offer     Offer    @relation(fields: [offerId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([offerId, userId])
+  @@index([userId])
+  @@map("offer_redemptions")
 }
 
 model VendorDocument {

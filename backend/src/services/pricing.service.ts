@@ -13,6 +13,8 @@ export interface PricingCalculationInput {
   orderTime?: Date;
   weatherCondition?: 'CLEAR' | 'RAIN' | 'HEAVY_RAIN';
   trafficLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
+  /** Cart subtotal, used to evaluate the pricing profile's free-delivery threshold. */
+  subtotal?: number;
 }
 
 export interface PricingBreakdown {
@@ -41,8 +43,13 @@ export interface PricingBreakdown {
   }>;
   areaMultiplier: number;
   surgeMultiplier: number;
+  /** Distance-based fee before any free-delivery discount. */
   finalFee: number;
   estimatedRiderPayout: number;
+  /** The profile's free-delivery threshold (null when unset). */
+  freeDeliveryThreshold: number | null;
+  /** True when the provided subtotal meets/exceeds the threshold, so delivery should be free. */
+  freeDeliveryApplied: boolean;
 }
 
 /**
@@ -358,6 +365,7 @@ export async function calculateDeliveryFee(
     orderTime = new Date(),
     weatherCondition,
     trafficLevel,
+    subtotal,
   } = input;
 
   // 1. Calculate distance using Google Maps Routes API
@@ -448,6 +456,13 @@ export async function calculateDeliveryFee(
   const riderPayoutPercentage = pricingProfile.riderPayoutPercentage ?? platformSettings[0]?.riderPayoutPercentage ?? 85;
   const estimatedRiderPayout = Math.ceil(finalFee * (riderPayoutPercentage / 100));
 
+  // 14. Evaluate free-delivery threshold (subtotal-based). The fee is left intact here;
+  // callers decide whether to charge it, so the gross fee stays available for display/payout.
+  const freeDeliveryThreshold =
+    pricingProfile.freeDeliveryThreshold != null ? Number(pricingProfile.freeDeliveryThreshold) : null;
+  const freeDeliveryApplied =
+    freeDeliveryThreshold != null && subtotal != null && subtotal >= freeDeliveryThreshold;
+
   return {
     distanceKm,
     durationMinutes,
@@ -474,5 +489,7 @@ export async function calculateDeliveryFee(
     surgeMultiplier,
     finalFee,
     estimatedRiderPayout,
+    freeDeliveryThreshold,
+    freeDeliveryApplied,
   };
 }

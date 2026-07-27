@@ -50,9 +50,9 @@ export const Services = () => {
               </div>
               <h3 className="font-display text-4xl">{s.title}</h3>
               <p className="mt-3 opacity-90">{s.desc}</p>
-              <div className="mt-6 flex items-center gap-2 font-mono-pop text-xs uppercase tracking-widest opacity-90">
+              <a href="/home" className="mt-6 flex items-center gap-2 font-mono-pop text-xs uppercase tracking-widest opacity-90">
                 Order now <span className="transition-transform group-hover:translate-x-1">→</span>
-              </div>
+              </a>
             </motion.article>
           ))}
         </div>

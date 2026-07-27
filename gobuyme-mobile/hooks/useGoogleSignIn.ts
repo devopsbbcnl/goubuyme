@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { router } from 'expo-router';
@@ -6,6 +7,17 @@ import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 
 WebBrowser.maybeCompleteAuthSession();
+
+const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+const IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+
+// expo-auth-session throws at mount if the client ID for the current native
+// platform is undefined, so fall back to the web client ID (won't actually
+// authenticate, but keeps the screen from crashing) until Android/iOS OAuth
+// client IDs are created in Google Cloud Console.
+const nativeClientConfigured =
+  Platform.OS === 'android' ? !!ANDROID_CLIENT_ID : Platform.OS === 'ios' ? !!IOS_CLIENT_ID : true;
 
 function getGoogleAuthErrorMessage(err: unknown): string {
   const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
@@ -21,9 +33,9 @@ export function useGoogleSignIn() {
   const [error, setError] = useState<string | null>(null);
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    androidClientId: ANDROID_CLIENT_ID ?? WEB_CLIENT_ID,
+    iosClientId: IOS_CLIENT_ID ?? WEB_CLIENT_ID,
+    webClientId: WEB_CLIENT_ID,
   });
 
   useEffect(() => {
@@ -55,6 +67,10 @@ export function useGoogleSignIn() {
   }, [response]);
 
   const promptGoogleSignIn = useCallback(() => {
+    if (!nativeClientConfigured) {
+      setError('Google sign-in is not yet available on this device. Please use email sign-in for now.');
+      return;
+    }
     setError(null);
     void promptAsync();
   }, [promptAsync]);
@@ -62,7 +78,7 @@ export function useGoogleSignIn() {
   return {
     promptGoogleSignIn,
     googleBusy: busy,
-    googleReady: !!request,
+    googleReady: !!request && nativeClientConfigured,
     googleError: error,
     clearGoogleError: () => setError(null),
   };

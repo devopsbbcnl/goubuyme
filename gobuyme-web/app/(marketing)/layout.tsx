@@ -3,6 +3,7 @@ import './marketing.css';
 import { Toaster } from '@/marketing/components/ui/toaster';
 import { Toaster as Sonner } from '@/marketing/components/ui/sonner';
 import { TooltipProvider } from '@/marketing/components/ui/tooltip';
+import { WhatsAppFab } from '@/components/ui/WhatsAppFab';
 import { SITE_URL, SITE_NAME } from '@/lib/seo';
 
 const MARKETING_TITLE = 'GoBuyMe — Jollof, Groceries & Anything Else, Delivered in 25 Mins';
@@ -47,6 +48,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <body>
         <TooltipProvider>
           {children}
+          <WhatsAppFab />
           <Toaster />
           <Sonner />
         </TooltipProvider>

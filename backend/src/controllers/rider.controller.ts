@@ -139,7 +139,7 @@ export const getAvailableJobs = catchAsync(async (req: AuthRequest, res: Respons
       customerLat: o.deliveryLatitude,
       customerLng: o.deliveryLongitude,
       itemCount: o.items.length,
-      fee: o.deliveryFee,
+      fee: o.originalDeliveryFee,
       distanceKm,
       eta: distanceKm != null ? `${estimateDeliveryMinutes(distanceKm)} min` : null,
     };
@@ -204,7 +204,7 @@ export const acceptJob = catchAsync(async (req: AuthRequest, res: Response) => {
     vendorName: order.vendor.businessName,
     vendorLat: order.vendor.latitude,
     vendorLng: order.vendor.longitude,
-    fee: order.deliveryFee,
+    fee: order.originalDeliveryFee,
   });
 });
 
@@ -216,7 +216,7 @@ export const getActiveDelivery = catchAsync(async (req: AuthRequest, res: Respon
   const order = await prisma.order.findFirst({
     where: { riderId: rider.id, status: { in: [OrderStatus.READY, OrderStatus.PICKED_UP] } },
     select: {
-      id: true, orderNumber: true, status: true, deliveryFee: true,
+      id: true, orderNumber: true, status: true, deliveryFee: true, originalDeliveryFee: true,
       deliveryAddress: true, deliveryLatitude: true, deliveryLongitude: true,
       vendor: { select: { businessName: true, latitude: true, longitude: true } },
       customer: { include: { user: { select: { name: true, phone: true } } } },
@@ -229,7 +229,7 @@ export const getActiveDelivery = catchAsync(async (req: AuthRequest, res: Respon
     orderId: order.id,
     orderNumber: order.orderNumber,
     status: order.status,
-    fee: order.deliveryFee,
+    fee: order.originalDeliveryFee,
     customerName: order.customer.user.name,
     customerPhone: order.customer.user.phone ?? null,
     customerAddress: order.deliveryAddress,
@@ -272,7 +272,9 @@ export const updateDeliveryStatus = catchAsync(async (req: AuthRequest, res: Res
   await prisma.order.update({ where: { id: orderId }, data: { status: targetStatus } });
 
   if (requestedStatus === 'DELIVERED') {
-    const { grossAmount, platformCut, netAmount } = calcRiderEarning(order.deliveryFee);
+    // Pay the rider off the true (pre-discount) delivery cost. When delivery was free for the
+    // customer (threshold or referral credit), the platform absorbs it — the rider still earns.
+    const { grossAmount, platformCut, netAmount } = calcRiderEarning(order.originalDeliveryFee);
     await Promise.all([
       prisma.earning.create({
         data: { riderId: rider.id, orderId, grossAmount, platformCut, netAmount },
@@ -316,7 +318,7 @@ export const getRecentDeliveries = catchAsync(async (req: AuthRequest, res: Resp
   const orders = await prisma.order.findMany({
     where: { riderId: rider.id, status: OrderStatus.DELIVERED },
     select: {
-      id: true, orderNumber: true, deliveryFee: true, updatedAt: true, rating: true,
+      id: true, orderNumber: true, deliveryFee: true, originalDeliveryFee: true, updatedAt: true, rating: true,
       vendor: { select: { businessName: true } },
     },
     orderBy: { updatedAt: 'desc' },
@@ -333,7 +335,7 @@ export const getRecentDeliveries = catchAsync(async (req: AuthRequest, res: Resp
   const data = orders.map(o => ({
     id: o.orderNumber,
     vendor: o.vendor.businessName,
-    amount: earningMap.get(o.id) ?? o.deliveryFee,
+    amount: earningMap.get(o.id) ?? o.originalDeliveryFee,
     time: formatTimeAgo(o.updatedAt),
     rating: o.rating ?? 0,
   }));
@@ -380,7 +382,7 @@ export const getRiderEarnings = catchAsync(async (req: AuthRequest, res: Respons
         id: true, netAmount: true, createdAt: true,
         order: {
           select: {
-            orderNumber: true, deliveryFee: true,
+            orderNumber: true, originalDeliveryFee: true,
             vendor: { select: { businessName: true } },
           },
         },
@@ -397,7 +399,7 @@ export const getRiderEarnings = catchAsync(async (req: AuthRequest, res: Respons
     history: history.map(e => ({
       id:          e.id,
       amount:      e.netAmount,
-      deliveryFee: e.order?.deliveryFee ?? 0,
+      deliveryFee: e.order?.originalDeliveryFee ?? 0,
       orderNumber: e.order?.orderNumber ?? '',
       createdAt:   e.createdAt,
       vendor:      { businessName: e.order?.vendor?.businessName ?? '' },

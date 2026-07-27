@@ -44,6 +44,7 @@ import morgan from 'morgan';
 
 import prisma, { connectDB } from './config/db';
 import { setIO } from './config/socket';
+import { attachRedisAdapter } from './config/socketAdapter';
 import passport from './config/passport';
 import { setupSockets } from './sockets';
 import { startPayoutJob } from './jobs/payoutJob';
@@ -94,6 +95,10 @@ const io = new Server(httpServer, {
   cors: { origin: socketOriginCheck, methods: ['GET', 'POST'] },
 });
 setIO(io);
+
+// Required for PM2 cluster mode: fan out broadcasts across all workers via Redis.
+// No-op (with a warning) when REDIS_URL is unset, e.g. single-instance dev.
+attachRedisAdapter(io);
 
 app.use(helmet());
 app.use(cors({ origin: allowedOrigins }));

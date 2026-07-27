@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Image, Alert, ActivityIndicator,
+  Image, Alert, ActivityIndicator, TextInput,
 } from 'react-native';
 import { usePaystack } from 'react-native-paystack-webview';
 import { useTheme } from '@/context/ThemeContext';
@@ -29,7 +29,12 @@ export default function CheckoutScreen() {
   const { selected, addresses } = useAddress();
   const [loading, setLoading] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
+  const [freeDeliveryReason, setFreeDeliveryReason] = useState<'THRESHOLD' | 'CREDIT' | null>(null);
   const [feeLoading, setFeeLoading] = useState(false);
+  const [promoInput, setPromoInput] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promo, setPromo] = useState<{ code: string; subtotalDiscount: number; freeDelivery: boolean } | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
   const [addressCoords, setAddressCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [geoSource, setGeoSource] = useState<'stored' | 'geocoded' | 'missing' | null>(null);
@@ -57,7 +62,27 @@ export default function CheckoutScreen() {
   }, []);
 
   const subtotal   = total;
-  const grandTotal = subtotal + (deliveryFee ?? 0);
+  // When free delivery applies (subtotal threshold, a referral credit, or a free-delivery promo),
+  // the customer pays nothing for delivery regardless of the distance-based estimate.
+  const deliveryIsFree = !!freeDeliveryReason || !!promo?.freeDelivery;
+  const effectiveFee = deliveryIsFree ? 0 : deliveryFee;
+  const promoSubtotalDiscount = promo?.subtotalDiscount ?? 0;
+  const grandTotal = subtotal + (effectiveFee ?? 0) - promoSubtotalDiscount;
+
+  // Ask the backend (authoritative on free-delivery rules) whether this order qualifies for free
+  // delivery. Read-only — no referral credit is consumed until the order is actually placed.
+  useEffect(() => {
+    let active = true;
+    if (!vid || !selected?.id) { setFreeDeliveryReason(null); return; }
+    api.get('/orders/estimate-fee', { params: { addressId: selected.id, vendorId: vid } })
+      .then(res => {
+        if (!active) return;
+        const d = res.data?.data;
+        setFreeDeliveryReason(d?.freeDelivery ? (d.freeDeliveryReason ?? null) : null);
+      })
+      .catch(() => { if (active) setFreeDeliveryReason(null); });
+    return () => { active = false; };
+  }, [vid, selected?.id, subtotal]);
 
   const isNigeriaCoordinate = (lat: number, lng: number) => {
     return lat >= 4 && lat <= 14 && lng >= 2 && lng <= 15;
@@ -235,6 +260,36 @@ export default function CheckoutScreen() {
     return () => { mounted = false; };
   }, [selected, vendor]);
 
+  const applyPromo = async () => {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) return;
+    setPromoLoading(true);
+    setPromoError(null);
+    try {
+      // The validate endpoint reads the server-side cart, so push the in-memory cart first
+      // (mirrors what handlePay does before placing the order).
+      await api.delete('/cart/clear').catch(() => {});
+      await Promise.all(
+        items.map(item => api.post('/cart/add', { menuItemId: item.id, quantity: item.qty, unitPrice: item.price })),
+      );
+      const res = await api.get('/orders/validate-promo', { params: { code, vendorId: vid } });
+      const r = res.data?.data;
+      if (r?.valid) {
+        setPromo({ code: r.code, subtotalDiscount: r.subtotalDiscount ?? 0, freeDelivery: !!r.freeDelivery });
+      } else {
+        setPromo(null);
+        setPromoError(r?.reason ?? 'Invalid promo code.');
+      }
+    } catch (e: any) {
+      setPromo(null);
+      setPromoError(e?.response?.data?.message ?? 'Could not validate promo code.');
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  const clearPromo = () => { setPromo(null); setPromoInput(''); setPromoError(null); };
+
   const handlePay = async () => {
     if (addresses.length === 0) {
       Alert.alert('No delivery address', 'Please add a delivery address before placing your order.', [
@@ -264,6 +319,7 @@ export default function CheckoutScreen() {
       const orderRes = await api.post('/orders', {
         deliveryAddressId: selected.id,
         paymentMethod: 'CARD',
+        ...(promo ? { promoCode: promo.code } : {}),
       });
       const order = orderRes.data.data;
       const orderId: string = order.id;
@@ -398,12 +454,65 @@ export default function CheckoutScreen() {
               <Text style={[styles.totalLabel, { color: T.textSec }]}>Delivery Fee</Text>
               {feeLoading ? (
                 <ActivityIndicator size="small" color={T.primary} />
-              ) : deliveryFee !== null ? (
-                <Text style={[styles.totalVal, { color: T.text }]}>₦{deliveryFee.toLocaleString()}</Text>
-              ) : (
+              ) : deliveryFee === null ? (
                 <Text style={[styles.totalVal, { color: T.textMuted, fontStyle: 'italic' }]}>Select an address</Text>
+              ) : deliveryIsFree ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {deliveryFee > 0 && (
+                    <Text style={[styles.totalVal, { color: T.textMuted, textDecorationLine: 'line-through', marginRight: 6 }]}>
+                      ₦{deliveryFee.toLocaleString()}
+                    </Text>
+                  )}
+                  <Text style={[styles.totalVal, { color: T.primary, fontWeight: '700' }]}>FREE</Text>
+                </View>
+              ) : (
+                <Text style={[styles.totalVal, { color: T.text }]}>₦{deliveryFee.toLocaleString()}</Text>
               )}
             </View>
+            {deliveryIsFree && (
+              <Text style={{ color: T.primary, fontSize: 12, marginTop: 2 }}>
+                {promo?.freeDelivery ? `Free delivery from code ${promo.code} 🎉`
+                  : freeDeliveryReason === 'THRESHOLD' ? 'Free delivery unlocked on this order 🎉'
+                  : 'Free delivery credit applied 🎉'}
+              </Text>
+            )}
+            {promoSubtotalDiscount > 0 && (
+              <View style={styles.totalRow}>
+                <Text style={[styles.totalLabel, { color: T.textSec }]}>Promo ({promo?.code})</Text>
+                <Text style={[styles.totalVal, { color: T.primary, fontWeight: '700' }]}>−₦{promoSubtotalDiscount.toLocaleString()}</Text>
+              </View>
+            )}
+
+            {/* Promo code */}
+            {promo ? (
+              <View style={[styles.totalRow, { alignItems: 'center' }]}>
+                <Text style={{ color: T.primary, fontWeight: '700', fontSize: 13 }}>✓ {promo.code} applied</Text>
+                <TouchableOpacity onPress={clearPromo}>
+                  <Text style={{ color: T.textMuted, fontSize: 13, textDecorationLine: 'underline' }}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={{ marginTop: 8 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TextInput
+                    value={promoInput}
+                    onChangeText={t => { setPromoInput(t.toUpperCase()); setPromoError(null); }}
+                    placeholder="Promo code"
+                    placeholderTextColor={T.textMuted}
+                    autoCapitalize="characters"
+                    style={{ flex: 1, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: T.text }}
+                  />
+                  <TouchableOpacity
+                    onPress={applyPromo}
+                    disabled={promoLoading || !promoInput.trim()}
+                    style={{ paddingHorizontal: 16, justifyContent: 'center', borderRadius: 8, backgroundColor: promoLoading || !promoInput.trim() ? T.surface3 : T.primary }}
+                  >
+                    {promoLoading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Apply</Text>}
+                  </TouchableOpacity>
+                </View>
+                {promoError && <Text style={{ color: '#e5484d', fontSize: 12, marginTop: 6 }}>{promoError}</Text>}
+              </View>
+            )}
             <View style={[styles.grandRow, { borderTopColor: T.border }]}>
               <Text style={[styles.grandLabel, { color: T.text }]}>Total</Text>
               {feeLoading || deliveryFee === null ? (

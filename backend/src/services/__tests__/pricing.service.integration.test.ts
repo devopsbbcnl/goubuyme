@@ -157,3 +157,44 @@ describe('calculateDeliveryFee (full pipeline)', () => {
     await expect(calculateDeliveryFee(INPUT)).rejects.toThrow('No active pricing profile found');
   });
 });
+
+describe('calculateDeliveryFee (free-delivery threshold)', () => {
+  const withThreshold = (threshold: number | null) =>
+    ({ ...BASE_PROFILE, freeDeliveryThreshold: threshold } as any);
+
+  it('flags free delivery when the subtotal meets the threshold, without altering the gross fee', async () => {
+    setupMocks({ profile: withThreshold(5000) });
+
+    const result = await calculateDeliveryFee({ ...INPUT, subtotal: 5000 });
+
+    expect(result.freeDeliveryThreshold).toBe(5000);
+    expect(result.freeDeliveryApplied).toBe(true);
+    // The distance-based fee is preserved so callers can display/strike it and pay the rider.
+    expect(result.finalFee).toBeGreaterThan(0);
+  });
+
+  it('does not flag free delivery when the subtotal is below the threshold', async () => {
+    setupMocks({ profile: withThreshold(5000) });
+
+    const result = await calculateDeliveryFee({ ...INPUT, subtotal: 4999 });
+
+    expect(result.freeDeliveryApplied).toBe(false);
+  });
+
+  it('does not flag free delivery when the profile has no threshold set', async () => {
+    setupMocks({ profile: withThreshold(null) });
+
+    const result = await calculateDeliveryFee({ ...INPUT, subtotal: 999999 });
+
+    expect(result.freeDeliveryThreshold).toBeNull();
+    expect(result.freeDeliveryApplied).toBe(false);
+  });
+
+  it('does not flag free delivery when no subtotal is provided', async () => {
+    setupMocks({ profile: withThreshold(5000) });
+
+    const result = await calculateDeliveryFee(INPUT);
+
+    expect(result.freeDeliveryApplied).toBe(false);
+  });
+});

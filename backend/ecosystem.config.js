@@ -3,6 +3,14 @@ module.exports = {
     {
       name: 'gobuyme-api',
       script: './dist/server.js',
+      // Cluster mode is safe for Socket.IO here ONLY because:
+      //   1. the client uses websocket-only transport (no polling), so each
+      //      connection is a single persistent socket pinned to one worker —
+      //      removing the sticky-session requirement, AND
+      //   2. the Redis adapter (see src/config/socketAdapter.ts) fans out
+      //      getIO() broadcasts across all workers.
+      // Removing either one reintroduces "transport error / xhr post error"
+      // or silently-dropped events. REDIS_URL MUST be set in this env.
       instances: 'max',
       exec_mode: 'cluster',
       env: {

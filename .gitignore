@@ -38,3 +38,4 @@ gobuyme-mobile/ios/build/
 
 # Documentation
 *.md
+.gstack/
