@@ -82,12 +82,23 @@ const allowedOrigins = [
   'http://localhost:3001',
 ].map(s => s.trim()).filter(Boolean);
 
-// Native/mobile Socket.IO clients (socket.io-client on React Native) don't send a
-// browser-style Origin header, so they're allowed through unconditionally. Any
-// request that DOES present an Origin header (web app, admin dashboard) must match
-// the same allowlist used for the REST API below.
+// React Native's WebSocket (Android/OkHttp) DOES send an Origin header — set to
+// the socket server's own URL, e.g. https://api.gobuyme.shop. That tripped the
+// old allowlist and returned "400 Bad Request" on the WS upgrade ("Expected 101").
+// These are the app's own origin(s), not a cross-site browser request we need to
+// guard against — Socket.IO auth here is a token in the connection payload, not a
+// cookie, so CORS adds no protection for native clients. Allow them explicitly.
+// Configurable via SOCKET_ALLOWED_ORIGINS (comma-separated); falls back to the
+// public API/website origins.
+const socketAllowedOrigins = [
+  ...allowedOrigins,
+  ...(process.env.SOCKET_ALLOWED_ORIGINS ?? 'https://api.gobuyme.shop,https://gobuyme.shop')
+    .split(',').map(s => s.trim()).filter(Boolean),
+];
+
 const socketOriginCheck = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-  if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+  // No Origin (e.g. server-side clients) or an allowed origin passes.
+  if (!origin || socketAllowedOrigins.includes(origin)) return callback(null, true);
   return callback(new Error('Not allowed by CORS'));
 };
 

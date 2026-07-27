@@ -52,7 +52,14 @@ const attachStatusListeners = () => {
     notifyBackend(false);
   });
   s.on('connect_error', (err) => {
-    console.log('[socketService.ts] /orders connect_error:', err.message);
+    // `err.message` is the generic label ("websocket error"). The real cause
+    // (HTTP status, transport detail) is on `description`/`context`.
+    const anyErr = err as any;
+    console.log('[socketService.ts] /orders connect_error:', err.message,
+      '| description:', anyErr?.description,
+      '| context:', anyErr?.context,
+      '| transport:', (s.io?.engine as any)?.transport?.name,
+      '| uri:', (s.io as any)?.uri);
     notifyBackend(false);
   });
 };
