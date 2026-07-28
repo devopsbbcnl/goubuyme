@@ -58,9 +58,13 @@ export default function OrderTrackingScreen() {
 		? parseInt(params.estimatedTime, 10)
 		: null;
 
-	const { status, riderLocation, rider } = useOrderTracking(orderId);
+	const { status, riderLocation, rider, deliveryPin } = useOrderTracking(orderId);
 	const step = statusToStep(status);
 	const done = status === 'DELIVERED';
+	const cancelled = status === 'CANCELLED';
+	// Show the PIN once the order is live and until it's delivered — the customer reads
+	// it to the rider at handover to confirm delivery.
+	const showPin = !!deliveryPin && !done && !cancelled;
 	const inTransit = status === 'PICKED_UP' || status === 'IN_TRANSIT';
 	const cameraRef = useRef<any>(null);
 
@@ -191,6 +195,28 @@ export default function OrderTrackingScreen() {
 						))}
 					</View>
 				</View>
+
+				{showPin && (
+					<View
+						style={[
+							styles.pinCard,
+							{ backgroundColor: T.primaryTint, borderColor: T.primary },
+						]}
+					>
+						<View style={styles.pinHeader}>
+							<Ionicons name="lock-closed" size={16} color={T.primary} />
+							<Text style={[styles.pinLabel, { color: T.primary }]}>
+								Delivery PIN
+							</Text>
+						</View>
+						<Text style={[styles.pinValue, { color: T.text }]}>
+							{deliveryPin!.split('').join('  ')}
+						</Text>
+						<Text style={[styles.pinHint, { color: T.textSec }]}>
+							Share this PIN with your rider only when your order arrives.
+						</Text>
+					</View>
+				)}
 
 				{rider ? (
 					<View
@@ -406,6 +432,18 @@ const styles = StyleSheet.create({
 	},
 	stepInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
 	stepLine: { flex: 1, height: 2 },
+	pinCard: {
+		marginHorizontal: 20,
+		marginTop: 16,
+		borderRadius: 4,
+		padding: 20,
+		borderWidth: 1,
+		alignItems: 'center',
+	},
+	pinHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+	pinLabel: { fontSize: 12, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
+	pinValue: { fontSize: 34, fontWeight: '800', letterSpacing: 4, marginTop: 8 },
+	pinHint: { fontSize: 12, textAlign: 'center', marginTop: 6, lineHeight: 17 },
 	riderRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 	riderAvatar: {
 		width: 46,

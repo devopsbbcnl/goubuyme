@@ -247,7 +247,7 @@ export const updateDeliveryStatus = catchAsync(async (req: AuthRequest, res: Res
   if (!rider) return apiResponse.error(res, 'Rider not found.', 404);
 
   const { orderId } = req.params;
-  const { status: requestedStatus } = req.body as { status: 'PICKED_UP' | 'DELIVERED' };
+  const { status: requestedStatus, deliveryPin } = req.body as { status: 'PICKED_UP' | 'DELIVERED'; deliveryPin?: string };
 
   const validFrom: Partial<Record<string, OrderStatus>> = {
     PICKED_UP: OrderStatus.READY,
@@ -266,6 +266,16 @@ export const updateDeliveryStatus = catchAsync(async (req: AuthRequest, res: Res
   if (!order) return apiResponse.error(res, 'Order not found.', 404);
   if (order.status !== validFrom[requestedStatus]) {
     return apiResponse.error(res, `Cannot transition from ${order.status} to ${requestedStatus}.`, 400);
+  }
+
+  // The customer confirms receipt by giving the rider the order's delivery PIN. Require an exact
+  // match before the order can be marked DELIVERED (and rider/vendor payouts are recorded).
+  if (requestedStatus === 'DELIVERED') {
+    const suppliedPin = String(deliveryPin ?? '').trim();
+    if (!suppliedPin) return apiResponse.error(res, 'Delivery PIN is required to complete this delivery.', 400);
+    if (!order.deliveryPin || suppliedPin !== order.deliveryPin) {
+      return apiResponse.error(res, 'Incorrect delivery PIN.', 400);
+    }
   }
 
   const targetStatus = OrderStatus[requestedStatus as keyof typeof OrderStatus];

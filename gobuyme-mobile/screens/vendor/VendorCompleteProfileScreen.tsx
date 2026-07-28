@@ -92,13 +92,22 @@ async function uploadImage(uri: string): Promise<string> {
   const form = new FormData();
   form.append('file', { uri, type: 'image/jpeg', name: 'upload.jpg' } as any);
   form.append('upload_preset', UPLOAD_PRESET);
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-    { method: 'POST', body: form },
-  );
-  if (!res.ok) throw new Error('Image upload failed. Please try again.');
-  const data = (await res.json()) as { secure_url?: string };
-  if (!data.secure_url) throw new Error('Image upload failed. Please try again.');
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+      { method: 'POST', body: form },
+    );
+  } catch (err: any) {
+    console.error('[uploadImage] network error', err);
+    throw new Error(`Network error while uploading: ${err?.message ?? 'unknown'}`);
+  }
+  const data = (await res.json().catch(() => ({}))) as { secure_url?: string; error?: { message?: string } };
+  if (!res.ok || !data.secure_url) {
+    const reason = data?.error?.message ?? `HTTP ${res.status}`;
+    console.error('[uploadImage] Cloudinary rejected upload:', reason);
+    throw new Error(`Image upload failed: ${reason}`);
+  }
   return data.secure_url;
 }
 
@@ -230,8 +239,8 @@ export default function VendorCompleteProfileScreen() {
       const url = await uploadImage(uri);
       if (side === 'front') setDocFrontUrl(url);
       else setDocBackUrl(url);
-    } catch {
-      Alert.alert('Upload failed', 'Could not upload the document image. Please try again.');
+    } catch (err: any) {
+      Alert.alert('Upload failed', err?.message || 'Could not upload the document image. Please try again.');
       if (side === 'front') setDocFrontUri('');
       else setDocBackUri('');
     } finally {

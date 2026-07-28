@@ -18,6 +18,9 @@ const generateOrderNumber = () => {
   return `GBM-${date}-${rand}`;
 };
 
+// 4-digit PIN the customer hands to the rider on arrival to confirm delivery.
+const generateDeliveryPin = () => String(Math.floor(1000 + Math.random() * 9000));
+
 export const estimateDeliveryFee = catchAsync(async (req: AuthRequest, res: Response) => {
   const { addressId, vendorId } = req.query as { addressId?: string; vendorId?: string };
   if (!addressId) return apiResponse.error(res, 'addressId is required.', 400);
@@ -287,6 +290,7 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
       const newOrder = await tx.order.create({
         data: {
           orderNumber: generateOrderNumber(),
+          deliveryPin: generateDeliveryPin(),
           customerId: customer.id,
           vendorId: vendor.id,
           status: paymentMethod === PaymentMethod.CASH_ON_DELIVERY ? OrderStatus.CONFIRMED : OrderStatus.PENDING,

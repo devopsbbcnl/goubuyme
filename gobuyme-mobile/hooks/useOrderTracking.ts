@@ -21,6 +21,7 @@ export function useOrderTracking(orderId: string | null) {
   const [status, setStatus] = useState<OrderStatus>('PENDING');
   const [riderLocation, setRiderLocation] = useState<RiderLocation | null>(null);
   const [rider, setRider] = useState<RiderInfo | null>(null);
+  const [deliveryPin, setDeliveryPin] = useState<string | null>(null);
   const joined = useRef(false);
 
   const fetchOrder = useCallback(async () => {
@@ -29,6 +30,7 @@ export function useOrderTracking(orderId: string | null) {
       const res = await api.get(`/orders/${orderId}`);
       const order = res.data.data;
       if (order?.status) setStatus(order.status as OrderStatus);
+      if (order?.deliveryPin) setDeliveryPin(order.deliveryPin as string);
       if (order?.rider) {
         setRider({
           name: order.rider.user?.name ?? 'Rider',
@@ -71,5 +73,5 @@ export function useOrderTracking(orderId: string | null) {
     };
   }, [orderId, user?.token, fetchOrder]);
 
-  return { status, riderLocation, rider };
+  return { status, riderLocation, rider, deliveryPin };
 }

@@ -12,6 +12,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useAuth } from '@/context/AuthContext';
 import { useRiderLocation, RiderPosition } from '@/hooks/useRiderLocation';
 import { connectSockets } from '@/services/socketService';
+import DeliveryPinModal from '@/components/DeliveryPinModal';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -78,6 +79,8 @@ export default function ActiveDeliveryScreen() {
   const { position: riderPosition } = useRiderLocation(user?.id ?? null, isActive);
 
   const [advancing, setAdvancing] = useState(false);
+  const [pinModalVisible, setPinModalVisible] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
 
   const handleCall = () => {
     if (!customerPhone) return;
@@ -115,6 +118,40 @@ export default function ActiveDeliveryScreen() {
     }
   };
 
+  const bumpStep = () => {
+    const next = (stepIdx + 1) / (DELIVERY_STEPS.length - 1);
+    Animated.timing(progressAnim, { toValue: next, duration: 400, useNativeDriver: false }).start();
+    setStepIdx(i => i + 1);
+  };
+
+  // Push the status change to the backend. DELIVERED requires the customer's delivery PIN.
+  // Returns the outcome so callers can decide how to surface an error (inline in the PIN
+  // modal vs. a top-level alert).
+  const performUpdate = async (
+    newStatus: 'PICKED_UP' | 'DELIVERED',
+    deliveryPin?: string,
+  ): Promise<{ ok: boolean; message?: string }> => {
+    setAdvancing(true);
+    try {
+      await api.patch(`/riders/me/orders/${orderId}/status`, {
+        status: newStatus,
+        ...(deliveryPin ? { deliveryPin } : {}),
+      });
+    } catch (err: any) {
+      return { ok: false, message: err?.response?.data?.message ?? 'Failed to update status. Try again.' };
+    } finally {
+      setAdvancing(false);
+    }
+
+    try {
+      const { ordersSocket } = connectSockets(user?.token ?? undefined);
+      ordersSocket.emit('order:updateStatus', { orderId, status: newStatus });
+    } catch { /* socket optional */ }
+
+    bumpStep();
+    return { ok: true };
+  };
+
   const advanceStep = async () => {
     if (stepIdx >= DELIVERY_STEPS.length - 1) {
       router.replace('/(rider)');
@@ -123,28 +160,32 @@ export default function ActiveDeliveryScreen() {
 
     const statusMap: Record<number, 'PICKED_UP' | 'DELIVERED'> = { 0: 'PICKED_UP', 1: 'DELIVERED' };
     const newStatus = statusMap[stepIdx];
-    if (orderId && newStatus) {
-      setAdvancing(true);
-      try {
-        await api.patch(`/riders/me/orders/${orderId}/status`, { status: newStatus });
-      } catch (err: any) {
-        const msg = err?.response?.data?.message ?? 'Failed to update status. Try again.';
-        Alert.alert('Error', msg);
-        setAdvancing(false);
-        return;
-      } finally {
-        setAdvancing(false);
-      }
 
-      try {
-        const { ordersSocket } = connectSockets(user?.token ?? undefined);
-        ordersSocket.emit('order:updateStatus', { orderId, status: newStatus });
-      } catch { /* socket optional */ }
+    // No linked order (e.g. preview) — just advance the UI locally.
+    if (!orderId || !newStatus) {
+      bumpStep();
+      return;
     }
 
-    const next = (stepIdx + 1) / (DELIVERY_STEPS.length - 1);
-    Animated.timing(progressAnim, { toValue: next, duration: 400, useNativeDriver: false }).start();
-    setStepIdx(i => i + 1);
+    // Marking delivered needs the customer's PIN — collect it before hitting the API.
+    if (newStatus === 'DELIVERED') {
+      setPinError(null);
+      setPinModalVisible(true);
+      return;
+    }
+
+    const res = await performUpdate(newStatus);
+    if (!res.ok) Alert.alert('Error', res.message ?? 'Failed to update status. Try again.');
+  };
+
+  const handlePinConfirm = async (pin: string) => {
+    const res = await performUpdate('DELIVERED', pin);
+    if (res.ok) {
+      setPinModalVisible(false);
+      setPinError(null);
+    } else {
+      setPinError(res.message ?? 'Incorrect delivery PIN.');
+    }
   };
 
   const progressWidth = progressAnim.interpolate({
@@ -276,6 +317,14 @@ export default function ActiveDeliveryScreen() {
           {step.cta}
         </PrimaryButton>
       </View>
+
+      <DeliveryPinModal
+        visible={pinModalVisible}
+        loading={advancing}
+        error={pinError}
+        onCancel={() => { setPinModalVisible(false); setPinError(null); }}
+        onConfirm={handlePinConfirm}
+      />
     </View>
   );
 }
