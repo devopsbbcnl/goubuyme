@@ -40,12 +40,22 @@ async function uploadToCloudinary(uri: string): Promise<string> {
   const formData = new FormData();
   formData.append('file', { uri, type: 'image/jpeg', name: 'promo.jpg' } as any);
   formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
-    method: 'POST',
-    body: formData,
-  });
-  if (!res.ok) throw new Error('Image upload failed');
-  const data = await res.json();
+  let res: Response;
+  try {
+    res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+  } catch (err: any) {
+    console.error('[uploadToCloudinary] network error', err);
+    throw new Error(`Network error while uploading: ${err?.message ?? 'unknown'}`);
+  }
+  const data = await res.json().catch(() => ({})) as { secure_url?: string; error?: { message?: string } };
+  if (!res.ok || !data.secure_url) {
+    const reason = data?.error?.message ?? `HTTP ${res.status}`;
+    console.error('[uploadToCloudinary] Cloudinary rejected upload:', reason);
+    throw new Error(`Image upload failed: ${reason}`);
+  }
   return data.secure_url;
 }
 
@@ -116,7 +126,7 @@ export default function VendorPromotionsScreen() {
       setModalVisible(false);
       await loadData();
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message ?? 'Could not create promotion.');
+      Alert.alert('Error', e?.response?.data?.message ?? e?.message ?? 'Could not create promotion.');
     } finally {
       setSaving(false);
       setUploadingImage(false);

@@ -124,16 +124,25 @@ async function uploadImage(uri: string): Promise<string> {
 		name: 'menu-item.jpg',
 	} as any);
 	formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-	const res = await fetch(
-		`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-		{
-			method: 'POST',
-			body: formData,
-		},
-	);
-	if (!res.ok) throw new Error('Image upload failed. Please try again.');
-	const data = await res.json();
-	if (!data.secure_url) throw new Error('Image upload failed. Please try again.');
+	let res: Response;
+	try {
+		res = await fetch(
+			`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+			{
+				method: 'POST',
+				body: formData,
+			},
+		);
+	} catch (err: any) {
+		console.error('[uploadImage] network error', err);
+		throw new Error(`Network error while uploading: ${err?.message ?? 'unknown'}`);
+	}
+	const data = await res.json().catch(() => ({})) as { secure_url?: string; error?: { message?: string } };
+	if (!res.ok || !data.secure_url) {
+		const reason = data?.error?.message ?? `HTTP ${res.status}`;
+		console.error('[uploadImage] Cloudinary rejected upload:', reason);
+		throw new Error(`Image upload failed: ${reason}`);
+	}
 	return data.secure_url;
 }
 
@@ -282,7 +291,7 @@ export default function ManageMenuScreen() {
 			}
 			closeSheet();
 		} catch (err: any) {
-			const msg = err?.response?.data?.message ?? 'Could not save item.';
+			const msg = err?.response?.data?.message ?? err?.message ?? 'Could not save item.';
 			Alert.alert('Error', msg);
 		} finally {
 			setSaving(false);

@@ -69,8 +69,8 @@ function ImageUploadBox({
     try {
       const url = await uploadToCloudinary(file, folder);
       onChange(url);
-    } catch {
-      toast('Upload failed. Please try again.', 'error');
+    } catch (err: any) {
+      toast(err?.message || 'Upload failed. Please try again.', 'error');
     } finally {
       setUploading(false);
     }

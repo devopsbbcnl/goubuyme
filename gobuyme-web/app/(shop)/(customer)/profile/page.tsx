@@ -166,12 +166,14 @@ export default function ProfilePage() {
         `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
         { method: 'POST', body: fd },
       );
-      if (!res.ok) throw new Error('Upload failed');
-      const { secure_url } = await res.json();
-      await api.patch('/auth/profile', { photoUrl: secure_url });
-      updateUser({ avatar: secure_url });
+      const data = await res.json().catch(() => ({})) as { secure_url?: string; error?: { message?: string } };
+      if (!res.ok || !data.secure_url) {
+        throw new Error(`Image upload failed: ${data?.error?.message ?? `HTTP ${res.status}`}`);
+      }
+      await api.patch('/auth/profile', { photoUrl: data.secure_url });
+      updateUser({ avatar: data.secure_url });
       toast('Avatar updated!', 'success');
-    } catch { toast('Could not upload image', 'error'); }
+    } catch (err: any) { toast(err?.message || 'Could not upload image', 'error'); }
     finally {
       setUploadingAvatar(false);
       if (avatarInputRef.current) avatarInputRef.current.value = '';

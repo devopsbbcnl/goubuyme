@@ -206,8 +206,8 @@ export default function VendorCompleteProfileScreen() {
       type === 'logo' ? setUploadingLogo(true) : setUploadingCover(true);
       const url = await uploadImage(uri);
       type === 'logo' ? setLogo(url) : setCoverImage(url);
-    } catch {
-      Alert.alert('Upload failed', 'Could not upload the image. Please try again.');
+    } catch (err: any) {
+      Alert.alert('Upload failed', err?.message || 'Could not upload the image. Please try again.');
     } finally {
       setUploadingLogo(false);
       setUploadingCover(false);
@@ -222,8 +222,8 @@ export default function VendorCompleteProfileScreen() {
     try {
       const url = await uploadImage(uri);
       setSelfieUrl(url);
-    } catch {
-      Alert.alert('Upload failed', 'Could not upload selfie. Please try again.');
+    } catch (err: any) {
+      Alert.alert('Upload failed', err?.message || 'Could not upload selfie. Please try again.');
       setSelfieUri('');
     } finally {
       setUploadingSelfie(false);

@@ -40,7 +40,7 @@ export default function VendorPromotionsPage() {
       const url = await uploadToCloudinary(file, 'vendor-promotions');
       setForm(f => ({ ...f, imageUrl: url }));
       toast('Image uploaded', 'success');
-    } catch { toast('Upload failed', 'error'); }
+    } catch (err: any) { toast(err?.message || 'Upload failed', 'error'); }
     finally { setImgBusy(false); }
   };
 

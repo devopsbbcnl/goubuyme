@@ -42,7 +42,7 @@ function ImgUpload({
       const url = await uploadToCloudinary(file, folder);
       onUploaded(url);
       toast('Image uploaded', 'success');
-    } catch { toast('Upload failed', 'error'); }
+    } catch (err: any) { toast(err?.message || 'Upload failed', 'error'); }
     finally { setBusy(false); }
   };
 

@@ -38,16 +38,26 @@ async function uploadToCloudinary(uri: string): Promise<string> {
 	const form = new FormData();
 	form.append('file', { uri, type: 'image/jpeg', name: 'profile.jpg' } as any);
 	form.append('upload_preset', UPLOAD_PRESET);
-	const res = await fetch(
-		`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-		{
-			method: 'POST',
-			body: form,
-		},
-	);
-	if (!res.ok) throw new Error('Upload failed');
-	const json = await res.json();
-	return json.secure_url as string;
+	let res: Response;
+	try {
+		res = await fetch(
+			`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+			{
+				method: 'POST',
+				body: form,
+			},
+		);
+	} catch (err: any) {
+		console.error('[uploadToCloudinary] network error', err);
+		throw new Error(`Network error while uploading: ${err?.message ?? 'unknown'}`);
+	}
+	const data = await res.json().catch(() => ({})) as { secure_url?: string; error?: { message?: string } };
+	if (!res.ok || !data.secure_url) {
+		const reason = data?.error?.message ?? `HTTP ${res.status}`;
+		console.error('[uploadToCloudinary] Cloudinary rejected upload:', reason);
+		throw new Error(`Image upload failed: ${reason}`);
+	}
+	return data.secure_url as string;
 }
 
 export default function EditProfileScreen() {
@@ -73,10 +83,10 @@ export default function EditProfileScreen() {
 			setUploading(true);
 			const url = await uploadToCloudinary(uri);
 			setPhotoUrl(url);
-		} catch {
+		} catch (err: any) {
 			Alert.alert(
 				'Upload failed',
-				'Could not upload your photo. Please try again.',
+				err?.message || 'Could not upload your photo. Please try again.',
 			);
 		} finally {
 			setUploading(false);
