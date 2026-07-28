@@ -47,8 +47,17 @@ async function unseedDemo() {
     await prisma.orderItem.deleteMany({ where: { orderId: { in: uniqueOrderIds } } });
     await prisma.earning.deleteMany({ where: { orderId: { in: uniqueOrderIds } } });
     await prisma.vendorPayout.deleteMany({ where: { orderId: { in: uniqueOrderIds } } });
+    // Conversations reference orders (no cascade); their messages cascade from the conversation.
+    await prisma.conversation.deleteMany({ where: { orderId: { in: uniqueOrderIds } } });
     await prisma.order.deleteMany({ where: { id: { in: uniqueOrderIds } } });
-    console.log(`✓ Deleted ${uniqueOrderIds.length} orders and their items/earnings/payouts`);
+    console.log(`✓ Deleted ${uniqueOrderIds.length} orders and their items/earnings/payouts/conversations`);
+  }
+
+  // 1b. Any remaining conversations tied to demo customers/riders (safety net)
+  if (customerIds.length || riderIds.length) {
+    await prisma.conversation.deleteMany({
+      where: { OR: [{ customerId: { in: customerIds } }, { riderId: { in: riderIds } }] },
+    });
   }
 
   // 2. Customer data
