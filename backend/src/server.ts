@@ -45,7 +45,6 @@ import morgan from 'morgan';
 import prisma, { connectDB } from './config/db';
 import { setIO } from './config/socket';
 import { attachRedisAdapter } from './config/socketAdapter';
-import passport from './config/passport';
 import { setupSockets } from './sockets';
 import { startPayoutJob } from './jobs/payoutJob';
 import { errorHandler } from './middleware/error.middleware';
