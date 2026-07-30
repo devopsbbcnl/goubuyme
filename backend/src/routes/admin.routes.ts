@@ -23,6 +23,7 @@ import {
   updateAdminRole,
   deactivateAdminUser,
 } from '../controllers/admin.controller';
+import { getOnboardingFunnel, getStuckUsers, getOnboardingEventFunnel } from '../controllers/analytics.controller';
 import { createOffer, updateOffer } from '../controllers/offer.controller';
 import {
   getPricingProfiles,
@@ -58,6 +59,11 @@ const readAuth       = [verifyToken, requireRole('SUPER_ADMIN', 'OPERATIONS_ADMI
 
 // Dashboard
 router.get('/dashboard', ...readAuth, getDashboardStats);
+
+// Onboarding analytics (derived from existing data)
+router.get('/analytics/funnel', ...readAuth, getOnboardingFunnel);
+router.get('/analytics/event-funnel', ...readAuth, getOnboardingEventFunnel);
+router.get('/analytics/stuck-users', ...readAuth, getStuckUsers);
 router.get('/settings', ...readAuth, getAdminSettings);
 router.patch('/settings', ...superAdminAuth, updateAdminSettings);
 

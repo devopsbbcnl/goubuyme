@@ -11,6 +11,7 @@ import {
   generateReferralCode,
 } from '../utils/generateToken';
 import { sendPasswordResetEmail, sendOtpEmail, sendWelcomeEmail } from '../services/email.service';
+import { recordOnboardingEvent } from '../services/onboarding.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { Role, CommissionTier, VendorCategory } from '@prisma/client';
 
@@ -145,6 +146,8 @@ export const register = catchAsync(async (req: Request, res: Response) => {
 
   await createAndDispatchOtp(user.id, user.email, user.name);
 
+  void recordOnboardingEvent(user.id, user.role, 'SIGNED_UP');
+
   return apiResponse.success(res, 'Registration successful. Check your email for a verification code.', {
     userId: user.id,
     email: user.email,
@@ -176,6 +179,7 @@ export const verifyOtp = catchAsync(async (req: Request, res: Response) => {
 
   if (user) {
     void sendWelcomeEmail(user.email, user.name, user.role, user.vendor?.businessName ?? undefined);
+    void recordOnboardingEvent(user.id, user.role, 'EMAIL_VERIFIED');
   }
 
   return apiResponse.success(res, 'Email verified successfully.');
@@ -305,6 +309,9 @@ export const googleAuth = catchAsync(async (req: Request, res: Response) => {
     });
 
     void sendWelcomeEmail(user.email, user.name, user.role);
+    // Google sign-up lands already email-verified.
+    void recordOnboardingEvent(user.id, user.role, 'SIGNED_UP');
+    void recordOnboardingEvent(user.id, user.role, 'EMAIL_VERIFIED');
   }
 
   const accessToken = generateAccessToken({ userId: user.id, role: user.role });

@@ -11,6 +11,7 @@ import { sendVendorApprovalEmail, sendRiderApprovalEmail } from '../services/ema
 import { generateReferralCode } from '../utils/generateToken';
 import { getPlatformSettings, updatePlatformSettings, PlatformSettingsPatch } from '../services/settings.service';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
+import { recordOnboardingEvent } from '../services/onboarding.service';
 import logger from '../utils/logger';
 
 // GET /admin/dashboard
@@ -209,8 +210,12 @@ export const updateVendorStatus = catchAsync(async (req: AuthRequest, res: Respo
   const vendor = await prisma.vendor.update({
     where: { id },
     data: { approvalStatus: status as ApprovalStatus },
-    select: { id: true, businessName: true, approvalStatus: true, user: { select: { email: true, name: true } } },
+    select: { id: true, userId: true, businessName: true, approvalStatus: true, user: { select: { email: true, name: true } } },
   });
+
+  if (status === 'APPROVED') {
+    void recordOnboardingEvent(vendor.userId, 'VENDOR', 'APPROVED');
+  }
 
   await prisma.auditLog.create({
     data: {
@@ -344,8 +349,12 @@ export const updateRiderStatus = catchAsync(async (req: AuthRequest, res: Respon
   const rider = await prisma.rider.update({
     where: { id },
     data: { approvalStatus: status as ApprovalStatus },
-    select: { id: true, approvalStatus: true, user: { select: { email: true, name: true } } },
+    select: { id: true, userId: true, approvalStatus: true, user: { select: { email: true, name: true } } },
   });
+
+  if (status === 'APPROVED') {
+    void recordOnboardingEvent(rider.userId, 'RIDER', 'APPROVED');
+  }
 
   await prisma.auditLog.create({
     data: {
