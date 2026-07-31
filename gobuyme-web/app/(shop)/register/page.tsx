@@ -26,6 +26,34 @@ const STEP_LABELS: Record<string, string> = {
 
 const PING_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1') + '/settings/public';
 
+function PasswordRules({ password }: { password: string }) {
+  if (!password) return null;
+  const rules = [
+    { label: 'At least 8 characters', met: password.length >= 8 },
+    { label: 'Uppercase letter', met: /[A-Z]/.test(password) },
+    { label: 'Lowercase letter', met: /[a-z]/.test(password) },
+    { label: 'Number', met: /[0-9]/.test(password) },
+    { label: 'Symbol', met: /[^A-Za-z0-9]/.test(password) },
+  ];
+  return (
+    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {rules.map(({ label, met }) => (
+        <div
+          key={label}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            fontSize: 12, color: met ? '#22C55E' : 'var(--muted)',
+            transition: 'color 0.15s',
+          }}
+        >
+          <span style={{ width: 14, flexShrink: 0 }}>{met ? '✓' : '○'}</span>
+          <span>{label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function RegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -227,9 +255,10 @@ function RegisterContent() {
               <div className="form-group">
                 <label className="label">Password</label>
                 <div style={{ position: 'relative' }}>
-                  <input className="input" type={show ? 'text' : 'password'} value={form.password} onChange={set('password')} placeholder="Min. 8 chars, upper, lower, number, symbol" required minLength={8} style={{ paddingRight: 44 }} />
+                  <input className="input" type={show ? 'text' : 'password'} value={form.password} onChange={set('password')} placeholder="Min. 8 characters" required minLength={8} style={{ paddingRight: 44 }} />
                   <button type="button" onClick={() => setShow(s => !s)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: 13 }}>{show ? 'Hide' : 'Show'}</button>
                 </div>
+                <PasswordRules password={form.password} />
               </div>
               <div className="form-group">
                 <label className="label">Confirm Password</label>
