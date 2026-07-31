@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generatePassword } from '@/utils/generatePassword';
 import { forwardGeocode } from '@/services/geocoding';
 import { useGoogleSignIn } from '@/hooks/useGoogleSignIn';
+import GoogleIcon from '@/components/ui/GoogleIcon';
 
 type RoleParam = 'customer' | 'vendor' | 'rider';
 
@@ -352,7 +353,7 @@ export default function RegisterScreen() {
 						disabled={!googleReady || googleBusy}
 						activeOpacity={0.7}
 					>
-						<Ionicons name="logo-google" size={18} color={T.text} />
+						<GoogleIcon size={18} />
 						<Text style={[styles.googleText, { color: T.text }]}>
 							{googleBusy ? 'Signing up…' : 'Continue with Google'}
 						</Text>
