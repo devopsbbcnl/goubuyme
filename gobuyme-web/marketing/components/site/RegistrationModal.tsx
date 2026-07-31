@@ -97,7 +97,7 @@ const vendorSchema = z
   .object({
     ...accountBase,
     businessName: z.string().min(2, "Min 2 characters").max(150, "Max 150 characters"),
-    category: z.enum(["RESTAURANT", "GROCERY", "PHARMACY", "ERRAND"], {
+    category: z.enum(["RESTAURANT", "EMART", "PHARMACY"], {
       required_error: "Select a business category",
     }),
     address: z.string().min(1, "Business address is required"),
@@ -189,7 +189,8 @@ async function registerUser(payload: object): Promise<void> {
   if (res.ok) return;
   if (res.status === 409) throw new Error("An account with this email already exists.");
   if (res.status === 429) throw new Error("Too many attempts. Please wait a moment.");
-  throw new Error("Cannot reach the server. Check your connection.");
+  const body = await res.json().catch(() => null);
+  throw new Error(body?.message || "Something went wrong. Please try again.");
 }
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
@@ -523,9 +524,8 @@ function VendorForm({ onSuccess }: { onSuccess: () => void }) {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="RESTAURANT">Restaurant</SelectItem>
-                        <SelectItem value="GROCERY">Grocery</SelectItem>
+                        <SelectItem value="EMART">EMART (Grocery & More)</SelectItem>
                         <SelectItem value="PHARMACY">Pharmacy</SelectItem>
-                        <SelectItem value="ERRAND">Errand</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
