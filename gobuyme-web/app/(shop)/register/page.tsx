@@ -133,7 +133,8 @@ function RegisterContent() {
       toast('Account created! Check your email for OTP.', 'success');
       router.push(`/verify-otp?userId=${encodeURIComponent(userId)}&email=${encodeURIComponent(form.email)}&role=${role}`);
     } catch (e: any) {
-      setErr(e?.response?.data?.message ?? 'Registration failed. Try again.');
+      const fieldError = e?.response?.data?.errors?.[0]?.message;
+      setErr(fieldError ?? e?.response?.data?.message ?? 'Registration failed. Try again.');
     } finally { setLoading(false); }
   };
 
@@ -226,7 +227,7 @@ function RegisterContent() {
               <div className="form-group">
                 <label className="label">Password</label>
                 <div style={{ position: 'relative' }}>
-                  <input className="input" type={show ? 'text' : 'password'} value={form.password} onChange={set('password')} placeholder="Min. 8 characters" required minLength={8} style={{ paddingRight: 44 }} />
+                  <input className="input" type={show ? 'text' : 'password'} value={form.password} onChange={set('password')} placeholder="Min. 8 chars, upper, lower, number, symbol" required minLength={8} style={{ paddingRight: 44 }} />
                   <button type="button" onClick={() => setShow(s => !s)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: 13 }}>{show ? 'Hide' : 'Show'}</button>
                 </div>
               </div>
