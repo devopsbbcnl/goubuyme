@@ -3,7 +3,6 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth, UserRole } from '@/context/AuthContext';
 import { AppInput } from '@/components/ui/AppInput';
@@ -13,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { connectSockets, subscribeBackendStatus } from '@/services/socketService';
 import { useGoogleSignIn } from '@/hooks/useGoogleSignIn';
+import GoogleIcon from '@/components/ui/GoogleIcon';
 
 const ROLE_ROUTE: Record<string, string> = {
   customer: '/(customer)',
@@ -230,7 +230,7 @@ export default function LoginScreen() {
           disabled={!googleReady || googleBusy}
           activeOpacity={0.7}
         >
-          <Ionicons name="logo-google" size={18} color={T.text} />
+          <GoogleIcon size={18} />
           <Text style={[styles.googleText, { color: T.text }]}>
             {googleBusy ? 'Signing in…' : 'Continue with Google'}
           </Text>

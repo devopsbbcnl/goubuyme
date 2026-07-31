@@ -7,6 +7,7 @@ import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { ApprovalStatus, CommissionTier, LicenseType, OrderStatus, Prisma, VendorCategory, VerificationBadge } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getPlatformSettings } from '../services/settings.service';
+import { recordOnboardingEvent } from '../services/onboarding.service';
 
 // GET /vendors/commission-rates (public) — live tier rates for client display
 export const getPublicCommissionRates = catchAsync(async (_req: Request, res: Response) => {
@@ -222,6 +223,16 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
     data,
     select: vendorSelect,
   });
+
+  // Mark profile complete once both storefront images are in place.
+  const imgCheck = await prisma.vendor.findUnique({
+    where: { userId: req.user!.userId },
+    select: { logo: true, coverImage: true },
+  });
+  if (imgCheck?.logo && imgCheck?.coverImage) {
+    void recordOnboardingEvent(req.user!.userId, 'VENDOR', 'VENDOR_PROFILE_COMPLETED');
+  }
+
   return apiResponse.success(res, 'Vendor profile updated.', vendor);
 });
 
@@ -974,6 +985,8 @@ export const submitDocument = catchAsync(async (req: AuthRequest, res: Response)
   });
 
   await prisma.vendor.update({ where: { id: vendor.id }, data: { approvalStatus: 'PENDING' } });
+
+  void recordOnboardingEvent(req.user!.userId, 'VENDOR', 'DOCUMENTS_SUBMITTED');
 
   return apiResponse.success(res, 'Document submitted for review.', {
     id: doc.id, type: doc.type, status: doc.status,

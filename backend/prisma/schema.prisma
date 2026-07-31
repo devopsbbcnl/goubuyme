@@ -38,10 +38,26 @@ model User {
   referrals              User[]     @relation("Referrals")
   vendor                 Vendor?
   offerRedemptions       OfferRedemption[]
+  onboardingEvents       OnboardingEvent[]
 
   @@index([role])
   @@index([createdAt])
   @@map("users")
+}
+
+model OnboardingEvent {
+  id        String              @id @default(uuid())
+  userId    String
+  role      Role
+  event     OnboardingEventType
+  metadata  Json?
+  createdAt DateTime            @default(now())
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, event])
+  @@index([role, event])
+  @@index([createdAt])
+  @@map("onboarding_events")
 }
 
 model Customer {
@@ -765,6 +781,18 @@ enum Role {
   SUPER_ADMIN
   OPERATIONS_ADMIN
   SUPPORT_ADMIN
+}
+
+/// One row per user per onboarding transition (first occurrence wins, enforced
+/// by the @@unique below). Powers the event-based onboarding funnel with real
+/// per-step timings — complements the derived/snapshot analytics.
+enum OnboardingEventType {
+  SIGNED_UP
+  EMAIL_VERIFIED
+  VENDOR_PROFILE_COMPLETED
+  DOCUMENTS_SUBMITTED
+  APPROVED
+  FIRST_ORDER
 }
 
 enum VendorCategory {

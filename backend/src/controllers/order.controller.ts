@@ -10,6 +10,7 @@ import { evaluatePromo } from '../services/offer.service';
 import { getPlatformSettings } from '../services/settings.service';
 import { getIO } from '../config/socket';
 import { notifyUser } from '../services/notification.service';
+import { recordOnboardingEvent } from '../services/onboarding.service';
 import { PaymentMethod, OrderStatus } from '@prisma/client';
 
 const generateOrderNumber = () => {
@@ -361,6 +362,9 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
     type: 'order',
     data: { orderId: order.id },
   }).catch(() => {});
+
+  // First order = customer activation (idempotent — only the first order counts).
+  void recordOnboardingEvent(req.user!.userId, 'CUSTOMER', 'FIRST_ORDER');
 
   return apiResponse.success(res, 'Order placed.', order, 201);
 });

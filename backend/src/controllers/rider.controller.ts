@@ -8,6 +8,7 @@ import { calcRiderEarning } from '../services/payout.service';
 import { OrderStatus } from '@prisma/client';
 import { getIO } from '../config/socket';
 import { notifyUser } from '../services/notification.service';
+import { recordOnboardingEvent } from '../services/onboarding.service';
 
 const resolveRider = async (userId: string) =>
   prisma.rider.findUnique({ where: { userId }, select: { id: true } });
@@ -554,6 +555,8 @@ export const submitRiderDocument = catchAsync(async (req: AuthRequest, res: Resp
       reviewNote: null,
     },
   });
+
+  void recordOnboardingEvent(req.user!.userId, 'RIDER', 'DOCUMENTS_SUBMITTED');
 
   return apiResponse.success(res, 'Documents submitted for review.', {
     id: doc.id, status: doc.status,
