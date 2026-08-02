@@ -1,5 +1,5 @@
 /** Must match server/form-api.mjs ALLOWED_FORMS */
-export type SiteFormId = "contact" | "riders-signup" | "vendors-apply" | "affiliate" | "book-a-call";
+export type SiteFormId = "contact" | "riders-signup" | "vendors-apply" | "affiliate" | "book-a-call" | "delete-account";
 
 const endpoint = process.env.NEXT_PUBLIC_FORM_API_URL ?? "/api/form-submit";
 

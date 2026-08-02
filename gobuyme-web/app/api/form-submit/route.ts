@@ -3,13 +3,17 @@ import { Resend } from 'resend';
 
 // Ported from gobuy-shine-sparkle netlify/functions/form-submit.mjs.
 // ALLOWED_FORMS must stay in sync with SiteFormId in marketing/lib/submitSiteForm.ts.
-const ALLOWED_FORMS = new Set(['contact', 'riders-signup', 'vendors-apply', 'affiliate', 'book-a-call']);
+const ALLOWED_FORMS = new Set(['contact', 'riders-signup', 'vendors-apply', 'affiliate', 'book-a-call', 'delete-account']);
 
 // Per-form overrides — to address and subject prefix
 const FORM_OVERRIDES: Record<string, { to?: string; subjectPrefix?: string }> = {
   'book-a-call': {
     to: process.env.PARTNERS_EMAIL?.trim() || 'partners@gobuyme.shop',
     subjectPrefix: '[GoBuyMe] Enterprise enquiry',
+  },
+  'delete-account': {
+    to: process.env.PRIVACY_EMAIL?.trim() || 'privacy@gobuyme.shop',
+    subjectPrefix: '[GoBuyMe] Account deletion request',
   },
 };
 
