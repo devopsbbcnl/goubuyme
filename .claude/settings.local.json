@@ -117,7 +117,10 @@
       "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse screenshot *)",
       "Bash(ipconfig)",
       "Bash(netsh advfirewall *)",
-      "Bash(powershell.exe *)"
+      "Bash(powershell.exe *)",
+      "Skill(investigate)",
+      "Bash(npx ts-node *)",
+      "Bash(echo \"exit: $?\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"

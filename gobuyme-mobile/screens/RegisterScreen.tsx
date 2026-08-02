@@ -57,6 +57,10 @@ const CATEGORIES = [
 	{ value: 'RESTAURANT', label: 'Restaurant' },
 	{ value: 'EMART',      label: 'EMART Mart' },
 	{ value: 'PHARMACY',   label: 'Pharmacy'   },
+	{ value: 'BAKERY',     label: 'Bakery'     },
+	{ value: 'DRINKS',     label: 'Drinks'     },
+	{ value: 'BUTCHER',    label: 'Butcher'    },
+	{ value: 'GAS',        label: 'Gas'        },
 ];
 
 const FIELD_LABELS: Record<string, keyof RegisterErrors> = {

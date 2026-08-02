@@ -110,8 +110,8 @@ async function seedDemo() {
       slug: 'mama-chikas-kitchen',
       description:
         'Authentic Nigerian home cooking. From smoky party jollof to rich Banga soup — we bring the taste of home straight to your door.',
-      logo: 'https://picsum.photos/seed/mamachika-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/mamachika-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/13915043/pexels-photo-13915043.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/37648014/pexels-photo-37648014.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.RESTAURANT,
       subcategory: 'Local Buka',
       address: '22 Trans Amadi Road',
@@ -136,15 +136,15 @@ async function seedDemo() {
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: vendor1.id, name: 'Jollof Rice + Chicken', description: 'Party jollof with smoky oven chicken', price: 2500, image: 'https://picsum.photos/seed/jollof/400/300', category: 'Meals', isFeatured: true, stockQuantity: 999 },
-      { vendorId: vendor1.id, name: 'Egusi Soup + Pounded Yam', description: 'Fresh egusi with assorted meat and stockfish', price: 3200, image: 'https://picsum.photos/seed/egusi/400/300', category: 'Meals', stockQuantity: 999 },
-      { vendorId: vendor1.id, name: 'Banga Soup + Starch', description: 'Delta-style palm nut soup with wrap', price: 3500, image: 'https://picsum.photos/seed/banga/400/300', category: 'Meals', stockQuantity: 999 },
-      { vendorId: vendor1.id, name: 'Fried Rice + Plantain', description: 'Special fried rice with golden dodo', price: 2800, image: 'https://picsum.photos/seed/friedrice/400/300', category: 'Meals', isFeatured: true, stockQuantity: 999 },
-      { vendorId: vendor1.id, name: 'Catfish Pepper Soup', description: 'Spicy point-and-kill style with utazi', price: 4500, image: 'https://picsum.photos/seed/peppersoup/400/300', category: 'Specials', stockQuantity: 999 },
-      { vendorId: vendor1.id, name: 'Moi Moi + Ogi', description: 'Traditional breakfast combo', price: 1200, image: 'https://picsum.photos/seed/moimoi/400/300', category: 'Snacks', stockQuantity: 999 },
-      { vendorId: vendor1.id, name: 'Oha Soup + Fufu', description: 'Oha leaves simmered with assorted meat', price: 3000, image: 'https://picsum.photos/seed/ohasoup/400/300', category: 'Meals', stockQuantity: 999 },
-      { vendorId: vendor1.id, name: 'Zobo Drink (Large)', description: 'Chilled hibiscus with ginger and pineapple', price: 600, image: 'https://picsum.photos/seed/zobo/400/300', category: 'Drinks', stockQuantity: 999 },
-      { vendorId: vendor1.id, name: 'Chapman Cocktail', description: 'Classic Nigerian party mocktail', price: 800, image: 'https://picsum.photos/seed/chapman/400/300', category: 'Drinks', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Jollof Rice + Chicken', description: 'Party jollof with smoky oven chicken', price: 2500, image: 'https://images.pexels.com/photos/13915043/pexels-photo-13915043.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Meals', isFeatured: true, stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Egusi Soup + Pounded Yam', description: 'Fresh egusi with assorted meat and stockfish', price: 3200, image: 'https://images.pexels.com/photos/31820028/pexels-photo-31820028.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Meals', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Banga Soup + Starch', description: 'Delta-style palm nut soup with wrap', price: 3500, image: 'https://images.pexels.com/photos/37663504/pexels-photo-37663504.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Meals', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Fried Rice + Plantain', description: 'Special fried rice with golden dodo', price: 2800, image: 'https://images.pexels.com/photos/27556972/pexels-photo-27556972.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Meals', isFeatured: true, stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Catfish Pepper Soup', description: 'Spicy point-and-kill style with utazi', price: 4500, image: 'https://images.pexels.com/photos/20943923/pexels-photo-20943923.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Specials', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Moi Moi + Ogi', description: 'Traditional breakfast combo', price: 1200, image: 'https://images.pexels.com/photos/31615010/pexels-photo-31615010.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Snacks', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Oha Soup + Fufu', description: 'Oha leaves simmered with assorted meat', price: 3000, image: 'https://images.pexels.com/photos/633627/pexels-photo-633627.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Meals', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Zobo Drink (Large)', description: 'Chilled hibiscus with ginger and pineapple', price: 600, image: 'https://images.pexels.com/photos/4113660/pexels-photo-4113660.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Drinks', stockQuantity: 999 },
+      { vendorId: vendor1.id, name: 'Chapman Cocktail', description: 'Classic Nigerian party mocktail', price: 800, image: 'https://images.pexels.com/photos/28273313/pexels-photo-28273313.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Drinks', stockQuantity: 999 },
     ],
   });
 
@@ -175,7 +175,7 @@ async function seedDemo() {
     data: {
       vendorId: vendor1.id,
       title: '20% Off All Rice Dishes Today!',
-      imageUrl: 'https://picsum.photos/seed/promo-mamachika/1080/580',
+      imageUrl: 'https://images.pexels.com/photos/37648014/pexels-photo-37648014.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       code: 'RICE20',
       isActive: true,
     },
@@ -204,8 +204,8 @@ async function seedDemo() {
       businessName: 'QuickMart Groceries',
       slug: 'quickmart-groceries',
       description: 'Fresh groceries, household essentials, and more — delivered to your door in under 40 minutes.',
-      logo: 'https://picsum.photos/seed/quickmart-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/quickmart-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/15222236/pexels-photo-15222236.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/4437148/pexels-photo-4437148.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.EMART,
       subcategory: 'Supermarket',
       address: '5 Rumuola Road',
@@ -229,14 +229,14 @@ async function seedDemo() {
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: vendor2.id, name: 'Tomatoes (1 kg)', price: 800, image: 'https://picsum.photos/seed/tomatoes/400/300', category: 'Fruits & Vegetables', isFeatured: true, stockQuantity: 200 },
-      { vendorId: vendor2.id, name: 'Indomie Noodles (Pack of 10)', price: 2200, image: 'https://picsum.photos/seed/indomie/400/300', category: 'Basic Food', isFeatured: true, stockQuantity: 150 },
-      { vendorId: vendor2.id, name: 'Hollandia Yoghurt (1 L)', price: 1800, image: 'https://picsum.photos/seed/yoghurt/400/300', category: 'Dairy & Breakfast', stockQuantity: 80 },
-      { vendorId: vendor2.id, name: 'Golden Morn (500 g)', price: 1400, image: 'https://picsum.photos/seed/goldenmorn/400/300', category: 'Dairy & Breakfast', stockQuantity: 120 },
-      { vendorId: vendor2.id, name: 'Canola Cooking Oil (1 L)', price: 2600, image: 'https://picsum.photos/seed/cookingoil/400/300', category: 'Food', stockQuantity: 60 },
-      { vendorId: vendor2.id, name: 'Dangote Sugar (1 kg)', price: 1200, image: 'https://picsum.photos/seed/sugar/400/300', category: 'Food', stockQuantity: 200 },
-      { vendorId: vendor2.id, name: 'Frozen Chicken (1 kg)', price: 4500, image: 'https://picsum.photos/seed/chicken/400/300', category: 'Meat & Chicken', isFeatured: true, stockQuantity: 50 },
-      { vendorId: vendor2.id, name: 'Peak Milk Powder (400 g)', price: 2100, image: 'https://picsum.photos/seed/peakmilk/400/300', category: 'Dairy & Breakfast', stockQuantity: 90 },
+      { vendorId: vendor2.id, name: 'Tomatoes (1 kg)', price: 800, image: 'https://images.pexels.com/photos/36094858/pexels-photo-36094858.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Fruits & Vegetables', isFeatured: true, stockQuantity: 200 },
+      { vendorId: vendor2.id, name: 'Indomie Noodles (Pack of 10)', price: 2200, image: 'https://images.pexels.com/photos/23228983/pexels-photo-23228983.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Basic Food', isFeatured: true, stockQuantity: 150 },
+      { vendorId: vendor2.id, name: 'Hollandia Yoghurt (1 L)', price: 1800, image: 'https://images.pexels.com/photos/34963265/pexels-photo-34963265.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Dairy & Breakfast', stockQuantity: 80 },
+      { vendorId: vendor2.id, name: 'Golden Morn (500 g)', price: 1400, image: 'https://images.pexels.com/photos/13975/pexels-photo-13975.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Dairy & Breakfast', stockQuantity: 120 },
+      { vendorId: vendor2.id, name: 'Canola Cooking Oil (1 L)', price: 2600, image: 'https://images.pexels.com/photos/11970733/pexels-photo-11970733.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Food', stockQuantity: 60 },
+      { vendorId: vendor2.id, name: 'Dangote Sugar (1 kg)', price: 1200, image: 'https://images.pexels.com/photos/5240173/pexels-photo-5240173.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Food', stockQuantity: 200 },
+      { vendorId: vendor2.id, name: 'Frozen Chicken (1 kg)', price: 4500, image: 'https://images.pexels.com/photos/13524831/pexels-photo-13524831.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Meat & Chicken', isFeatured: true, stockQuantity: 50 },
+      { vendorId: vendor2.id, name: 'Peak Milk Powder (400 g)', price: 2100, image: 'https://images.pexels.com/photos/10994727/pexels-photo-10994727.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Dairy & Breakfast', stockQuantity: 90 },
     ],
   });
 
@@ -273,8 +273,8 @@ async function seedDemo() {
       businessName: 'HealthPlus Pharmacy',
       slug: 'healthplus-pharmacy',
       description: 'PCN-licensed pharmacy delivering genuine medications and health products across Port Harcourt.',
-      logo: 'https://picsum.photos/seed/healthplus-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/healthplus-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/51929/medications-cure-tablets-pharmacy-51929.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/14797855/pexels-photo-14797855.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.PHARMACY,
       subcategory: 'Medications',
       address: '12 Peter Odili Road',
@@ -300,12 +300,12 @@ async function seedDemo() {
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: vendor3.id, name: 'Paracetamol (Strip)', price: 200, image: 'https://picsum.photos/seed/paracetamol/400/300', category: 'OTC Medications', isFeatured: true, stockQuantity: 500 },
-      { vendorId: vendor3.id, name: 'Vitamin C 1000 mg (30 tablets)', price: 1800, image: 'https://picsum.photos/seed/vitaminc/400/300', category: 'Vitamins & Supplements', stockQuantity: 200 },
-      { vendorId: vendor3.id, name: 'Oral Rehydration Salts (ORS)', price: 350, image: 'https://picsum.photos/seed/ors/400/300', category: 'OTC Medications', stockQuantity: 300 },
-      { vendorId: vendor3.id, name: 'Blood Pressure Monitor', price: 25000, image: 'https://picsum.photos/seed/bpmonitor/400/300', category: 'Diagnostics & Monitoring', stockQuantity: 30 },
-      { vendorId: vendor3.id, name: 'Hand Sanitizer (500 ml)', price: 1500, image: 'https://picsum.photos/seed/sanitizer/400/300', category: 'Personal Hygiene', stockQuantity: 150 },
-      { vendorId: vendor3.id, name: 'Malaria Rapid Test Kit', price: 2500, image: 'https://picsum.photos/seed/malariakit/400/300', category: 'Diagnostics & Monitoring', isFeatured: true, stockQuantity: 100 },
+      { vendorId: vendor3.id, name: 'Paracetamol (Strip)', price: 200, image: 'https://images.pexels.com/photos/3652092/pexels-photo-3652092.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'OTC Medications', isFeatured: true, stockQuantity: 500 },
+      { vendorId: vendor3.id, name: 'Vitamin C 1000 mg (30 tablets)', price: 1800, image: 'https://images.pexels.com/photos/17604537/pexels-photo-17604537.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Vitamins & Supplements', stockQuantity: 200 },
+      { vendorId: vendor3.id, name: 'Oral Rehydration Salts (ORS)', price: 350, image: 'https://images.pexels.com/photos/6922158/pexels-photo-6922158.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'OTC Medications', stockQuantity: 300 },
+      { vendorId: vendor3.id, name: 'Blood Pressure Monitor', price: 25000, image: 'https://images.pexels.com/photos/8670204/pexels-photo-8670204.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Diagnostics & Monitoring', stockQuantity: 30 },
+      { vendorId: vendor3.id, name: 'Hand Sanitizer (500 ml)', price: 1500, image: 'https://images.pexels.com/photos/9053307/pexels-photo-9053307.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Personal Hygiene', stockQuantity: 150 },
+      { vendorId: vendor3.id, name: 'Malaria Rapid Test Kit', price: 2500, image: 'https://images.pexels.com/photos/8390203/pexels-photo-8390203.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Diagnostics & Monitoring', isFeatured: true, stockQuantity: 100 },
     ],
   });
 
@@ -366,8 +366,8 @@ async function seedDemo() {
       businessName: 'NovaMart PH',
       slug: 'novamart-ph',
       description: 'Electronics, home appliances, personal care, and everyday essentials — all in one place.',
-      logo: 'https://picsum.photos/seed/novamart-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/novamart-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/3921817/pexels-photo-3921817.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/5699208/pexels-photo-5699208.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.EMART,
       subcategory: 'Electronics & Home',
       address: '7 Aggrey Road, Mile 1',
@@ -391,12 +391,12 @@ async function seedDemo() {
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: vendor4.id, name: 'USB-C Fast Charger (65 W)', description: 'Universal GaN charger compatible with phones and laptops', price: 4500, image: 'https://picsum.photos/seed/usbc-charger/400/300', category: 'Electronics', isFeatured: true, stockQuantity: 80 },
-      { vendorId: vendor4.id, name: 'Wireless Earbuds', description: 'Bluetooth 5.3, 24-hour battery life, noise isolation', price: 12000, image: 'https://picsum.photos/seed/wireless-earbuds/400/300', category: 'Electronics', isFeatured: true, stockQuantity: 50 },
-      { vendorId: vendor4.id, name: 'LED Desk Lamp', description: 'Adjustable brightness and colour temperature, USB powered', price: 6500, image: 'https://picsum.photos/seed/desk-lamp/400/300', category: 'Home Life', stockQuantity: 60 },
-      { vendorId: vendor4.id, name: 'Electric Kettle (1.5 L)', description: 'Stainless steel, auto shut-off, fast boil', price: 8000, image: 'https://picsum.photos/seed/electric-kettle/400/300', category: 'Home Life', stockQuantity: 45 },
-      { vendorId: vendor4.id, name: 'Men\'s Body Wash (500 ml)', description: 'Energising citrus scent, sulphate-free formula', price: 2200, image: 'https://picsum.photos/seed/body-wash/400/300', category: 'Personal Care', stockQuantity: 120 },
-      { vendorId: vendor4.id, name: 'Phone Screen Protector', description: 'Universal tempered glass, fits most 6–6.9 inch phones', price: 1500, image: 'https://picsum.photos/seed/screen-protector/400/300', category: 'Electronics', stockQuantity: 200 },
+      { vendorId: vendor4.id, name: 'USB-C Fast Charger (65 W)', description: 'Universal GaN charger compatible with phones and laptops', price: 4500, image: 'https://images.pexels.com/photos/3921713/pexels-photo-3921713.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Electronics', isFeatured: true, stockQuantity: 80 },
+      { vendorId: vendor4.id, name: 'Wireless Earbuds', description: 'Bluetooth 5.3, 24-hour battery life, noise isolation', price: 12000, image: 'https://images.pexels.com/photos/33797659/pexels-photo-33797659.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Electronics', isFeatured: true, stockQuantity: 50 },
+      { vendorId: vendor4.id, name: 'LED Desk Lamp', description: 'Adjustable brightness and colour temperature, USB powered', price: 6500, image: 'https://images.pexels.com/photos/5400775/pexels-photo-5400775.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Home Life', stockQuantity: 60 },
+      { vendorId: vendor4.id, name: 'Electric Kettle (1.5 L)', description: 'Stainless steel, auto shut-off, fast boil', price: 8000, image: 'https://images.pexels.com/photos/10965749/pexels-photo-10965749.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Home Life', stockQuantity: 45 },
+      { vendorId: vendor4.id, name: 'Men\'s Body Wash (500 ml)', description: 'Energising citrus scent, sulphate-free formula', price: 2200, image: 'https://images.pexels.com/photos/4831007/pexels-photo-4831007.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Personal Care', stockQuantity: 120 },
+      { vendorId: vendor4.id, name: 'Phone Screen Protector', description: 'Universal tempered glass, fits most 6–6.9 inch phones', price: 1500, image: 'https://images.pexels.com/photos/18160079/pexels-photo-18160079.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Electronics', stockQuantity: 200 },
     ],
   });
 
@@ -434,8 +434,8 @@ async function seedDemo() {
       businessName: 'Spicy Kings Shawarma & Grills',
       slug: 'spicy-kings-shawarma',
       description: 'Lebanese-style shawarma and Nigerian suya grills, made to order. Fast, fresh, and fiery.',
-      logo: 'https://picsum.photos/seed/spicykings-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/spicykings-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/5779364/pexels-photo-5779364.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/10572741/pexels-photo-10572741.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.RESTAURANT,
       subcategory: 'Shawarma & Grills',
       address: '45 Rumuobiakani Road',
@@ -459,12 +459,12 @@ async function seedDemo() {
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: vendor5.id, name: 'Chicken Shawarma Roll', description: 'Grilled chicken, crispy veg, garlic sauce in warm flatbread', price: 2200, image: 'https://picsum.photos/seed/shawarma-chicken/400/300', category: 'Shawarma', isFeatured: true, stockQuantity: 999 },
-      { vendorId: vendor5.id, name: 'Beef Shawarma Roll', description: 'Seasoned minced beef, pickled veg, spicy sauce', price: 2500, image: 'https://picsum.photos/seed/shawarma-beef/400/300', category: 'Shawarma', isFeatured: true, stockQuantity: 999 },
-      { vendorId: vendor5.id, name: 'Suya Stick (×5)', description: 'Classic PH-style spiced grilled beef skewers', price: 2000, image: 'https://picsum.photos/seed/suya-sticks/400/300', category: 'Grills', stockQuantity: 999 },
-      { vendorId: vendor5.id, name: 'Grilled Chicken (Half)', description: 'Marinated half chicken slow-grilled over charcoal', price: 4500, image: 'https://picsum.photos/seed/grilled-chick/400/300', category: 'Grills', stockQuantity: 999 },
-      { vendorId: vendor5.id, name: 'Puff Puff (×6)', description: 'Sweet deep-fried dough balls', price: 800, image: 'https://picsum.photos/seed/puff-puff-pk/400/300', category: 'Snacks', stockQuantity: 999 },
-      { vendorId: vendor5.id, name: 'Soft Drink (Can)', description: 'Chilled Coke, Fanta, or Sprite', price: 400, image: 'https://picsum.photos/seed/softdrink-can/400/300', category: 'Drinks', stockQuantity: 999 },
+      { vendorId: vendor5.id, name: 'Chicken Shawarma Roll', description: 'Grilled chicken, crispy veg, garlic sauce in warm flatbread', price: 2200, image: 'https://images.pexels.com/photos/5779372/pexels-photo-5779372.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Shawarma', isFeatured: true, stockQuantity: 999 },
+      { vendorId: vendor5.id, name: 'Beef Shawarma Roll', description: 'Seasoned minced beef, pickled veg, spicy sauce', price: 2500, image: 'https://images.pexels.com/photos/11286814/pexels-photo-11286814.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Shawarma', isFeatured: true, stockQuantity: 999 },
+      { vendorId: vendor5.id, name: 'Suya Stick (×5)', description: 'Classic PH-style spiced grilled beef skewers', price: 2000, image: 'https://images.pexels.com/photos/23614250/pexels-photo-23614250.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Grills', stockQuantity: 999 },
+      { vendorId: vendor5.id, name: 'Grilled Chicken (Half)', description: 'Marinated half chicken slow-grilled over charcoal', price: 4500, image: 'https://images.pexels.com/photos/27777833/pexels-photo-27777833.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Grills', stockQuantity: 999 },
+      { vendorId: vendor5.id, name: 'Puff Puff (×6)', description: 'Sweet deep-fried dough balls', price: 800, image: 'https://images.pexels.com/photos/34521022/pexels-photo-34521022.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Snacks', stockQuantity: 999 },
+      { vendorId: vendor5.id, name: 'Soft Drink (Can)', description: 'Chilled Coke, Fanta, or Sprite', price: 400, image: 'https://images.pexels.com/photos/4113653/pexels-photo-4113653.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Drinks', stockQuantity: 999 },
     ],
   });
 
@@ -483,7 +483,7 @@ async function seedDemo() {
     data: {
       vendorId: vendor5.id,
       title: 'Buy 2 Shawarmas, Get 1 Free This Weekend!',
-      imageUrl: 'https://picsum.photos/seed/promo-spicykings/1080/580',
+      imageUrl: 'https://images.pexels.com/photos/10572741/pexels-photo-10572741.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       code: 'SKBOGO',
       isActive: true,
     },
@@ -512,8 +512,8 @@ async function seedDemo() {
       businessName: 'FreshMart Hypermarket',
       slug: 'freshmart-hypermarket',
       description: 'Your one-stop grocery store — fresh produce, beverages, and household essentials at great prices.',
-      logo: 'https://picsum.photos/seed/freshmart-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/freshmart-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/15222236/pexels-photo-15222236.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/12036282/pexels-photo-12036282.png?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.EMART,
       subcategory: 'Supermarket',
       address: '18 Aba Road, GRA',
@@ -1200,8 +1200,8 @@ async function seedDemo() {
       businessName: 'Yellow Chilli Restaurant',
       slug: 'yellow-chilli-restaurant',
       description: 'Bold West African flavours — from pepper soup to asun, served hot and fresh across Lagos.',
-      logo: 'https://picsum.photos/seed/yellowchilli-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/yellowchilli-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/13915043/pexels-photo-13915043.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/15171155/pexels-photo-15171155.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.RESTAURANT,
       subcategory: 'West African Cuisine',
       address: '14 Admiralty Way, Lekki Phase 1',
@@ -1226,11 +1226,11 @@ async function seedDemo() {
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: lagosV1.id, name: 'Asun (Spicy Goat Meat)', description: 'Smoky peppered goat — Lagos party staple', price: 3800, image: 'https://picsum.photos/seed/asun/400/300', category: 'Grills', isFeatured: true, stockQuantity: 999 },
-      { vendorId: lagosV1.id, name: 'Pounded Yam + Egusi', description: 'Freshly pounded with rich egusi soup', price: 3200, image: 'https://picsum.photos/seed/py-egusi/400/300', category: 'Soups & Swallow', stockQuantity: 999 },
-      { vendorId: lagosV1.id, name: 'Fried Plantain (Dodo)', description: 'Perfectly golden slices of ripe plantain', price: 900, image: 'https://picsum.photos/seed/dodo-lg/400/300', category: 'Sides', stockQuantity: 999 },
-      { vendorId: lagosV1.id, name: 'Pepper Soup (Goat)', description: 'Hot goat pepper soup with utazi leaves', price: 4200, image: 'https://picsum.photos/seed/goat-ps/400/300', category: 'Specials', stockQuantity: 999 },
-      { vendorId: lagosV1.id, name: 'Party Jollof (Large)', description: 'Smoky tomato jollof for two', price: 4500, image: 'https://picsum.photos/seed/jollof-lg/400/300', category: 'Rice Dishes', isFeatured: true, stockQuantity: 999 },
+      { vendorId: lagosV1.id, name: 'Asun (Spicy Goat Meat)', description: 'Smoky peppered goat — Lagos party staple', price: 3800, image: 'https://images.pexels.com/photos/34772931/pexels-photo-34772931.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Grills', isFeatured: true, stockQuantity: 999 },
+      { vendorId: lagosV1.id, name: 'Pounded Yam + Egusi', description: 'Freshly pounded with rich egusi soup', price: 3200, image: 'https://images.pexels.com/photos/31820028/pexels-photo-31820028.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Soups & Swallow', stockQuantity: 999 },
+      { vendorId: lagosV1.id, name: 'Fried Plantain (Dodo)', description: 'Perfectly golden slices of ripe plantain', price: 900, image: 'https://images.pexels.com/photos/36886535/pexels-photo-36886535.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Sides', stockQuantity: 999 },
+      { vendorId: lagosV1.id, name: 'Pepper Soup (Goat)', description: 'Hot goat pepper soup with utazi leaves', price: 4200, image: 'https://images.pexels.com/photos/37648018/pexels-photo-37648018.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Specials', stockQuantity: 999 },
+      { vendorId: lagosV1.id, name: 'Party Jollof (Large)', description: 'Smoky tomato jollof for two', price: 4500, image: 'https://images.pexels.com/photos/8166269/pexels-photo-8166269.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Rice Dishes', isFeatured: true, stockQuantity: 999 },
     ],
   });
 
@@ -1238,7 +1238,7 @@ async function seedDemo() {
     data: {
       vendorId: lagosV1.id,
       title: 'Lagos Special: 15% Off All Grills This Weekend!',
-      imageUrl: 'https://picsum.photos/seed/promo-yellowchilli/1080/580',
+      imageUrl: 'https://images.pexels.com/photos/15171155/pexels-photo-15171155.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       code: 'GRILL15',
       isActive: true,
     },
@@ -1266,8 +1266,8 @@ async function seedDemo() {
       businessName: 'FreshBasket Supermarket',
       slug: 'freshbasket-supermarket',
       description: 'Quality groceries and fresh produce delivered fast across Lagos Island and Mainland.',
-      logo: 'https://picsum.photos/seed/freshbasket-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/freshbasket-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/37321079/pexels-photo-37321079.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/27175527/pexels-photo-27175527.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.EMART,
       subcategory: 'Supermarket',
       address: '7 Kofo Abayomi Street, Victoria Island',
@@ -1291,10 +1291,10 @@ async function seedDemo() {
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: lagosV2.id, name: 'Semovita (2 kg)', price: 2800, image: 'https://picsum.photos/seed/semovita/400/300', category: 'Basic Food', isFeatured: true, stockQuantity: 999 },
-      { vendorId: lagosV2.id, name: 'Titus Fish (1 kg)', description: 'Frozen titus mackerel', price: 3500, image: 'https://picsum.photos/seed/titus-fish/400/300', category: 'Meat & Chicken', stockQuantity: 999 },
-      { vendorId: lagosV2.id, name: 'Groundnut Oil (2 L)', price: 4200, image: 'https://picsum.photos/seed/gnut-oil/400/300', category: 'Food', isFeatured: true, stockQuantity: 999 },
-      { vendorId: lagosV2.id, name: 'Tomato Paste (800 g)', price: 1100, image: 'https://picsum.photos/seed/tom-paste/400/300', category: 'Food', stockQuantity: 999 },
+      { vendorId: lagosV2.id, name: 'Semovita (2 kg)', price: 2800, image: 'https://images.pexels.com/photos/15148531/pexels-photo-15148531.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Basic Food', isFeatured: true, stockQuantity: 999 },
+      { vendorId: lagosV2.id, name: 'Titus Fish (1 kg)', description: 'Frozen titus mackerel', price: 3500, image: 'https://images.pexels.com/photos/20121102/pexels-photo-20121102.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Meat & Chicken', stockQuantity: 999 },
+      { vendorId: lagosV2.id, name: 'Groundnut Oil (2 L)', price: 4200, image: 'https://images.pexels.com/photos/33501329/pexels-photo-33501329.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Food', isFeatured: true, stockQuantity: 999 },
+      { vendorId: lagosV2.id, name: 'Tomato Paste (800 g)', price: 1100, image: 'https://images.pexels.com/photos/30964387/pexels-photo-30964387.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Food', stockQuantity: 999 },
     ],
   });
 
@@ -1320,8 +1320,8 @@ async function seedDemo() {
       businessName: 'The Buka Spot',
       slug: 'the-buka-spot',
       description: 'Authentic Nigerian buka experience — tuwo shinkafa, miyan kuka, and Northern delicacies, delivered hot in Abuja.',
-      logo: 'https://picsum.photos/seed/bukaspot-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/bukaspot-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/37648018/pexels-photo-37648018.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/37648018/pexels-photo-37648018.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.RESTAURANT,
       subcategory: 'Northern Nigerian',
       address: '3 Aminu Kano Crescent, Wuse 2',
@@ -1345,10 +1345,10 @@ async function seedDemo() {
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: abujaV1.id, name: 'Tuwo Shinkafa + Miyan Kuka', description: 'Classic Northern soup with dried baobab leaves', price: 2800, image: 'https://picsum.photos/seed/tuwo-kuka/400/300', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
-      { vendorId: abujaV1.id, name: 'Masa + Suya', description: 'Rice cakes served with spiced beef suya', price: 2200, image: 'https://picsum.photos/seed/masa-suya/400/300', category: 'Specials', isFeatured: true, stockQuantity: 999 },
-      { vendorId: abujaV1.id, name: 'Miyan Taushe + Tuwon Masara', description: 'Pumpkin leaf soup with cornmeal wrap', price: 2500, image: 'https://picsum.photos/seed/miyan-taushe/400/300', category: 'Soups & Swallow', stockQuantity: 999 },
-      { vendorId: abujaV1.id, name: 'Kilishi (100 g)', description: 'Abuja-style dried spiced beef jerky', price: 3000, image: 'https://picsum.photos/seed/kilishi/400/300', category: 'Snacks', stockQuantity: 999 },
+      { vendorId: abujaV1.id, name: 'Tuwo Shinkafa + Miyan Kuka', description: 'Classic Northern soup with dried baobab leaves', price: 2800, image: 'https://images.pexels.com/photos/37648014/pexels-photo-37648014.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
+      { vendorId: abujaV1.id, name: 'Masa + Suya', description: 'Rice cakes served with spiced beef suya', price: 2200, image: 'https://images.pexels.com/photos/28160385/pexels-photo-28160385.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Specials', isFeatured: true, stockQuantity: 999 },
+      { vendorId: abujaV1.id, name: 'Miyan Taushe + Tuwon Masara', description: 'Pumpkin leaf soup with cornmeal wrap', price: 2500, image: 'https://images.pexels.com/photos/37648018/pexels-photo-37648018.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Soups & Swallow', stockQuantity: 999 },
+      { vendorId: abujaV1.id, name: 'Kilishi (100 g)', description: 'Abuja-style dried spiced beef jerky', price: 3000, image: 'https://images.pexels.com/photos/34143556/pexels-photo-34143556.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Snacks', stockQuantity: 999 },
     ],
   });
 
@@ -1356,7 +1356,7 @@ async function seedDemo() {
     data: {
       vendorId: abujaV1.id,
       title: 'Abuja Lunch Special: Free Kilishi with any Soup Order!',
-      imageUrl: 'https://picsum.photos/seed/promo-bukaspot/1080/580',
+      imageUrl: 'https://images.pexels.com/photos/37648018/pexels-photo-37648018.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       code: 'ABUJAFREE',
       isActive: true,
     },
@@ -1384,8 +1384,8 @@ async function seedDemo() {
       businessName: 'Capital Pharmacy',
       slug: 'capital-pharmacy-abuja',
       description: 'Licensed pharmacy serving Abuja residents with genuine medications and wellness products.',
-      logo: 'https://picsum.photos/seed/capitalpharm-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/capitalpharm-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/51929/medications-cure-tablets-pharmacy-51929.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/19943230/pexels-photo-19943230.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.PHARMACY,
       subcategory: 'Medications',
       address: '22 Gana Street, Maitama',
@@ -1410,9 +1410,9 @@ async function seedDemo() {
 
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: abujaV2.id, name: 'Paracetamol (Strip)', price: 200, image: 'https://picsum.photos/seed/para-abj/400/300', category: 'Pain Relief', isFeatured: true, stockQuantity: 999 },
-      { vendorId: abujaV2.id, name: 'Artemether-Lumefantrine (6-dose)', description: 'First-line malaria treatment', price: 3500, image: 'https://picsum.photos/seed/malaria-drug/400/300', category: 'Malaria', isFeatured: true, stockQuantity: 999 },
-      { vendorId: abujaV2.id, name: 'Hand Sanitizer (500 ml)', price: 1500, image: 'https://picsum.photos/seed/sanit-abj/400/300', category: 'Hygiene', stockQuantity: 999 },
+      { vendorId: abujaV2.id, name: 'Paracetamol (Strip)', price: 200, image: 'https://images.pexels.com/photos/3652092/pexels-photo-3652092.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Pain Relief', isFeatured: true, stockQuantity: 999 },
+      { vendorId: abujaV2.id, name: 'Artemether-Lumefantrine (6-dose)', description: 'First-line malaria treatment', price: 3500, image: 'https://images.pexels.com/photos/7034124/pexels-photo-7034124.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Malaria', isFeatured: true, stockQuantity: 999 },
+      { vendorId: abujaV2.id, name: 'Hand Sanitizer (500 ml)', price: 1500, image: 'https://images.pexels.com/photos/9053307/pexels-photo-9053307.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Hygiene', stockQuantity: 999 },
     ],
   });
 
@@ -1436,8 +1436,8 @@ async function seedDemo() {
       businessName: 'Annang Kitchen',
       slug: 'annang-kitchen',
       description: 'Akwa Ibom home cooking — Afang soup, Edikang Ikong, and fresh sea food delivered hot in Uyo.',
-      logo: 'https://picsum.photos/seed/annang-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/annang-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/37648018/pexels-photo-37648018.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/15171155/pexels-photo-15171155.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.RESTAURANT,
       subcategory: 'Southern Nigerian',
       address: '8 Oron Road, Uyo',
@@ -1454,9 +1454,9 @@ async function seedDemo() {
   });
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: uyoV1.id, name: 'Afang Soup + Semovita', description: 'Rich Akwa Ibom Afang with waterleaf & periwinkle', price: 3200, image: 'https://picsum.photos/seed/afang/400/300', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
-      { vendorId: uyoV1.id, name: 'Edikang Ikong + Eba', description: 'Fluted pumpkin leaf soup with stockfish', price: 3000, image: 'https://picsum.photos/seed/edikang/400/300', category: 'Soups & Swallow', stockQuantity: 999 },
-      { vendorId: uyoV1.id, name: 'Ekpang Nkukwo', description: 'Grated cocoyam rolls with periwinkle in palm oil sauce', price: 2800, image: 'https://picsum.photos/seed/ekpang/400/300', category: 'Specials', isFeatured: true, stockQuantity: 999 },
+      { vendorId: uyoV1.id, name: 'Afang Soup + Semovita', description: 'Rich Akwa Ibom Afang with waterleaf & periwinkle', price: 3200, image: 'https://images.pexels.com/photos/9638804/pexels-photo-9638804.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
+      { vendorId: uyoV1.id, name: 'Edikang Ikong + Eba', description: 'Fluted pumpkin leaf soup with stockfish', price: 3000, image: 'https://images.pexels.com/photos/13994299/pexels-photo-13994299.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Soups & Swallow', stockQuantity: 999 },
+      { vendorId: uyoV1.id, name: 'Ekpang Nkukwo', description: 'Grated cocoyam rolls with periwinkle in palm oil sauce', price: 2800, image: 'https://images.pexels.com/photos/37648014/pexels-photo-37648014.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Specials', isFeatured: true, stockQuantity: 999 },
     ],
   });
   console.log(`✓ Uyo Vendor created: ${uyoV1User.email} (Restaurant)`);
@@ -1477,8 +1477,8 @@ async function seedDemo() {
       businessName: 'Efik Seafood House',
       slug: 'efik-seafood-house',
       description: 'Authentic Cross River delicacies — Fisherman\'s soup, Ekpang Nkukwo, and fresh river seafood in Calabar.',
-      logo: 'https://picsum.photos/seed/efikseafood-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/efikseafood-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/8250340/pexels-photo-8250340.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/8352795/pexels-photo-8352795.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.RESTAURANT,
       subcategory: 'Southern Nigerian',
       address: '14 MCC Road, Calabar',
@@ -1495,16 +1495,16 @@ async function seedDemo() {
   });
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: calabarV1.id, name: 'Fisherman\'s Soup', description: 'Calabar-style rich seafood pepper broth', price: 4500, image: 'https://picsum.photos/seed/fishermansoup/400/300', category: 'Specials', isFeatured: true, stockQuantity: 999 },
-      { vendorId: calabarV1.id, name: 'Afang + Fufu', description: 'Wild vegetable soup with stockfish and assorted', price: 3200, image: 'https://picsum.photos/seed/afang-fufu/400/300', category: 'Soups & Swallow', stockQuantity: 999 },
-      { vendorId: calabarV1.id, name: 'Nkwobi (Cow Foot)', description: 'Spiced cow foot in palm kernel paste', price: 4000, image: 'https://picsum.photos/seed/nkwobi/400/300', category: 'Specials', isFeatured: true, stockQuantity: 999 },
+      { vendorId: calabarV1.id, name: 'Fisherman\'s Soup', description: 'Calabar-style rich seafood pepper broth', price: 4500, image: 'https://images.pexels.com/photos/7491902/pexels-photo-7491902.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Specials', isFeatured: true, stockQuantity: 999 },
+      { vendorId: calabarV1.id, name: 'Afang + Fufu', description: 'Wild vegetable soup with stockfish and assorted', price: 3200, image: 'https://images.pexels.com/photos/35305066/pexels-photo-35305066.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Soups & Swallow', stockQuantity: 999 },
+      { vendorId: calabarV1.id, name: 'Nkwobi (Cow Foot)', description: 'Spiced cow foot in palm kernel paste', price: 4000, image: 'https://images.pexels.com/photos/34772931/pexels-photo-34772931.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Specials', isFeatured: true, stockQuantity: 999 },
     ],
   });
   await prisma.vendorPromotion.create({
     data: {
       vendorId: calabarV1.id,
       title: 'Calabar Carnival Special: 10% Off Seafood Orders!',
-      imageUrl: 'https://picsum.photos/seed/promo-efikseafood/1080/580',
+      imageUrl: 'https://images.pexels.com/photos/8352795/pexels-photo-8352795.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       code: 'CARNIVAL10',
       isActive: true,
     },
@@ -1527,8 +1527,8 @@ async function seedDemo() {
       businessName: "Miners' Grill",
       slug: 'miners-grill-enugu',
       description: 'Coal City flavours — Ofe Onugbu, Oha soup, and classic Igbo dishes delivered fresh in Enugu.',
-      logo: 'https://picsum.photos/seed/minersgrill-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/minersgrill-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/28160385/pexels-photo-28160385.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/15711722/pexels-photo-15711722.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.RESTAURANT,
       subcategory: 'Igbo Cuisine',
       address: '33 Ogui Road, Enugu',
@@ -1545,9 +1545,9 @@ async function seedDemo() {
   });
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: enuguV1.id, name: 'Ofe Onugbu + Pounded Yam', description: 'Bitter leaf soup with stockfish and assorted meat', price: 3000, image: 'https://picsum.photos/seed/ofe-onugbu/400/300', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
-      { vendorId: enuguV1.id, name: 'Oha Soup + Fufu', description: 'Seasonal oha leaves in palm oil with goat meat', price: 3200, image: 'https://picsum.photos/seed/oha-enugu/400/300', category: 'Soups & Swallow', stockQuantity: 999 },
-      { vendorId: enuguV1.id, name: 'Abacha (African Salad)', description: 'Spiced dried cassava with ugba, ede, and fish', price: 1800, image: 'https://picsum.photos/seed/abacha/400/300', category: 'Specials', isFeatured: true, stockQuantity: 999 },
+      { vendorId: enuguV1.id, name: 'Ofe Onugbu + Pounded Yam', description: 'Bitter leaf soup with stockfish and assorted meat', price: 3000, image: 'https://images.pexels.com/photos/31820028/pexels-photo-31820028.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
+      { vendorId: enuguV1.id, name: 'Oha Soup + Fufu', description: 'Seasonal oha leaves in palm oil with goat meat', price: 3200, image: 'https://images.pexels.com/photos/633627/pexels-photo-633627.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Soups & Swallow', stockQuantity: 999 },
+      { vendorId: enuguV1.id, name: 'Abacha (African Salad)', description: 'Spiced dried cassava with ugba, ede, and fish', price: 1800, image: 'https://images.pexels.com/photos/31606085/pexels-photo-31606085.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Specials', isFeatured: true, stockQuantity: 999 },
     ],
   });
   console.log(`✓ Enugu Vendor 1 created: ${enuguV1User.email} (Restaurant)`);
@@ -1568,8 +1568,8 @@ async function seedDemo() {
       businessName: 'Coal City Mart',
       slug: 'coal-city-mart',
       description: 'Enugu\'s favourite grocery stop — fresh produce, packaged goods, and household essentials delivered fast.',
-      logo: 'https://picsum.photos/seed/coalcitymart-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/coalcitymart-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/15222236/pexels-photo-15222236.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/9705821/pexels-photo-9705821.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.EMART,
       subcategory: 'Supermarket',
       address: '7 Zik Avenue, Uwani, Enugu',
@@ -1586,9 +1586,9 @@ async function seedDemo() {
   });
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: enuguV2.id, name: 'Semovita (2 kg)', price: 2600, image: 'https://picsum.photos/seed/semo-enugu/400/300', category: 'Basic Food', isFeatured: true, stockQuantity: 999 },
-      { vendorId: enuguV2.id, name: 'Palm Oil (1 L)', price: 1800, image: 'https://picsum.photos/seed/palmoil/400/300', category: 'Food', stockQuantity: 999 },
-      { vendorId: enuguV2.id, name: 'Ogiri Okpei (Igbo Seasoning)', description: 'Traditional fermented seed seasoning', price: 400, image: 'https://picsum.photos/seed/ogiri/400/300', category: 'Food', stockQuantity: 999 },
+      { vendorId: enuguV2.id, name: 'Semovita (2 kg)', price: 2600, image: 'https://images.pexels.com/photos/15148531/pexels-photo-15148531.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Basic Food', isFeatured: true, stockQuantity: 999 },
+      { vendorId: enuguV2.id, name: 'Palm Oil (1 L)', price: 1800, image: 'https://images.pexels.com/photos/3246159/pexels-photo-3246159.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Food', stockQuantity: 999 },
+      { vendorId: enuguV2.id, name: 'Ogiri Okpei (Igbo Seasoning)', description: 'Traditional fermented seed seasoning', price: 400, image: 'https://images.pexels.com/photos/36780551/pexels-photo-36780551.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Food', stockQuantity: 999 },
     ],
   });
   console.log(`✓ Enugu Vendor 2 created: ${enuguV2User.email} (Grocery)`);
@@ -1609,8 +1609,8 @@ async function seedDemo() {
       businessName: 'Ariaria Chop House',
       slug: 'ariaria-chop-house',
       description: 'Aba\'s go-to buka — quick Nigerian plates at market prices. Jollof, white rice, and assorted soups daily.',
-      logo: 'https://picsum.photos/seed/ariariacoph-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/ariariacoph-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/37648018/pexels-photo-37648018.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/37278541/pexels-photo-37278541.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.RESTAURANT,
       subcategory: 'Local Buka',
       address: '2 Factory Road, Aba',
@@ -1627,9 +1627,9 @@ async function seedDemo() {
   });
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: abaV1.id, name: 'White Rice + Stew', description: 'Plain boiled rice with rich tomato stew', price: 1500, image: 'https://picsum.photos/seed/rice-stew-aba/400/300', category: 'Rice Dishes', isFeatured: true, stockQuantity: 999 },
-      { vendorId: abaV1.id, name: 'Jollof Rice + Fish', description: 'Party jollof with fried titus fish', price: 1800, image: 'https://picsum.photos/seed/jollof-aba/400/300', category: 'Rice Dishes', stockQuantity: 999 },
-      { vendorId: abaV1.id, name: 'Ofe Onugbu + Pounded Yam', price: 2500, image: 'https://picsum.photos/seed/ofe-aba/400/300', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
+      { vendorId: abaV1.id, name: 'White Rice + Stew', description: 'Plain boiled rice with rich tomato stew', price: 1500, image: 'https://images.pexels.com/photos/19781592/pexels-photo-19781592.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Rice Dishes', isFeatured: true, stockQuantity: 999 },
+      { vendorId: abaV1.id, name: 'Jollof Rice + Fish', description: 'Party jollof with fried titus fish', price: 1800, image: 'https://images.pexels.com/photos/13915043/pexels-photo-13915043.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Rice Dishes', stockQuantity: 999 },
+      { vendorId: abaV1.id, name: 'Ofe Onugbu + Pounded Yam', price: 2500, image: 'https://images.pexels.com/photos/31820028/pexels-photo-31820028.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
     ],
   });
   console.log(`✓ Aba Vendor created: ${abaV1User.email} (Restaurant)`);
@@ -1650,8 +1650,8 @@ async function seedDemo() {
       businessName: 'Owerre Nchaa',
       slug: 'owerre-nchaa',
       description: 'The taste of Imo — Ofe Owerre, bush meat pepper soup, and authentic Owerri favourites delivered to your door.',
-      logo: 'https://picsum.photos/seed/owerrenchaa-logo/200/200',
-      coverImage: 'https://picsum.photos/seed/owerrenchaa-cover/1080/580',
+      logo: 'https://images.pexels.com/photos/37648018/pexels-photo-37648018.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+      coverImage: 'https://images.pexels.com/photos/15171155/pexels-photo-15171155.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       category: VendorCategory.RESTAURANT,
       subcategory: 'Igbo Cuisine',
       address: '5 Douglas Road, Owerri',
@@ -1668,16 +1668,16 @@ async function seedDemo() {
   });
   await prisma.menuItem.createMany({
     data: [
-      { vendorId: owerriV1.id, name: 'Ofe Owerre + Fufu', description: 'Imo-style soup with uziza, cocoyam & assorted', price: 3500, image: 'https://picsum.photos/seed/ofe-owerre/400/300', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
-      { vendorId: owerriV1.id, name: 'Bush Meat Pepper Soup', description: 'Forest game in a spiced herb broth', price: 5000, image: 'https://picsum.photos/seed/bushmeat-ps/400/300', category: 'Specials', isFeatured: true, stockQuantity: 999 },
-      { vendorId: owerriV1.id, name: 'Ụtara + Ogiri Sauce', description: 'Breadfruit with traditional fermented seed sauce', price: 2200, image: 'https://picsum.photos/seed/utara/400/300', category: 'Specials', stockQuantity: 999 },
+      { vendorId: owerriV1.id, name: 'Ofe Owerre + Fufu', description: 'Imo-style soup with uziza, cocoyam & assorted', price: 3500, image: 'https://images.pexels.com/photos/35305066/pexels-photo-35305066.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Soups & Swallow', isFeatured: true, stockQuantity: 999 },
+      { vendorId: owerriV1.id, name: 'Bush Meat Pepper Soup', description: 'Forest game in a spiced herb broth', price: 5000, image: 'https://images.pexels.com/photos/37648018/pexels-photo-37648018.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Specials', isFeatured: true, stockQuantity: 999 },
+      { vendorId: owerriV1.id, name: 'Ụtara + Ogiri Sauce', description: 'Breadfruit with traditional fermented seed sauce', price: 2200, image: 'https://images.pexels.com/photos/5899677/pexels-photo-5899677.jpeg?auto=compress&cs=tinysrgb&h=650&w=940', category: 'Specials', stockQuantity: 999 },
     ],
   });
   await prisma.vendorPromotion.create({
     data: {
       vendorId: owerriV1.id,
       title: 'Owerri Special: Free Pepper Soup Side on Orders Above ₦4,000!',
-      imageUrl: 'https://picsum.photos/seed/promo-owerrenchaa/1080/580',
+      imageUrl: 'https://images.pexels.com/photos/15171155/pexels-photo-15171155.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
       code: 'OWERRI4K',
       isActive: true,
     },

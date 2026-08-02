@@ -45,6 +45,10 @@ const TOP_CATEGORIES = [
   { id: 'RESTAURANT', label: 'Food',     icon: '🍛' },
   { id: 'EMART',      label: 'EMART',    icon: '🛒' },
   { id: 'PHARMACY',   label: 'Pharmacy', icon: '💊' },
+  { id: 'BAKERY',     label: 'Bakery',   icon: '🥐' },
+  { id: 'DRINKS',     label: 'Drinks',   icon: '🥤' },
+  { id: 'BUTCHER',    label: 'Butcher',  icon: '🥩' },
+  { id: 'GAS',        label: 'Gas',      icon: '🔥' },
 ];
 
 const EMART_PRODUCT_CATS = [
@@ -75,6 +79,10 @@ const CATEGORY_LABEL: Record<string, string> = {
   RESTAURANT: 'Restaurant',
   EMART:      'EMART Mart',
   PHARMACY:   'Pharmacy',
+  BAKERY:     'Bakery',
+  DRINKS:     'Drinks',
+  BUTCHER:    'Butcher',
+  GAS:        'Gas',
 };
 
 type VerificationBadge = 'UNVERIFIED' | 'ID_VERIFIED' | 'BUSINESS_VERIFIED' | 'PREMIUM_VERIFIED';

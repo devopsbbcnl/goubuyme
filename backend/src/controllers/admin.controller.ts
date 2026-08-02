@@ -953,6 +953,59 @@ export const updateVendorTier = catchAsync(async (req: AuthRequest, res: Respons
   return apiResponse.success(res, 'Vendor tier updated.', updated);
 });
 
+// PATCH /admin/vendors/:id/category
+export const updateVendorCategory = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { category } = req.body;
+
+  if (!category || !Object.values(VendorCategory).includes(category as VendorCategory)) {
+    return apiResponse.error(
+      res,
+      `Invalid category. Must be one of: ${Object.values(VendorCategory).join(', ')}.`,
+      400,
+    );
+  }
+
+  const vendor = await prisma.vendor.findUnique({
+    where: { id },
+    select: { id: true, businessName: true, userId: true, category: true },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+
+  if (vendor.category === category) {
+    return apiResponse.error(res, `Vendor is already categorised as ${category}.`, 400);
+  }
+
+  const previousCategory = vendor.category;
+
+  const updated = await prisma.vendor.update({
+    where: { id },
+    // Keep the pharmacy compliance flag in lockstep with the category so a
+    // reclassification into/out of PHARMACY re-evaluates verification handling.
+    data: { category: category as VendorCategory, isPharmacyFlagged: category === 'PHARMACY' },
+    select: { id: true, businessName: true, category: true, isPharmacyFlagged: true },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user!.userId,
+      action: 'VENDOR_CATEGORY_CHANGED',
+      entity: 'Vendor',
+      entityId: id,
+      meta: { from: previousCategory, to: category },
+    },
+  });
+
+  notifyUser(vendor.userId, {
+    title: 'Store Category Updated',
+    body: `Your store category has been changed to ${category}. Your available product categories will update to match.`,
+    type: 'account',
+    data: { from: previousCategory, to: category },
+  }).catch(() => {});
+
+  return apiResponse.success(res, 'Vendor category updated.', updated);
+});
+
 // GET /admin/vendors/:id
 export const getVendorDetail = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -1219,8 +1272,8 @@ export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Respon
   if (!name?.trim() || !email?.trim() || !password || !businessName?.trim() || !category || !address?.trim() || !city?.trim()) {
     return apiResponse.error(res, 'Name, email, password, business name, category, address, and city are required.', 400);
   }
-  if (!['RESTAURANT', 'EMART', 'PHARMACY'].includes(category)) {
-    return apiResponse.error(res, 'Category must be RESTAURANT, EMART, or PHARMACY.', 400);
+  if (!['RESTAURANT', 'EMART', 'PHARMACY', 'BAKERY', 'DRINKS', 'BUTCHER', 'GAS'].includes(category)) {
+    return apiResponse.error(res, 'Category must be RESTAURANT, EMART, PHARMACY, BAKERY, DRINKS, BUTCHER, or GAS.', 400);
   }
 
   const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });

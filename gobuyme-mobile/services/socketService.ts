@@ -4,7 +4,7 @@ import { requirePublicEnv } from './env';
 // Fails fast in production builds if the URL is missing, instead of silently
 // falling back to localhost (which on a device points at the phone itself and
 // surfaces as a socket.io connection error).
-const SOCKET_URL = requirePublicEnv('EXPO_PUBLIC_SOCKET_URL', 'http://localhost:5000');
+const SOCKET_URL = requirePublicEnv('EXPO_PUBLIC_SOCKET_URL', process.env.EXPO_PUBLIC_SOCKET_URL, 'http://localhost:5000');
 
 let ordersSocket: Socket | null = null;
 let ridersSocket: Socket | null = null;
