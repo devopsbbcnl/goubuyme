@@ -220,6 +220,10 @@ function VendorsContent() {
     RESTAURANT: 'Restaurants',
     EMART: 'Stores',
     PHARMACY: 'Pharmacies',
+    BAKERY: 'Bakeries',
+    DRINKS: 'Drinks',
+    BUTCHER: 'Butchers',
+    GAS: 'Gas',
   };
   const cityLabel = urlCity ?? selectedCity;
   const categoryLabel = cat ? (CATEGORY_LABELS[cat] ?? cat) : 'Locations';

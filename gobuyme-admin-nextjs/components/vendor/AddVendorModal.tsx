@@ -15,6 +15,10 @@ const CATEGORIES = [
   { value: 'RESTAURANT', label: 'Restaurant'            },
   { value: 'EMART',      label: 'EMART (Grocery & More)' },
   { value: 'PHARMACY',   label: 'Pharmacy'               },
+  { value: 'BAKERY',     label: 'Bakery'                 },
+  { value: 'DRINKS',     label: 'Drinks'                 },
+  { value: 'BUTCHER',    label: 'Butcher (Meat & Fish)'  },
+  { value: 'GAS',        label: 'Gas'                    },
 ];
 
 const DOC_META: Record<DocType, { label: string; numberLabel: string; placeholder: string; backRequired: boolean }> = {

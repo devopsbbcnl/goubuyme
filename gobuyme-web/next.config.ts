@@ -16,9 +16,13 @@ const apiOrigin = (() => {
 // blocks loading of any externally-hosted script/frame/connection that isn't one
 // of the origins this app actually uses (Google Sign-In, Cloudinary, the backend
 // API) — the main gap it closes is arbitrary third-party script/asset injection.
+const isDev = process.env.NODE_ENV !== 'production';
+
+// 'unsafe-eval' is needed only in dev — React dev mode uses eval() for stack
+// trace reconstruction; production React bundles never call eval().
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://accounts.google.com`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://accounts.google.com`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: https://res.cloudinary.com",
   "font-src 'self' data: https://fonts.gstatic.com",

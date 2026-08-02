@@ -21,8 +21,6 @@ interface VendorProfile {
   closingTime?: string;
 }
 
-const CATEGORIES = ['RESTAURANT', 'EMART', 'PHARMACY'];
-
 function ImgUpload({
   label, value, folder, onUploaded,
 }: {
@@ -134,9 +132,8 @@ export default function VendorProfilePage() {
           <div className="form-group"><label className="label">Business Name</label><input className="input" value={profile.businessName} onChange={e => set('businessName', e.target.value)} /></div>
           <div className="form-group"><label className="label">Description</label><textarea className="textarea" value={profile.description ?? ''} onChange={e => set('description', e.target.value)} /></div>
           <div className="form-group"><label className="label">Category</label>
-            <select className="select" value={profile.category} onChange={e => set('category', e.target.value)}>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <input className="input" value={profile.category} readOnly disabled />
+            <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>Set by GoBuyMe. Contact support to reclassify your store.</p>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
             <div className="form-group" style={{ flex: 1 }}><label className="label">Opens</label><input className="input" type="time" value={profile.openingTime ?? ''} onChange={e => set('openingTime', e.target.value)} /></div>

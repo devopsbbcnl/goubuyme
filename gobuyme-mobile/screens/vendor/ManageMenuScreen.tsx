@@ -93,9 +93,33 @@ const PHARMACY_CATS = [
 	'Diagnostics & Monitoring', 'Herbal & Natural', 'Personal Hygiene',
 ];
 
+const BAKERY_CATS = [
+	'Cakes', 'Bread', 'Pastries', 'Small Chops', 'Pies & Rolls', 'Doughnuts',
+	'Cupcakes & Muffins', 'Cookies & Biscuits', 'Custom Orders', 'Other',
+];
+
+const DRINKS_CATS = [
+	'Soft Drinks', 'Water', 'Juices', 'Energy Drinks', 'Beer', 'Wine',
+	'Spirits', 'Mixers & Cocktails', 'Non-Alcoholic', 'Other',
+];
+
+const BUTCHER_CATS = [
+	'Beef', 'Chicken', 'Goat Meat', 'Turkey', 'Pork', 'Fish', 'Seafood',
+	'Gizzard & Offals', 'Processed Meat', 'Other',
+];
+
+const GAS_CATS = [
+	'Cooking Gas Refill', 'Gas Cylinders', 'Regulators & Hoses',
+	'Burners & Cookers', 'Accessories', 'Other',
+];
+
 function getCatList(vendorCategory: string | null): string[] {
 	if (vendorCategory === 'EMART') return EMART_CATS;
 	if (vendorCategory === 'PHARMACY') return PHARMACY_CATS;
+	if (vendorCategory === 'BAKERY') return BAKERY_CATS;
+	if (vendorCategory === 'DRINKS') return DRINKS_CATS;
+	if (vendorCategory === 'BUTCHER') return BUTCHER_CATS;
+	if (vendorCategory === 'GAS') return GAS_CATS;
 	return RESTAURANT_CATS;
 }
 

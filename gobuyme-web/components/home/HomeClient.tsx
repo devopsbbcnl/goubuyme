@@ -33,7 +33,10 @@ const FOOD_CATEGORIES = [
   { icon: '🍗', label: 'Chicken',       cat: 'RESTAURANT' },
   { icon: '🥗', label: 'Salads',        cat: 'RESTAURANT' },
   { icon: '🛒', label: 'EMART',         cat: 'EMART' },
-  { icon: '🥐', label: 'Bakery',        cat: 'RESTAURANT' },
+  { icon: '🥐', label: 'Bakery',        cat: 'BAKERY' },
+  { icon: '🥤', label: 'Drinks',        cat: 'DRINKS' },
+  { icon: '🥩', label: 'Butcher',       cat: 'BUTCHER' },
+  { icon: '🔥', label: 'Gas',           cat: 'GAS' },
   { icon: '💊', label: 'Pharmacy',      cat: 'PHARMACY' },
 ];
 

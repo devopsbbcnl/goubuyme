@@ -13,6 +13,10 @@ const VENDOR_TYPES = [
   { label: 'Restaurants', icon: '🍽️', slug: 'RESTAURANT' },
   { label: 'EMART', icon: '🛒', slug: 'EMART' },
   { label: 'Pharmacy', icon: '💊', slug: 'PHARMACY' },
+  { label: 'Bakery', icon: '🥐', slug: 'BAKERY' },
+  { label: 'Drinks', icon: '🥤', slug: 'DRINKS' },
+  { label: 'Butcher', icon: '🥩', slug: 'BUTCHER' },
+  { label: 'Gas', icon: '🔥', slug: 'GAS' },
 ];
 
 type SubGroup = { label: string; icon: string; subs: string[] };
@@ -50,6 +54,26 @@ const CATEGORY_DATA: Record<string, CategoryEntry> = {
       },
     ],
     visual: { gradient: 'linear-gradient(135deg,#2980b9,#3498db)', emoji: '💊', imageUrl: '/images/pharmacy.jpg' },
+  },
+  BAKERY: {
+    label: 'Bakery', icon: '🥐',
+    subs: ['Cakes', 'Bread', 'Pastries', 'Small Chops', 'Pies & Rolls', 'Doughnuts', 'Cupcakes', 'Cookies', 'Custom Orders'],
+    visual: { gradient: 'linear-gradient(135deg,#E67E22,#F5B041)', emoji: '🥐' },
+  },
+  DRINKS: {
+    label: 'Drinks', icon: '🥤',
+    subs: ['Soft Drinks', 'Water', 'Juices', 'Energy Drinks', 'Beer', 'Wine', 'Spirits', 'Mixers', 'Non-Alcoholic'],
+    visual: { gradient: 'linear-gradient(135deg,#8E44AD,#C39BD3)', emoji: '🥤' },
+  },
+  BUTCHER: {
+    label: 'Butcher', icon: '🥩',
+    subs: ['Beef', 'Chicken', 'Goat Meat', 'Turkey', 'Pork', 'Fish', 'Seafood', 'Gizzard & Offals', 'Processed Meat'],
+    visual: { gradient: 'linear-gradient(135deg,#C0392B,#E74C3C)', emoji: '🥩' },
+  },
+  GAS: {
+    label: 'Gas', icon: '🔥',
+    subs: ['Cooking Gas Refill', 'Gas Cylinders', 'Regulators & Hoses', 'Burners & Cookers', 'Accessories'],
+    visual: { gradient: 'linear-gradient(135deg,#D35400,#E59866)', emoji: '🔥' },
   },
 };
 

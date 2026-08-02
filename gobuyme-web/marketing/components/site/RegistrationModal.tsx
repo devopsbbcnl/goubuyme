@@ -97,7 +97,7 @@ const vendorSchema = z
   .object({
     ...accountBase,
     businessName: z.string().min(2, "Min 2 characters").max(150, "Max 150 characters"),
-    category: z.enum(["RESTAURANT", "EMART", "PHARMACY"], {
+    category: z.enum(["RESTAURANT", "EMART", "PHARMACY", "BAKERY", "DRINKS", "BUTCHER", "GAS"], {
       required_error: "Select a business category",
     }),
     address: z.string().min(1, "Business address is required"),
@@ -526,6 +526,10 @@ function VendorForm({ onSuccess }: { onSuccess: () => void }) {
                         <SelectItem value="RESTAURANT">Restaurant</SelectItem>
                         <SelectItem value="EMART">EMART (Grocery & More)</SelectItem>
                         <SelectItem value="PHARMACY">Pharmacy</SelectItem>
+                        <SelectItem value="BAKERY">Bakery</SelectItem>
+                        <SelectItem value="DRINKS">Drinks</SelectItem>
+                        <SelectItem value="BUTCHER">Butcher (Meat & Fish)</SelectItem>
+                        <SelectItem value="GAS">Gas</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

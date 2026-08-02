@@ -15,6 +15,10 @@ const VENDOR_CATEGORIES = [
   { value: 'RESTAURANT', label: 'Restaurant' },
   { value: 'EMART', label: 'EMart' },
   { value: 'PHARMACY', label: 'Pharmacy' },
+  { value: 'BAKERY', label: 'Bakery' },
+  { value: 'DRINKS', label: 'Drinks' },
+  { value: 'BUTCHER', label: 'Butcher / Meat & Fish' },
+  { value: 'GAS', label: 'Gas' },
 ];
 
 const STEP_LABELS: Record<string, string> = {

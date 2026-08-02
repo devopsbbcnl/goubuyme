@@ -3,7 +3,7 @@ import {
   getDashboardStats,
   getAdminSettings,
   updateAdminSettings,
-  getAdminVendors, updateVendorStatus, updateVendorTier, adminCreateVendor,
+  getAdminVendors, updateVendorStatus, updateVendorTier, updateVendorCategory, adminCreateVendor,
   adminCreateRider,
   getVendorDetail, updateVendorDocumentStatus,
   updateVendorBusinessVerifStatus, updateVendorLicenseStatus,
@@ -73,6 +73,7 @@ router.post('/vendors/create',                                  ...opsAuth,     
 router.get('/vendors/:id',                                      ...readAuth,       getVendorDetail);
 router.patch('/vendors/:id/status',                             ...opsAuth,        updateVendorStatus);
 router.patch('/vendors/:id/tier',                               ...superAdminAuth, updateVendorTier);
+router.patch('/vendors/:id/category',                           ...opsAuth,        updateVendorCategory);
 router.patch('/vendors/:id/document/status',                    ...opsAuth,        updateVendorDocumentStatus);
 router.patch('/vendors/:id/business-verification/status',       ...opsAuth,        updateVendorBusinessVerifStatus);
 router.patch('/vendors/:id/licenses/:licenseId/status',         ...opsAuth,        updateVendorLicenseStatus);

@@ -12,12 +12,13 @@
 
 /**
  * Resolve a required EXPO_PUBLIC_* env var.
- * @param name        the full env var name, e.g. 'EXPO_PUBLIC_SOCKET_URL'
+ * @param name        the full env var name, e.g. 'EXPO_PUBLIC_SOCKET_URL' — used only for logging/errors
+ * @param value       the value read via a static `process.env.EXPO_PUBLIC_*` expression at the call site.
+ *                    Must be static (not `process.env[name]`) — Expo's bundler only inlines literal
+ *                    `process.env.EXPO_PUBLIC_*` member expressions, not computed property access.
  * @param devFallback value to use in dev when the var is missing
  */
-export const requirePublicEnv = (name: string, devFallback: string): string => {
-  const value = process.env[name];
-
+export const requirePublicEnv = (name: string, value: string | undefined, devFallback: string): string => {
   if (value && value.trim()) {
     console.log(`[env] ${name} =`, value);
     return value;

@@ -63,6 +63,7 @@ const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 const capFirst = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
+const CATEGORY_OPTIONS = ['RESTAURANT', 'EMART', 'PHARMACY', 'BAKERY', 'DRINKS', 'BUTCHER', 'GAS'] as const;
 
 const DOC_STATUS_COLORS: Record<DocStatus, { bg: string; text: string }> = {
   PENDING:  { bg: '#FFF3CD', text: '#856404' },
@@ -91,7 +92,7 @@ export default function VendorsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | Status>('ALL');
-  const [catFilter, setCatFilter] = useState<'' | 'RESTAURANT' | 'EMART' | 'PHARMACY'>('');
+  const [catFilter, setCatFilter] = useState<'' | 'RESTAURANT' | 'EMART' | 'PHARMACY' | 'BAKERY' | 'DRINKS' | 'BUTCHER' | 'GAS'>('');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -107,6 +108,8 @@ export default function VendorsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [reviewNote, setReviewNote] = useState('');
   const [docActing, setDocActing] = useState(false);
+  const [catSaving, setCatSaving] = useState(false);
+  const [pendingCategory, setPendingCategory] = useState<string | null>(null);
   const [licActing, setLicActing] = useState<string | null>(null);
   const [licReviewNotes, setLicReviewNotes] = useState<Record<string, string>>({});
 
@@ -149,10 +152,26 @@ export default function VendorsPage() {
     }
   };
 
+  const changeCategory = async (category: string) => {
+    if (!detail || category === detail.category) return;
+    setCatSaving(true);
+    try {
+      await api.patch(`/admin/vendors/${detail.id}/category`, { category });
+      setDetail(d => d ? { ...d, category } : d);
+      setVendors(vs => vs.map(v => v.id === detail.id ? { ...v, category } : v));
+      setPendingCategory(null);
+    } catch {
+      // backend validated; leave state unchanged
+    } finally {
+      setCatSaving(false);
+    }
+  };
+
   const openDetail = async (id: string) => {
     setDetailOpen(true);
     setDetail(null);
     setReviewNote('');
+    setPendingCategory(null);
     setDetailLoading(true);
     try {
       const res = await api.get<{ data: VendorDetail }>(`/admin/vendors/${id}`);
@@ -291,6 +310,10 @@ export default function VendorsPage() {
               <option value="RESTAURANT">Restaurant</option>
               <option value="EMART">EMART</option>
               <option value="PHARMACY">Pharmacy</option>
+              <option value="BAKERY">Bakery</option>
+              <option value="DRINKS">Drinks</option>
+              <option value="BUTCHER">Butcher</option>
+              <option value="GAS">Gas</option>
             </select>
             <input
               value={search} onChange={e => setSearch(e.target.value)}
@@ -428,8 +451,33 @@ export default function VendorsPage() {
               {/* Business info */}
               <div>
                 <SectionHead label="Business Info" T={T} />
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, color: T.textSec, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Category</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <select
+                      value={pendingCategory ?? detail.category}
+                      disabled={catSaving}
+                      onChange={e => setPendingCategory(e.target.value === detail.category ? null : e.target.value)}
+                      style={{
+                        background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
+                        padding: '7px 10px', color: T.text, fontSize: 13, outline: 'none',
+                        cursor: catSaving ? 'wait' : 'pointer', fontFamily: 'inherit', flex: 1,
+                      }}
+                    >
+                      {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{capFirst(c)}</option>)}
+                    </select>
+                    {catSaving && <span style={{ fontSize: 12, color: T.textSec }}>Saving…</span>}
+                  </div>
+                  {pendingCategory && pendingCategory !== detail.category && (
+                    <p style={{ fontSize: 11, color: T.warning, margin: '4px 0 0' }}>
+                      Unsaved change — press “Update Profile” to apply.
+                    </p>
+                  )}
+                  {detail.category === 'PHARMACY' && (
+                    <p style={{ fontSize: 11, color: T.textSec, margin: '4px 0 0' }}>Flagged for pharmacy compliance.</p>
+                  )}
+                </div>
                 <InfoGrid rows={[
-                  ['Category', capFirst(detail.category)],
                   ['Tier', detail.commissionTier === 'TIER_2' ? `Growth (${tierRates.TIER_2}%)` : `Starter (${tierRates.TIER_1}%)`],
                   ['Status', detail.approvalStatus],
                   ['Address', detail.address],
@@ -662,6 +710,14 @@ export default function VendorsPage() {
                   <ActionButton label="Reinstate Account" color={T.primary} textColor="#fff" onClick={() => setStatus(detail.id, 'APPROVED')} />
                 )}
                 <ActionButton label="Delete Account" color="none" border={T.error} textColor={T.error} onClick={() => openDeleteModal(detail.id, detail.businessName)} />
+                <div style={{ flex: 1 }} />
+                <ActionButton
+                  label={catSaving ? 'Updating…' : 'Update Profile'}
+                  color={T.primary}
+                  textColor="#fff"
+                  disabled={catSaving || !pendingCategory || pendingCategory === detail.category}
+                  onClick={() => pendingCategory && changeCategory(pendingCategory)}
+                />
                 <div style={{ fontSize: 13, color: T.textSec, display: 'flex', alignItems: 'center', marginLeft: 4 }}>
                   Current: <Badge status={detail.approvalStatus} />
                 </div>
@@ -717,18 +773,20 @@ function DocImage({ label, url, T }: { label: string; url: string; T: Record<str
 }
 
 function ActionButton({
-  label, color, border, textColor, onClick,
+  label, color, border, textColor, onClick, disabled = false,
 }: {
-  label: string; color: string; border?: string; textColor: string; onClick: () => void;
+  label: string; color: string; border?: string; textColor: string; onClick: () => void; disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         padding: '8px 16px', borderRadius: 4,
         border: border ? `1px solid ${border}` : 'none',
         background: color === 'none' ? 'transparent' : color,
-        color: textColor, fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+        color: textColor, fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
+        cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.45 : 1,
       }}
     >
       {label}

@@ -799,6 +799,10 @@ enum VendorCategory {
   RESTAURANT
   EMART
   PHARMACY
+  BAKERY
+  DRINKS
+  BUTCHER
+  GAS
 }
 
 enum CommissionTier {
