@@ -15,6 +15,8 @@ import {
   getAdminOrders,
   getAdminOrderDetail,
   getAuditLogs,
+  getLogFiles,
+  getServerLogs,
   getAdminPayouts,
   processManualPayout,
   triggerPayoutBatch,
@@ -96,6 +98,10 @@ router.get('/orders/:id', ...readAuth, getAdminOrderDetail);
 
 // Audit logs
 router.get('/audit', ...readAuth, getAuditLogs);
+
+// Server logs (Winston files on disk) — super admin only
+router.get('/logs/files', ...superAdminAuth, getLogFiles);
+router.get('/logs',       ...superAdminAuth, getServerLogs);
 
 // Payouts — super admin only
 router.get('/payouts',            ...superAdminAuth, getAdminPayouts);

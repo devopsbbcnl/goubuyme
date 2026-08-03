@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { forwardGeocode } from '@/services/geocoding';
+import { forwardGeocode, lastGeocodeStatus } from '@/services/geocoding';
 import { useCommissionRates, CommissionRates } from '@/hooks/useCommissionRates';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
@@ -285,7 +285,12 @@ export default function VendorCompleteProfileScreen() {
         : null;
       
       if (!coordinates) {
-        Alert.alert('Address not found', 'Could not find your address. Please check and try again.');
+        Alert.alert(
+          'Address not found',
+          lastGeocodeStatus
+            ? `Could not find your address. Please check and try again.\n\n(Debug: ${lastGeocodeStatus})`
+            : 'Could not find your address. Please check and try again.',
+        );
         setSaving(false);
         return;
       }

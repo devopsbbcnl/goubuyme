@@ -1,5 +1,11 @@
 const GOOGLE_MAPS_BASE_URL = 'https://maps.googleapis.com/maps/api';
 
+// Set on every forwardGeocode()/reverseGeocode() call so screens can show the
+// real Google API status (REQUEST_DENIED, ZERO_RESULTS, OVER_QUERY_LIMIT, ...)
+// instead of a generic "not found" — forwardGeocode() itself still resolves to
+// [] on any failure so existing callers don't need to change.
+export let lastGeocodeStatus: string | null = null;
+
 export interface GeocodeSuggestion {
   id: string;
   placeName: string;
@@ -12,11 +18,13 @@ export interface GeocodeSuggestion {
 
 // Geocode an address to coordinates using Google Maps Geocoding API
 export async function forwardGeocode(query: string): Promise<GeocodeSuggestion[]> {
+  lastGeocodeStatus = null;
   if (query.trim().length < 3) return [];
   try {
     const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
       console.warn('[Geocoding] EXPO_PUBLIC_GOOGLE_MAPS_API_KEY not set');
+      lastGeocodeStatus = 'MISSING_API_KEY';
       return [];
     }
     const url = `${GOOGLE_MAPS_BASE_URL}/geocode/json?address=${encodeURIComponent(query.trim())}&components=country:NG&key=${apiKey}`;
@@ -24,13 +32,15 @@ export async function forwardGeocode(query: string): Promise<GeocodeSuggestion[]
     const res = await fetch(url);
     if (!res.ok) {
       console.warn('[Geocoding] API response not OK:', res.status);
+      lastGeocodeStatus = `HTTP_${res.status}`;
       return [];
     }
     const json = await res.json();
     console.log('[Geocoding] API response:', json);
-    
+
     if (json.status !== 'OK' || !Array.isArray(json.results)) {
-      console.warn('[Geocoding] API status not OK or no results:', json.status);
+      console.warn('[Geocoding] API status not OK or no results:', json.status, json.error_message);
+      lastGeocodeStatus = json.error_message ? `${json.status}: ${json.error_message}` : json.status;
       return [];
     }
 
