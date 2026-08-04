@@ -77,9 +77,9 @@ function ItemDesc({ description }: { description?: string }) {
           onClick={e => e.stopPropagation()}
         >
           …more
-          {showTooltip && <span className="menu-desc-tooltip">{descText}</span>}
         </span>
       )}
+      {hasDesc && isTruncated && showTooltip && <span className="menu-desc-tooltip">{descText}</span>}
     </div>
   );
 }
