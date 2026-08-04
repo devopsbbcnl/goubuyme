@@ -13,6 +13,11 @@ import { getPlatformSettings, updatePlatformSettings, PlatformSettingsPatch } fr
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import logger from '../utils/logger';
+import fs from 'fs';
+import path from 'path';
+import readline from 'readline';
+
+const LOG_DIR = path.join(__dirname, '../../logs');
 
 // GET /admin/dashboard
 export const getDashboardStats = catchAsync(async (_req: Request, res: Response) => {
@@ -474,6 +479,81 @@ export const getAuditLogs = catchAsync(async (req: Request, res: Response) => {
   ]);
 
   return apiResponse.paginated(res, 'Audit logs fetched.', logs, {
+    page: pageNum, limit: limitNum, total,
+    totalPages: Math.ceil(total / limitNum),
+  });
+});
+
+// GET /admin/logs/files — lists which dated log files exist on disk
+export const getLogFiles = catchAsync(async (_req: Request, res: Response) => {
+  const files = fs.existsSync(LOG_DIR) ? fs.readdirSync(LOG_DIR) : [];
+
+  const parsed = files
+    .map((filename) => {
+      const match = filename.match(/^(error|combined)-(\d{4}-\d{2}-\d{2})\.log$/);
+      return match ? { filename, type: match[1], date: match[2] } : null;
+    })
+    .filter((f): f is { filename: string; type: string; date: string } => f !== null)
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  return apiResponse.success(res, 'Log files fetched.', parsed);
+});
+
+// GET /admin/logs — reads a single day's Winston log file, newest entries first
+export const getServerLogs = catchAsync(async (req: Request, res: Response) => {
+  const {
+    type = 'combined',
+    date,
+    page = '1',
+    limit = '50',
+    search,
+  } = req.query as Record<string, string>;
+
+  if (type !== 'error' && type !== 'combined') {
+    return apiResponse.error(res, 'Invalid log type. Use "error" or "combined".', 400);
+  }
+
+  const targetDate = date || new Date().toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+    return apiResponse.error(res, 'Invalid date format. Use YYYY-MM-DD.', 400);
+  }
+
+  const pageNum = Math.max(1, parseInt(page));
+  const limitNum = Math.min(200, parseInt(limit));
+
+  const filePath = path.join(LOG_DIR, `${type}-${targetDate}.log`);
+  if (!fs.existsSync(filePath)) {
+    return apiResponse.paginated(res, 'No logs found for this date.', [], {
+      page: pageNum, limit: limitNum, total: 0, totalPages: 0,
+    });
+  }
+
+  const entries: Record<string, unknown>[] = [];
+  const rl = readline.createInterface({
+    input: fs.createReadStream(filePath),
+    crlfDelay: Infinity,
+  });
+
+  const needle = search?.toLowerCase();
+  for await (const line of rl) {
+    if (!line.trim()) continue;
+    let entry: Record<string, unknown>;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      entry = { message: line, level: 'unknown', timestamp: null };
+    }
+    if (needle && !JSON.stringify(entry).toLowerCase().includes(needle)) continue;
+    entries.push(entry);
+  }
+
+  entries.reverse();
+
+  const total = entries.length;
+  const start = (pageNum - 1) * limitNum;
+  const pageItems = entries.slice(start, start + limitNum);
+
+  return apiResponse.paginated(res, 'Server logs fetched.', pageItems, {
     page: pageNum, limit: limitNum, total,
     totalPages: Math.ceil(total / limitNum),
   });

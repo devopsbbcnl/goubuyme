@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/context/AuthContext';
+import Image from 'next/image';
 import api from '@/services/api';
 
 interface RiderProfile {
@@ -98,7 +99,7 @@ export default function RiderProfilePage() {
         {/* Header */}
         <div className="card card-pad" style={{ gridColumn: '1 / -1', display: 'flex', gap: 20, alignItems: 'center' }}>
           <div className="avatar" style={{ width: 72, height: 72, fontSize: 26, background: '#EAF2FF', color: 'var(--rider)', flexShrink: 0 }}>
-            {user?.avatar ? <img src={user.avatar} alt="" /> : initials(src?.name ?? 'R')}
+            {user?.avatar ? <Image src={user.avatar} alt="" width={72} height={72} style={{ objectFit: 'cover' }} /> : initials(src?.name ?? 'R')}
           </div>
           <div>
             <div style={{ fontSize: 20, fontWeight: 800 }}>{src?.name}</div>

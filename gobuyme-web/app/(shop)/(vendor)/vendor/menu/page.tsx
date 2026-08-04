@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
 import api from '@/services/api';
@@ -17,6 +18,189 @@ interface Item {
   image?: string; isAvailable: boolean; categoryTag?: string; stockQuantity: number;
   drinkOptions: DrinkOption[];
   optionGroups: OptionGroup[];
+}
+
+function VendorMenuCard({ item, toggleAvail, openDrinkModal, openOptModal, openModal, del }: {
+  item: Item;
+  toggleAvail: (item: Item) => void;
+  openDrinkModal: (item: Item) => void;
+  openOptModal: (item: Item) => void;
+  openModal: (item?: Item) => void;
+  del: (id: string) => void;
+}) {
+  const descRef = useRef<HTMLParagraphElement>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [showDrinkTooltip, setShowDrinkTooltip] = useState(false);
+  const [showGroupsTooltip, setShowGroupsTooltip] = useState(false);
+  const desc = item.description?.trim();
+  const hasDesc = Boolean(desc);
+  const descText = hasDesc ? desc! : 'No description added yet — customers see this text on the item page.';
+
+  useEffect(() => {
+    const el = descRef.current;
+    if (el) setIsTruncated(el.scrollHeight > el.clientHeight + 1);
+  }, [descText]);
+
+  const DRINK_PREVIEW = 3;
+  const GROUP_ITEM_PREVIEW = 3;
+  const drinkPreview = item.drinkOptions.slice(0, DRINK_PREVIEW);
+  const drinkOverflow = item.drinkOptions.length - drinkPreview.length;
+  const firstGroup = item.optionGroups[0];
+  const groupItemPreview = firstGroup ? firstGroup.items.slice(0, GROUP_ITEM_PREVIEW) : [];
+  const groupItemOverflow = firstGroup ? firstGroup.items.length - groupItemPreview.length : 0;
+  const remainingGroups = item.optionGroups.slice(1);
+
+  return (
+    <div className="vmenu-card" style={{ opacity: item.isAvailable ? 1 : .6, position: 'relative' }}>
+      {item.categoryTag && <span className="menu-featured-badge">{item.categoryTag}</span>}
+      {item.image ? (
+        <div className="img" style={{ position: 'relative' }}>
+          <Image src={item.image} alt={item.name} fill sizes="(max-width: 560px) 50vw, 33vw" style={{ objectFit: 'cover' }} />
+        </div>
+      ) : <div className="img-ph">🍽️</div>}
+
+      <div className="vmenu-body">
+        <div className="vmenu-head">
+          <div className="vmenu-name">{item.name}</div>
+          <span className="vmenu-price">₦{item.price.toLocaleString()}</span>
+        </div>
+
+        <p style={{ fontSize: 12, fontWeight: 600, color: item.stockQuantity > 0 ? 'var(--muted)' : '#E23B3B', marginBottom: 4 }}>
+          {item.stockQuantity > 0 ? `${item.stockQuantity} in stock` : 'Out of stock — hidden from customers'}
+        </p>
+
+        <div className="vmenu-desc-wrap">
+          <p ref={descRef} className={`vmenu-desc${hasDesc ? '' : ' vmenu-desc-empty'}`}>{descText}</p>
+          {isTruncated && (
+            <span
+              className="vmenu-desc-more"
+              onMouseEnter={() => setShowTooltip(true)}
+              onMouseLeave={() => setShowTooltip(false)}
+            >
+              …more
+              {showTooltip && <span className="vmenu-desc-tooltip">{descText}</span>}
+            </span>
+          )}
+        </div>
+
+        {/* Drink options — fixed-height preview, overflow revealed on hover */}
+        <div className="vmenu-section">
+          <div className="vmenu-section-title">
+            🥤 Drink options · {item.drinkOptions.length > 0 ? `${item.drinkOptions.length} available` : 'none added'}
+          </div>
+          <div className="vmenu-chips-fixed">
+            {item.drinkOptions.length === 0 ? (
+              <span className="vmenu-chips-empty">No drink options added</span>
+            ) : (
+              <>
+                {drinkPreview.map(opt => (
+                  <span key={opt.id} className={`vmenu-chip${opt.isAvailable ? '' : ' unavailable'}`}>
+                    {opt.name} · <b>₦{opt.price.toLocaleString()}</b>
+                  </span>
+                ))}
+                {drinkOverflow > 0 && (
+                  <span
+                    className="vmenu-chip-more"
+                    onMouseEnter={() => setShowDrinkTooltip(true)}
+                    onMouseLeave={() => setShowDrinkTooltip(false)}
+                  >
+                    +{drinkOverflow} more
+                    {showDrinkTooltip && (
+                      <span className="vmenu-tooltip">
+                        {item.drinkOptions.slice(DRINK_PREVIEW).map(opt => `${opt.name} (₦${opt.price.toLocaleString()})`).join(', ')}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Option groups — fixed-height preview of the first group, rest revealed on hover */}
+        <div className="vmenu-section">
+          <div className="vmenu-section-title">
+            ⚙️ Add-on options · {item.optionGroups.length > 0 ? `${item.optionGroups.length} group${item.optionGroups.length > 1 ? 's' : ''}` : 'none added'}
+          </div>
+          <div className="vmenu-opt-preview">
+            {!firstGroup ? (
+              <span className="vmenu-chips-empty">No add-on groups added</span>
+            ) : (
+              <div className="vmenu-group">
+                <div className="vmenu-group-head">
+                  <span className="vmenu-group-name">{firstGroup.name}</span>
+                  <span className={`badge ${firstGroup.required ? 'badge-warning' : 'badge-neutral'}`} style={{ fontSize: 10 }}>
+                    {firstGroup.required ? 'Required' : 'Optional'}
+                  </span>
+                </div>
+                <div className="vmenu-chips-fixed">
+                  {firstGroup.items.length === 0 ? (
+                    <span className="vmenu-chips-empty">No options added to this group yet</span>
+                  ) : (
+                    <>
+                      {groupItemPreview.map(oi => (
+                        <span key={oi.id} className={`vmenu-chip${oi.isAvailable ? '' : ' unavailable'}`}>
+                          {oi.name}{oi.extraPrice > 0 && <> · <b>+₦{oi.extraPrice.toLocaleString()}</b></>}
+                        </span>
+                      ))}
+                      {groupItemOverflow > 0 && <span className="vmenu-chip-more-static">+{groupItemOverflow} more</span>}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          {remainingGroups.length > 0 && (
+            <div className="vmenu-groups-more-row">
+              <span
+                className="vmenu-groups-more"
+                onMouseEnter={() => setShowGroupsTooltip(true)}
+                onMouseLeave={() => setShowGroupsTooltip(false)}
+              >
+                +{remainingGroups.length} more group{remainingGroups.length > 1 ? 's' : ''}
+              </span>
+              {showGroupsTooltip && (
+                <div className="vmenu-tooltip vmenu-groups-tooltip">
+                  {remainingGroups.map(g => (
+                    <div key={g.id} className="vmenu-tooltip-group">
+                      <div className="vmenu-tooltip-group-name">
+                        {g.name} <span className="vmenu-tooltip-req">({g.required ? 'Required' : 'Optional'})</span>
+                      </div>
+                      <div className="vmenu-tooltip-group-items">
+                        {g.items.length === 0 ? 'No options added' : g.items.map(oi => `${oi.name}${oi.extraPrice > 0 ? ` (+₦${oi.extraPrice.toLocaleString()})` : ''}`).join(', ')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="vmenu-footer">
+          {/* availability toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label className="switch" style={{ transform: 'scale(.85)', flexShrink: 0 }}>
+              <input type="checkbox" checked={item.isAvailable} onChange={() => toggleAvail(item)} />
+              <span className="track" />
+            </label>
+            <span style={{ fontSize: 13, fontWeight: 600, color: item.isAvailable ? 'var(--brand)' : 'var(--muted)' }}>
+              {item.isAvailable ? 'Available to customers' : 'Currently turned off'}
+            </span>
+          </div>
+
+          {/* action buttons */}
+          <div className="vmenu-actions">
+            <button className="btn btn-ghost btn-sm" onClick={() => openDrinkModal(item)}>🥤 Drinks</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => openOptModal(item)}>⚙️ Add-ons</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => openModal(item)}>✏️ Edit</button>
+            <button className="btn btn-danger btn-sm" onClick={() => del(item.id)}>Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function normalize(item: any): Item {
@@ -109,6 +293,7 @@ export default function VendorMenuPage() {
       setEditing(null);
       setForm({ name: '', description: '', price: '', categoryTag: '', image: '', stockQuantity: '' });
     }
+    setUploading(false);
     setModal(true);
   };
 
@@ -388,84 +573,15 @@ export default function VendorMenuPage() {
       ) : (
         <div className="vmenu-grid">
           {filteredItems.map(item => (
-            <div key={item.id} className="vmenu-card" style={{ opacity: item.isAvailable ? 1 : .6, position: 'relative' }}>
-              {item.categoryTag && <span className="menu-featured-badge">{item.categoryTag}</span>}
-              {item.image ? <img className="img" src={item.image} alt={item.name} /> : <div className="img-ph">🍽️</div>}
-
-              <div className="vmenu-body">
-                <div className="vmenu-head">
-                  <div className="vmenu-name">{item.name}</div>
-                  <span className="vmenu-price">₦{item.price.toLocaleString()}</span>
-                </div>
-
-                <p style={{ fontSize: 12, fontWeight: 600, color: item.stockQuantity > 0 ? 'var(--muted)' : '#E23B3B', marginBottom: 4 }}>
-                  {item.stockQuantity > 0 ? `${item.stockQuantity} in stock` : 'Out of stock — hidden from customers'}
-                </p>
-
-                <p className="vmenu-desc">{item.description || 'No description added yet — customers see this text on the item page.'}</p>
-
-                {/* Drink options — fully detailed */}
-                {item.drinkOptions.length > 0 && (
-                  <div className="vmenu-section">
-                    <div className="vmenu-section-title">🥤 Drink options · {item.drinkOptions.length} available</div>
-                    <div className="vmenu-chips">
-                      {item.drinkOptions.map(opt => (
-                        <span key={opt.id} className={`vmenu-chip${opt.isAvailable ? '' : ' unavailable'}`}>
-                          {opt.name} · <b>₦{opt.price.toLocaleString()}</b>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Option groups — fully detailed, every item listed with its extra price */}
-                {item.optionGroups.length > 0 && (
-                  <div className="vmenu-section">
-                    <div className="vmenu-section-title">⚙️ Add-on options · {item.optionGroups.length} group{item.optionGroups.length > 1 ? 's' : ''}</div>
-                    {item.optionGroups.map(group => (
-                      <div key={group.id} className="vmenu-group">
-                        <div className="vmenu-group-head">
-                          <span className="vmenu-group-name">{group.name}</span>
-                          <span className={`badge ${group.required ? 'badge-warning' : 'badge-neutral'}`} style={{ fontSize: 10 }}>
-                            {group.required ? 'Required — customer must pick one' : 'Optional'}
-                          </span>
-                        </div>
-                        <div className="vmenu-chips">
-                          {group.items.length === 0 ? (
-                            <span className="muted" style={{ fontSize: 12 }}>No options added to this group yet</span>
-                          ) : group.items.map(oi => (
-                            <span key={oi.id} className={`vmenu-chip${oi.isAvailable ? '' : ' unavailable'}`}>
-                              {oi.name}{oi.extraPrice > 0 && <> · <b>+₦{oi.extraPrice.toLocaleString()}</b></>}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="vmenu-footer">
-                  {/* availability toggle */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <label className="switch" style={{ transform: 'scale(.85)', flexShrink: 0 }}>
-                      <input type="checkbox" checked={item.isAvailable} onChange={() => toggleAvail(item)} />
-                      <span className="track" />
-                    </label>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: item.isAvailable ? 'var(--brand)' : 'var(--muted)' }}>
-                      {item.isAvailable ? 'Available to customers' : 'Currently turned off'}
-                    </span>
-                  </div>
-
-                  {/* action buttons */}
-                  <div className="vmenu-actions">
-                    <button className="btn btn-ghost btn-sm" onClick={() => openDrinkModal(item)}>🥤 Drinks</button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => openOptModal(item)}>⚙️ Add-ons</button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => openModal(item)}>✏️ Edit</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => del(item.id)}>Delete</button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <VendorMenuCard
+              key={item.id}
+              item={item}
+              toggleAvail={toggleAvail}
+              openDrinkModal={openDrinkModal}
+              openOptModal={openOptModal}
+              openModal={openModal}
+              del={del}
+            />
           ))}
         </div>
       )}
@@ -489,7 +605,7 @@ export default function VendorMenuPage() {
                     <span className="spin" style={{ borderColor: 'var(--line)', borderTopColor: 'var(--brand)', width: 28, height: 28 }} />
                   ) : form.image ? (
                     <>
-                      <img src={form.image} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <Image src={form.image} alt="preview" fill sizes="400px" style={{ objectFit: 'cover' }} />
                       <button
                         onClick={() => setForm(f => ({ ...f, image: '' }))}
                         style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}

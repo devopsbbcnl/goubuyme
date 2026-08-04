@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
+import Image from 'next/image';
 import api from '@/services/api';
 
 interface Job {
@@ -56,7 +57,7 @@ export default function RiderJobsPage() {
             <div key={job.id} className="card" style={{ overflow: 'hidden' }}>
               <div className="between" style={{ padding: '14px 16px', borderBottom: '1px solid var(--line)' }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  {job.vendor.logoUrl ? <img src={job.vendor.logoUrl} alt="" style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover' }} /> : <div style={{ width: 44, height: 44, borderRadius: 6, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🏪</div>}
+                  {job.vendor.logoUrl ? <Image src={job.vendor.logoUrl} alt="" width={44} height={44} style={{ borderRadius: 6, objectFit: 'cover' }} /> : <div style={{ width: 44, height: 44, borderRadius: 6, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🏪</div>}
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{job.vendor.businessName}</div>
                     <div className="muted" style={{ fontSize: 12 }}>#{job.orderNumber}</div>

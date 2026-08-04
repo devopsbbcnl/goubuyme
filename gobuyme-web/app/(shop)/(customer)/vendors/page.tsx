@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCity } from '@/context/CityContext';
+import Image from 'next/image';
 import api from '@/services/api';
 
 interface Vendor {
@@ -36,22 +37,44 @@ function fmtPrice(n: number) {
 }
 
 function MenuItemCard({ item }: { item: MenuItem }) {
+  const descRef = useRef<HTMLParagraphElement>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const desc = item.description?.trim();
+  const hasDesc = Boolean(desc);
+
+  useEffect(() => {
+    const el = descRef.current;
+    if (el) setIsTruncated(el.scrollHeight > el.clientHeight + 1);
+  }, [desc]);
+
   return (
     <Link href={`/item/${item.id}`} className="menu-card">
       {item.image
-        ? <img className="img" src={item.image} alt={item.name} />
+        ? <div className="img" style={{ position: 'relative' }}><Image src={item.image} alt={item.name} fill sizes="(max-width: 560px) 50vw, 33vw" style={{ objectFit: 'cover' }} /></div>
         : <div className="img-ph">🍽️</div>}
       <div className="info">
         <div className="name">{item.name}</div>
-        {item.description && (
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            {item.description}
-          </div>
-        )}
+        <div className="menu-desc-wrap">
+          <p ref={descRef} className={`menu-desc${hasDesc ? '' : ' menu-desc-empty'}`}>
+            {hasDesc ? desc : 'No description available'}
+          </p>
+          {hasDesc && isTruncated && (
+            <span
+              className="menu-desc-more"
+              onMouseEnter={() => setShowTooltip(true)}
+              onMouseLeave={() => setShowTooltip(false)}
+              onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+            >
+              …more
+              {showTooltip && <span className="menu-desc-tooltip">{desc}</span>}
+            </span>
+          )}
+        </div>
         <div className="price">{fmtPrice(item.price)}</div>
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 6 }}>
           {item.vendor.logo
-            ? <img src={item.vendor.logo} alt="" style={{ width: 20, height: 20, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} />
+            ? <Image src={item.vendor.logo} alt="" width={20} height={20} style={{ borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} />
             : <span style={{ fontSize: 14 }}>🏪</span>}
           <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {item.vendor.businessName}
@@ -82,9 +105,9 @@ function VendorCard({ v }: { v: Vendor }) {
           padding: '3px 8px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '.6px',
         }}>Featured</span>
       )}
-      {v.coverImage ? <img className="cover" src={v.coverImage} alt={v.businessName} /> : <div className="cover-ph">🏪</div>}
+      {v.coverImage ? <div className="cover" style={{ position: 'relative' }}><Image src={v.coverImage} alt={v.businessName} fill sizes="(max-width: 560px) 50vw, 33vw" style={{ objectFit: 'cover' }} /></div> : <div className="cover-ph">🏪</div>}
       <div className="card-body">
-        {v.logo && <img className="vendor-logo" src={v.logo} alt="" />}
+        {v.logo && <Image className="vendor-logo" src={v.logo} alt="" width={48} height={48} />}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <div className="vendor-name" style={{ flex: 1 }}>{v.businessName}</div>
           {badgeLabel && (

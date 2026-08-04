@@ -120,7 +120,12 @@
       "Bash(powershell.exe *)",
       "Skill(investigate)",
       "Bash(npx ts-node *)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(find 'C:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6/gobuyme-admin-nextjs' -iname *audit*)",
+      "Bash(find 'C:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-admin-nextjs/app/api' -iname *audit*)",
+      "Bash(find 'C:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-admin-nextjs/app' 'C:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-admin-nextjs/components' -iname *sidebar* -o -iname *nav*)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('expo:', p.dependencies.expo\\); console.log\\('react-native:', p.dependencies['react-native']\\);\")",
+      "WebSearch"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"

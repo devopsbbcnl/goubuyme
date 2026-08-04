@@ -1,23 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Platform } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
+import { useCallback, useState } from 'react';
 import { router } from 'expo-router';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 
-WebBrowser.maybeCompleteAuthSession();
-
+// expo-auth-session's Google provider is deprecated (Expo SDK 49+) and its browser-redirect
+// flow is now blocked by Google with "doesn't comply with Google's OAuth 2.0 policy for
+// keeping apps secure" on native builds. GoogleSignin uses Google's native Credential
+// Manager/Sign-In SDK instead, which is the flow Google still allows.
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
 const IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
-// expo-auth-session throws at mount if the client ID for the current native
-// platform is undefined, so fall back to the web client ID (won't actually
-// authenticate, but keeps the screen from crashing) until Android/iOS OAuth
-// client IDs are created in Google Cloud Console.
-const nativeClientConfigured =
-  Platform.OS === 'android' ? !!ANDROID_CLIENT_ID : Platform.OS === 'ios' ? !!IOS_CLIENT_ID : true;
+// Only webClientId is needed for Android — the native SDK resolves the calling app's own
+// Android OAuth client from its package name + signing certificate automatically. The ID
+// token returned always carries webClientId as its audience, which is what the backend verifies.
+if (WEB_CLIENT_ID) {
+  GoogleSignin.configure({
+    webClientId: WEB_CLIENT_ID,
+    ...(IOS_CLIENT_ID ? { iosClientId: IOS_CLIENT_ID } : {}),
+  });
+}
 
 function getGoogleAuthErrorMessage(err: unknown): string {
   const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
@@ -32,21 +34,27 @@ export function useGoogleSignIn() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    androidClientId: ANDROID_CLIENT_ID ?? WEB_CLIENT_ID,
-    iosClientId: IOS_CLIENT_ID ?? WEB_CLIENT_ID,
-    webClientId: WEB_CLIENT_ID,
-  });
-
-  useEffect(() => {
-    if (response?.type !== 'success') return;
-    const idToken = response.params.id_token;
-    if (!idToken) return;
+  const promptGoogleSignIn = useCallback(() => {
+    if (!WEB_CLIENT_ID) {
+      setError('Google sign-in is not yet available on this device. Please use email sign-in for now.');
+      return;
+    }
 
     (async () => {
       try {
         setBusy(true);
         setError(null);
+
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+        const result = await GoogleSignin.signIn();
+        if (result.type !== 'success') return; // user cancelled
+
+        const idToken = result.data.idToken;
+        if (!idToken) {
+          setError('Google did not return a valid credential. Please try again.');
+          return;
+        }
+
         const res = await api.post('/auth/google', { idToken });
         const { user, accessToken, refreshToken } = res.data.data;
 
@@ -59,26 +67,26 @@ export function useGoogleSignIn() {
 
         router.replace('/(customer)' as never);
       } catch (err: unknown) {
-        setError(getGoogleAuthErrorMessage(err));
+        const code = (err as { code?: string })?.code;
+        if (code === statusCodes.SIGN_IN_CANCELLED) {
+          // no-op — user backed out
+        } else if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          setError('Google Play Services is required for Google sign-in.');
+        } else if (code === statusCodes.IN_PROGRESS) {
+          // a sign-in is already underway — ignore this duplicate tap
+        } else {
+          setError(getGoogleAuthErrorMessage(err));
+        }
       } finally {
         setBusy(false);
       }
     })();
-  }, [response]);
-
-  const promptGoogleSignIn = useCallback(() => {
-    if (!nativeClientConfigured) {
-      setError('Google sign-in is not yet available on this device. Please use email sign-in for now.');
-      return;
-    }
-    setError(null);
-    void promptAsync();
-  }, [promptAsync]);
+  }, [login]);
 
   return {
     promptGoogleSignIn,
     googleBusy: busy,
-    googleReady: !!request && nativeClientConfigured,
+    googleReady: !!WEB_CLIENT_ID,
     googleError: error,
     clearGoogleError: () => setError(null),
   };

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/components/ui/Toast';
+import Image from 'next/image';
 import api from '@/services/api';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -249,7 +250,7 @@ export default function VendorDetailPage() {
       {/* Cover image */}
       <div style={{ position: 'relative', height: 280, background: 'var(--surface2)', overflow: 'hidden' }}>
         {vendor.coverImage
-          ? <img src={vendor.coverImage} alt={vendor.businessName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? <Image src={vendor.coverImage} alt={vendor.businessName} fill sizes="100vw" style={{ objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, var(--brand-tint), var(--surface2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80 }}>🏪</div>
         }
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,.6) 0%, transparent 60%)' }} />
@@ -259,7 +260,7 @@ export default function VendorDetailPage() {
         {/* Vendor info card */}
         <div className="card" style={{ display: 'flex', gap: 20, padding: 24, marginTop: -40, position: 'relative', zIndex: 1, marginBottom: 32 }}>
           {vendor.logo && (
-            <img src={vendor.logo} alt={vendor.businessName} style={{ width: 72, height: 72, borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: '3px solid var(--surface)' }} />
+            <Image src={vendor.logo} alt={vendor.businessName} width={72} height={72} style={{ borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: '3px solid var(--surface)' }} />
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="between" style={{ marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
@@ -319,7 +320,7 @@ export default function VendorDetailPage() {
                   onClick={() => router.push(`/item/${item.id}`)}
                 >
                   {item.image
-                    ? <img className="img" src={item.image} alt={item.name} />
+                    ? <div className="img" style={{ position: 'relative' }}><Image src={item.image} alt={item.name} fill sizes="(max-width: 560px) 50vw, 33vw" style={{ objectFit: 'cover' }} /></div>
                     : <div className="img-ph">🍽️</div>
                   }
                   {item.isFeatured && <span className="menu-featured-badge">FEATURED</span>}
@@ -367,7 +368,9 @@ export default function VendorDetailPage() {
             {/* Body */}
             <div className="item-drawer-body">
               {drawerItem.image && (
-                <img src={drawerItem.image} alt={drawerItem.name} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 'var(--r)' }} />
+                <div style={{ position: 'relative', width: '100%', height: 160, borderRadius: 'var(--r)', overflow: 'hidden' }}>
+                  <Image src={drawerItem.image} alt={drawerItem.name} fill sizes="400px" style={{ objectFit: 'cover' }} />
+                </div>
               )}
 
               <div>

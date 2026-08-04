@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
 
 export default function CartPage() {
@@ -35,7 +36,7 @@ export default function CartPage() {
             {items.map(item => (
               <div key={item.menuItemId} style={{ display: 'flex', gap: 14, padding: '16px 20px', borderBottom: '1px solid var(--line)', alignItems: 'center' }}>
                 {item.image
-                  ? <img src={item.image} alt="" style={{ width: 60, height: 60, borderRadius: 6, objectFit: 'cover' }} />
+                  ? <Image src={item.image} alt="" width={60} height={60} style={{ borderRadius: 6, objectFit: 'cover' }} />
                   : <div style={{ width: 60, height: 60, borderRadius: 6, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>🍽️</div>
                 }
                 <div style={{ flex: 1 }}>

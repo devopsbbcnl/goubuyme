@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCity } from '@/context/CityContext';
+import Image from 'next/image';
 import api from '@/services/api';
 
 interface PromoVendor {
@@ -43,9 +44,9 @@ function PromoCard({ promo }: { promo: Promo }) {
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = ''; }}
       >
         {/* Promo banner */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', width: '100%', height: 170 }}>
           {promo.imageUrl
-            ? <img src={promo.imageUrl} alt={promo.title} style={{ width: '100%', height: 170, objectFit: 'cover', display: 'block' }} />
+            ? <Image src={promo.imageUrl} alt={promo.title} fill sizes="(max-width: 560px) 100vw, 400px" style={{ objectFit: 'cover' }} />
             : <div style={{ width: '100%', height: 170, background: 'linear-gradient(135deg, var(--brand-tint), var(--surface2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52 }}>🎁</div>
           }
           {promo.code && (
@@ -66,7 +67,7 @@ function PromoCard({ promo }: { promo: Promo }) {
           {/* Vendor row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
             {vendor.logo
-              ? <img src={vendor.logo} alt="" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+              ? <Image src={vendor.logo} alt="" width={36} height={36} style={{ borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
               : <div style={{ width: 36, height: 36, borderRadius: 6, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🏪</div>
             }
             <div style={{ flex: 1, minWidth: 0 }}>

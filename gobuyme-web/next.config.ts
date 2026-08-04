@@ -35,6 +35,10 @@ const csp = [
 ].join('; ');
 
 const nextConfig: NextConfig = {
+  images: {
+    loader: 'custom',
+    loaderFile: './lib/cloudinaryLoader.ts',
+  },
   async headers() {
     return [
       {

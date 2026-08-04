@@ -61,6 +61,7 @@ import adminRoutes from './routes/admin.routes';
 import offerRoutes from './routes/offer.routes';
 import supportRoutes from './routes/support.routes';
 import messageRoutes from './routes/message.routes';
+import geocodeRoutes from './routes/geocode.routes';
 import logger from './utils/logger';
 
 const app = express();
@@ -130,6 +131,7 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/offers', offerRoutes);
 app.use('/api/v1/support', supportRoutes);
 app.use('/api/v1/messages', messageRoutes);
+app.use('/api/v1/geocode', geocodeRoutes);
 
 // Public endpoint for mobile apps to fetch delivery fee settings
 app.get('/api/v1/settings/public', async (_req, res) => {
