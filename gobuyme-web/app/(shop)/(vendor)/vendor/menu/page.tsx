@@ -79,9 +79,9 @@ function VendorMenuCard({ item, toggleAvail, openDrinkModal, openOptModal, openM
               onMouseLeave={() => setShowTooltip(false)}
             >
               …more
-              {showTooltip && <span className="vmenu-desc-tooltip">{descText}</span>}
             </span>
           )}
+          {isTruncated && showTooltip && <span className="vmenu-desc-tooltip">{descText}</span>}
         </div>
 
         {/* Drink options — fixed-height preview, overflow revealed on hover */}
@@ -89,31 +89,31 @@ function VendorMenuCard({ item, toggleAvail, openDrinkModal, openOptModal, openM
           <div className="vmenu-section-title">
             🥤 Drink options · {item.drinkOptions.length > 0 ? `${item.drinkOptions.length} available` : 'none added'}
           </div>
-          <div className="vmenu-chips-fixed">
-            {item.drinkOptions.length === 0 ? (
-              <span className="vmenu-chips-empty">No drink options added</span>
-            ) : (
-              <>
-                {drinkPreview.map(opt => (
+          <div className="vmenu-chips-outer">
+            <div className="vmenu-chips-fixed">
+              {item.drinkOptions.length === 0 ? (
+                <span className="vmenu-chips-empty">No drink options added</span>
+              ) : (
+                drinkPreview.map(opt => (
                   <span key={opt.id} className={`vmenu-chip${opt.isAvailable ? '' : ' unavailable'}`}>
                     {opt.name} · <b>₦{opt.price.toLocaleString()}</b>
                   </span>
-                ))}
-                {drinkOverflow > 0 && (
-                  <span
-                    className="vmenu-chip-more"
-                    onMouseEnter={() => setShowDrinkTooltip(true)}
-                    onMouseLeave={() => setShowDrinkTooltip(false)}
-                  >
-                    +{drinkOverflow} more
-                    {showDrinkTooltip && (
-                      <span className="vmenu-tooltip">
-                        {item.drinkOptions.slice(DRINK_PREVIEW).map(opt => `${opt.name} (₦${opt.price.toLocaleString()})`).join(', ')}
-                      </span>
-                    )}
-                  </span>
-                )}
-              </>
+                ))
+              )}
+            </div>
+            {drinkOverflow > 0 && (
+              <span
+                className="vmenu-chip-more"
+                onMouseEnter={() => setShowDrinkTooltip(true)}
+                onMouseLeave={() => setShowDrinkTooltip(false)}
+              >
+                +{drinkOverflow} more
+              </span>
+            )}
+            {drinkOverflow > 0 && showDrinkTooltip && (
+              <span className="vmenu-tooltip">
+                {item.drinkOptions.slice(DRINK_PREVIEW).map(opt => `${opt.name} (₦${opt.price.toLocaleString()})`).join(', ')}
+              </span>
             )}
           </div>
         </div>

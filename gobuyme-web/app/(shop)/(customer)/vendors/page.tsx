@@ -67,9 +67,9 @@ function MenuItemCard({ item }: { item: MenuItem }) {
               onClick={e => { e.preventDefault(); e.stopPropagation(); }}
             >
               …more
-              {showTooltip && <span className="menu-desc-tooltip">{desc}</span>}
             </span>
           )}
+          {hasDesc && isTruncated && showTooltip && <span className="menu-desc-tooltip">{desc}</span>}
         </div>
         <div className="price">{fmtPrice(item.price)}</div>
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 6 }}>

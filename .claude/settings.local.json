@@ -125,7 +125,13 @@
       "Bash(find 'C:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-admin-nextjs/app/api' -iname *audit*)",
       "Bash(find 'C:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-admin-nextjs/app' 'C:\\\\Users\\\\Okonk\\\\OneDrive\\\\Desktop\\\\BUBBLE BARREL\\\\Gobuyme6\\\\gobuyme-admin-nextjs/components' -iname *sidebar* -o -iname *nav*)",
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('expo:', p.dependencies.expo\\); console.log\\('react-native:', p.dependencies['react-native']\\);\")",
-      "WebSearch"
+      "WebSearch",
+      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse wait *)",
+      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse cookies *)",
+      "Bash($B cdp *)",
+      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse click *)",
+      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse url *)",
+      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse hover *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"

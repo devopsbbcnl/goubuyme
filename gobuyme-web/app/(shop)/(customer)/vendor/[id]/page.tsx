@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/components/ui/Toast';
@@ -52,6 +52,37 @@ interface MenuItem {
 const hasOptions = (item: MenuItem) =>
   (item.drinkOptions?.filter(d => d.isAvailable).length ?? 0) > 0 ||
   (item.optionGroups?.some(g => g.items.some(i => i.isAvailable)) ?? false);
+
+function ItemDesc({ description }: { description?: string }) {
+  const descRef = useRef<HTMLParagraphElement>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const desc = description?.trim();
+  const hasDesc = Boolean(desc);
+  const descText = hasDesc ? desc! : 'No description available';
+
+  useEffect(() => {
+    const el = descRef.current;
+    if (el) setIsTruncated(el.scrollHeight > el.clientHeight + 1);
+  }, [descText]);
+
+  return (
+    <div className="menu-desc-wrap">
+      <p ref={descRef} className={`menu-desc${hasDesc ? '' : ' menu-desc-empty'}`}>{descText}</p>
+      {hasDesc && isTruncated && (
+        <span
+          className="menu-desc-more"
+          onMouseEnter={() => setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+          onClick={e => e.stopPropagation()}
+        >
+          …more
+        </span>
+      )}
+      {hasDesc && isTruncated && showTooltip && <span className="menu-desc-tooltip">{descText}</span>}
+    </div>
+  );
+}
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
@@ -326,9 +357,7 @@ export default function VendorDetailPage() {
                   {item.isFeatured && <span className="menu-featured-badge">FEATURED</span>}
                   <div className="info">
                     <div className="name">{item.name}</div>
-                    {item.description && (
-                      <div className="muted" style={{ fontSize: 12, marginBottom: 6, lineHeight: 1.4 }}>{item.description}</div>
-                    )}
+                    <ItemDesc description={item.description} />
                     <div className="price">₦{item.price.toLocaleString()}</div>
                     <button
                       className={`add-btn${item.isAvailable && !vendor.isOpen ? ' closed' : ''}`}
