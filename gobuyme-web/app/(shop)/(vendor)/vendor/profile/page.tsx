@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import api from '@/services/api';
 import { uploadToCloudinary } from '@/services/cloudinary';
+import Image from 'next/image';
 import { useCommissionRates } from '@/hooks/useCommissionRates';
 
 interface VendorProfile {
@@ -56,7 +57,7 @@ function ImgUpload({
           <span className="spin" style={{ borderColor: 'var(--line)', borderTopColor: 'var(--brand)', width: 26, height: 26 }} />
         ) : value ? (
           <>
-            <img src={value} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <Image src={value} alt={label} fill sizes="400px" style={{ objectFit: 'cover' }} />
             <button
               onClick={() => onUploaded('')}
               style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}

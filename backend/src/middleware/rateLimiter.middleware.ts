@@ -50,3 +50,14 @@ export const locationLimiter = rateLimit({
   legacyHeaders: false,
   store: sharedStore('rl:location:'),
 });
+
+// Public, unauthenticated endpoint (mobile registration screens hit it before login) — capped
+// tighter than globalLimiter since each call is a billed Google Maps request.
+export const geocodeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { status: 'error', message: 'Too many address lookups. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: sharedStore('rl:geocode:'),
+});

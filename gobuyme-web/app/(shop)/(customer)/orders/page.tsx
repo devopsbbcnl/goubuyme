@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import Image from 'next/image';
 import api from '@/services/api';
 
 interface Order { id: string; orderNumber: string; status: string; totalAmount: number; createdAt: string; vendor: { businessName: string; logoUrl?: string }; }
@@ -51,7 +52,7 @@ export default function OrdersPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {orders.map(o => (
               <Link key={o.id} href={`/orders/${o.id}`} className="card" style={{ display: 'flex', gap: 16, padding: 20, alignItems: 'center' }}>
-                {o.vendor.logoUrl ? <img src={o.vendor.logoUrl} alt="" style={{ width: 52, height: 52, borderRadius: 8, objectFit: 'cover' }} /> : <div style={{ width: 52, height: 52, borderRadius: 8, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🏪</div>}
+                {o.vendor.logoUrl ? <Image src={o.vendor.logoUrl} alt="" width={52} height={52} style={{ borderRadius: 8, objectFit: 'cover' }} /> : <div style={{ width: 52, height: 52, borderRadius: 8, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🏪</div>}
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{o.vendor.businessName}</div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>#{o.orderNumber} · {new Date(o.createdAt).toLocaleDateString()}</div>

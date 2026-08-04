@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/components/ui/Toast';
+import Image from 'next/image';
 import api from '@/services/api';
 
 interface OptionItem  { id: string; name: string; extraPrice: number; isAvailable: boolean; }
@@ -203,9 +204,9 @@ export default function ItemDetailPage() {
           {/* LEFT — Image gallery */}
           <div>
             {/* Main image */}
-            <div style={{ border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface)', position: 'relative' }}>
+            <div style={{ border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface)', position: 'relative', width: '100%', aspectRatio: '4/3' }}>
               {item.image
-                ? <img src={item.image} alt={item.name} style={{ width: '100%', aspectRatio: '4/3', objectFit: 'contain', display: 'block', background: '#fafafa' }} />
+                ? <Image src={item.image} alt={item.name} fill sizes="(max-width: 900px) 100vw, 600px" style={{ objectFit: 'contain', background: '#fafafa' }} />
                 : <div style={{ width: '100%', aspectRatio: '4/3', background: 'linear-gradient(135deg, var(--brand-tint), var(--surface2))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1"><path d="M3 3h18v18H3V3zm3 3v12h12V6H6zm2 2h8v2H8V8zm0 4h8v2H8v-2zm0 4h5v2H8v-2z"/></svg>
                   </div>
@@ -221,7 +222,7 @@ export default function ItemDetailPage() {
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
               <div className="pd-thumb active">
                 {item.image
-                  ? <img src={item.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <Image src={item.image} alt="" width={72} height={72} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : <div style={{ width: '100%', height: '100%', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
                       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.5"><path d="M3 3h18v18H3V3z"/></svg>
                     </div>
@@ -244,7 +245,7 @@ export default function ItemDetailPage() {
             {/* Sold by */}
             <Link href={`/vendor/${vendor.id}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
               {vendor.logo
-                ? <img src={vendor.logo} alt="" style={{ width: 22, height: 22, borderRadius: 4, objectFit: 'cover' }} />
+                ? <Image src={vendor.logo} alt="" width={22} height={22} style={{ borderRadius: 4, objectFit: 'cover' }} />
                 : <div style={{ width: 22, height: 22, borderRadius: 4, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>🏪</div>
               }
               <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>Sold by</span>
@@ -403,7 +404,7 @@ export default function ItemDetailPage() {
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.boxShadow = ''}
               >
                 {vendor.logo
-                  ? <img src={vendor.logo} alt="" style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+                  ? <Image src={vendor.logo} alt="" width={44} height={44} style={{ borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
                   : <div style={{ width: 44, height: 44, borderRadius: 6, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 }}>🏪</div>
                 }
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -471,7 +472,7 @@ export default function ItemDetailPage() {
                     {/* Item image */}
                     <div style={{ position: 'relative', width: '100%', aspectRatio: '4/3', background: 'var(--surface2)', overflow: 'hidden' }}>
                       {s.image
-                        ? <img src={s.image} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ? <Image src={s.image} alt={s.name} fill sizes="(max-width: 560px) 50vw, 25vw" style={{ objectFit: 'cover' }} />
                         : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1"><path d="M3 3h18v18H3V3z"/></svg>
                           </div>
@@ -501,7 +502,7 @@ export default function ItemDetailPage() {
                       {/* Vendor strip */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingTop: 8, borderTop: '1px solid var(--line)' }}>
                         {s.vendor.logo
-                          ? <img src={s.vendor.logo} alt="" style={{ width: 18, height: 18, borderRadius: 3, objectFit: 'cover', flexShrink: 0 }} />
+                          ? <Image src={s.vendor.logo} alt="" width={18} height={18} style={{ borderRadius: 3, objectFit: 'cover', flexShrink: 0 }} />
                           : <div style={{ width: 18, height: 18, borderRadius: 3, background: 'var(--surface2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>🏪</div>
                         }
                         <span style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

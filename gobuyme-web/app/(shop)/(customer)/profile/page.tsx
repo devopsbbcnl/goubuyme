@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
+import Image from 'next/image';
 import api from '@/services/api';
 
 interface Order {
@@ -301,7 +302,7 @@ export default function ProfilePage() {
             >
               <div className="avatar" style={{ width: 88, height: 88, fontSize: 30 }}>
                 {user.avatar
-                  ? <img src={user.avatar} alt={user.name ?? ''} />
+                  ? <Image src={user.avatar} alt={user.name ?? ''} width={88} height={88} style={{ objectFit: 'cover' }} />
                   : initials(user.name ?? 'U')}
               </div>
 
@@ -561,7 +562,7 @@ export default function ProfilePage() {
                           }}
                         >
                           {o.vendor.logoUrl
-                            ? <img src={o.vendor.logoUrl} alt="" style={{ width: 44, height: 44, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} />
+                            ? <Image src={o.vendor.logoUrl} alt="" width={44} height={44} style={{ borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} />
                             : (
                               <div style={{
                                 width: 44, height: 44, borderRadius: 4, flexShrink: 0,

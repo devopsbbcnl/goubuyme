@@ -1,9 +1,12 @@
+import api from './api';
+
 const GOOGLE_MAPS_BASE_URL = 'https://maps.googleapis.com/maps/api';
 
-// Set on every forwardGeocode()/reverseGeocode() call so screens can show the
-// real Google API status (REQUEST_DENIED, ZERO_RESULTS, OVER_QUERY_LIMIT, ...)
-// instead of a generic "not found" — forwardGeocode() itself still resolves to
-// [] on any failure so existing callers don't need to change.
+// forwardGeocode()/reverseGeocode() go through the backend (/geocode/search, /geocode/reverse)
+// rather than calling Google directly. Google API keys restricted by HTTP referrer (as ours is,
+// since gobuyme-web also needs it) reject requests with no referer — which is every mobile
+// request — with REQUEST_DENIED. Routing through the backend uses a server-side key that's
+// restricted by IP instead, which mobile devices satisfy fine.
 export let lastGeocodeStatus: string | null = null;
 
 export interface GeocodeSuggestion {
@@ -16,95 +19,33 @@ export interface GeocodeSuggestion {
   lng: number;
 }
 
-// Geocode an address to coordinates using Google Maps Geocoding API
+// Geocode an address to coordinates via the backend (proxies Google Maps Geocoding API)
 export async function forwardGeocode(query: string): Promise<GeocodeSuggestion[]> {
   lastGeocodeStatus = null;
   if (query.trim().length < 3) return [];
   try {
-    const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.warn('[Geocoding] EXPO_PUBLIC_GOOGLE_MAPS_API_KEY not set');
-      lastGeocodeStatus = 'MISSING_API_KEY';
+    const { data } = await api.get('/geocode/search', { params: { address: query.trim() } });
+    const suggestions = data?.data;
+    if (!Array.isArray(suggestions) || suggestions.length === 0) {
+      lastGeocodeStatus = 'ZERO_RESULTS';
       return [];
     }
-    const url = `${GOOGLE_MAPS_BASE_URL}/geocode/json?address=${encodeURIComponent(query.trim())}&components=country:NG&key=${apiKey}`;
-    console.log('[Geocoding] Request URL:', url);
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.warn('[Geocoding] API response not OK:', res.status);
-      lastGeocodeStatus = `HTTP_${res.status}`;
-      return [];
-    }
-    const json = await res.json();
-    console.log('[Geocoding] API response:', json);
-
-    if (json.status !== 'OK' || !Array.isArray(json.results)) {
-      console.warn('[Geocoding] API status not OK or no results:', json.status, json.error_message);
-      lastGeocodeStatus = json.error_message ? `${json.status}: ${json.error_message}` : json.status;
-      return [];
-    }
-
-    return json.results.slice(0, 5).map((result: any) => {
-      const { formatted_address, address_components, geometry } = result;
-      let city = '';
-      let state = '';
-      
-      for (const comp of address_components || []) {
-        if (comp.types.includes('locality')) city = comp.long_name;
-        if (comp.types.includes('administrative_area_level_1')) state = comp.long_name;
-      }
-
-      return {
-        id: geometry?.location?.lat?.toString() + '_' + geometry?.location?.lng?.toString(),
-        placeName: formatted_address,
-        address: (address_components?.[0]?.long_name || formatted_address).trim(),
-        city,
-        state,
-        lat: geometry?.location?.lat ?? 0,
-        lng: geometry?.location?.lng ?? 0,
-      };
-    });
-  } catch (err) {
+    return suggestions;
+  } catch (err: any) {
     console.warn('[Geocoding] forwardGeocode error:', err);
+    lastGeocodeStatus = err?.response?.data?.message ?? 'REQUEST_FAILED';
     return [];
   }
 }
 
-// Reverse geocode coordinates to address using Google Maps Geocoding API
+// Reverse geocode coordinates to address via the backend (proxies Google Maps Geocoding API)
 export async function reverseGeocode(
   lat: number,
   lng: number,
 ): Promise<{ address: string; city: string; state: string } | null> {
   try {
-    const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.warn('[Geocoding] EXPO_PUBLIC_GOOGLE_MAPS_API_KEY not set');
-      return null;
-    }
-    const url = `${GOOGLE_MAPS_BASE_URL}/geocode/json?latlng=${lat},${lng}&key=${apiKey}`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const json = await res.json();
-    
-    if (json.status !== 'OK' || !Array.isArray(json.results) || json.results.length === 0) {
-      return null;
-    }
-
-    const result = json.results[0];
-    const { address_components, formatted_address } = result;
-    let city = '';
-    let state = '';
-
-    for (const comp of address_components || []) {
-      if (comp.types.includes('locality')) city = comp.long_name;
-      if (comp.types.includes('administrative_area_level_1')) state = comp.long_name;
-    }
-
-    return {
-      address: (address_components?.[0]?.long_name || formatted_address).trim(),
-      city,
-      state,
-    };
+    const { data } = await api.get('/geocode/reverse', { params: { lat, lng } });
+    return data?.data ?? null;
   } catch (err) {
     console.warn('[Geocoding] reverseGeocode error:', err);
     return null;

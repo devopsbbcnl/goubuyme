@@ -34,6 +34,12 @@
         {
           "faceIDPermission": "GoBuyMe uses Face ID to keep your account secure."
         }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_IOS_CLIENT_ID"
+        }
       ]
     ],
     "ios": {

@@ -26,6 +26,38 @@ async function callBackend(path: string, method: string, search: string, body: s
   });
 }
 
+// Multiple components can 401 on the same expired access token in the same
+// tick (e.g. sidebar + page both fetching on mount). The backend rotates the
+// refresh token on every use, so firing /auth/refresh once per 401 desyncs
+// the cookie the browser ends up with from what's stored server-side. Cache
+// the in-flight refresh per refresh-token value so concurrent 401s share one
+// rotation instead of racing each other.
+const inFlightRefresh = new Map<string, Promise<{ accessToken: string; refreshToken: string } | null>>();
+
+function refreshTokens(refresh: string) {
+  const existing = inFlightRefresh.get(refresh);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    try {
+      const r = await fetch(`${BACKEND}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: refresh }),
+      });
+      if (!r.ok) return null;
+      const refreshed = await r.json() as { data: { accessToken: string; refreshToken: string } };
+      return refreshed.data;
+    } catch {
+      return null;
+    }
+  })();
+
+  inFlightRefresh.set(refresh, promise);
+  promise.finally(() => inFlightRefresh.delete(refresh));
+  return promise;
+}
+
 async function proxyRequest(req: NextRequest, pathSegments: string[]) {
   const path = pathSegments.join('/');
   const search = req.nextUrl.search;
@@ -41,15 +73,10 @@ async function proxyRequest(req: NextRequest, pathSegments: string[]) {
   if (upstream.status === 401) {
     const refresh = req.cookies.get('gbm_refresh')?.value;
     if (refresh) {
-      const r = await fetch(`${BACKEND}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: refresh }),
-      });
-      if (r.ok) {
-        const refreshed = await r.json() as { data: { accessToken: string; refreshToken: string } };
-        refreshedAccess = refreshed.data.accessToken;
-        refreshedRefresh = refreshed.data.refreshToken;
+      const refreshed = await refreshTokens(refresh);
+      if (refreshed) {
+        refreshedAccess = refreshed.accessToken;
+        refreshedRefresh = refreshed.refreshToken;
         upstream = await callBackend(path, req.method, search, body, refreshedAccess);
       }
     }
