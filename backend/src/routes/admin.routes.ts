@@ -25,6 +25,7 @@ import {
   updateAdminRole,
   deactivateAdminUser,
 } from '../controllers/admin.controller';
+import { listErrorLogs, getErrorLogDetail, resolveErrorLog } from '../controllers/errorLog.controller';
 import { getOnboardingFunnel, getStuckUsers, getOnboardingEventFunnel } from '../controllers/analytics.controller';
 import { createOffer, updateOffer } from '../controllers/offer.controller';
 import {
@@ -102,6 +103,11 @@ router.get('/audit', ...readAuth, getAuditLogs);
 // Server logs (Winston files on disk) — super admin only
 router.get('/logs/files', ...superAdminAuth, getLogFiles);
 router.get('/logs',       ...superAdminAuth, getServerLogs);
+
+// Client/backend error logs — all admin roles can view and resolve
+router.get('/error-logs',            ...readAuth, listErrorLogs);
+router.get('/error-logs/:id',        ...readAuth, getErrorLogDetail);
+router.patch('/error-logs/:id/resolve', ...readAuth, resolveErrorLog);
 
 // Payouts — super admin only
 router.get('/payouts',            ...superAdminAuth, getAdminPayouts);

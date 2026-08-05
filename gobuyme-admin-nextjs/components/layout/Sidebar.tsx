@@ -12,7 +12,7 @@ type NavItem = {
   href: string;
   label: string;
   icon: string;
-  pendingKey: null | 'vendors' | 'riders';
+  pendingKey: null | 'vendors' | 'riders' | 'errorLogs';
   minRole?: 'OPERATIONS_ADMIN' | 'SUPER_ADMIN';
 };
 
@@ -25,6 +25,7 @@ const NAV: NavItem[] = [
   { href: '/customers',  label: 'Customers',     icon: '👥', pendingKey: null },
   { href: '/pricing',    label: 'Pricing',       icon: '💰', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
   { href: '/payouts',    label: 'Payouts',       icon: '💳', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
+  { href: '/error-logs', label: 'Error Logs',    icon: '🐞', pendingKey: 'errorLogs' },
   { href: '/audit',      label: 'Audit Logs',    icon: '📋', pendingKey: null },
   { href: '/server-logs', label: 'Server Logs',  icon: '📜', pendingKey: null, minRole: 'SUPER_ADMIN' },
   { href: '/admins',     label: 'Admin Users',   icon: '🔐', pendingKey: null, minRole: 'SUPER_ADMIN' },
@@ -46,13 +47,14 @@ export function Sidebar() {
   const pathname = usePathname();
   const { theme: T, isDark, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
-  const [pending, setPending] = useState<{ vendors: number; riders: number }>({ vendors: 0, riders: 0 });
+  const [pending, setPending] = useState<{ vendors: number; riders: number; errorLogs: number }>({ vendors: 0, riders: 0, errorLogs: 0 });
 
   useEffect(() => {
     Promise.allSettled([
       api.get<{ data: Array<{ approvalStatus: string }> }>('/admin/vendors?status=PENDING&limit=200'),
       api.get<{ data: Array<{ approvalStatus: string }> }>('/admin/riders?status=PENDING&limit=200'),
-    ]).then(([vRes, rRes]) => {
+      api.get<{ pagination: { total: number } }>('/admin/error-logs?resolved=false&limit=1'),
+    ]).then(([vRes, rRes, eRes]) => {
       setPending({
         vendors: vRes.status === 'fulfilled'
           ? vRes.value.data.filter(v => v.approvalStatus === 'PENDING').length
@@ -60,6 +62,7 @@ export function Sidebar() {
         riders: rRes.status === 'fulfilled'
           ? rRes.value.data.filter(r => r.approvalStatus === 'PENDING').length
           : 0,
+        errorLogs: eRes.status === 'fulfilled' ? eRes.value.pagination.total : 0,
       });
     });
   }, []);

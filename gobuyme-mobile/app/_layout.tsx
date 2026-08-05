@@ -19,8 +19,24 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { setOnUnauthorized } from '@/services/api';
+import { reportError } from '@/services/errorReporting';
 
 SplashScreen.preventAutoHideAsync();
+
+// Catches uncaught JS exceptions outside React render (async callbacks, timers) —
+// ErrorBoundary only catches render-time errors. Installed once at module load,
+// before any component mounts. Re-throws to the original handler so existing
+// crash/dev-redbox behavior is unchanged.
+const globalErrorUtils = (global as unknown as {
+  ErrorUtils?: { setGlobalHandler: (cb: (error: Error, isFatal?: boolean) => void) => void; getGlobalHandler: () => (error: Error, isFatal?: boolean) => void };
+}).ErrorUtils;
+if (globalErrorUtils) {
+  const originalHandler = globalErrorUtils.getGlobalHandler();
+  globalErrorUtils.setGlobalHandler((error, isFatal) => {
+    reportError(error, { source: 'global', context: { isFatal } });
+    originalHandler(error, isFatal);
+  });
+}
 
 function AppContent() {
   usePushNotifications();
