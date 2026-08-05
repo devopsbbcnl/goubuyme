@@ -131,7 +131,8 @@
       "Bash($B cdp *)",
       "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse click *)",
       "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse url *)",
-      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse hover *)"
+      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse hover *)",
+      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse fill *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"

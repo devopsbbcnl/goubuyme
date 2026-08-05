@@ -8,6 +8,14 @@ import { ApprovalStatus, CommissionTier, LicenseType, OrderStatus, Prisma, Vendo
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getPlatformSettings } from '../services/settings.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
+import {
+  availabilityInclude,
+  computeAvailability,
+  getVendorAvailability,
+  refreshVendorIsOpen,
+  AvailabilityInput,
+} from '../services/availability.service';
+import { parseTimeToMinutes } from '../services/storeHours.service';
 
 // GET /vendors/commission-rates (public) — live tier rates for client display
 export const getPublicCommissionRates = catchAsync(async (_req: Request, res: Response) => {
@@ -125,10 +133,11 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
 export const getVendorById = catchAsync(async (req: Request, res: Response) => {
   const vendor = await prisma.vendor.findFirst({
     where: { id: req.params.id, approvalStatus: ApprovalStatus.APPROVED },
-    select: vendorSelect,
+    select: { ...vendorSelect, ...availabilityInclude },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
-  return apiResponse.success(res, 'Vendor fetched.', vendor);
+  const availability = computeAvailability(vendor as unknown as AvailabilityInput);
+  return apiResponse.success(res, 'Vendor fetched.', { ...vendor, availability });
 });
 
 export const getVendorMenu = catchAsync(async (req: Request, res: Response) => {
@@ -167,10 +176,20 @@ export const getMyVendorProfile = catchAsync(async (req: AuthRequest, res: Respo
     include: {
       user: { select: { name: true, email: true, phone: true, avatar: true } },
       payoutAccount: { select: { bankName: true, accountNumber: true, accountName: true } },
+      businessHours: {
+        select: { id: true, dayOfWeek: true, openTime: true, closeTime: true },
+        orderBy: [{ dayOfWeek: 'asc' }, { openTime: 'asc' }],
+      },
+      temporaryClosures: {
+        where: { OR: [{ endAt: null }, { endAt: { gt: new Date() } }] },
+        select: { id: true, startAt: true, endAt: true, reason: true },
+        orderBy: { startAt: 'asc' },
+      },
     },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor profile not found.', 404);
-  return apiResponse.success(res, 'Vendor profile fetched.', vendor);
+  const availability = computeAvailability(vendor as unknown as AvailabilityInput);
+  return apiResponse.success(res, 'Vendor profile fetched.', { ...vendor, availability });
 });
 
 export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -236,18 +255,209 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
   return apiResponse.success(res, 'Vendor profile updated.', vendor);
 });
 
+// PATCH /vendors/me/status — quick manual open/close. Flips the store to the
+// opposite of its current state by setting a manual override (FORCE_OPEN /
+// FORCE_CLOSED). To go back to schedule-driven behaviour the vendor picks the
+// AUTO mode via PATCH /vendors/me/availability.
 export const toggleStoreStatus = catchAsync(async (req: AuthRequest, res: Response) => {
   const existing = await prisma.vendor.findUnique({
     where: { userId: req.user!.userId },
-    select: { isOpen: true },
-  });
-  if (!existing) return apiResponse.error(res, 'Vendor not found.', 404);
-  const vendor = await prisma.vendor.update({
-    where: { userId: req.user!.userId },
-    data: { isOpen: !existing.isOpen },
     select: { id: true, isOpen: true },
   });
-  return apiResponse.success(res, `Store is now ${vendor.isOpen ? 'open' : 'closed'}.`, vendor);
+  if (!existing) return apiResponse.error(res, 'Vendor not found.', 404);
+
+  const override = existing.isOpen ? 'FORCE_CLOSED' : 'FORCE_OPEN';
+  await prisma.vendor.update({
+    where: { id: existing.id },
+    data: { availabilityOverride: override },
+  });
+  const availability = await refreshVendorIsOpen(existing.id);
+  return apiResponse.success(
+    res,
+    `Store is now ${availability?.isOpen ? 'open' : 'closed'}.`,
+    { id: existing.id, isOpen: availability?.isOpen ?? false, availabilityOverride: override, availability },
+  );
+});
+
+// ─── Availability: mode, timezone, weekly hours, temporary closures ───────────
+
+const OVERRIDE_VALUES = ['AUTO', 'FORCE_OPEN', 'FORCE_CLOSED'] as const;
+
+// GET /vendors/me/availability — current status + config for the vendor UI.
+export const getMyAvailability = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendor = await prisma.vendor.findUnique({
+    where: { userId: req.user!.userId },
+    select: {
+      id: true,
+      ...availabilityInclude,
+      businessHours: {
+        select: { id: true, dayOfWeek: true, openTime: true, closeTime: true },
+        orderBy: [{ dayOfWeek: 'asc' }, { openTime: 'asc' }],
+      },
+    },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+  const availability = computeAvailability(vendor as unknown as AvailabilityInput);
+  return apiResponse.success(res, 'Availability fetched.', {
+    timezone: vendor.timezone,
+    availabilityOverride: vendor.availabilityOverride,
+    businessHours: vendor.businessHours,
+    temporaryClosures: vendor.temporaryClosures,
+    availability,
+  });
+});
+
+// PATCH /vendors/me/availability — set override mode and/or timezone.
+export const updateAvailabilityMode = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { mode, timezone } = req.body as { mode?: string; timezone?: string };
+
+  const data: Record<string, unknown> = {};
+  if (mode !== undefined) {
+    if (!OVERRIDE_VALUES.includes(mode as typeof OVERRIDE_VALUES[number])) {
+      return apiResponse.error(res, `mode must be one of ${OVERRIDE_VALUES.join(', ')}.`, 400);
+    }
+    data.availabilityOverride = mode;
+  }
+  if (timezone !== undefined) {
+    // Validate the IANA zone by attempting to use it.
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: timezone });
+    } catch {
+      return apiResponse.error(res, 'Invalid timezone.', 400);
+    }
+    data.timezone = timezone;
+  }
+  if (Object.keys(data).length === 0) {
+    return apiResponse.error(res, 'Provide mode and/or timezone.', 400);
+  }
+
+  const vendor = await prisma.vendor.findUnique({
+    where: { userId: req.user!.userId },
+    select: { id: true },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+
+  await prisma.vendor.update({ where: { id: vendor.id }, data });
+  const availability = await refreshVendorIsOpen(vendor.id);
+  return apiResponse.success(res, 'Availability settings updated.', { availability });
+});
+
+// PUT /vendors/me/business-hours — replace the full weekly schedule.
+// Body: { hours: [{ dayOfWeek: 0-6, openTime: "HH:MM", closeTime: "HH:MM" }] }
+export const setBusinessHours = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { hours } = req.body as {
+    hours?: { dayOfWeek: number; openTime: string; closeTime: string }[];
+  };
+  if (!Array.isArray(hours)) {
+    return apiResponse.error(res, 'hours must be an array.', 400);
+  }
+
+  for (const [i, h] of hours.entries()) {
+    if (
+      typeof h?.dayOfWeek !== 'number' ||
+      h.dayOfWeek < 0 || h.dayOfWeek > 6 || !Number.isInteger(h.dayOfWeek)
+    ) {
+      return apiResponse.error(res, `hours[${i}].dayOfWeek must be an integer 0-6.`, 400);
+    }
+    if (parseTimeToMinutes(h.openTime) === null || parseTimeToMinutes(h.closeTime) === null) {
+      return apiResponse.error(res, `hours[${i}] openTime/closeTime must be "HH:MM".`, 400);
+    }
+  }
+
+  const vendor = await prisma.vendor.findUnique({
+    where: { userId: req.user!.userId },
+    select: { id: true },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+
+  await prisma.$transaction([
+    prisma.vendorBusinessHours.deleteMany({ where: { vendorId: vendor.id } }),
+    ...(hours.length
+      ? [prisma.vendorBusinessHours.createMany({
+          data: hours.map(h => ({
+            vendorId: vendor.id,
+            dayOfWeek: h.dayOfWeek,
+            openTime: h.openTime,
+            closeTime: h.closeTime,
+          })),
+        })]
+      : []),
+  ]);
+
+  const availability = await refreshVendorIsOpen(vendor.id);
+  const saved = await prisma.vendorBusinessHours.findMany({
+    where: { vendorId: vendor.id },
+    select: { id: true, dayOfWeek: true, openTime: true, closeTime: true },
+    orderBy: [{ dayOfWeek: 'asc' }, { openTime: 'asc' }],
+  });
+  return apiResponse.success(res, 'Business hours updated.', { businessHours: saved, availability });
+});
+
+// GET /vendors/me/temporary-closures — active + upcoming closures.
+export const listTemporaryClosures = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendor = await prisma.vendor.findUnique({
+    where: { userId: req.user!.userId },
+    select: { id: true },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+  const closures = await prisma.vendorTemporaryClosure.findMany({
+    where: { vendorId: vendor.id, OR: [{ endAt: null }, { endAt: { gt: new Date() } }] },
+    select: { id: true, startAt: true, endAt: true, reason: true },
+    orderBy: { startAt: 'asc' },
+  });
+  return apiResponse.success(res, 'Temporary closures fetched.', closures);
+});
+
+// POST /vendors/me/temporary-closures — start a temporary closure.
+// Body: { startAt?, endAt?, reason? }. endAt null = closed until reopened.
+export const createTemporaryClosure = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { startAt, endAt, reason } = req.body as {
+    startAt?: string; endAt?: string; reason?: string;
+  };
+
+  const start = startAt ? new Date(startAt) : new Date();
+  if (Number.isNaN(start.getTime())) return apiResponse.error(res, 'Invalid startAt.', 400);
+  let end: Date | null = null;
+  if (endAt !== undefined && endAt !== null) {
+    end = new Date(endAt);
+    if (Number.isNaN(end.getTime())) return apiResponse.error(res, 'Invalid endAt.', 400);
+    if (end.getTime() <= start.getTime()) {
+      return apiResponse.error(res, 'endAt must be after startAt.', 400);
+    }
+  }
+  if (reason !== undefined && typeof reason !== 'string') {
+    return apiResponse.error(res, 'reason must be a string.', 400);
+  }
+
+  const vendor = await prisma.vendor.findUnique({
+    where: { userId: req.user!.userId },
+    select: { id: true },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+
+  const closure = await prisma.vendorTemporaryClosure.create({
+    data: { vendorId: vendor.id, startAt: start, endAt: end, reason: reason?.trim() || null },
+    select: { id: true, startAt: true, endAt: true, reason: true },
+  });
+  const availability = await refreshVendorIsOpen(vendor.id);
+  return apiResponse.success(res, 'Temporary closure created.', { closure, availability }, 201);
+});
+
+// DELETE /vendors/me/temporary-closures/:id — cancel a closure early.
+export const deleteTemporaryClosure = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendor = await prisma.vendor.findUnique({
+    where: { userId: req.user!.userId },
+    select: { id: true },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+
+  const { count } = await prisma.vendorTemporaryClosure.deleteMany({
+    where: { id: req.params.id, vendorId: vendor.id },
+  });
+  if (count === 0) return apiResponse.error(res, 'Closure not found.', 404);
+
+  const availability = await refreshVendorIsOpen(vendor.id);
+  return apiResponse.success(res, 'Temporary closure removed.', { availability });
 });
 
 export const getVendorDashboardStats = catchAsync(async (req: AuthRequest, res: Response) => {

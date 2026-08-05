@@ -2,6 +2,8 @@ import { Router } from 'express';
 import {
   getVendors, getVendorById, getVendorMenu,
   getMyVendorProfile, updateMyVendorProfile, toggleStoreStatus,
+  getMyAvailability, updateAvailabilityMode, setBusinessHours,
+  listTemporaryClosures, createTemporaryClosure, deleteTemporaryClosure,
   getVendorDashboardStats, getMyOrders, getMyOrderById, updateMyOrderStatus, getMyEarnings,
   getMyMenuItems, createMenuItem, updateMenuItem, deleteMenuItem,
   getMenuItemDrinkOptions, createMenuItemDrinkOption, updateMenuItemDrinkOption, deleteMenuItemDrinkOption,
@@ -26,6 +28,12 @@ const vendorAuth = [verifyToken, requireRole('VENDOR')];
 router.get('/me',                          ...vendorAuth, getMyVendorProfile);
 router.patch('/me',                        ...vendorAuth, updateMyVendorProfile);
 router.patch('/me/status',                 ...vendorAuth, toggleStoreStatus);
+router.get('/me/availability',             ...vendorAuth, getMyAvailability);
+router.patch('/me/availability',           ...vendorAuth, updateAvailabilityMode);
+router.put('/me/business-hours',           ...vendorAuth, setBusinessHours);
+router.get('/me/temporary-closures',       ...vendorAuth, listTemporaryClosures);
+router.post('/me/temporary-closures',      ...vendorAuth, createTemporaryClosure);
+router.delete('/me/temporary-closures/:id', ...vendorAuth, deleteTemporaryClosure);
 router.get('/me/stats',                    ...vendorAuth, getVendorDashboardStats);
 router.get('/me/orders',                   ...vendorAuth, getMyOrders);
 router.get('/me/orders/:orderId',          ...vendorAuth, getMyOrderById);
