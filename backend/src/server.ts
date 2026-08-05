@@ -20,21 +20,6 @@ for (const key of REQUIRED_ENV) {
   }
 }
 
-// Sentry's auto-instrumentation patches Express at require-time, so Sentry.init()
-// must run before `express` is ever imported — otherwise it silently instruments
-// nothing (logs "express is not instrumented" and just never captures anything
-// route-related). This project compiles to CommonJS with imports executing in
-// source order, so putting this block above `import express` is what makes it work.
-import * as Sentry from '@sentry/node';
-
-if (process.env.SENTRY_DSN) {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    environment: process.env.NODE_ENV,
-    tracesSampleRate: 0.1,
-  });
-}
-
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -63,6 +48,7 @@ import offerRoutes from './routes/offer.routes';
 import supportRoutes from './routes/support.routes';
 import messageRoutes from './routes/message.routes';
 import geocodeRoutes from './routes/geocode.routes';
+import errorLogRoutes from './routes/errorLog.routes';
 import logger from './utils/logger';
 
 const app = express();
@@ -133,6 +119,7 @@ app.use('/api/v1/offers', offerRoutes);
 app.use('/api/v1/support', supportRoutes);
 app.use('/api/v1/messages', messageRoutes);
 app.use('/api/v1/geocode', geocodeRoutes);
+app.use('/api/v1/errors', errorLogRoutes);
 
 // Public endpoint for mobile apps to fetch delivery fee settings
 app.get('/api/v1/settings/public', async (_req, res) => {
@@ -161,10 +148,6 @@ app.get('/health', cors({ origin: '*' }), async (_req, res) => {
     return res.status(503).json({ status: 'error', db: 'down', timestamp: new Date().toISOString() });
   }
 });
-
-if (process.env.SENTRY_DSN) {
-  Sentry.setupExpressErrorHandler(app);
-}
 
 app.use(errorHandler);
 

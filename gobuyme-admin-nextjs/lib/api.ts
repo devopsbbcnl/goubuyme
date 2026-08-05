@@ -1,3 +1,5 @@
+import { reportError } from '../services/errorReporting';
+
 const BASE = '/api/proxy';
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -14,6 +16,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     if (res.status === 401 && typeof window !== 'undefined') {
       window.location.href = '/login';
+    } else {
+      reportError(new Error(json.message ?? 'Request failed'), {
+        source: 'api',
+        context: { url: `${BASE}${path}`, method: init.method ?? 'GET', status: res.status },
+      });
     }
     throw new Error(json.message ?? 'Request failed');
   }

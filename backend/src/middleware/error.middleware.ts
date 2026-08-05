@@ -1,9 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
+import prisma from '../config/db';
 import logger from '../utils/logger';
 
-export const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunction) => {
+export const errorHandler = (err: Error, req: Request, res: Response, _next: NextFunction) => {
   logger.error(err.message, { stack: err.stack });
+
+  // Fire-and-forget: a failure to log the error must never mask the original error response.
+  void prisma.errorLog.create({
+    data: {
+      platform: 'BACKEND',
+      source: 'express',
+      message: err.message,
+      stack: err.stack,
+      url: req.originalUrl,
+      method: req.method,
+    },
+  }).catch((logErr) => logger.error('Failed to persist ErrorLog', { error: (logErr as Error).message }));
 
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === 'P2002') {

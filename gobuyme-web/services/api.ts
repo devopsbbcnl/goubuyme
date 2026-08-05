@@ -1,6 +1,7 @@
 'use client';
 
 import axios from 'axios';
+import { reportError } from './errorReporting';
 
 // Same-origin proxy — see app/api/proxy/[...path]/route.ts. The browser never
 // holds an access/refresh token; those live in httpOnly cookies the proxy sets
@@ -17,6 +18,11 @@ api.interceptors.response.use(
       // The proxy already tried a silent refresh server-side before returning
       // this 401, so a session-ending sign-out is the correct next step here.
       onUnauthorized?.();
+    } else {
+      reportError(err, {
+        source: 'api',
+        context: { url: err.config?.url, method: err.config?.method, status: err.response?.status },
+      });
     }
     return Promise.reject(err);
   }

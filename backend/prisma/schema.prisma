@@ -603,6 +603,31 @@ model Notification {
   @@map("notifications")
 }
 
+model ErrorLog {
+  id         String    @id @default(uuid())
+  userId     String?
+  role       String?
+  platform   String
+  source     String
+  message    String
+  stack      String?
+  context    Json?
+  appVersion String?
+  deviceInfo Json?
+  url        String?
+  method     String?
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+  resolvedBy String?
+  createdAt  DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([resolved])
+  @@index([platform])
+  @@index([userId])
+  @@map("error_logs")
+}
+
 model Conversation {
   id          String    @id @default(uuid())
   orderId     String    @unique

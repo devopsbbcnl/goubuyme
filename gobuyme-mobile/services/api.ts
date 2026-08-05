@@ -1,6 +1,7 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { requirePublicEnv } from './env';
+import { reportError } from './errorReporting';
 
 // Fails fast in production builds if the URL is missing, instead of silently
 // falling back to localhost (which on a device points at the phone itself).
@@ -37,6 +38,11 @@ api.interceptors.response.use(
 
     // Only refresh app-session 401s. Login/register 401s should reach the screen as form errors.
     if (err.response?.status !== 401 || original._retry || isAuthEndpoint(original.url)) {
+      // Skip reporting 401s that are about to be silently retried via the refresh flow above.
+      reportError(err, {
+        source: 'api',
+        context: { url: original?.url, method: original?.method, status: err.response?.status },
+      });
       return Promise.reject(err);
     }
     original._retry = true;

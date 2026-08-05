@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { reportError } from '@/services/errorReporting';
 
 // expo-auth-session's Google provider is deprecated (Expo SDK 49+) and its browser-redirect
 // flow is now blocked by Google with "doesn't comply with Google's OAuth 2.0 policy for
@@ -72,10 +73,12 @@ export function useGoogleSignIn() {
           // no-op — user backed out
         } else if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
           setError('Google Play Services is required for Google sign-in.');
+          reportError(err, { source: 'google_signin', context: { code } });
         } else if (code === statusCodes.IN_PROGRESS) {
           // a sign-in is already underway — ignore this duplicate tap
         } else {
           setError(getGoogleAuthErrorMessage(err));
+          reportError(err, { source: 'google_signin', context: { code } });
         }
       } finally {
         setBusy(false);
