@@ -47,6 +47,7 @@ import { setIO } from './config/socket';
 import { attachRedisAdapter } from './config/socketAdapter';
 import { setupSockets } from './sockets';
 import { startPayoutJob } from './jobs/payoutJob';
+import { startStoreHoursJob } from './jobs/storeHoursJob';
 import { errorHandler } from './middleware/error.middleware';
 import { globalLimiter } from './middleware/rateLimiter.middleware';
 import { maintenanceGuard } from './middleware/maintenance.middleware';
@@ -174,6 +175,7 @@ const PORT = Number(process.env.PORT) || 5000;
 const start = async () => {
   await connectDB();
   startPayoutJob();
+  startStoreHoursJob();
   httpServer.listen(PORT, '0.0.0.0', () => logger.info(`GoBuyMe API running on port ${PORT}`));
 };
 

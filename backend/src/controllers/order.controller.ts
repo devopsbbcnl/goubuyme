@@ -11,6 +11,7 @@ import { getPlatformSettings } from '../services/settings.service';
 import { getIO } from '../config/socket';
 import { notifyUser } from '../services/notification.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
+import { availabilityInclude, computeAvailability, AvailabilityInput } from '../services/availability.service';
 import { PaymentMethod, OrderStatus } from '@prisma/client';
 
 const generateOrderNumber = () => {
@@ -210,10 +211,13 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
 
   const vendor = await prisma.vendor.findUnique({
     where: { id: cart.vendorId! },
-    select: { id: true, latitude: true, longitude: true, commissionTier: true, isOpen: true, city: true, state: true },
+    select: { id: true, latitude: true, longitude: true, commissionTier: true, city: true, state: true, ...availabilityInclude },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
-  if (!vendor.isOpen) return apiResponse.error(res, 'This vendor is currently closed.', 400);
+  // Single source of truth: compute live availability against server time so an
+  // order can never be placed during a closure, even between cron ticks.
+  const availability = computeAvailability(vendor as unknown as AvailabilityInput);
+  if (!availability.isOpen) return apiResponse.error(res, availability.message, 400);
 
   const subtotal = cart.items.reduce((sum, i) => sum + (i.unitPrice ?? i.menuItem.price) * i.quantity, 0);
 

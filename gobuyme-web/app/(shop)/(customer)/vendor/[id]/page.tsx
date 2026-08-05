@@ -27,6 +27,15 @@ interface VendorDetail {
   avgDeliveryTime?: number;
   verificationBadge?: string;
   commissionTier?: string;
+  availability?: Availability;
+}
+
+interface Availability {
+  isOpen: boolean;
+  status: 'open' | 'closed_manual' | 'temporarily_closed' | 'closed_outside_hours';
+  message: string;
+  reason?: string | null;
+  reopensAt?: string | null;
 }
 
 interface OptionItem { id: string; name: string; extraPrice: number; isAvailable: boolean; }
@@ -323,6 +332,18 @@ export default function VendorDetailPage() {
           </div>
         </div>
 
+        {/* Closed banner — precise, server-computed reason */}
+        {!vendor.isOpen && (
+          <div style={{ background: '#FEE', color: 'var(--error)', border: '1px solid #F5C2C2', borderRadius: 'var(--r-md, 10px)', padding: '10px 14px', margin: '0 0 16px', fontSize: 13, fontWeight: 600, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span>{vendor.availability?.message ?? 'This store is currently closed.'}</span>
+            {vendor.availability?.reopensAt && (
+              <span style={{ fontWeight: 500, opacity: 0.85 }}>
+                Reopens {new Date(vendor.availability.reopensAt).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Category filter chips */}
         {tags.length > 0 && (
           <div className="chip-row" style={{ marginBottom: 20 }}>
@@ -364,7 +385,7 @@ export default function VendorDetailPage() {
                       disabled={!item.isAvailable}
                       onClick={e => {
                         e.stopPropagation();
-                        if (!vendor.isOpen) { toast('This store is currently closed. Please check back during business hours.', 'error'); return; }
+                        if (!vendor.isOpen) { toast(vendor.availability?.message ?? 'This store is currently closed. Please check back during business hours.', 'error'); return; }
                         router.push(`/item/${item.id}`);
                       }}
                     >

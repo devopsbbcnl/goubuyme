@@ -90,6 +90,8 @@ model Vendor {
   latitude             Float?
   longitude            Float?
   isOpen               Boolean                     @default(false)
+  timezone             String                      @default("Africa/Lagos")
+  availabilityOverride VendorAvailabilityOverride  @default(AUTO)
   approvalStatus       ApprovalStatus              @default(PENDING)
   autoApprove          Boolean                     @default(false)
   commissionTier       CommissionTier              @default(TIER_2)
@@ -115,6 +117,8 @@ model Vendor {
   licenses             VendorLicense[]
   vendorPayouts        VendorPayout[]
   vendorPromotions     VendorPromotion[]
+  businessHours        VendorBusinessHours[]
+  temporaryClosures    VendorTemporaryClosure[]
   user                 User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([approvalStatus])
@@ -124,6 +128,40 @@ model Vendor {
   @@index([isFeatured])
   @@index([displayOrder])
   @@map("vendors")
+}
+
+/// One opening slot for a vendor on a given weekday. Multiple rows per weekday
+/// represent multiple time slots (e.g. a lunch and a dinner window). Times are
+/// stored as 24h "HH:MM" strings interpreted in the vendor's own timezone.
+model VendorBusinessHours {
+  id        String   @id @default(uuid())
+  vendorId  String
+  dayOfWeek Int // 0 = Sunday ... 6 = Saturday
+  openTime  String // "HH:MM"
+  closeTime String // "HH:MM"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([vendorId, dayOfWeek])
+  @@map("vendor_business_hours")
+}
+
+/// A one-off temporary closure window. endAt null means "closed until further
+/// notice" (vendor must reopen manually or delete the closure).
+model VendorTemporaryClosure {
+  id        String    @id @default(uuid())
+  vendorId  String
+  startAt   DateTime  @default(now())
+  endAt     DateTime?
+  reason    String?
+  createdAt DateTime  @default(now())
+  vendor    Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([vendorId, startAt])
+  @@map("vendor_temporary_closures")
 }
 
 model Rider {
@@ -808,6 +846,16 @@ enum VendorCategory {
 enum CommissionTier {
   TIER_1
   TIER_2
+}
+
+/// Manual availability override for a vendor store.
+/// AUTO        - follow weekly business hours + temporary closures
+/// FORCE_OPEN  - vendor forced the store open, ignoring business hours
+/// FORCE_CLOSED- vendor forced the store closed, ignoring business hours
+enum VendorAvailabilityOverride {
+  AUTO
+  FORCE_OPEN
+  FORCE_CLOSED
 }
 
 enum ApprovalStatus {
