@@ -21,8 +21,8 @@ export const haversineDistance = (
 };
 
 /**
- * Calculate distance using Google Maps Routes API (real road distance)
- * Falls back to Haversine if API fails
+ * Calculate distance using OSRM (real road distance)
+ * Falls back to Haversine if the routing service fails
  */
 export async function getDistance(
   originLat: number,
@@ -30,7 +30,7 @@ export async function getDistance(
   destLat: number,
   destLng: number,
 ): Promise<{ distanceKm: number; durationMinutes: number }> {
-  // Try Google Maps Routes API first
+  // Try OSRM routing first
   const routeResult = await calculateRouteDistance(originLat, originLng, destLat, destLng);
   if (routeResult) {
     return {

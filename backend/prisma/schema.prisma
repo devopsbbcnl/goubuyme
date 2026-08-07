@@ -273,6 +273,9 @@ model CartItem {
   quantity   Int      @default(1)
   note       String?
   unitPrice  Float?
+  // Selected drinks/option-group choices, e.g. [{ "label": "Coke", "price": 300 }, { "label": "Garri", "price": 0 }].
+  // Carried through to OrderItem.selections when the order is placed.
+  selections Json?
   cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
 
@@ -351,6 +354,9 @@ model OrderItem {
   name       String
   price      Float
   quantity   Int
+  // Snapshot of chosen drinks/option-group choices at order time, e.g.
+  // [{ "label": "Coke", "price": 300 }, { "label": "Garri", "price": 0 }].
+  selections Json?
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
   order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 

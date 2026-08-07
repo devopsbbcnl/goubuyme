@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/components/ui/Toast';
 import api from '@/services/api';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
 
 interface Address { id: string; label: string; street: string; city: string; }
 
@@ -21,9 +22,11 @@ const PW_RULES = [
 const isStrongPw = (v: string) => PW_RULES.every(r => r.test(v));
 
 function formatPhone(s: string): string {
-  const d = s.replace(/\D/g, '');
+  let d = s.replace(/\D/g, '');
   if (!d) return '';
-  return `+234${d.startsWith('0') ? d.slice(1) : d}`;
+  while (d.startsWith('234') && d.length > 10) d = d.slice(3);
+  if (d.startsWith('0')) d = d.slice(1);
+  return `+234${d}`;
 }
 
 // ── Inline Auth Panel ─────────────────────────────────────────────────────────
@@ -224,6 +227,17 @@ function GuestAuthPanel() {
             </form>
           )}
 
+          {stage === 'login' && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>OR</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+              </div>
+              <GoogleSignInButton next="/checkout" label="signin_with" />
+            </>
+          )}
+
           {/* Signup form */}
           {stage === 'signup' && (
             <form onSubmit={handleSignup}>
@@ -332,16 +346,24 @@ function GuestAuthPanel() {
 
 // ── CheckoutContent ───────────────────────────────────────────────────────────
 function CheckoutContent() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, updateUser } = useAuth();
   const { items, totalAmount, clearCart } = useCart();
   const router = useRouter();
   const toast = useToast();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddr, setSelectedAddr] = useState('');
-  const payMethod = 'PAYSTACK';
+  // Backend's PaymentMethod enum has no generic "PAYSTACK" value — CARD is what's stored
+  // when payment goes through Paystack's hosted checkout (as this flow always does).
+  const payMethod = 'CARD';
   const [note, setNote] = useState('');
   const [placing, setPlacing] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+
+  useEffect(() => {
+    setPhone(user?.phone ?? '');
+  }, [user?.phone]);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [originalDeliveryFee, setOriginalDeliveryFee] = useState<number | null>(null);
   const [freeDeliveryReason, setFreeDeliveryReason] = useState<'THRESHOLD' | 'CREDIT' | null>(null);
@@ -404,19 +426,28 @@ function CheckoutContent() {
   const place = async () => {
     if (!selectedAddr) { toast('Select a delivery address', 'error'); return; }
     if (!items.length) { toast('Your cart is empty', 'error'); return; }
+    const trimmedPhone = phone.trim();
+    if (!trimmedPhone) { setPhoneError('A phone number is required so the rider or vendor can reach you.'); return; }
+    setPhoneError('');
     setPlacing(true);
     try {
+      if (trimmedPhone !== (user?.phone ?? '')) {
+        const { data: profileData } = await api.patch('/auth/profile', { phone: trimmedPhone });
+        updateUser({ phone: profileData.data?.phone ?? trimmedPhone });
+      }
       const { data } = await api.post('/orders', {
         deliveryAddressId: selectedAddr, paymentMethod: payMethod, note,
         ...(promo ? { promoCode: promo.code } : {}),
       });
-      if (data.data?.paystackUrl) {
-        window.location.href = data.data.paystackUrl;
-      } else {
-        clearCart();
-        toast('Order placed!', 'success');
-        router.replace(`/orders/${data.data.order?.id ?? ''}`);
-      }
+      const orderId = data.data?.id;
+      clearCart();
+
+      // Order is created (PENDING) at this point — hand off to Paystack's hosted
+      // checkout to collect payment. verifyPayment on the callback page flips it to PAID/CONFIRMED.
+      const { data: payData } = await api.post('/payments/initialize', { orderId });
+      const authUrl = payData.data?.authorizationUrl;
+      if (!authUrl) throw new Error('No payment link returned.');
+      window.location.href = authUrl;
     } catch (e: any) {
       toast(e?.response?.data?.message ?? 'Failed to place order.', 'error');
     } finally { setPlacing(false); }
@@ -444,6 +475,21 @@ function CheckoutContent() {
             ) : (
               /* Logged-in: show normal checkout sections */
               <>
+                <div className="card card-pad">
+                  <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>📞 Contact Number</h3>
+                  <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
+                    Required so your rider or vendor can reach you about this delivery.
+                  </p>
+                  <input
+                    className={`input${phoneError ? ' error' : ''}`}
+                    type="tel"
+                    value={phone}
+                    onChange={e => { setPhone(e.target.value); setPhoneError(''); }}
+                    placeholder="+234 800 000 0000"
+                  />
+                  {phoneError && <div className="input-error" style={{ marginTop: 6 }}>{phoneError}</div>}
+                </div>
+
                 <div className="card card-pad">
                   <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 16 }}>📍 Delivery Address</h3>
                   {addresses.length === 0 ? (

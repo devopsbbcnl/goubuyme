@@ -144,11 +144,11 @@ async function findDeliveryZone(
   // Try to find zone using landmark keywords (primary signal since PostGIS is not installed)
   try {
     const zonesWithKeywords = await prisma.$queryRaw`
-      SELECT * FROM delivery_zones 
+      SELECT * FROM delivery_zones
       WHERE "pricingProfileId" = ${pricingProfileId}
-        AND isActive = true
-        AND landmarkKeywords IS NOT NULL
-        AND array_length(landmarkKeywords, 1) > 0
+        AND "isActive" = true
+        AND "landmarkKeywords" IS NOT NULL
+        AND array_length("landmarkKeywords", 1) > 0
       LIMIT 1
     ` as any[];
 

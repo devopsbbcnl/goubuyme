@@ -9,6 +9,7 @@ import { activateReferral } from '../services/referral.service';
 import { notifyUser } from '../services/notification.service';
 import { PaymentStatus, OrderStatus } from '@prisma/client';
 import logger from '../utils/logger';
+import { getPrimaryClientUrl } from '../utils/clientUrl';
 
 const PAYSTACK_BASE = 'https://api.paystack.co';
 const secret = () => process.env.PAYSTACK_SECRET_KEY as string;
@@ -46,7 +47,7 @@ export const initializePayment = catchAsync(async (req: AuthRequest, res: Respon
   }
 
   const reference  = `GBM-${existingOrderId ?? 'MOBILE'}-${Date.now()}`;
-  const callbackUrl = callback_url ?? `${process.env.CLIENT_URL}/payment/verify`;
+  const callbackUrl = callback_url ?? `${getPrimaryClientUrl()}/payment/verify`;
 
   const paystackPayload = {
     email:        payloadEmail,

@@ -22,11 +22,20 @@ interface OrderSummary {
   createdAt: string;
 }
 
+interface OrderDetailItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  selections: { label: string; price: number }[];
+}
+
 // Extra fields returned by the detail endpoint (optional enrichment)
 interface OrderDetail extends Omit<OrderSummary, 'items'> {
   deliveryAddress?: string;
   cancelReason?: string;
-  items: string[] | { id: string; name: string; quantity: number; unitPrice: number; lineTotal: number }[];
+  items: string[] | OrderDetailItem[];
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -68,7 +77,7 @@ function fmt(iso: string) {
   });
 }
 
-function isRichItems(items: OrderDetail['items']): items is { id: string; name: string; quantity: number; unitPrice: number; lineTotal: number }[] {
+function isRichItems(items: OrderDetail['items']): items is OrderDetailItem[] {
   return items.length > 0 && typeof items[0] === 'object';
 }
 
@@ -278,11 +287,16 @@ export default function VendorOrdersPage() {
                 <div style={{ border: '1px solid var(--line)', borderRadius: 4, overflow: 'hidden' }}>
                   {isRichItems(selected.items) ? (
                     // enriched view: individual item prices
-                    (selected.items as any[]).map((item, i) => (
-                      <div key={item.id ?? i} style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}>
+                    (selected.items as OrderDetailItem[]).map((item, i) => (
+                      <div key={item.id ?? i} style={{ display: 'flex', alignItems: 'flex-start', padding: '10px 14px', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}>
                         <div style={{ flex: 1 }}>
                           <span style={{ fontWeight: 600, fontSize: 14 }}>{item.name}</span>
                           <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>₦{item.unitPrice.toLocaleString()} each</span>
+                          {(item.selections ?? []).map((s, si) => (
+                            <div key={si} className="muted" style={{ fontSize: 12, marginTop: 3 }}>
+                              + {s.label}{s.price > 0 ? ` (₦${s.price.toLocaleString()})` : ''}
+                            </div>
+                          ))}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                           <span className="muted" style={{ fontSize: 13 }}>×{item.quantity}</span>
@@ -342,7 +356,7 @@ export default function VendorOrdersPage() {
 
               {(selected.status === 'PENDING' || selected.status === 'CONFIRMED') && !showRejectInput && (
                 <button
-                  className="btn btn-danger btn-sm"
+                  className="btn btn-danger"
                   disabled={updating === selected.id}
                   onClick={() => setShowRejectInput(true)}
                 >
@@ -352,7 +366,7 @@ export default function VendorOrdersPage() {
 
               {showRejectInput && (
                 <>
-                  <button className="btn btn-ghost btn-sm" onClick={() => { setShowRejectInput(false); setCancelReason(''); }}>
+                  <button className="btn btn-ghost" onClick={() => { setShowRejectInput(false); setCancelReason(''); }}>
                     Back
                   </button>
                   <button

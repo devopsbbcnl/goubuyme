@@ -338,7 +338,7 @@ function DeliveryMap({
   primaryColor,
   stepIdx,
 }: {
-  mapRef: React.RefObject<MapView>;
+  mapRef: React.RefObject<MapView | null>;
   midCoord: [number, number];
   vendorCoord: [number, number];
   customerCoord: [number, number];

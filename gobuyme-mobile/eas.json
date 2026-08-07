@@ -21,7 +21,6 @@
         "EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY": "pk_test_ee2d46b7bab0496257e4c6b6f157b45fab2e4197",
         "EXPO_PUBLIC_WEBSITE_URL": "https://gobuyme.shop",
         "EXPO_PUBLIC_SUPPORT_PHONE": "+2347078901095",
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY":"AIzaSyCTmBuG7g0Ac9CpnKsN2BTLihfx2KPRUTo",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "167205328143-nmv32lo8sdhnm64vd2um5upctl8i1f92.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "167205328143-vflev0sa15nn7q7kp256repofbp9469u.apps.googleusercontent.com"
       }
@@ -39,7 +38,6 @@
         "EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY": "pk_live_6c7e6c604d14ba7d0918fde42d2ddfd4d2e023a1",
         "EXPO_PUBLIC_WEBSITE_URL": "https://gobuyme.shop",
         "EXPO_PUBLIC_SUPPORT_PHONE": "+2347078901095",
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY":"AIzaSyCTmBuG7g0Ac9CpnKsN2BTLihfx2KPRUTo",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "167205328143-nmv32lo8sdhnm64vd2um5upctl8i1f92.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "167205328143-vflev0sa15nn7q7kp256repofbp9469u.apps.googleusercontent.com"
       }

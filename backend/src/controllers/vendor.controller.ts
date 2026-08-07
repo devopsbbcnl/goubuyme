@@ -243,6 +243,35 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
     select: vendorSelect,
   });
 
+  // The auto open/close cron only ever reads VendorBusinessHours, not these legacy
+  // scalar fields — mirror a valid opening/closing pair into an every-day schedule so
+  // vendors who've only ever used this simple opening/closing form still auto-toggle.
+  // Skipped once a vendor has a real weekly schedule (PUT /vendors/me/business-hours),
+  // since that's a deliberate, more specific configuration we shouldn't clobber.
+  if (openingTime !== undefined && closingTime !== undefined
+    && parseTimeToMinutes(openingTime) !== null && parseTimeToMinutes(closingTime) !== null) {
+    const existingHours = await prisma.vendorBusinessHours.findMany({
+      where: { vendorId: vendor.id },
+      select: { id: true, dayOfWeek: true },
+    });
+    const isEveryDaySchedule = existingHours.length === 0
+      || (existingHours.length === 7 && new Set(existingHours.map(h => h.dayOfWeek)).size === 7);
+    if (isEveryDaySchedule) {
+      await prisma.$transaction([
+        prisma.vendorBusinessHours.deleteMany({ where: { vendorId: vendor.id } }),
+        prisma.vendorBusinessHours.createMany({
+          data: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+            vendorId: vendor.id,
+            dayOfWeek,
+            openTime: openingTime,
+            closeTime: closingTime,
+          })),
+        }),
+      ]);
+      await refreshVendorIsOpen(vendor.id);
+    }
+  }
+
   // Mark profile complete once both storefront images are in place.
   const imgCheck = await prisma.vendor.findUnique({
     where: { userId: req.user!.userId },
@@ -569,7 +598,7 @@ export const getMyOrderById = catchAsync(async (req: AuthRequest, res: Response)
     where: { id: req.params.orderId, vendorId: vendor.id },
     include: {
       customer: { include: { user: { select: { name: true, phone: true } } } },
-      items: { select: { id: true, name: true, quantity: true, price: true } },
+      items: { select: { id: true, name: true, quantity: true, price: true, selections: true } },
     },
   });
   if (!order) return apiResponse.error(res, 'Order not found.', 404);
@@ -589,6 +618,7 @@ export const getMyOrderById = catchAsync(async (req: AuthRequest, res: Response)
       quantity: i.quantity,
       unitPrice: i.price,
       lineTotal: i.price * i.quantity,
+      selections: (i.selections as { label: string; price: number }[] | null) ?? [],
     })),
     subtotal: order.subtotal,
     deliveryFee: order.deliveryFee,

@@ -22,6 +22,9 @@ logs/
 # Uploads (runtime user content)
 uploads/
 
+# Self-hosted geo stack — downloaded OSM extracts + preprocessed OSRM graph
+geo/data/
+
 # OS
 .DS_Store
 Thumbs.db

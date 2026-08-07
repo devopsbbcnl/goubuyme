@@ -24,7 +24,14 @@ interface OrderDetail {
   customer: string;
   customerPhone: string | null;
   deliveryAddress: string;
-  items: { id: string; name: string; quantity: number; unitPrice: number; lineTotal: number }[];
+  items: {
+    id: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    selections: { label: string; price: number }[];
+  }[];
   subtotal: number;
   deliveryFee: number;
   totalAmount: number;
@@ -186,7 +193,14 @@ export default function VendorOrderDetailScreen() {
                 <View style={[styles.qtyBadge, { backgroundColor: T.primaryTint }]}>
                   <Text style={[styles.qtyText, { color: T.primary }]}>{item.quantity}×</Text>
                 </View>
-                <Text style={[styles.itemName, { color: T.text }]}>{item.name}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.itemName, { color: T.text }]}>{item.name}</Text>
+                  {item.selections.map((s, si) => (
+                    <Text key={si} style={[styles.itemOption, { color: T.textSec }]}>
+                      + {s.label}{s.price > 0 ? ` (₦${s.price.toLocaleString()})` : ''}
+                    </Text>
+                  ))}
+                </View>
               </View>
               <Text style={[styles.itemPrice, { color: T.text }]}>
                 ₦{item.lineTotal.toLocaleString()}
@@ -350,6 +364,7 @@ const styles = StyleSheet.create({
   qtyBadge:         { borderRadius: 4, paddingHorizontal: 7, paddingVertical: 3 },
   qtyText:          { fontSize: 12, fontWeight: '700' },
   itemName:         { fontSize: 14, fontWeight: '500', flex: 1 },
+  itemOption:       { fontSize: 12, marginTop: 2 },
   itemPrice:        { fontSize: 14, fontWeight: '700' },
   noteBox:          { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 12, padding: 10, borderRadius: 4, borderWidth: 1 },
   noteText:         { fontSize: 12, lineHeight: 17, flex: 1 },

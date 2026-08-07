@@ -12,10 +12,18 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
-import { calculateDistance, calculateRouteDistance, calculateDeliveryFee, forwardGeocode } from '@/services/geocoding';
-import Constants from 'expo-constants';
 
 const TYPE_ICONS: Record<string, any> = { home: 'home', work: 'business', other: 'location-on' };
+
+function formatPhoneForApi(input: string): string {
+  let digits = input.replace(/\D/g, '');
+  if (!digits) return '';
+  // Strip any already-applied "234" country-code prefix(es) so re-formatting an
+  // already-formatted number is idempotent instead of stacking "234" repeatedly.
+  while (digits.startsWith('234') && digits.length > 10) digits = digits.slice(3);
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  return `+234${digits}`;
+}
 
 export default function CheckoutScreen() {
   const { theme: T } = useTheme();
@@ -25,9 +33,15 @@ export default function CheckoutScreen() {
   const vid = vendorId ?? '';
   const items = getItems(vid);
   const total = getTotal(vid);
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { selected, addresses } = useAddress();
   const [loading, setLoading] = useState(false);
+  const [phone, setPhone] = useState(user?.phone ?? '');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPhone(user?.phone ?? '');
+  }, [user?.phone]);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [freeDeliveryReason, setFreeDeliveryReason] = useState<'THRESHOLD' | 'CREDIT' | null>(null);
   const [feeLoading, setFeeLoading] = useState(false);
@@ -36,30 +50,8 @@ export default function CheckoutScreen() {
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promo, setPromo] = useState<{ code: string; subtotalDiscount: number; freeDelivery: boolean } | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
-  const [addressCoords, setAddressCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [geoSource, setGeoSource] = useState<'stored' | 'geocoded' | 'missing' | null>(null);
-  const [vendor, setVendor] = useState<{
-    latitude?: number | null;
-    longitude?: number | null;
-    address?: string | null;
-    city?: string | null;
-    state?: string | null;
-  } | null>(null);
-  const [feeSettings, setFeeSettings] = useState<{
-    deliveryBaseFee: number;
-    deliveryPerKmRate: number;
-    deliveryMaxFee: number;
-  } | null>(null);
 
   const { popup } = usePaystack();
-
-  // Live delivery-fee settings (admin-adjustable) — falls back to the same
-  // defaults calculateDeliveryFee already uses if this fetch fails.
-  useEffect(() => {
-    api.get('/settings/public')
-      .then(res => setFeeSettings(res.data?.data ?? null))
-      .catch(err => console.warn('[Checkout] Failed to fetch fee settings, using defaults:', err?.message));
-  }, []);
 
   const subtotal   = total;
   // When free delivery applies (subtotal threshold, a referral credit, or a free-delivery promo),
@@ -69,196 +61,36 @@ export default function CheckoutScreen() {
   const promoSubtotalDiscount = promo?.subtotalDiscount ?? 0;
   const grandTotal = subtotal + (effectiveFee ?? 0) - promoSubtotalDiscount;
 
-  // Ask the backend (authoritative on free-delivery rules) whether this order qualifies for free
-  // delivery. Read-only — no referral credit is consumed until the order is actually placed.
+  // Delivery fee, distance, and free-delivery eligibility are all computed server-side by the
+  // same pricing engine `placeOrder` uses — this is a read-only preview (no referral credit is
+  // consumed until the order is actually placed), kept in sync with checkout so the displayed
+  // total matches what the backend will confirm when the order is created.
   useEffect(() => {
     let active = true;
-    if (!vid || !selected?.id) { setFreeDeliveryReason(null); return; }
+    if (!vid || !selected?.id) {
+      setDeliveryFee(null);
+      setDistance(null);
+      setFreeDeliveryReason(null);
+      return;
+    }
+    setFeeLoading(true);
     api.get('/orders/estimate-fee', { params: { addressId: selected.id, vendorId: vid } })
       .then(res => {
         if (!active) return;
         const d = res.data?.data;
+        setDeliveryFee(d?.deliveryFee ?? null);
+        setDistance(d?.distanceKm ?? null);
         setFreeDeliveryReason(d?.freeDelivery ? (d.freeDeliveryReason ?? null) : null);
       })
-      .catch(() => { if (active) setFreeDeliveryReason(null); });
+      .catch(() => {
+        if (!active) return;
+        setDeliveryFee(null);
+        setDistance(null);
+        setFreeDeliveryReason(null);
+      })
+      .finally(() => { if (active) setFeeLoading(false); });
     return () => { active = false; };
   }, [vid, selected?.id, subtotal]);
-
-  const isNigeriaCoordinate = (lat: number, lng: number) => {
-    return lat >= 4 && lat <= 14 && lng >= 2 && lng <= 15;
-  };
-
-  // Fetch vendor location
-  useEffect(() => {
-    if (vid) {
-      api.get(`/vendors/${vid}`).then(async res => {
-        const vendorData = res.data.data;
-        console.log('[Checkout] Vendor fetch success:', { vid, lat: vendorData.latitude, lng: vendorData.longitude });
-        // Save vendor info including address fields
-        setVendor({
-          latitude: vendorData.latitude ?? null,
-          longitude: vendorData.longitude ?? null,
-          address: vendorData.address ?? vendorData.location ?? null,
-          city: vendorData.city ?? null,
-          state: vendorData.state ?? null,
-        });
-
-        // If vendor lacks coords, attempt to geocode vendor address using backend
-        if ((vendorData.latitude == null || vendorData.longitude == null) && (vendorData.address || vendorData.city || vendorData.state)) {
-          try {
-            const geoRes = await api.get('/geocode', {
-              params: {
-                address: vendorData.address,
-                city: vendorData.city,
-                state: vendorData.state,
-              },
-            });
-            const geoData = geoRes.data?.data;
-            if (geoData?.lat != null && geoData?.lng != null) {
-              console.log('[Checkout] Geocoded vendor address:', { lat: geoData.lat, lng: geoData.lng, query: geoData.query });
-              setVendor(v => ({ ...(v ?? {}), latitude: geoData.lat, longitude: geoData.lng }));
-            }
-          } catch (e) {
-            console.warn('[Checkout] Vendor geocode failed', e);
-          }
-        }
-      }).catch(err => {
-        console.error('[Checkout] Vendor fetch failed:', { vid, error: err?.message });
-      });
-    }
-  }, [vid]);
-
-  // Calculate distance and delivery fee when address and vendor are available
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      if (!selected) {
-        console.log('[Checkout] No address selected');
-        if (mounted) {
-          setDeliveryFee(null);
-          setDistance(null);
-          setAddressCoords(null);
-          setGeoSource(null);
-        }
-        return;
-      }
-
-      const selectedLat = selected.latitude as number | undefined;
-      const selectedLng = selected.longitude as number | undefined;
-      const selectedValid = selectedLat != null && selectedLng != null && isNigeriaCoordinate(selectedLat, selectedLng);
-      const selectedQuery = [selected.address, selected.city, selected.state]
-        .filter(Boolean)
-        .join(', ');
-
-      console.log('[Checkout] Selected address:', {
-        label: selected.label,
-        address: selected.address,
-        city: selected.city,
-        state: selected.state,
-        query: selectedQuery,
-        hasCoords: selectedLat != null && selectedLng != null,
-        latitude: selectedLat,
-        longitude: selectedLng,
-        isNigeriaCoord: selectedValid,
-      });
-
-      if (!vendor) {
-        console.log('[Checkout] Vendor not loaded yet');
-        return;
-      }
-
-      const vendorValid = vendor.latitude != null && vendor.longitude != null && isNigeriaCoordinate(vendor.latitude, vendor.longitude);
-      if (!vendorValid) {
-        console.warn('[Checkout] Vendor coordinates invalid or outside Nigeria:', vendor);
-        return;
-      }
-
-      setFeeLoading(true);
-
-      try {
-        let lat = selected.latitude as number | undefined;
-        let lng = selected.longitude as number | undefined;
-        let source: 'stored' | 'geocoded' | 'missing' = 'stored';
-
-        // If saved address lacks coordinates, try to geocode the full address text
-        if ((lat == null || lng == null) && selected.address) {
-          const query = [selected.address, selected.city, selected.state]
-            .filter(Boolean)
-            .join(', ');
-          console.log('[Checkout] Address has no coords, attempting geocode:', query);
-          const results = await forwardGeocode(query);
-          console.log('[Checkout] Geocode results:', { query, resultCount: results?.length });
-          if (results && results.length > 0) {
-            lat = results[0].lat;
-            lng = results[0].lng;
-            source = 'geocoded';
-            console.log('[Checkout] Geocoded to:', { lat, lng });
-          } else {
-            source = 'missing';
-            console.log('[Checkout] Geocoding failed - no results');
-          }
-        }
-
-        const addressCoordsValid = lat != null && lng != null && isNigeriaCoordinate(lat, lng);
-        if (!addressCoordsValid && lat != null && lng != null) {
-          console.warn('[Checkout] Address coordinates are outside Nigeria bounds:', { lat, lng });
-        }
-
-        if (addressCoordsValid && vendor.latitude != null && vendor.longitude != null) {
-          const dist = await calculateRouteDistance(
-            vendor.latitude,
-            vendor.longitude,
-            lat!,
-            lng!,
-          );
-          console.log('[Checkout] Route calculated:', { distance: dist, vendor: { lat: vendor.latitude, lng: vendor.longitude }, address: { lat, lng } });
-          // Sanity check: distances > 500km are probably erroneous for local deliveries
-          if (dist > 500) {
-            console.warn('[Checkout] Route distance implausible, aborting:', { distance: dist });
-            if (!mounted) return;
-            setDistance(null);
-            setAddressCoords(null);
-            setGeoSource('missing');
-            setDeliveryFee(null);
-            return;
-          }
-          if (!mounted) return;
-          setDistance(dist);
-          setAddressCoords({ latitude: lat!, longitude: lng! });
-          setGeoSource(source);
-          const fee = calculateDeliveryFee(
-            dist,
-            feeSettings?.deliveryBaseFee ?? 1500,
-            2, // includedKm - first 2km free
-            feeSettings?.deliveryPerKmRate ?? 100,
-            feeSettings?.deliveryMaxFee ?? 999999,
-          );
-          setDeliveryFee(fee);
-        } else {
-          // Could not determine coords for selected address
-          console.log('[Checkout] Could not determine address coordinates');
-          if (!mounted) return;
-          setDeliveryFee(null);
-          setDistance(null);
-          setAddressCoords(null);
-          setGeoSource(source);
-        }
-      } catch (err) {
-        console.error('[Checkout] Error calculating fee:', err);
-        if (mounted) {
-          setDeliveryFee(null);
-          setDistance(null);
-          setAddressCoords(null);
-          setGeoSource('missing');
-        }
-      } finally {
-        if (mounted) setFeeLoading(false);
-      }
-    })();
-
-    return () => { mounted = false; };
-  }, [selected, vendor]);
 
   const applyPromo = async () => {
     const code = promoInput.trim().toUpperCase();
@@ -270,7 +102,12 @@ export default function CheckoutScreen() {
       // (mirrors what handlePay does before placing the order).
       await api.delete('/cart/clear').catch(() => {});
       await Promise.all(
-        items.map(item => api.post('/cart/add', { menuItemId: item.id, quantity: item.qty, unitPrice: item.price })),
+        items.map(item => api.post('/cart/add', {
+          menuItemId: item.id,
+          quantity: item.qty,
+          unitPrice: item.price,
+          ...(item.selections?.length ? { selections: item.selections } : {}),
+        })),
       );
       const res = await api.get('/orders/validate-promo', { params: { code, vendorId: vid } });
       const r = res.data?.data;
@@ -306,13 +143,30 @@ export default function CheckoutScreen() {
       Alert.alert('Empty cart', 'Add items to your cart before checking out.');
       return;
     }
+    const formattedPhone = formatPhoneForApi(phone);
+    if (!formattedPhone) {
+      setPhoneError('A phone number is required so the rider or vendor can reach you.');
+      return;
+    }
+    setPhoneError(null);
 
     setLoading(true);
     try {
+      // 0. Save phone number to profile if it changed
+      if (formattedPhone !== user?.phone) {
+        await api.patch('/auth/profile', { phone: formattedPhone });
+        await updateUser({ phone: formattedPhone });
+      }
+
       // 1. Sync in-memory cart to backend
       await api.delete('/cart/clear').catch(() => {});
       await Promise.all(
-        items.map(item => api.post('/cart/add', { menuItemId: item.id, quantity: item.qty, unitPrice: item.price })),
+        items.map(item => api.post('/cart/add', {
+          menuItemId: item.id,
+          quantity: item.qty,
+          unitPrice: item.price,
+          ...(item.selections?.length ? { selections: item.selections } : {}),
+        })),
       );
 
       // 2. Create the order in the DB — this is the single source of truth for pricing
@@ -385,6 +239,23 @@ export default function CheckoutScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* ── Contact Number ── */}
+        <Text style={[styles.sectionTitle, { color: T.textSec }]}>Contact Number</Text>
+        <View style={[styles.orderCard, { backgroundColor: T.surface, borderColor: phoneError ? '#E5484D' : T.border, padding: 14, marginBottom: 24 }]}>
+          <Text style={[styles.addressSub, { color: T.textSec, marginBottom: 8 }]}>
+            Required so your rider or vendor can reach you about this delivery.
+          </Text>
+          <TextInput
+            value={phone}
+            onChangeText={t => { setPhone(t); setPhoneError(null); }}
+            placeholder="+234 800 000 0000"
+            placeholderTextColor={T.textMuted}
+            keyboardType="phone-pad"
+            style={{ borderWidth: 1, borderColor: phoneError ? '#E5484D' : T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: T.text }}
+          />
+          {phoneError && <Text style={{ color: '#E5484D', fontSize: 12, marginTop: 6 }}>{phoneError}</Text>}
+        </View>
 
         {/* ── Delivery Address ── */}
         <Text style={[styles.sectionTitle, { color: T.textSec }]}>Delivery Address</Text>
@@ -524,50 +395,6 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {__DEV__ && (
-          <View style={[styles.debugBox, { backgroundColor: T.surface2, borderColor: T.border }]}> 
-            <Text style={[styles.debugTitle, { color: T.text }]}>Checkout debug</Text>
-            <View style={styles.debugRow}>
-              <Text style={[styles.debugLabel, { color: T.textSec }]}>Selected address</Text>
-              <Text style={[styles.debugValue, { color: T.text }]} numberOfLines={2}>{selected?.address ?? 'None'}</Text>
-            </View>
-            <View style={styles.debugRow}>
-              <Text style={[styles.debugLabel, { color: T.textSec }]}>Selected coords</Text>
-              <Text style={[styles.debugValue, { color: T.text }]}>
-                {selected?.latitude != null && selected?.longitude != null
-                  ? `${selected.latitude.toFixed(6)}, ${selected.longitude.toFixed(6)}`
-                  : 'Missing'}
-              </Text>
-            </View>
-            <View style={styles.debugRow}>
-              <Text style={[styles.debugLabel, { color: T.textSec }]}>Address coords</Text>
-              <Text style={[styles.debugValue, { color: T.text }]}> 
-                {addressCoords?.latitude != null && addressCoords?.longitude != null
-                  ? `${addressCoords.latitude.toFixed(6)}, ${addressCoords.longitude.toFixed(6)}`
-                  : 'Missing'}
-              </Text>
-            </View>
-            <View style={styles.debugRow}>
-              <Text style={[styles.debugLabel, { color: T.textSec }]}>Geo source</Text>
-              <Text style={[styles.debugValue, { color: T.text }]}>{geoSource ?? 'Pending'}</Text>
-            </View>
-            <View style={styles.debugRow}>
-              <Text style={[styles.debugLabel, { color: T.textSec }]}>Vendor coords</Text>
-              <Text style={[styles.debugValue, { color: T.text }]}>
-                {vendor?.latitude != null && vendor?.longitude != null
-                  ? `${vendor.latitude.toFixed(6)}, ${vendor.longitude.toFixed(6)}`
-                  : 'Unknown'}
-              </Text>
-            </View>
-            <View style={styles.debugRow}>
-              <Text style={[styles.debugLabel, { color: T.textSec }]}>Distance (km)</Text>
-              <Text style={[styles.debugValue, { color: T.text }]}>
-                {distance != null ? distance.toFixed(2) : 'Calculating...'}
-              </Text>
-            </View>
-          </View>
-        )}
-
         {/* Paystack badge */}
         <View style={styles.securedRow}>
           <Ionicons name="lock-closed" size={12} color={T.textMuted} />
@@ -642,9 +469,4 @@ const styles = StyleSheet.create({
   footer:           { borderTopWidth: 1, padding: 20, paddingBottom: 36 },
   payBtn:           { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 54, borderRadius: 4 },
   payBtnText:       { color: '#fff', fontSize: 16, fontWeight: '800' },
-  debugBox:         { borderWidth: 1, borderRadius: 4, marginTop: 16, padding: 12, gap: 8 },
-  debugTitle:       { fontSize: 13, fontWeight: '700', marginBottom: 4 },
-  debugRow:         { gap: 4, marginBottom: 4 },
-  debugLabel:       { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
-  debugValue:       { fontSize: 12, fontWeight: '600' },
 });

@@ -20,6 +20,8 @@ interface VendorProfile {
   commissionTier: string;
   openingTime?: string;
   closingTime?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 function ImgUpload({
@@ -85,13 +87,49 @@ export default function VendorProfilePage() {
   const [profile, setProfile] = useState<VendorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [latLng, setLatLng] = useState<{ lat: number; lng: number } | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodeErr, setGeocodeErr] = useState('');
+  const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    api.get('/vendors/me').then(r => setProfile(r.data.data)).catch(() => {}).finally(() => setLoading(false));
+    api.get('/vendors/me').then(r => {
+      const data = r.data.data;
+      setProfile(data);
+      if (data.latitude != null && data.longitude != null) {
+        setLatLng({ lat: data.latitude, lng: data.longitude });
+      }
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const set = <K extends keyof VendorProfile>(key: K, val: VendorProfile[K]) =>
-    setProfile(p => p ? { ...p, [key]: val } : p);
+  const triggerGeocode = (address: string, city: string, state: string | undefined) => {
+    if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
+    setLatLng(null);
+    setGeocodeErr('');
+    if (address.trim().length < 5 || !city.trim() || !state?.trim()) return;
+    setGeocoding(true);
+    geocodeTimer.current = setTimeout(async () => {
+      try {
+        const { data } = await api.get('/geocode', {
+          params: { address: address.trim(), city: city.trim(), state: state.trim() },
+        });
+        setLatLng({ lat: data.data.lat, lng: data.data.lng });
+      } catch {
+        setGeocodeErr('Could not confirm this location — check the address and try again.');
+      } finally { setGeocoding(false); }
+    }, 600);
+  };
+
+  const set = <K extends keyof VendorProfile>(key: K, val: VendorProfile[K]) => {
+    setProfile(p => {
+      if (!p) return p;
+      const next = { ...p, [key]: val };
+      if (key === 'address' || key === 'city' || key === 'state') {
+        triggerGeocode(next.address, next.city, next.state);
+      }
+      return next;
+    });
+  };
 
   const save = async () => {
     if (!profile) return;
@@ -145,9 +183,50 @@ export default function VendorProfilePage() {
         {/* Location & Contact */}
         <div className="card card-pad">
           <h3 style={{ fontWeight: 800, fontSize: 16, marginBottom: 18 }}>Location & Contact</h3>
-          <div className="form-group"><label className="label">Address</label><input className="input" value={profile.address ?? ''} onChange={e => set('address', e.target.value)} /></div>
+          <div className="form-group">
+            <label className="label">Address</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                className="input"
+                value={profile.address ?? ''}
+                onChange={e => set('address', e.target.value)}
+                style={{
+                  paddingRight: 44,
+                  borderColor: latLng ? 'var(--brand)' : geocodeErr ? 'var(--error)' : undefined,
+                }}
+              />
+              <span style={{
+                position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {geocoding && (
+                  <span style={{
+                    width: 14, height: 14, border: '2px solid var(--line)',
+                    borderTopColor: 'var(--brand)', borderRadius: '50%',
+                    display: 'inline-block', animation: 'spin .6s linear infinite',
+                  }} />
+                )}
+                {!geocoding && latLng && (
+                  <span style={{
+                    width: 20, height: 20, borderRadius: '50%',
+                    background: 'var(--brand)', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
+                  }}>✓</span>
+                )}
+              </span>
+            </div>
+            {geocodeErr && <p className="input-error">{geocodeErr}</p>}
+            {latLng && !geocodeErr && (
+              <p style={{ fontSize: 12, color: 'var(--success)', marginTop: 5, fontWeight: 600 }}>
+                Location confirmed
+              </p>
+            )}
+          </div>
           <div className="form-group"><label className="label">City</label><input className="input" value={profile.city ?? ''} onChange={e => set('city', e.target.value)} /></div>
           <div className="form-group"><label className="label">State</label><input className="input" value={profile.state ?? ''} onChange={e => set('state', e.target.value)} /></div>
+          <p className="muted" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
+            Location confirms automatically once address, city, and state are filled in. Coordinates are required for delivery fee calculation.
+          </p>
         </div>
 
         {/* Logo */}

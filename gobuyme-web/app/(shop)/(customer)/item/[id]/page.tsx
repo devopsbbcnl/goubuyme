@@ -165,15 +165,13 @@ export default function ItemDetailPage() {
       if (cartQty > 0) {
         updateQty(item.id, cartQty + qty);
       } else {
-        addItem({ menuItemId: item.id, name: item.name, price: item.price, image: item.image, vendorId: vendor.id, vendorName: vendor.businessName });
-        if (qty > 1) updateQty(item.id, qty);
+        addItem({ menuItemId: item.id, name: item.name, price: item.price, image: item.image, vendorId: vendor.id, vendorName: vendor.businessName }, qty);
       }
     } else {
       const drinkParts = item.drinkOptions.filter(d => (drinkQtys[d.id] ?? 0) > 0).map(d => `D:${d.id}x${drinkQtys[d.id]}`);
       const optParts   = item.optionGroups.flatMap(g => g.items.filter(i2 => (optionQtys[g.id]?.[i2.id] ?? 0) > 0).map(i2 => `O:${i2.id}x${optionQtys[g.id][i2.id]}`));
       const key        = [item.id, ...drinkParts, ...optParts].join('|');
-      addItem({ menuItemId: item.id, name: item.name, price: item.price + unitExtra, image: item.image, vendorId: vendor.id, vendorName: vendor.businessName, compositeKey: key });
-      if (qty > 1) updateQty(key, qty);
+      addItem({ menuItemId: item.id, name: item.name, price: item.price + unitExtra, image: item.image, vendorId: vendor.id, vendorName: vendor.businessName, compositeKey: key }, qty);
     }
     toast(`${item.name} added to cart`, 'success');
   };

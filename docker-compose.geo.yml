@@ -1,0 +1,94 @@
+# Self-hosted geocoding (Nominatim) + routing (OSRM), scoped to Nigeria.
+#
+# Kept separate from docker-compose.yml (the app dev stack) because these are
+# heavy, rarely-changing infrastructure services with their own multi-hundred-MB
+# images and a one-time data import — not something you want pulled in every
+# time you run `docker compose up` for normal app development.
+#
+# ─── One-time setup ─────────────────────────────────────────────────────────
+#   1. bash geo/setup-osrm.sh
+#        Downloads the Nigeria OSM extract into geo/data/ and preprocesses OSRM's
+#        routing graph (extract -> partition -> customize). MUST run this first —
+#        Nominatim below reuses the same downloaded file (via PBF_PATH) rather than
+#        fetching its own copy, since Geofabrik throttles extract downloads hard.
+#
+#   2. docker compose -f docker-compose.geo.yml up -d
+#        Starts both services. Nominatim imports automatically on first start
+#        (from the file geo/setup-osrm.sh downloaded) — for Nigeria this typically
+#        takes 10-30 minutes on decent hardware. Watch progress with:
+#          docker compose -f docker-compose.geo.yml logs -f nominatim
+#        It's ready when http://localhost:8082/status.php returns {"status":0,...}
+#
+# ─── Then point the backend at them ─────────────────────────────────────────
+#   NOMINATIM_BASE_URL=http://localhost:8082
+#   OSRM_BASE_URL=http://localhost:5001
+#
+# ─── Day-to-day ──────────────────────────────────────────────────────────────
+#   Start:       docker compose -f docker-compose.geo.yml up -d
+#   Stop:        docker compose -f docker-compose.geo.yml down
+#   Wipe data:   docker compose -f docker-compose.geo.yml down -v   (forces a full Nominatim re-import)
+#   Refresh OSM data: re-run geo/setup-osrm.sh, then `docker compose -f docker-compose.geo.yml restart osrm`
+
+services:
+  nominatim:
+    image: mediagis/nominatim:5.3
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    environment:
+      # PBF_PATH (not PBF_URL) — reuses the same nigeria-latest.osm.pbf that
+      # geo/setup-osrm.sh already downloads for OSRM instead of fetching a second copy.
+      # Geofabrik throttles extract downloads per-connection, so two simultaneous pulls
+      # of the same ~700MB file is pure waste. Run geo/setup-osrm.sh FIRST so the file
+      # exists before starting this service.
+      PBF_PATH: /data/nigeria-latest.osm.pbf
+      REPLICATION_URL: https://download.geofabrik.de/africa/nigeria-updates/
+      UPDATE_MODE: catch-up
+      IMPORT_STYLE: full
+      NOMINATIM_PASSWORD: change_me_nominatim
+      # Tuned down from the image's planet-scale defaults (2GB/10GB/24GB shared_buffers/
+      # maintenance_work_mem/effective_cache_size) — Nigeria is a small extract and this
+      # stack shares an 8GB VPS with the app's own Postgres, Redis, and API process.
+      POSTGRES_SHARED_BUFFERS: 512MB
+      POSTGRES_MAINTENANCE_WORK_MEM: 1GB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+      POSTGRES_WORK_MEM: 50MB
+      POSTGRES_MAX_CONNECTIONS: 20
+      # THREADS defaults to nproc, which on a many-core dev machine (e.g. 24) exceeds
+      # POSTGRES_MAX_CONNECTIONS above and deadlocks the import (parallel import workers
+      # fail to open a DB connection with "too many clients already" and the import hangs
+      # silently — this actually happened during setup). Pinning THREADS to the VPS's real
+      # vCPU count keeps local dev/test representative of production and avoids the deadlock.
+      THREADS: 4
+      GUNICORN_WORKERS: 4
+    shm_size: 1gb
+    volumes:
+      - nominatim_data:/var/lib/postgresql/16/main
+      - ./geo/data:/data:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/status.php || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 5m
+
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend
+    restart: unless-stopped
+    # Data comes from geo/setup-osrm.sh, which must be run before this service can start.
+    command: osrm-routed --algorithm mld --max-table-size 100 /data/nigeria-latest.osrm
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./geo/data:/data
+    healthcheck:
+      # The osrm-backend image has no curl/wget — only bash — so this uses bash's /dev/tcp
+      # to confirm osrm-routed is accepting connections on its port.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  nominatim_data:

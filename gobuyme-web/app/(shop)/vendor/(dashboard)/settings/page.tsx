@@ -227,6 +227,222 @@ function ChangePasswordSection() {
   );
 }
 
+// ── Business Hours & Availability ───────────────────────────────────────────────
+
+const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+interface DayHours { enabled: boolean; openTime: string; closeTime: string; }
+type BusinessHoursRow = { dayOfWeek: number; openTime: string; closeTime: string };
+
+const emptyWeek = (): DayHours[] =>
+  DAY_LABELS.map(() => ({ enabled: false, openTime: '08:00', closeTime: '22:00' }));
+
+function BusinessHoursSection() {
+  const toast = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [mode, setMode] = useState<'AUTO' | 'FORCE_OPEN' | 'FORCE_CLOSED'>('AUTO');
+  const [switchingMode, setSwitchingMode] = useState(false);
+  const [week, setWeek] = useState<DayHours[]>(emptyWeek());
+  const [status, setStatus] = useState<{ isOpen: boolean; message: string } | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    api.get('/vendors/me/availability').then(r => {
+      const d = r.data.data;
+      setMode(d.availabilityOverride ?? 'AUTO');
+      setStatus(d.availability ? { isOpen: d.availability.isOpen, message: d.availability.message } : null);
+      const next = emptyWeek();
+      (d.businessHours as BusinessHoursRow[] ?? []).forEach(h => {
+        if (h.dayOfWeek >= 0 && h.dayOfWeek < 7 && !next[h.dayOfWeek].enabled) {
+          next[h.dayOfWeek] = { enabled: true, openTime: h.openTime, closeTime: h.closeTime };
+        }
+      });
+      setWeek(next);
+    }).catch(() => {}).finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const setDay = (i: number, patch: Partial<DayHours>) =>
+    setWeek(w => w.map((d, idx) => idx === i ? { ...d, ...patch } : d));
+
+  const changeMode = async (next: 'AUTO' | 'FORCE_OPEN' | 'FORCE_CLOSED') => {
+    setSwitchingMode(true);
+    try {
+      const { data } = await api.patch('/vendors/me/availability', { mode: next });
+      setMode(next);
+      if (data.data?.availability) setStatus({ isOpen: data.data.availability.isOpen, message: data.data.availability.message });
+      toast('Availability mode updated', 'success');
+    } catch (e: any) { toast(e?.response?.data?.message ?? 'Failed to update mode', 'error'); }
+    finally { setSwitchingMode(false); }
+  };
+
+  const saveHours = async () => {
+    setSaving(true);
+    try {
+      const hours = week
+        .map((d, dayOfWeek) => ({ ...d, dayOfWeek }))
+        .filter(d => d.enabled)
+        .map(d => ({ dayOfWeek: d.dayOfWeek, openTime: d.openTime, closeTime: d.closeTime }));
+      const { data } = await api.put('/vendors/me/business-hours', { hours });
+      if (data.data?.availability) setStatus({ isOpen: data.data.availability.isOpen, message: data.data.availability.message });
+      toast('Business hours saved', 'success');
+    } catch (e: any) { toast(e?.response?.data?.message ?? 'Failed to save hours', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  if (loading) return <Section title="Business Hours"><div className="sk" style={{ height: 160 }} /></Section>;
+
+  return (
+    <Section title="Business Hours & Availability" sub="Your store opens and closes itself based on this schedule">
+      {status && (
+        <div style={{ marginBottom: 18, padding: '10px 14px', borderRadius: 4, background: 'var(--surface2)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 14 }}>{status.isOpen ? '🟢' : '🔴'}</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{status.message}</span>
+        </div>
+      )}
+
+      <div style={{ marginBottom: 22 }}>
+        <div className="label" style={{ marginBottom: 8 }}>Mode</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {([
+            { key: 'AUTO', label: 'Auto — follow schedule below' },
+            { key: 'FORCE_OPEN', label: 'Always Open' },
+            { key: 'FORCE_CLOSED', label: 'Always Closed' },
+          ] as const).map(o => (
+            <button
+              key={o.key}
+              className={`chip${mode === o.key ? ' active' : ''}`}
+              onClick={() => changeMode(o.key)}
+              disabled={switchingMode || mode === o.key}
+              type="button"
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+        {DAY_LABELS.map((label, i) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: i < 6 ? '1px solid var(--line)' : 'none' }}>
+            <label className="switch" style={{ flexShrink: 0 }}>
+              <input type="checkbox" checked={week[i].enabled} onChange={e => setDay(i, { enabled: e.target.checked })} />
+              <span className="track" />
+            </label>
+            <span style={{ width: 96, fontSize: 13, fontWeight: 600, flexShrink: 0 }}>{label}</span>
+            {week[i].enabled ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input className="input" type="time" value={week[i].openTime} onChange={e => setDay(i, { openTime: e.target.value })} style={{ height: 38, padding: '0 10px' }} />
+                <span className="muted" style={{ fontSize: 13 }}>to</span>
+                <input className="input" type="time" value={week[i].closeTime} onChange={e => setDay(i, { closeTime: e.target.value })} style={{ height: 38, padding: '0 10px' }} />
+              </div>
+            ) : (
+              <span className="muted" style={{ fontSize: 13 }}>Closed</span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <button className="btn btn-primary btn-sm" onClick={saveHours} disabled={saving}>
+        {saving ? <><span className="spin" />Saving…</> : 'Save Hours'}
+      </button>
+    </Section>
+  );
+}
+
+// ── Temporary Closure ──────────────────────────────────────────────────────────
+
+interface TemporaryClosure { id: string; startAt: string; endAt: string | null; reason: string | null; }
+
+function TemporaryClosureSection() {
+  const toast = useToast();
+  const [loading, setLoading] = useState(true);
+  const [closures, setClosures] = useState<TemporaryClosure[]>([]);
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [endAt, setEndAt] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [ending, setEnding] = useState<string | null>(null);
+
+  const load = () => {
+    api.get('/vendors/me/temporary-closures').then(r => setClosures(r.data.data ?? [])).catch(() => {}).finally(() => setLoading(false));
+  };
+  useEffect(load, []);
+
+  const startClosure = async () => {
+    setSaving(true);
+    try {
+      await api.post('/vendors/me/temporary-closures', {
+        ...(reason.trim() ? { reason: reason.trim() } : {}),
+        ...(endAt ? { endAt: new Date(endAt).toISOString() } : {}),
+      });
+      toast('Store temporarily closed', 'success');
+      setOpen(false); setReason(''); setEndAt('');
+      load();
+    } catch (e: any) { toast(e?.response?.data?.message ?? 'Failed to close store', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const endClosure = async (id: string) => {
+    setEnding(id);
+    try {
+      await api.delete(`/vendors/me/temporary-closures/${id}`);
+      toast('Store reopened', 'success');
+      load();
+    } catch (e: any) { toast(e?.response?.data?.message ?? 'Failed to reopen', 'error'); }
+    finally { setEnding(null); }
+  };
+
+  if (loading) return <Section title="Temporary Closure"><div className="sk" style={{ height: 60 }} /></Section>;
+
+  return (
+    <Section title="Temporary Closure" sub="Close early for a holiday, restock, or emergency — overrides your schedule until you reopen">
+      {closures.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+          {closures.map(c => (
+            <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface2)', borderRadius: 4 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{c.reason || 'Temporarily closed'}</div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                  {c.endAt ? `Reopens ${new Date(c.endAt).toLocaleString()}` : 'Closed until you reopen'}
+                </div>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => endClosure(c.id)} disabled={ending === c.id}>
+                {ending === c.id ? <><span className="spin" />Reopening…</> : 'Reopen Now'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!open ? (
+        <button className="btn btn-ghost btn-sm" onClick={() => setOpen(true)}>⏸ Close Temporarily</button>
+      ) : (
+        <div>
+          <div className="form-grid-2">
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label className="label">Reason <span className="muted" style={{ fontWeight: 400 }}>(optional, shown to customers)</span></label>
+              <input className="input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Restocking, Public holiday" />
+            </div>
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label className="label">Reopens at <span className="muted" style={{ fontWeight: 400 }}>(optional — leave blank to reopen manually)</span></label>
+              <input className="input" type="datetime-local" value={endAt} onChange={e => setEndAt(e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-ghost" onClick={() => { setOpen(false); setReason(''); setEndAt(''); }}>Cancel</button>
+            <button className="btn btn-primary" onClick={startClosure} disabled={saving}>
+              {saving ? <><span className="spin" />Closing…</> : 'Close Store'}
+            </button>
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 // ── Commission Tier ────────────────────────────────────────────────────────────
 
 function CommissionTierSection() {
@@ -443,13 +659,15 @@ export default function VendorSettingsPage() {
   return (
     <div>
       <h1 className="t-page" style={{ marginBottom: 28 }}>Settings</h1>
-      <div style={{ maxWidth: 680, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="masonry-2col" style={{ maxWidth: 1040 }}>
+        <BusinessHoursSection />
+        <TemporaryClosureSection />
         <AppearanceSection />
         <NotificationsSection />
         <ChangePasswordSection />
         <CommissionTierSection />
         <PayoutAccountSection />
-        <DangerZone />
+        <div style={{ columnSpan: 'all' }}><DangerZone /></div>
       </div>
     </div>
   );
