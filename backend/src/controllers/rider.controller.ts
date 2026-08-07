@@ -34,7 +34,33 @@ export const getMyRiderProfile = catchAsync(async (req: AuthRequest, res: Respon
     },
   });
   if (!rider) return apiResponse.error(res, 'Rider profile not found.', 404);
-  return apiResponse.success(res, 'Rider profile fetched.', rider);
+
+  const totalDeliveries = await prisma.order.count({
+    where: { riderId: rider.id, status: OrderStatus.DELIVERED },
+  });
+
+  return apiResponse.success(res, 'Rider profile fetched.', { ...rider, totalDeliveries });
+});
+
+// PATCH /riders/me  — update vehicle type / plate number
+export const updateMyRiderProfile = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { vehicleType, plateNumber } = req.body as { vehicleType?: string; plateNumber?: string };
+
+  const data: Record<string, unknown> = {};
+  if (vehicleType?.trim()) data.vehicleType = vehicleType.trim();
+  if (plateNumber !== undefined) data.plateNumber = plateNumber.trim() || null;
+
+  if (Object.keys(data).length === 0) {
+    return apiResponse.error(res, 'No fields to update.', 400);
+  }
+
+  const rider = await prisma.rider.update({
+    where: { userId: req.user!.userId },
+    data,
+    select: { id: true, vehicleType: true, plateNumber: true },
+  });
+
+  return apiResponse.success(res, 'Rider profile updated.', rider);
 });
 
 // PATCH /riders/me/online  — toggle isOnline + isAvailable
@@ -114,8 +140,8 @@ export const getAvailableJobs = catchAsync(async (req: AuthRequest, res: Respons
   const orders = await prisma.order.findMany({
     where: { status: OrderStatus.READY, riderId: null },
     include: {
-      vendor: { select: { businessName: true, coverImage: true, latitude: true, longitude: true } },
-      customer: { include: { user: { select: { name: true } } } },
+      vendor: { select: { businessName: true, address: true, coverImage: true, latitude: true, longitude: true } },
+      customer: { include: { user: { select: { name: true, phone: true } } } },
       items: { select: { name: true, quantity: true } },
     },
     orderBy: { createdAt: 'asc' },
@@ -132,10 +158,12 @@ export const getAvailableJobs = catchAsync(async (req: AuthRequest, res: Respons
       orderId: o.id,
       orderNumber: o.orderNumber,
       vendor: o.vendor.businessName,
+      vendorAddress: o.vendor.address,
       vendorImg: o.vendor.coverImage,
       vendorLat: o.vendor.latitude,
       vendorLng: o.vendor.longitude,
       customer: o.customer.user.name,
+      customerPhone: o.customer.user.phone,
       customerAddress: o.deliveryAddress,
       customerLat: o.deliveryLatitude,
       customerLng: o.deliveryLongitude,
@@ -230,6 +258,7 @@ export const getActiveDelivery = catchAsync(async (req: AuthRequest, res: Respon
     orderId: order.id,
     orderNumber: order.orderNumber,
     status: order.status,
+    riderId: rider.id,
     fee: order.originalDeliveryFee,
     customerName: order.customer.user.name,
     customerPhone: order.customer.user.phone ?? null,

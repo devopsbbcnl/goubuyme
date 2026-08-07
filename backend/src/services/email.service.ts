@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import logger from '../utils/logger';
+import { getPrimaryClientUrl } from '../utils/clientUrl';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM ?? 'GoBuyMe <noreply@notifications.gobuyme.shop>';
@@ -99,7 +100,7 @@ export const sendOtpEmail = async (to: string, name: string, otp: string): Promi
 // ─── Password reset ────────────────────────────────────────────────────────
 
 export const sendPasswordResetEmail = async (to: string, resetToken: string): Promise<void> => {
-  const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
+  const resetUrl = `${getPrimaryClientUrl()}/reset-password?token=${resetToken}`;
   const content = `
     <p style="margin:0 0 8px;font-size:16px;color:#333333;">Password reset request</p>
     <p style="margin:0 0 24px;font-size:15px;color:#555555;line-height:22px;">

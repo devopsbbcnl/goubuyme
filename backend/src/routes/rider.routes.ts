@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getMyRiderProfile,
+  updateMyRiderProfile,
   toggleOnlineStatus,
   getRiderDashboardStats,
   getAvailableJobs,
@@ -24,6 +25,7 @@ const router = Router();
 const riderAuth = [verifyToken, requireRole('RIDER')];
 
 router.get('/me',                              ...riderAuth, getMyRiderProfile);
+router.patch('/me',                            ...riderAuth, updateMyRiderProfile);
 router.patch('/me/online',                     ...riderAuth, toggleOnlineStatus);
 router.get('/me/stats',                        ...riderAuth, getRiderDashboardStats);
 router.get('/me/available-jobs',               ...riderAuth, getAvailableJobs);

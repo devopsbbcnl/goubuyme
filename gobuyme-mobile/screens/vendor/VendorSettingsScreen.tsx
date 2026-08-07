@@ -45,9 +45,9 @@ export default function VendorSettingsScreen() {
         {
           icon: 'time-outline',
           label: 'Business Hours',
-          sub: 'Set your opening and closing times',
+          sub: 'Set your weekly schedule and auto open/close',
           control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-          onPress: () => router.push('/(vendor)/edit-profile' as any),
+          onPress: () => router.push('/(vendor)/business-hours' as any),
         },
         {
           icon: 'pricetag-outline',

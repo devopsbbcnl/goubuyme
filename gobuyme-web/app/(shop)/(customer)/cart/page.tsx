@@ -33,25 +33,28 @@ export default function CartPage() {
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)', fontWeight: 700, fontSize: 15 }}>
               🏪 {vendorName}
             </div>
-            {items.map(item => (
-              <div key={item.menuItemId} style={{ display: 'flex', gap: 14, padding: '16px 20px', borderBottom: '1px solid var(--line)', alignItems: 'center' }}>
-                {item.image
-                  ? <Image src={item.image} alt="" width={60} height={60} style={{ borderRadius: 6, objectFit: 'cover' }} />
-                  : <div style={{ width: 60, height: 60, borderRadius: 6, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>🍽️</div>
-                }
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, marginBottom: 2 }}>{item.name}</div>
-                  <div style={{ color: 'var(--brand)', fontWeight: 800, fontSize: 15 }}>₦{item.price.toLocaleString()}</div>
+            {items.map(item => {
+              const key = item.compositeKey ?? item.menuItemId;
+              return (
+                <div key={key} style={{ display: 'flex', gap: 14, padding: '16px 20px', borderBottom: '1px solid var(--line)', alignItems: 'center' }}>
+                  {item.image
+                    ? <Image src={item.image} alt="" width={60} height={60} style={{ borderRadius: 6, objectFit: 'cover' }} />
+                    : <div style={{ width: 60, height: 60, borderRadius: 6, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>🍽️</div>
+                  }
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 2 }}>{item.name}</div>
+                    <div style={{ color: 'var(--brand)', fontWeight: 800, fontSize: 15 }}>₦{item.price.toLocaleString()}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <button onClick={() => updateQty(key, item.qty - 1)} style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid var(--line)', background: 'var(--surface)', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 700 }}>−</button>
+                    <span style={{ fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{item.qty}</span>
+                    <button onClick={() => updateQty(key, item.qty + 1)} style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--brand)', color: '#fff', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 700, border: 'none' }}>+</button>
+                  </div>
+                  <div style={{ fontWeight: 800, minWidth: 80, textAlign: 'right' }}>₦{(item.price * item.qty).toLocaleString()}</div>
+                  <button onClick={() => removeItem(key)} style={{ color: 'var(--error)', marginLeft: 8, fontSize: 18, background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <button onClick={() => updateQty(item.menuItemId, item.qty - 1)} style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid var(--line)', background: 'var(--surface)', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 700 }}>−</button>
-                  <span style={{ fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{item.qty}</span>
-                  <button onClick={() => updateQty(item.menuItemId, item.qty + 1)} style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--brand)', color: '#fff', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 700, border: 'none' }}>+</button>
-                </div>
-                <div style={{ fontWeight: 800, minWidth: 80, textAlign: 'right' }}>₦{(item.price * item.qty).toLocaleString()}</div>
-                <button onClick={() => removeItem(item.menuItemId)} style={{ color: 'var(--error)', marginLeft: 8, fontSize: 18, background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Summary */}

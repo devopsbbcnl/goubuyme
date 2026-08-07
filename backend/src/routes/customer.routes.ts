@@ -13,6 +13,10 @@ import { requireRole } from '../middleware/role.middleware';
 const router = Router();
 
 const auth = [verifyToken, requireRole('CUSTOMER')];
+// Forward geocoding is a stateless utility (typed address text -> coordinates) with no
+// customer-specific data or logic — vendors need it too (business address entry), so it
+// only requires a valid session, not a specific role.
+const authAny = [verifyToken];
 
 router.get('/cart',                  ...auth, getCart);
 router.post('/cart/add',             ...auth, addToCart);
@@ -33,6 +37,6 @@ router.post('/favorites/:vendorId',  ...auth, toggleFavorite);
 router.delete('/favorites/:vendorId',...auth, toggleFavorite);
 
 router.get('/referral',              ...auth, getReferral);
-router.get('/geocode',               ...auth, geocodeAddress);
+router.get('/geocode',               ...authAny, geocodeAddress);
 
 export default router;

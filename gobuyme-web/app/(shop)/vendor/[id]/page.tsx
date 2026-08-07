@@ -132,7 +132,6 @@ export default function VendorDetailPage() {
   const addDirect = (item: MenuItem) => {
     if (!vendor) return;
     addItem({
-      id: `${vendor.id}-${item.id}`,
       menuItemId: item.id,
       name: item.name,
       price: item.price,
@@ -240,15 +239,14 @@ export default function VendorDetailPage() {
     const displayName = labels.length ? `${drawerItem.name} (${labels.join(', ')})` : drawerItem.name;
 
     addItem({
-      id: compositeId,
-      menuItemId: compositeId,
+      menuItemId: drawerItem.id,
+      compositeKey: compositeId,
       name: displayName,
       price: unitPrice,
       image: drawerItem.image,
       vendorId: vendor.id,
       vendorName: vendor.businessName,
-    });
-    if (qty > 1) updateQty(compositeId, qty);
+    }, qty);
 
     toast(`${drawerItem.name} added to cart`, 'success');
     closeDrawer();

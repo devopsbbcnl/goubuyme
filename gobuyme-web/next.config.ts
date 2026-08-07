@@ -9,6 +9,9 @@ const apiOrigin = (() => {
     return 'http://localhost:5000';
   }
 })();
+// CSP treats ws(s): as a distinct scheme from http(s): even for the same host — the
+// socket.io client (live rider GPS) needs this explicitly or the browser blocks it.
+const apiWsOrigin = apiOrigin.replace(/^http/, 'ws');
 
 // Starter CSP: 'unsafe-inline' is kept for script-src/style-src because Next.js
 // hydration and this app's inline `style={{...}}` usage rely on it, and moving to
@@ -26,8 +29,11 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: https://res.cloudinary.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  `connect-src 'self' ${apiOrigin} https://accounts.google.com https://api.cloudinary.com https://www.google-analytics.com`,
+  `connect-src 'self' ${apiOrigin} ${apiWsOrigin} https://accounts.google.com https://api.cloudinary.com https://www.google-analytics.com https://tiles.openfreemap.org`,
   "frame-src 'self' https://accounts.google.com",
+  // MapLibre GL parses vector tiles off the main thread via a Worker constructed
+  // from a Blob URL — 'self' alone doesn't cover blob: workers.
+  "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

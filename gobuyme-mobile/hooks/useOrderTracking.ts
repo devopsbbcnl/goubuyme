@@ -16,12 +16,21 @@ export interface RiderInfo {
   rating: number;
 }
 
+export interface OrderLineItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  selections: { label: string; price: number }[];
+}
+
 export function useOrderTracking(orderId: string | null) {
   const { user } = useAuth();
   const [status, setStatus] = useState<OrderStatus>('PENDING');
   const [riderLocation, setRiderLocation] = useState<RiderLocation | null>(null);
   const [rider, setRider] = useState<RiderInfo | null>(null);
   const [deliveryPin, setDeliveryPin] = useState<string | null>(null);
+  const [items, setItems] = useState<OrderLineItem[]>([]);
   const joined = useRef(false);
 
   const fetchOrder = useCallback(async () => {
@@ -38,6 +47,15 @@ export function useOrderTracking(orderId: string | null) {
           vehicleType: order.rider.vehicleType ?? '',
           rating: order.rider.rating ?? 0,
         });
+      }
+      if (Array.isArray(order?.items)) {
+        setItems(order.items.map((i: any) => ({
+          id: i.id,
+          name: i.name,
+          quantity: i.quantity,
+          price: i.price,
+          selections: i.selections ?? [],
+        })));
       }
     } catch { /* use socket-only fallback */ }
   }, [orderId]);
@@ -73,5 +91,5 @@ export function useOrderTracking(orderId: string | null) {
     };
   }, [orderId, user?.token, fetchOrder]);
 
-  return { status, riderLocation, rider, deliveryPin };
+  return { status, riderLocation, rider, deliveryPin, items };
 }

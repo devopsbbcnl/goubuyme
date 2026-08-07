@@ -109,6 +109,7 @@ interface OrderDetail {
     name: string;
     price: number;
     quantity: number;
+    selections: { label: string; price: number }[] | null;
     menuItem: {
       image: string | null;
       category: string | null;
@@ -441,6 +442,11 @@ export default function OrdersPage() {
                       <tr key={item.id} style={{ borderTop: `1px solid ${T.border}` }}>
                         <td style={{ padding: '12px', fontSize: 13, fontWeight: 700, color: T.text }}>
                           {item.name}
+                          {(item.selections ?? []).map((s, si) => (
+                            <div key={si} style={{ fontSize: 12, fontWeight: 400, color: T.textSec, marginTop: 2 }}>
+                              + {s.label}{s.price > 0 ? ` (${fmtCurrency(s.price)})` : ''}
+                            </div>
+                          ))}
                           <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{item.menuItemId}</div>
                         </td>
                         <td style={{ padding: '12px', fontSize: 13, color: T.textSec }}>{item.menuItem.category ?? '-'}</td>

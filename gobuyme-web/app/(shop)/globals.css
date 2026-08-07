@@ -37,6 +37,7 @@
   --warning: #F5A623;
   --error:   #E23B3B;
   --rider:   #0077FF;
+  --rider-tint: #EAF2FF;
 }
 
 html[data-mode="dark"] {
@@ -702,14 +703,9 @@ html[data-mode="dark"] .topbar .logo { background: #fff; }
 .v-topbar .inner { height: 100%; display: flex; align-items: center; justify-content: space-between; }
 .v-content { padding: 36px 24px; }
 
-/* ── RIDER PORTAL ── */
-.r-shell { display: flex; flex-direction: column; min-height: 100vh; }
-.r-topbar { height: var(--topbar-h); background: var(--topbar-bg); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow-sm); }
-.r-topbar .inner { height: 100%; display: flex; align-items: center; justify-content: space-between; }
-.r-content { flex: 1; padding: 36px 24px; width: 100%; }
-.r-bottom-nav { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--line); display: flex; z-index: 100; }
-.r-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 0; font-size: 11px; font-weight: 600; color: var(--muted); transition: color .15s; cursor: pointer; }
-.r-nav-item.active { color: var(--rider); }
+/* Rider portal reuses the vendor sidebar shell (.v-shell/.v-side/.v-main/.v-topbar/.v-content);
+   this scoped override just swaps the active-item accent to the rider brand color. */
+.r-side .v-nav-item.active { background: var(--rider-tint); color: var(--rider); }
 
 /* ── KPI CARDS ── */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; margin-bottom: 28px; }
@@ -907,6 +903,21 @@ html[data-mode="dark"] .topbar .logo { background: #fff; }
   grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
+/* Masonry-style two-column packing (CSS columns, not grid) — cards of uneven height
+   stack directly under the shortest gap in their column instead of being paired into
+   equal-height rows, so there's no dead whitespace under a short card next to a tall one. */
+.masonry-2col {
+  column-count: 2;
+  column-gap: 24px;
+}
+.masonry-2col > * {
+  break-inside: avoid;
+  margin-bottom: 24px;
+}
+.masonry-2col > *:last-child { margin-bottom: 0; }
+@media (max-width: 860px) {
+  .masonry-2col { column-count: 1; }
+}
 .three-col-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -1059,7 +1070,6 @@ html[data-mode="dark"] .topbar .logo { background: #fff; }
   .v-side { display: none; }
   .v-main { margin-left: 0; }
   .v-content { padding: 20px 16px; }
-  .r-content { padding: 20px 16px; max-width: 100%; }
   .footer { margin-top: 48px; padding: 40px 0 24px; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
   /* Nav: search hidden, auth items move into hamburger — city + cart stay */

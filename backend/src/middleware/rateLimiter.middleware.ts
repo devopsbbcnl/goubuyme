@@ -24,6 +24,12 @@ const sharedStore = (prefix: string) =>
       })
     : undefined;
 
+// Outside production, every limiter below is a no-op. Local/dev testing (repeated curl
+// calls, React strict-mode double-fetching, hot reload) blows through these limits in
+// minutes with no attacker involved — the limiters exist to protect the deployed API,
+// not to throttle the person building it.
+const skipOutsideProduction = () => process.env.NODE_ENV !== 'production';
+
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -31,15 +37,17 @@ export const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: sharedStore('rl:global:'),
+  skip: skipOutsideProduction,
 });
 
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 10 : 1000,
+  max: 10,
   message: { status: 'error', message: 'Too many auth attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
   store: sharedStore('rl:auth:'),
+  skip: skipOutsideProduction,
 });
 
 export const locationLimiter = rateLimit({
@@ -49,10 +57,11 @@ export const locationLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: sharedStore('rl:location:'),
+  skip: skipOutsideProduction,
 });
 
 // Public, unauthenticated endpoint (mobile registration screens hit it before login) — capped
-// tighter than globalLimiter since each call is a billed Google Maps request.
+// tighter than globalLimiter as a courtesy limit on the self-hosted Nominatim/OSRM instances.
 export const geocodeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
@@ -60,4 +69,5 @@ export const geocodeLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: sharedStore('rl:geocode:'),
+  skip: skipOutsideProduction,
 });

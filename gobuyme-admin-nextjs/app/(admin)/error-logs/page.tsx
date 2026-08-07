@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type MouseEvent } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 
@@ -48,6 +48,24 @@ function timeAgo(iso: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+function formatLogForCopy(log: ErrorLogEntry) {
+  const lines = [
+    `Message: ${log.message}`,
+    `Platform: ${PLATFORM_LABEL[log.platform] ?? log.platform}`,
+    `Source: ${log.source}`,
+    `Status: ${log.resolved ? 'Resolved' : 'Unresolved'}`,
+    `Time: ${new Date(log.createdAt).toLocaleString()}`,
+  ];
+  if (log.role) lines.push(`Role: ${log.role}`);
+  if (log.userId) lines.push(`User ID: ${log.userId}`);
+  if (log.appVersion) lines.push(`App version: ${log.appVersion}`);
+  if (log.method || log.url) lines.push(`Request: ${[log.method, log.url].filter(Boolean).join(' ')}`);
+  if (log.stack) lines.push(`\nStack:\n${log.stack}`);
+  if (log.context) lines.push(`\nContext:\n${JSON.stringify(log.context, null, 2)}`);
+  if (log.deviceInfo) lines.push(`\nDevice info:\n${JSON.stringify(log.deviceInfo, null, 2)}`);
+  return lines.join('\n');
+}
+
 export default function ErrorLogsPage() {
   const { theme: T } = useTheme();
   const [resolvedFilter, setResolvedFilter] = useState<'ALL' | 'UNRESOLVED' | 'RESOLVED'>('UNRESOLVED');
@@ -59,6 +77,7 @@ export default function ErrorLogsPage() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const fetchLogs = useCallback(() => {
     setLoading(true);
@@ -73,6 +92,17 @@ export default function ErrorLogsPage() {
   }, [resolvedFilter, platform, search, page]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
+
+  const copyLog = async (e: MouseEvent, log: ErrorLogEntry) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(formatLogForCopy(log));
+      setCopiedId(log.id);
+      setTimeout(() => setCopiedId(id => (id === log.id ? null : id)), 1500);
+    } catch {
+      // clipboard unavailable — ignore
+    }
+  };
 
   const toggleResolved = async (log: ErrorLogEntry) => {
     setUpdating(log.id);
@@ -165,15 +195,29 @@ export default function ErrorLogsPage() {
                   <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>
                     {log.source}{log.role ? ` · ${log.role}` : ''}{log.userId ? ` · ${log.userId}` : ''} · {timeAgo(log.createdAt)}
                   </div>
-                  {isOpen && (log.context || log.stack || log.deviceInfo) && (
-                    <div style={{
-                      marginTop: 10, fontSize: 12, fontFamily: 'monospace', color: T.textSec,
-                      background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
-                      padding: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                    }}>
-                      {log.stack && `${log.stack}\n\n`}
-                      {log.context && `context: ${JSON.stringify(log.context, null, 2)}\n\n`}
-                      {log.deviceInfo && `deviceInfo: ${JSON.stringify(log.deviceInfo, null, 2)}`}
+                  {isOpen && (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+                        <button
+                          onClick={(e) => copyLog(e, log)}
+                          style={{
+                            fontSize: 11, fontWeight: 700, color: copiedId === log.id ? T.success : T.textSec,
+                            background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
+                            padding: '4px 10px', cursor: 'pointer',
+                          }}
+                        >{copiedId === log.id ? 'Copied!' : 'Copy details'}</button>
+                      </div>
+                      {(log.context || log.stack || log.deviceInfo) && (
+                        <div style={{
+                          fontSize: 12, fontFamily: 'monospace', color: T.textSec,
+                          background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
+                          padding: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                        }}>
+                          {log.stack && `${log.stack}\n\n`}
+                          {log.context && `context: ${JSON.stringify(log.context, null, 2)}\n\n`}
+                          {log.deviceInfo && `deviceInfo: ${JSON.stringify(log.deviceInfo, null, 2)}`}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

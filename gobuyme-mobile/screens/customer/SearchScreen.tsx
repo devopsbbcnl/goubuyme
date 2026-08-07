@@ -46,7 +46,7 @@ export default function SearchScreen() {
 	const [vendors, setVendors] = useState<Vendor[]>([]);
 	const [loading, setLoading] = useState(true);
 	const inputRef = useRef<TextInput>(null);
-	const debounceRef = useRef<Timeout>();
+	const debounceRef = useRef<Timeout | undefined>(undefined);
 
 	const fetchVendors = useCallback(async (search?: string) => {
 		try {

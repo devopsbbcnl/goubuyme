@@ -56,6 +56,13 @@ export default function GoogleSignInButton({ next = '/', label = 'continue_with'
   useEffect(() => {
     if (!scriptReady || !GOOGLE_CLIENT_ID || !containerRef.current || !window.google) return;
 
+    // React 18 Strict Mode (dev) mounts, cleans up, then re-mounts every component once.
+    // Without clearing the container first, renderButton() appends a second <div> button
+    // into the same node on the re-mount, so two independent GSI click handlers end up
+    // stacked in one spot — clicking triggers two popup opens and the browser blocks the
+    // second one ("Opening multiple popups was blocked due to lack of user activation").
+    containerRef.current.innerHTML = '';
+
     window.google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: handleCredential,

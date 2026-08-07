@@ -8,16 +8,25 @@ import api from '@/services/api';
 interface OrderDetail {
   id: string; orderNumber: string; status: string; totalAmount: number; deliveryFee: number;
   note?: string; createdAt: string; paymentMethod: string; paymentStatus: string;
+  deliveryPin?: string;
   vendor: { businessName: string; address: string; logoUrl?: string };
-  deliveryAddress: { label: string; street: string; city: string };
+  deliveryAddress: string;
+  customer?: { user: { phone?: string } };
   rider?: { user: { name: string; phone: string } };
-  items: { id: string; quantity: number; unitPrice: number; menuItem: { name: string; imageUrl?: string } }[];
+  items: {
+    id: string;
+    quantity: number;
+    price: number;
+    name: string;
+    menuItem?: { image?: string };
+    selections?: { label: string; price: number }[] | null;
+  }[];
 }
 
-const STEPS = ['PENDING', 'CONFIRMED', 'PREPARING', 'PICKED_UP', 'EN_ROUTE', 'DELIVERED'];
+const STEPS = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'PICKED_UP', 'DELIVERED'];
 const STEP_LABELS: Record<string, string> = {
   PENDING: 'Order placed', CONFIRMED: 'Confirmed', PREPARING: 'Being prepared',
-  PICKED_UP: 'Picked up', EN_ROUTE: 'On the way', DELIVERED: 'Delivered',
+  READY: 'Ready for pickup', PICKED_UP: 'On the way', DELIVERED: 'Delivered',
 };
 
 export default function OrderDetailPage() {
@@ -72,6 +81,19 @@ export default function OrderDetailPage() {
               )}
             </div>
 
+            {/* Delivery PIN */}
+            {order.deliveryPin && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+              <div className="card card-pad" style={{ textAlign: 'center' }}>
+                <h3 style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>🔒 Delivery PIN</h3>
+                <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
+                  Share this PIN with your rider only when your order arrives.
+                </p>
+                <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: 16, color: 'var(--brand)' }}>
+                  {order.deliveryPin.split('').join('  ')}
+                </div>
+              </div>
+            )}
+
             {/* Rider info */}
             {order.rider && (
               <div className="card card-pad">
@@ -89,10 +111,15 @@ export default function OrderDetailPage() {
               {order.items.map(item => (
                 <div key={item.id} className="between" style={{ padding: '14px 20px', borderBottom: '1px solid var(--line)' }}>
                   <div>
-                    <div style={{ fontWeight: 600 }}>{item.menuItem.name}</div>
-                    <div className="muted" style={{ fontSize: 13 }}>× {item.quantity}</div>
+                    <div style={{ fontWeight: 600 }}>{item.name}</div>
+                    {(item.selections ?? []).map((s, si) => (
+                      <div key={si} className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                        + {s.label}{s.price > 0 ? ` (₦${s.price.toLocaleString()})` : ''}
+                      </div>
+                    ))}
+                    <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>× {item.quantity}</div>
                   </div>
-                  <span style={{ fontWeight: 700 }}>₦{(item.unitPrice * item.quantity).toLocaleString()}</span>
+                  <span style={{ fontWeight: 700 }}>₦{(item.price * item.quantity).toLocaleString()}</span>
                 </div>
               ))}
             </div>
@@ -110,7 +137,10 @@ export default function OrderDetailPage() {
 
             <div className="card card-pad">
               <h3 style={{ fontWeight: 800, fontSize: 15, marginBottom: 12 }}>Delivery Details</h3>
-              <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>📍 {order.deliveryAddress.street}, {order.deliveryAddress.city}</div>
+              <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>📍 {order.deliveryAddress}</div>
+              <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>
+                📞 {order.customer?.user.phone || 'No phone on file'}
+              </div>
               <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>💳 {order.paymentMethod.replace(/_/g, ' ')}</div>
               <div className="muted" style={{ fontSize: 13 }}>🕐 {new Date(order.createdAt).toLocaleString()}</div>
             </div>

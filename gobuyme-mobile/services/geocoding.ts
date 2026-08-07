@@ -1,12 +1,9 @@
 import api from './api';
 
-const GOOGLE_MAPS_BASE_URL = 'https://maps.googleapis.com/maps/api';
-
-// forwardGeocode()/reverseGeocode() go through the backend (/geocode/search, /geocode/reverse)
-// rather than calling Google directly. Google API keys restricted by HTTP referrer (as ours is,
-// since gobuyme-web also needs it) reject requests with no referer — which is every mobile
-// request — with REQUEST_DENIED. Routing through the backend uses a server-side key that's
-// restricted by IP instead, which mobile devices satisfy fine.
+// forwardGeocode()/reverseGeocode() go through the backend (/geocode/search, /geocode/reverse),
+// which proxies Nominatim (OpenStreetMap). Nominatim's usage policy requires a descriptive
+// User-Agent and rate-limits by client — routing through the backend keeps that identity and
+// rate-limit handling in one place instead of duplicating it in the app.
 export let lastGeocodeStatus: string | null = null;
 
 export interface GeocodeSuggestion {
@@ -19,7 +16,7 @@ export interface GeocodeSuggestion {
   lng: number;
 }
 
-// Geocode an address to coordinates via the backend (proxies Google Maps Geocoding API)
+// Geocode an address to coordinates via the backend (proxies Nominatim/OpenStreetMap)
 export async function forwardGeocode(query: string): Promise<GeocodeSuggestion[]> {
   lastGeocodeStatus = null;
   if (query.trim().length < 3) return [];
@@ -38,7 +35,7 @@ export async function forwardGeocode(query: string): Promise<GeocodeSuggestion[]
   }
 }
 
-// Reverse geocode coordinates to address via the backend (proxies Google Maps Geocoding API)
+// Reverse geocode coordinates to address via the backend (proxies Nominatim/OpenStreetMap)
 export async function reverseGeocode(
   lat: number,
   lng: number,
@@ -72,52 +69,16 @@ export function calculateDistance(
   return R * c;
 }
 
-// Calculate route distance using Google Maps Distance Matrix API. Falls back to straight-line distance if API fails.
+// Route distance for the client-side checkout preview. This is a straight-line (Haversine)
+// estimate, not the authoritative fee — the backend recalculates the real route distance via
+// OSRM and that server-side figure is what actually gets charged (see pricing.service.ts).
 export async function calculateRouteDistance(
   lat1: number,
   lng1: number,
   lat2: number,
   lng2: number,
 ): Promise<number> {
-  try {
-    const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.warn('[Geocoding] EXPO_PUBLIC_GOOGLE_MAPS_API_KEY not set, using Haversine fallback');
-      return calculateDistance(lat1, lng1, lat2, lng2);
-    }
-
-    const origin = `${lat1},${lng1}`;
-    const destination = `${lat2},${lng2}`;
-    const url = `${GOOGLE_MAPS_BASE_URL}/distancematrix/json?origins=${encodeURIComponent(origin)}&destinations=${encodeURIComponent(destination)}&mode=driving&key=${apiKey}`;
-
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Google Maps Distance Matrix request failed: ${res.status}`);
-    }
-
-    const json = await res.json();
-    
-    if (json.status !== 'OK' || !Array.isArray(json.rows) || json.rows.length === 0) {
-      throw new Error(`Google Maps Distance Matrix returned status: ${json.status}`);
-    }
-
-    const elements = json.rows[0].elements;
-    if (!Array.isArray(elements) || elements.length === 0 || !elements[0].distance) {
-      throw new Error('No distance data in Google Maps response');
-    }
-
-    const distanceMeters = elements[0].distance.value;
-    if (typeof distanceMeters !== 'number' || Number.isNaN(distanceMeters)) {
-      throw new Error('Invalid distance value from Google Maps');
-    }
-
-    const distanceKm = distanceMeters / 1000;
-    console.log('[Geocoding] calculateRouteDistance:', { origin, destination, distanceKm });
-    return Math.max(0, distanceKm);
-  } catch (err) {
-    console.warn('[Geocoding] calculateRouteDistance error, falling back to Haversine:', err);
-    return calculateDistance(lat1, lng1, lat2, lng2);
-  }
+  return calculateDistance(lat1, lng1, lat2, lng2);
 }
 
 // Calculate delivery fee based on distance

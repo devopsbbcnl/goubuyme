@@ -178,6 +178,7 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
   const customer = await prisma.customer.findUnique({
     where: { userId: req.user!.userId },
     include: {
+      user: { select: { phone: true } },
       cart: {
         include: {
           items: {
@@ -193,6 +194,9 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
   });
 
   if (!customer) return apiResponse.error(res, 'Customer not found.', 404);
+  if (!customer.user.phone?.trim()) {
+    return apiResponse.error(res, 'Please add a phone number to your account before placing an order.', 400);
+  }
   if (!customer.cart || !customer.cart.items.length) return apiResponse.error(res, 'Cart is empty.', 400);
 
   const { cart } = customer;
@@ -319,8 +323,9 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
             create: cart.items.map((i) => ({
               menuItemId: i.menuItem.id,
               name: i.menuItem.name,
-              price: i.menuItem.price,
+              price: i.unitPrice ?? i.menuItem.price,
               quantity: i.quantity,
+              selections: i.selections ?? undefined,
             })),
           },
         },

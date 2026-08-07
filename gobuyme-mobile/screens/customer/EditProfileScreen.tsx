@@ -28,10 +28,11 @@ function phoneToDisplay(phone: string): string {
 }
 
 function formatPhoneForApi(suffix: string): string {
-	const digits = suffix.replace(/\D/g, '');
+	let digits = suffix.replace(/\D/g, '');
 	if (!digits) return '';
-	const normalized = digits.startsWith('0') ? digits.slice(1) : digits;
-	return `+234${normalized}`;
+	while (digits.startsWith('234') && digits.length > 10) digits = digits.slice(3);
+	if (digits.startsWith('0')) digits = digits.slice(1);
+	return `+234${digits}`;
 }
 
 async function uploadToCloudinary(uri: string): Promise<string> {

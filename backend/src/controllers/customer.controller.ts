@@ -36,7 +36,7 @@ export const addToCart = catchAsync(async (req: AuthRequest, res: Response) => {
   const customerId = await getCustomerId(req.user!.userId);
   if (!customerId) return apiResponse.error(res, 'Customer not found.', 404);
 
-  const { menuItemId, quantity = 1, note, unitPrice } = req.body;
+  const { menuItemId, quantity = 1, note, unitPrice, selections } = req.body;
   const requestedQty = Number(quantity);
   if (!Number.isInteger(requestedQty) || requestedQty <= 0) {
     return apiResponse.error(res, 'Quantity must be at least 1.', 400);
@@ -70,10 +70,16 @@ export const addToCart = catchAsync(async (req: AuthRequest, res: Response) => {
   if (existing) {
     await prisma.cartItem.update({
       where: { id: existing.id },
-      data: { quantity: nextQuantity, ...(unitPrice != null ? { unitPrice } : {}) },
+      data: {
+        quantity: nextQuantity,
+        ...(unitPrice != null ? { unitPrice } : {}),
+        ...(selections != null ? { selections } : {}),
+      },
     });
   } else {
-    await prisma.cartItem.create({ data: { cartId: cart.id, menuItemId, quantity: requestedQty, note, unitPrice } });
+    await prisma.cartItem.create({
+      data: { cartId: cart.id, menuItemId, quantity: requestedQty, note, unitPrice, selections },
+    });
   }
 
   return apiResponse.success(res, 'Item added to cart.');
@@ -231,6 +237,7 @@ export const getOrderById = catchAsync(async (req: AuthRequest, res: Response) =
       items: { include: { menuItem: { select: { image: true } } } },
       vendor: { select: { businessName: true, logo: true, address: true } },
       rider: { include: { user: { select: { name: true, avatar: true, phone: true } } } },
+      customer: { include: { user: { select: { phone: true } } } },
     },
   });
   if (!order) return apiResponse.error(res, 'Order not found.', 404);

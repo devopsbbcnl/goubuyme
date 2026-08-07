@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const GOOGLE_MAPS_BASE_URL = 'https://maps.googleapis.com/maps/api';
+// OSRM (Open Source Routing Machine) is the routing provider. Defaults to the public
+// demo server (router.project-osrm.org), which is fine for development but is rate-limited
+// and not for production use per OSRM's usage policy. Point OSRM_BASE_URL at a self-hosted
+// instance for production — no application code changes needed.
+const OSRM_BASE_URL = process.env.OSRM_BASE_URL || 'https://router.project-osrm.org';
 
 export interface RouteDistance {
   distanceKm: number;
@@ -15,59 +19,40 @@ export interface RouteOptions {
 }
 
 /**
- * Calculate real road distance using Google Maps Routes API
- * This provides accurate driving distance instead of straight-line Haversine distance
+ * Calculate real road distance using OSRM's driving profile.
+ * RouteOptions.avoidTolls/avoidHighways/departureTime are accepted for interface
+ * compatibility but not supported by OSRM's public routing API and are ignored.
  */
 export async function calculateRouteDistance(
   originLat: number,
   originLng: number,
   destLat: number,
   destLng: number,
-  options?: RouteOptions,
+  _options?: RouteOptions,
 ): Promise<RouteDistance | null> {
   try {
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.warn('[Routes] GOOGLE_MAPS_API_KEY not set');
-      return null;
-    }
+    const coordinates = `${originLng},${originLat};${destLng},${destLat}`;
+    const url = `${OSRM_BASE_URL}/route/v1/driving/${coordinates}`;
 
-    const url = `${GOOGLE_MAPS_BASE_URL}/directions/json`;
-    const params: any = {
-      origin: `${originLat},${originLng}`,
-      destination: `${destLat},${destLng}`,
-      key: apiKey,
-      mode: 'driving',
-      units: 'metric',
-    };
-
-    if (options?.avoidTolls) params.avoid = 'tolls';
-    if (options?.avoidHighways) params.avoid = params.avoid ? `${params.avoid}|highways` : 'highways';
-    if (options?.departureTime) params.departure_time = Math.floor(options.departureTime.getTime() / 1000);
-
-    const response = await axios.get(url, { params, timeout: 10000 });
+    const response = await axios.get(url, {
+      params: { overview: 'full', geometries: 'polyline', alternatives: false, steps: false },
+      timeout: 10000,
+    });
     const data = response.data;
 
-    if (data.status !== 'OK' || !data.routes || data.routes.length === 0) {
-      console.warn('[Routes] Google Maps API returned no routes:', data.status);
+    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+      console.warn('[Routes] OSRM returned no routes:', data.code);
       return null;
     }
 
     const route = data.routes[0];
-    const leg = route.legs[0];
-
-    if (!leg) {
-      console.warn('[Routes] No legs in route');
-      return null;
-    }
-
-    const distanceKm = leg.distance.value / 1000; // Convert meters to km
-    const durationMinutes = leg.duration.value / 60; // Convert seconds to minutes
+    const distanceKm = route.distance / 1000; // meters -> km
+    const durationMinutes = route.duration / 60; // seconds -> minutes
 
     return {
-      distanceKm: Math.round(distanceKm * 100) / 100, // Round to 2 decimal places
+      distanceKm: Math.round(distanceKm * 100) / 100,
       durationMinutes: Math.ceil(durationMinutes),
-      polyline: route.overview_polyline?.points,
+      polyline: route.geometry,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : JSON.stringify(error);
@@ -77,54 +62,34 @@ export async function calculateRouteDistance(
 }
 
 /**
- * Calculate distance matrix for multiple origins and destinations
- * Useful for batch calculations and optimization
+ * Calculate a distance matrix for multiple origins and destinations using OSRM's table service.
  */
 export async function calculateDistanceMatrix(
   origins: Array<{ lat: number; lng: number }>,
   destinations: Array<{ lat: number; lng: number }>,
 ): Promise<number[][] | null> {
   try {
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.warn('[Routes] GOOGLE_MAPS_API_KEY not set');
-      return null;
-    }
+    const allPoints = [...origins, ...destinations];
+    const coordinates = allPoints.map(p => `${p.lng},${p.lat}`).join(';');
+    const sources = origins.map((_, i) => i).join(';');
+    const destIndices = destinations.map((_, i) => origins.length + i).join(';');
 
-    const originString = origins.map(o => `${o.lat},${o.lng}`).join('|');
-    const destString = destinations.map(d => `${d.lat},${d.lng}`).join('|');
-
-    const url = `${GOOGLE_MAPS_BASE_URL}/distancematrix/json`;
-    const params = {
-      origins: originString,
-      destinations: destString,
-      key: apiKey,
-      mode: 'driving',
-      units: 'metric',
-    };
-
-    const response = await axios.get(url, { params, timeout: 10000 });
+    const url = `${OSRM_BASE_URL}/table/v1/driving/${coordinates}`;
+    const response = await axios.get(url, {
+      params: { sources, destinations: destIndices, annotations: 'distance' },
+      timeout: 10000,
+    });
     const data = response.data;
 
-    if (data.status !== 'OK') {
-      console.warn('[Routes] Distance Matrix API returned error:', data.status);
+    if (data.code !== 'Ok' || !data.distances) {
+      console.warn('[Routes] OSRM table service returned error:', data.code);
       return null;
     }
 
-    const matrix: number[][] = [];
-    for (const row of data.rows) {
-      const distances: number[] = [];
-      for (const element of row.elements) {
-        if (element.status === 'OK') {
-          distances.push(element.distance.value / 1000); // Convert to km
-        } else {
-          distances.push(-1); // Indicate error
-        }
-      }
-      matrix.push(distances);
-    }
-
-    return matrix;
+    // distances are in meters — convert to km
+    return (data.distances as number[][]).map(row =>
+      row.map(d => (typeof d === 'number' ? d / 1000 : -1)),
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : JSON.stringify(error);
     console.warn('[Routes] calculateDistanceMatrix failed:', message);

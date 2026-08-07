@@ -117,24 +117,32 @@ export default function MenuItemDetailScreen() {
   const handleConfirm = () => {
     if (!isVendorOpen) return;
 
-    const selectedDrinkLabels = Object.entries(drinkSelections)
+    const drinkSelectionEntries = Object.entries(drinkSelections)
       .filter(([, qty]) => qty > 0)
       .map(([id, qty]) => {
         const drink = drinkOptions.find(d => d.id === id);
-        return qty > 1 ? `${drink?.name} ×${qty}` : drink?.name ?? '';
+        return {
+          label: qty > 1 ? `${drink?.name} ×${qty}` : drink?.name ?? '',
+          price: (drink?.price ?? 0) * qty,
+        };
       });
-    const selectedOptionLabels = Object.entries(optionSelections)
+    const optionSelectionEntries = Object.entries(optionSelections)
       .map(([groupId, itemId]) => {
         const group = optionGroups.find(g => g.id === groupId);
-        const item = group?.items.find(i => i.id === itemId);
-        return item?.name ?? '';
+        const optItem = group?.items.find(i => i.id === itemId);
+        return { label: optItem?.name ?? '', price: optItem?.extraPrice ?? 0 };
       });
-    const allLabels = [...selectedDrinkLabels, ...selectedOptionLabels].filter(Boolean);
+    const selections = [...drinkSelectionEntries, ...optionSelectionEntries].filter(s => s.label);
+    const allLabels = selections.map(s => s.label);
     const cartName = allLabels.length > 0
       ? `${item.name} + ${allLabels.join(', ')}`
       : item.name;
 
-    replaceItem({ id: item.id, name: cartName, price: unitPrice, img: item.image }, localQty > 0 ? localQty : 0, vendorId);
+    replaceItem(
+      { id: item.id, name: cartName, price: unitPrice, img: item.image, selections },
+      localQty > 0 ? localQty : 0,
+      vendorId,
+    );
     router.back();
   };
 

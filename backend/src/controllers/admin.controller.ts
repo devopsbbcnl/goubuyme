@@ -715,6 +715,7 @@ export const getAdminOrderDetail = catchAsync(async (req: Request, res: Response
           name: true,
           price: true,
           quantity: true,
+          selections: true,
           menuItem: {
             select: {
               image: true,

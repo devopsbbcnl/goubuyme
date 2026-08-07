@@ -1,22 +1,31 @@
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Remote push notifications were removed from Expo Go in SDK 53 — only dev-client/standalone
+// builds support them now. Registering the handler and requesting a push token there throws.
+const isExpoGo = Constants.appOwnership === 'expo';
+
+if (!isExpoGo) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 export function usePushNotifications() {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || isExpoGo) return;
 
     (async () => {
       if (!Device.isDevice) return;

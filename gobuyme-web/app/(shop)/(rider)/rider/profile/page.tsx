@@ -7,7 +7,7 @@ import Image from 'next/image';
 import api from '@/services/api';
 
 interface RiderProfile {
-  name: string; phone: string; vehicleType: string; vehiclePlate: string;
+  name: string; phone: string; vehicleType: string; plateNumber: string;
   isOnline: boolean; totalDeliveries: number;
   guarantorName: string; guarantorPhone: string; guarantorAddress: string;
 }
@@ -33,7 +33,7 @@ export default function RiderProfilePage() {
         name:             d.user?.name ?? '',
         phone:            d.user?.phone ?? '',
         vehicleType:      d.vehicleType ?? '',
-        vehiclePlate:     d.vehiclePlate ?? '',
+        plateNumber:      d.plateNumber ?? '',
         isOnline:         d.isOnline ?? false,
         totalDeliveries:  d.totalDeliveries ?? 0,
         guarantorName:    d.document?.guarantorName ?? '',
@@ -61,7 +61,7 @@ export default function RiderProfilePage() {
     setSaving(true);
     try {
       await api.patch('/auth/profile', { name: form.name, phone: form.phone });
-      await api.patch('/riders/me', { vehicleType: form.vehicleType, vehiclePlate: form.vehiclePlate });
+      await api.patch('/riders/me', { vehicleType: form.vehicleType, plateNumber: form.plateNumber });
       updateUser({ name: form.name, phone: form.phone });
       setProfile(form);
       setEditing(false);
@@ -149,13 +149,13 @@ export default function RiderProfilePage() {
               </div>
               <div className="form-group">
                 <label className="label">Plate Number</label>
-                <input className="input" value={form?.vehiclePlate ?? ''} onChange={e => set('vehiclePlate', e.target.value)} placeholder="ABC-123-XY" />
+                <input className="input" value={form?.plateNumber ?? ''} onChange={e => set('plateNumber', e.target.value)} placeholder="ABC-123-XY" />
               </div>
             </>
           ) : (
             <>
               <InfoRow label="Vehicle Type" value={VEHICLE_LABELS[src?.vehicleType ?? ''] ?? src?.vehicleType ?? '—'} />
-              <InfoRow label="Plate Number" value={src?.vehiclePlate || '—'} />
+              <InfoRow label="Plate Number" value={src?.plateNumber || '—'} />
             </>
           )}
         </div>

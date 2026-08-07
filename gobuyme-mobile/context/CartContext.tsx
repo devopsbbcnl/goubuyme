@@ -1,12 +1,19 @@
 import React from 'react';
 import { createContext, useContext, useState } from 'react';
 
+export interface CartItemSelection {
+  label: string;
+  price: number;
+}
+
 export interface CartItem {
   id: string;
   name: string;
   price: number;
   qty: number;
   img: string;
+  // Chosen drinks/option-group choices for this line, e.g. [{ label: 'Coke', price: 300 }].
+  selections?: CartItemSelection[];
 }
 
 type CartCtx = {

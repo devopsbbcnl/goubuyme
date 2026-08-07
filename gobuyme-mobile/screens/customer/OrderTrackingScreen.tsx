@@ -58,7 +58,7 @@ export default function OrderTrackingScreen() {
 		? parseInt(params.estimatedTime, 10)
 		: null;
 
-	const { status, riderLocation, rider, deliveryPin } = useOrderTracking(orderId);
+	const { status, riderLocation, rider, deliveryPin, items } = useOrderTracking(orderId);
 	const step = statusToStep(status);
 	const done = status === 'DELIVERED';
 	const cancelled = status === 'CANCELLED';
@@ -195,6 +195,45 @@ export default function OrderTrackingScreen() {
 						))}
 					</View>
 				</View>
+
+				{items.length > 0 && (
+					<View
+						style={[
+							styles.card,
+							{ backgroundColor: T.surface, borderColor: T.border },
+						]}
+					>
+						<Text style={[styles.sectionLabel, { color: T.textSec }]}>
+							Order Items
+						</Text>
+						{items.map((item, i) => (
+							<View
+								key={item.id}
+								style={[
+									styles.itemRow,
+									i < items.length - 1 && { borderBottomWidth: 1, borderBottomColor: T.border },
+								]}
+							>
+								<View style={styles.itemLeft}>
+									<View style={[styles.qtyBadge, { backgroundColor: T.primaryTint }]}>
+										<Text style={[styles.qtyText, { color: T.primary }]}>{item.quantity}×</Text>
+									</View>
+									<View style={{ flex: 1 }}>
+										<Text style={[styles.itemName, { color: T.text }]}>{item.name}</Text>
+										{item.selections.map((s, si) => (
+											<Text key={si} style={[styles.itemOption, { color: T.textSec }]}>
+												+ {s.label}{s.price > 0 ? ` (₦${s.price.toLocaleString()})` : ''}
+											</Text>
+										))}
+									</View>
+								</View>
+								<Text style={[styles.itemPrice, { color: T.text }]}>
+									₦{(item.price * item.quantity).toLocaleString()}
+								</Text>
+							</View>
+						))}
+					</View>
+				)}
 
 				{showPin && (
 					<View
@@ -422,6 +461,14 @@ const styles = StyleSheet.create({
 	},
 	statusLabel: { fontSize: 17, fontWeight: '700' },
 	orderId: { fontSize: 12, marginTop: 2 },
+	sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 },
+	itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
+	itemLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+	qtyBadge: { borderRadius: 4, paddingHorizontal: 7, paddingVertical: 3 },
+	qtyText: { fontSize: 12, fontWeight: '700' },
+	itemName: { fontSize: 14, fontWeight: '500' },
+	itemOption: { fontSize: 12, marginTop: 2 },
+	itemPrice: { fontSize: 14, fontWeight: '700' },
 	progressRow: { flexDirection: 'row', alignItems: 'center' },
 	stepDot: {
 		width: 24,
