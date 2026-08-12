@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Image, Alert, ActivityIndicator, TextInput,
+  Image, Alert, ActivityIndicator, TextInput, Modal,
 } from 'react-native';
 import { usePaystack } from 'react-native-paystack-webview';
 import { useTheme } from '@/context/ThemeContext';
@@ -34,7 +34,8 @@ export default function CheckoutScreen() {
   const items = getItems(vid);
   const total = getTotal(vid);
   const { user, updateUser } = useAuth();
-  const { selected, addresses } = useAddress();
+  const { selected, addresses, ready: addressesReady, selectAddress } = useAddress();
+  const [addressPickerVisible, setAddressPickerVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export default function CheckoutScreen() {
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promo, setPromo] = useState<{ code: string; subtotalDiscount: number; freeDelivery: boolean } | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
+  const [deliveryFeeError, setDeliveryFeeError] = useState<string | null>(null);
 
   const { popup } = usePaystack();
 
@@ -67,13 +69,30 @@ export default function CheckoutScreen() {
   // total matches what the backend will confirm when the order is created.
   useEffect(() => {
     let active = true;
-    if (!vid || !selected?.id) {
+    // Wait for AddressContext to finish syncing with the server before trusting
+    // selected.id — firing this against a stale AsyncStorage-cached id (present
+    // during the brief window before the remote address list loads) gets a
+    // false "Address not found" 404 from the backend. Mirrors the web checkout,
+    // which only ever computes its selected address from the server response.
+    if (!addressesReady || !vid || !selected?.id) {
       setDeliveryFee(null);
       setDistance(null);
       setFreeDeliveryReason(null);
+      setDeliveryFeeError(null);
+      return;
+    }
+    // Skip the request entirely for an address with no confirmed coordinates — the backend
+    // will 400 on it anyway ("Address coordinates missing"), so surface the reason directly
+    // instead of round-tripping to find out.
+    if (selected.latitude == null || selected.longitude == null) {
+      setDeliveryFee(null);
+      setDistance(null);
+      setFreeDeliveryReason(null);
+      setDeliveryFeeError('This address has no confirmed location. Edit it to fix this.');
       return;
     }
     setFeeLoading(true);
+    setDeliveryFeeError(null);
     api.get('/orders/estimate-fee', { params: { addressId: selected.id, vendorId: vid } })
       .then(res => {
         if (!active) return;
@@ -82,15 +101,16 @@ export default function CheckoutScreen() {
         setDistance(d?.distanceKm ?? null);
         setFreeDeliveryReason(d?.freeDelivery ? (d.freeDeliveryReason ?? null) : null);
       })
-      .catch(() => {
+      .catch((err) => {
         if (!active) return;
         setDeliveryFee(null);
         setDistance(null);
         setFreeDeliveryReason(null);
+        setDeliveryFeeError(err?.response?.data?.message ?? 'Could not calculate delivery fee.');
       })
       .finally(() => { if (active) setFeeLoading(false); });
     return () => { active = false; };
-  }, [vid, selected?.id, subtotal]);
+  }, [addressesReady, vid, selected?.id, subtotal]);
 
   const applyPromo = async () => {
     const code = promoInput.trim().toUpperCase();
@@ -261,7 +281,7 @@ export default function CheckoutScreen() {
         <Text style={[styles.sectionTitle, { color: T.textSec }]}>Delivery Address</Text>
         {selected ? (
           <TouchableOpacity
-            onPress={() => router.push('/saved-addresses')}
+            onPress={() => setAddressPickerVisible(true)}
             style={[styles.addressCard, { backgroundColor: T.surface, borderColor: T.border }]}
             activeOpacity={0.75}
           >
@@ -272,7 +292,7 @@ export default function CheckoutScreen() {
               <Text style={[styles.addressName, { color: T.text }]}>{selected.label}</Text>
               <Text style={[styles.addressSub, { color: T.textSec }]}>{selected.address}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={T.textSec} />
+            <Text style={{ color: T.primary, fontSize: 12, fontWeight: '600' }}>Change</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -326,7 +346,9 @@ export default function CheckoutScreen() {
               {feeLoading ? (
                 <ActivityIndicator size="small" color={T.primary} />
               ) : deliveryFee === null ? (
-                <Text style={[styles.totalVal, { color: T.textMuted, fontStyle: 'italic' }]}>Select an address</Text>
+                <Text style={[styles.totalVal, { color: deliveryFeeError ? T.error : T.textMuted, fontStyle: 'italic' }]}>
+                  {deliveryFeeError ?? 'Select an address'}
+                </Text>
               ) : deliveryIsFree ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   {deliveryFee > 0 && (
@@ -423,6 +445,81 @@ export default function CheckoutScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Address picker — session-scoped selection for this order only, independent of
+          which address is the account's default (setDefault is a separate, explicit action
+          on the Saved Addresses screen). Mirrors the web checkout's radio-list picker. */}
+      <Modal visible={addressPickerVisible} animationType="slide" transparent onRequestClose={() => setAddressPickerVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalSheet, { backgroundColor: T.surface }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: T.text }]}>Delivery Address</Text>
+              <TouchableOpacity onPress={() => setAddressPickerVisible(false)}>
+                <Ionicons name="close" size={22} color={T.textSec} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 400 }}>
+              {addresses.map(addr => {
+                const noLocation = addr.latitude == null || addr.longitude == null;
+                return (
+                  <TouchableOpacity
+                    key={addr.id}
+                    onPress={() => {
+                      if (noLocation) {
+                        Alert.alert(
+                          'Location not confirmed',
+                          'This address has no confirmed location, so delivery fee can\'t be calculated for it. Edit it from Saved Addresses to fix this.',
+                        );
+                        return;
+                      }
+                      selectAddress(addr.id);
+                      setAddressPickerVisible(false);
+                    }}
+                    style={[
+                      styles.pickerRow,
+                      {
+                        borderColor: selected?.id === addr.id ? T.primary : T.border,
+                        backgroundColor: selected?.id === addr.id ? T.primaryTint : T.surface,
+                        opacity: noLocation ? 0.6 : 1,
+                      },
+                    ]}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.addressIcon, { backgroundColor: T.primaryTint }]}>
+                      <MaterialIcons name={TYPE_ICONS[addr.type] ?? 'location-on'} size={18} color={T.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[styles.addressName, { color: T.text }]}>{addr.label}</Text>
+                        {addr.isDefault && (
+                          <Text style={{ color: T.primary, fontSize: 10, fontWeight: '700' }}>DEFAULT</Text>
+                        )}
+                        {noLocation && (
+                          <Text style={{ color: T.error, fontSize: 10, fontWeight: '700' }}>NO LOCATION</Text>
+                        )}
+                      </View>
+                      <Text style={[styles.addressSub, { color: T.textSec }]}>{addr.address}</Text>
+                    </View>
+                    {selected?.id === addr.id && (
+                      <Ionicons name="checkmark-circle" size={20} color={T.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <TouchableOpacity
+              onPress={() => { setAddressPickerVisible(false); router.push('/saved-addresses'); }}
+              style={[styles.addRow, { borderColor: T.border }]}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="add-circle-outline" size={20} color={T.primary} />
+              <Text style={{ color: T.primary, fontSize: 14, fontWeight: '600' }}>Add New Address</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -447,6 +544,13 @@ const styles = StyleSheet.create({
   addressIcon:      { width: 40, height: 40, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
   addressName:      { fontSize: 14, fontWeight: '600' },
   addressSub:       { fontSize: 12, marginTop: 2 },
+  // Address picker modal
+  modalBackdrop:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalSheet:       { borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 24, paddingBottom: 40, gap: 12 },
+  modalHeader:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  modalTitle:       { fontSize: 17, fontWeight: '700' },
+  pickerRow:        { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 4, borderWidth: 1.5, padding: 14, marginBottom: 10 },
+  addRow:           { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderRadius: 4, borderWidth: 1.5, borderStyle: 'dashed' },
   // Order card
   orderCard:        { borderRadius: 4, borderWidth: 1, overflow: 'hidden' },
   itemRow:          { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },

@@ -207,7 +207,7 @@ export default function HomeScreen() {
   useEffect(() => { if (cityLoaded) fetchPromos(); }, [fetchPromos, cityLoaded]);
 
   useEffect(() => {
-    api.get('/customers/referral')
+    api.get('/referral')
       .then(res => setReferralCode(res.data?.data?.code ?? ''))
       .catch(() => {});
   }, []);

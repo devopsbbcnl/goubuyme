@@ -12,6 +12,21 @@ const api = axios.create({ baseURL: BASE_URL, timeout: 10000 });
 const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'];
 const isAuthEndpoint = (url?: string) => !!url && AUTH_ENDPOINTS.some(endpoint => url.includes(endpoint));
 
+// Field-name redaction (not an endpoint blocklist) — new screens/payloads that add a
+// password/token/card field automatically stay safe without this list having to track them.
+const SENSITIVE_FIELD = /password|token|otp|pin|cvv|card(number)?|secret/i;
+const redactSensitive = (body: unknown): unknown => {
+  if (!body || typeof body !== 'object') return body;
+  return Object.fromEntries(
+    Object.entries(body as Record<string, unknown>).map(([k, v]) =>
+      [k, SENSITIVE_FIELD.test(k) ? '[redacted]' : v],
+    ),
+  );
+};
+const tryParseJson = (s: string): unknown => {
+  try { return JSON.parse(s); } catch { return undefined; }
+};
+
 // Called when the refresh token itself is expired/missing — wires into AuthContext via _layout.tsx
 let onUnauthorized: (() => void) | null = null;
 export const setOnUnauthorized = (cb: () => void) => { onUnauthorized = cb; };
@@ -41,7 +56,20 @@ api.interceptors.response.use(
       // Skip reporting 401s that are about to be silently retried via the refresh flow above.
       reportError(err, {
         source: 'api',
-        context: { url: original?.url, method: original?.method, status: err.response?.status },
+        context: {
+          url: original?.url,
+          method: original?.method,
+          status: err.response?.status,
+          // Query/body params + the backend's own message distinguish a true
+          // route-miss from a same-status business-logic rejection (e.g.
+          // estimate-fee's "Address not found" vs "Customer not found" vs
+          // "Vendor missing coordinates" all report as 404).
+          params: redactSensitive(original?.params),
+          data: redactSensitive(
+            typeof original?.data === 'string' ? tryParseJson(original.data) : original?.data,
+          ),
+          responseMessage: err.response?.data?.message ?? err.response?.data?.error,
+        },
       });
       return Promise.reject(err);
     }

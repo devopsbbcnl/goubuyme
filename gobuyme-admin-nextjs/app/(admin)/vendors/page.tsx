@@ -112,6 +112,8 @@ export default function VendorsPage() {
   const [pendingCategory, setPendingCategory] = useState<string | null>(null);
   const [licActing, setLicActing] = useState<string | null>(null);
   const [licReviewNotes, setLicReviewNotes] = useState<Record<string, string>>({});
+  const [regeocoding, setRegeocoding] = useState(false);
+  const [regeocodeError, setRegeocodeError] = useState<string | null>(null);
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteVendorId, setDeleteVendorId] = useState<string | null>(null);
@@ -167,11 +169,28 @@ export default function VendorsPage() {
     }
   };
 
+  const handleRegeocode = async () => {
+    if (!detail) return;
+    setRegeocoding(true);
+    setRegeocodeError(null);
+    try {
+      const res = await api.post<{ data: { latitude: number; longitude: number } }>(
+        `/admin/vendors/${detail.id}/regeocode`, {},
+      );
+      setDetail(d => d ? { ...d, latitude: res.data.latitude, longitude: res.data.longitude } : d);
+    } catch (e: any) {
+      setRegeocodeError(e?.message ?? 'Could not resolve coordinates for this address.');
+    } finally {
+      setRegeocoding(false);
+    }
+  };
+
   const openDetail = async (id: string) => {
     setDetailOpen(true);
     setDetail(null);
     setReviewNote('');
     setPendingCategory(null);
+    setRegeocodeError(null);
     setDetailLoading(true);
     try {
       const res = await api.get<{ data: VendorDetail }>(`/admin/vendors/${id}`);
@@ -486,6 +505,39 @@ export default function VendorsPage() {
                   ['Avg Delivery', detail.avgDeliveryTime ? `${detail.avgDeliveryTime} min` : '—'],
                   ['Joined', fmtDate(detail.createdAt)],
                 ]} T={T} />
+
+                {/* Coordinates normally self-heal when the vendor edits their own profile —
+                    a vendor who never does (e.g. failed geocode during onboarding, never
+                    revisited) stays stuck with no coordinates, which silently blocks
+                    delivery-fee calculation for every customer ordering from them. */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginTop: 6 }}>
+                  <span style={{ fontSize: 12, color: T.textSec, minWidth: 100, flexShrink: 0 }}>Coordinates</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    {detail.latitude != null && detail.longitude != null ? (
+                      <span style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>
+                        {detail.latitude.toFixed(5)}, {detail.longitude.toFixed(5)}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 12, color: T.error, fontWeight: 700 }}>
+                        Missing — delivery fee can&apos;t be calculated for orders to this vendor
+                      </span>
+                    )}
+                    <button
+                      onClick={handleRegeocode}
+                      disabled={regeocoding}
+                      style={{
+                        fontSize: 11, fontWeight: 700, color: T.primary,
+                        background: 'none', border: `1px solid ${T.primary}`, borderRadius: 4,
+                        padding: '3px 8px', cursor: regeocoding ? 'wait' : 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      {regeocoding ? 'Re-geocoding…' : 'Re-geocode'}
+                    </button>
+                  </div>
+                </div>
+                {regeocodeError && (
+                  <p style={{ fontSize: 11, color: T.error, margin: '4px 0 0' }}>{regeocodeError}</p>
+                )}
               </div>
 
               {/* Owner info */}
