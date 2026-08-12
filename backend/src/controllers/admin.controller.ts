@@ -1716,3 +1716,46 @@ export const featureVendor = catchAsync(async (req: AuthRequest, res: Response) 
 
   return apiResponse.success(res, 'Vendor feature settings updated.', updated);
 });
+
+// POST /admin/vendors/:id/regeocode
+// Vendor coordinates normally self-heal the next time the vendor edits their own profile
+// (updateMyVendorProfile retries the geocode whenever latitude/longitude is null). But a
+// vendor who never touches their profile again after a failed initial geocode stays stuck
+// with no coordinates indefinitely, silently blocking delivery-fee calculation for every
+// customer trying to order from them. This gives ops a way to retry it directly.
+export const regeocodeVendor = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+
+  const vendor = await prisma.vendor.findUnique({
+    where: { id },
+    select: { id: true, businessName: true, address: true, city: true, state: true },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+
+  const coords = await forwardGeocodeVendorAddress(vendor.address, vendor.city, vendor.state);
+  if (!coords) {
+    return apiResponse.error(
+      res,
+      'Could not resolve coordinates for this vendor\'s address. Check that address/city/state are correct.',
+      400,
+    );
+  }
+
+  const updated = await prisma.vendor.update({
+    where: { id },
+    data: { latitude: coords.lat, longitude: coords.lng },
+    select: { id: true, latitude: true, longitude: true },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user!.userId,
+      action: 'VENDOR_REGEOCODED',
+      entity: 'Vendor',
+      entityId: id,
+      meta: { businessName: vendor.businessName, latitude: updated.latitude, longitude: updated.longitude },
+    },
+  });
+
+  return apiResponse.success(res, 'Vendor coordinates updated.', updated);
+});

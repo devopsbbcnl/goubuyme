@@ -16,6 +16,25 @@ export interface GeocodeSuggestion {
   lng: number;
 }
 
+// Geocode a typed address + city + state directly to coordinates, without requiring the
+// user to pick a suggestion — mirrors the web app's /profile/addresses flow (GET /geocode),
+// which confirms lat/lng in the background from what the user typed instead of forcing a
+// dropdown selection or GPS as the only path to a savable address.
+export async function geocodeAddress(
+  address: string,
+  city: string,
+  state: string,
+): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const { data } = await api.get('/geocode', { params: { address, city, state } });
+    const lat = data?.data?.lat;
+    const lng = data?.data?.lng;
+    return typeof lat === 'number' && typeof lng === 'number' ? { lat, lng } : null;
+  } catch {
+    return null;
+  }
+}
+
 // Geocode an address to coordinates via the backend (proxies Nominatim/OpenStreetMap)
 export async function forwardGeocode(query: string): Promise<GeocodeSuggestion[]> {
   lastGeocodeStatus = null;

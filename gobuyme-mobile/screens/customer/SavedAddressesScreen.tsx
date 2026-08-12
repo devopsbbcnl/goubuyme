@@ -13,7 +13,7 @@ import {
 import * as Location from 'expo-location';
 import { useTheme } from '@/context/ThemeContext';
 import { useAddress, AddressType, Address } from '@/context/AddressContext';
-import { forwardGeocode, reverseGeocode, GeocodeSuggestion } from '@/services/geocoding';
+import { geocodeAddress, reverseGeocode } from '@/services/geocoding';
 import { router } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,8 +41,8 @@ export default function SavedAddressesScreen() {
 		state: '',
 	});
 	const [latLng, setLatLng] = useState<{ lat: number; lng: number } | null>(null);
-	const [suggestions, setSuggestions] = useState<GeocodeSuggestion[]>([]);
 	const [geocoding, setGeocoding] = useState(false);
+	const [geocodeErr, setGeocodeErr] = useState('');
 	const [locating, setLocating] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -51,7 +51,7 @@ export default function SavedAddressesScreen() {
 		setEditing(null);
 		setForm({ type: 'home', label: '', address: '', city: '', state: '' });
 		setLatLng(null);
-		setSuggestions([]);
+		setGeocodeErr('');
 		setModalVisible(true);
 	};
 
@@ -69,37 +69,37 @@ export default function SavedAddressesScreen() {
 				? { lat: addr.latitude, lng: addr.longitude }
 				: null,
 		);
-		setSuggestions([]);
+		setGeocodeErr('');
 		setModalVisible(true);
 	};
 
-	const handleAddressChange = (v: string) => {
-		setForm(f => ({ ...f, address: v }));
-		setLatLng(null);
-		setSuggestions([]);
+	// Auto-geocodes the typed address + city + state in the background — mirrors the web
+	// app's /profile/addresses flow. The user's typed text is never overwritten by a
+	// suggestion; coordinates are simply confirmed (or not) behind a checkmark/spinner.
+	const triggerGeocode = (f: typeof form) => {
 		if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
-		if (v.trim().length >= 3) {
-			setGeocoding(true);
-			geocodeTimer.current = setTimeout(async () => {
-				const query = [v, form.city, form.state].filter(Boolean).join(', ');
-				const results = await forwardGeocode(query);
-				setSuggestions(results);
-				setGeocoding(false);
-			}, 400);
-		} else {
+		setLatLng(null);
+		setGeocodeErr('');
+		if (f.address.trim().length < 5 || !f.city.trim() || !f.state.trim()) {
 			setGeocoding(false);
+			return;
 		}
+		setGeocoding(true);
+		geocodeTimer.current = setTimeout(async () => {
+			const result = await geocodeAddress(f.address.trim(), f.city.trim(), f.state.trim());
+			if (result) {
+				setLatLng(result);
+			} else {
+				setGeocodeErr('Could not confirm this location — check the address and try again.');
+			}
+			setGeocoding(false);
+		}, 600);
 	};
 
-	const handlePickSuggestion = (s: GeocodeSuggestion) => {
-		setForm(f => ({
-			...f,
-			address: s.placeName,
-			city: s.city || f.city,
-			state: s.state || f.state,
-		}));
-		setLatLng({ lat: s.lat, lng: s.lng });
-		setSuggestions([]);
+	const setField = (key: 'address' | 'city' | 'state', v: string) => {
+		const next = { ...form, [key]: v };
+		setForm(next);
+		triggerGeocode(next);
 	};
 
 	const handleUseLocation = async () => {
@@ -125,7 +125,7 @@ export default function SavedAddressesScreen() {
 					state: result.state || f.state,
 				}));
 				setLatLng({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-				setSuggestions([]);
+				setGeocodeErr('');
 			} else {
 				setLatLng({ lat: loc.coords.latitude, lng: loc.coords.longitude });
 				Alert.alert(
@@ -151,7 +151,7 @@ export default function SavedAddressesScreen() {
 			return;
 		}
 		if (!latLng?.lat || !latLng?.lng) {
-			Alert.alert('Location required', 'Please pick an address from suggestions or use your location.');
+			Alert.alert('Location not confirmed', 'Check the address, city, and state — or use your location.');
 			return;
 		}
 		const payload = {
@@ -439,80 +439,53 @@ export default function SavedAddressesScreen() {
 							</TouchableOpacity>
 						</View>
 
-						<View>
-							<View style={{ position: 'relative' }}>
-								<TextInput
-									value={form.address}
-									onChangeText={handleAddressChange}
-									placeholder="Search or type your address…"
-									placeholderTextColor={T.textMuted}
-									style={[
-										styles.fInput,
-										styles.fAddressInput,
-										{
-											backgroundColor: T.surface2,
-											borderColor: latLng ? T.primary : T.border,
-											color: T.text,
-											paddingRight: 36,
-										},
-									]}
+						<View style={{ position: 'relative' }}>
+							<TextInput
+								value={form.address}
+								onChangeText={(v) => setField('address', v)}
+								placeholder="e.g. 12 Aba Road, off NNPC Junction"
+								placeholderTextColor={T.textMuted}
+								style={[
+									styles.fInput,
+									styles.fAddressInput,
+									{
+										backgroundColor: T.surface2,
+										borderColor: latLng ? T.primary : geocodeErr ? T.error : T.border,
+										color: T.text,
+										paddingRight: 36,
+									},
+								]}
+							/>
+							{geocoding && (
+								<ActivityIndicator
+									size="small"
+									color={T.primary}
+									style={styles.geocodeSpinner}
 								/>
-								{geocoding && (
-									<ActivityIndicator
-										size="small"
-										color={T.primary}
-										style={styles.geocodeSpinner}
-									/>
-								)}
-								{!geocoding && latLng && (
-									<Ionicons
-										name="checkmark-circle"
-										size={16}
-										color={T.primary}
-										style={styles.geocodeSpinner}
-									/>
-								)}
-							</View>
-
-							{suggestions.length > 0 && (
-								<View
-									style={[
-										styles.suggestionsBox,
-										{ backgroundColor: T.surface, borderColor: T.border },
-									]}
-								>
-									{suggestions.slice(0, 4).map((s, i) => (
-										<TouchableOpacity
-											key={s.id}
-											onPress={() => handlePickSuggestion(s)}
-											style={[
-												styles.suggestionRow,
-												{
-													borderBottomColor: T.border,
-													borderBottomWidth: i < Math.min(suggestions.length, 4) - 1 ? 1 : 0,
-												},
-											]}
-											activeOpacity={0.7}
-										>
-											<Ionicons name="location-outline" size={14} color={T.primary} style={{ flexShrink: 0, marginTop: 1 }} />
-											<Text
-												style={[styles.suggestionText, { color: T.text }]}
-												numberOfLines={2}
-											>
-												{s.placeName}
-											</Text>
-										</TouchableOpacity>
-									))}
-								</View>
+							)}
+							{!geocoding && latLng && (
+								<Ionicons
+									name="checkmark-circle"
+									size={16}
+									color={T.primary}
+									style={styles.geocodeSpinner}
+								/>
 							)}
 						</View>
+						{geocodeErr ? (
+							<Text style={{ color: T.error, fontSize: 12 }}>{geocodeErr}</Text>
+						) : latLng ? (
+							<Text style={{ color: T.primary, fontSize: 12, fontWeight: '600' }}>
+								Location confirmed
+							</Text>
+						) : null}
 
 						<View style={styles.locationRow}>
 							<View style={styles.locationField}>
 								<Text style={[styles.fLabel, { color: T.textSec }]}>City</Text>
 								<TextInput
 									value={form.city}
-									onChangeText={(v) => setForm((f) => ({ ...f, city: v }))}
+									onChangeText={(v) => setField('city', v)}
 									placeholder="Owerri"
 									placeholderTextColor={T.textMuted}
 									style={[
@@ -530,7 +503,7 @@ export default function SavedAddressesScreen() {
 								<Text style={[styles.fLabel, { color: T.textSec }]}>State</Text>
 								<TextInput
 									value={form.state}
-									onChangeText={(v) => setForm((f) => ({ ...f, state: v }))}
+									onChangeText={(v) => setField('state', v)}
 									placeholder="Imo"
 									placeholderTextColor={T.textMuted}
 									style={[
@@ -547,10 +520,10 @@ export default function SavedAddressesScreen() {
 
 						<TouchableOpacity
 							onPress={handleSave}
-							disabled={saving}
+							disabled={saving || geocoding}
 							style={[
 								styles.modalSaveBtn,
-								{ backgroundColor: saving ? T.surface3 : T.primary },
+								{ backgroundColor: saving || geocoding ? T.surface3 : T.primary },
 							]}
 							activeOpacity={0.85}
 						>
@@ -691,20 +664,6 @@ const styles = StyleSheet.create({
 		right: 12,
 		top: 14,
 	},
-	suggestionsBox: {
-		borderRadius: 4,
-		borderWidth: 1,
-		marginTop: 4,
-		overflow: 'hidden',
-	},
-	suggestionRow: {
-		flexDirection: 'row',
-		alignItems: 'flex-start',
-		gap: 8,
-		paddingVertical: 10,
-		paddingHorizontal: 12,
-	},
-	suggestionText: { fontSize: 13, flex: 1, lineHeight: 18 },
 	locationRow: { flexDirection: 'row', gap: 12 },
 	locationField: { flex: 1, gap: 6 },
 	modalSaveBtn: {

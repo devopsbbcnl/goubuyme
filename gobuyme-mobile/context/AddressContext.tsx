@@ -24,6 +24,11 @@ type AddressCtx = {
   addresses: Address[];
   selectedId: string | null;
   selected: Address | null;
+  // False until the server-sourced address list has loaded (or resolved to "no user").
+  // Callers that look up an address by id server-side (e.g. estimate-fee) should wait
+  // for this before firing, otherwise they can hit a stale AsyncStorage-cached id from
+  // before the list synced and get a false "not found" from the backend.
+  ready: boolean;
   addAddress: (a: AddressInput) => Promise<void>;
   updateAddress: (id: string, patch: AddressPatch) => Promise<void>;
   deleteAddress: (id: string) => Promise<void>;
@@ -35,6 +40,7 @@ const AddressContext = createContext<AddressCtx>({
   addresses: [],
   selectedId: null,
   selected: null,
+  ready: false,
   addAddress: async () => {},
   updateAddress: async () => {},
   deleteAddress: async () => {},
@@ -94,6 +100,7 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
   const persistLocal = async (next: Address[]) => {
     setAddresses(next);
@@ -102,6 +109,7 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    setReady(false);
 
     (async () => {
       const key = storageKey(user?.id);
@@ -120,20 +128,31 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
         if (mounted) {
           setAddresses([]);
           setSelectedId(null);
+          setReady(true);
         }
         return;
       }
 
       try {
         const { data } = await api.get('/addresses');
-        const remote = normalizeAddresses(data);
-        if (!mounted || remote.length === 0) return;
+        if (!mounted) return;
 
+        // Server is the source of truth for a logged-in user. Apply the remote
+        // list even when it is empty — otherwise stale/legacy local entries with
+        // phantom ids or missing coordinates linger and break delivery-fee
+        // estimation and order placement (both look the address up by DB id).
+        const remote = normalizeAddresses(data);
         setAddresses(remote);
         setSelectedId(remote.find(a => a.isDefault)?.id ?? remote[0]?.id ?? null);
         await AsyncStorage.setItem(key, JSON.stringify(remote));
       } catch {
-        // Local cache keeps the screen usable if profile fetch fails.
+        // Local cache keeps the screen usable if the profile fetch fails.
+      } finally {
+        // Signal "safe to trust selectedId against the server" only after the
+        // remote list has had a chance to overwrite any stale local cache —
+        // mirrors the web checkout, which only ever reads addresses fetched
+        // directly from the server (no local caching layer to race against).
+        if (mounted) setReady(true);
       }
     })();
 
@@ -148,11 +167,12 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
 
     if (user) {
       const { data } = await api.post('/addresses', toAddressPayload({ ...a, isDefault: isFirst }));
-      next = normalizeAddress(data?.data) ?? {
-        ...a,
-        id: Date.now().toString(),
-        isDefault: isFirst,
-      };
+      // Must use the server-issued DB id. Falling back to a local timestamp id
+      // would create a phantom address the backend can't find, breaking
+      // estimate-fee and order placement at checkout.
+      const created = normalizeAddress(data?.data);
+      if (!created) throw new Error('Address could not be saved. Please try again.');
+      next = created;
     } else {
       next = {
         ...a,
@@ -217,7 +237,7 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AddressContext.Provider value={{
-      addresses, selectedId, selected,
+      addresses, selectedId, selected, ready,
       addAddress, updateAddress, deleteAddress, setDefault, selectAddress,
     }}>
       {children}
