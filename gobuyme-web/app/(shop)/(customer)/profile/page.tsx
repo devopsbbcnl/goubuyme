@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
+import ImageCropModal from '@/components/ui/ImageCropModal';
 import Image from 'next/image';
 import api from '@/services/api';
 
@@ -133,6 +134,7 @@ export default function ProfilePage() {
   const otpRefs = useRef<(HTMLInputElement | null)[]>(Array(6).fill(null));
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarCropFile, setAvatarCropFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -153,10 +155,16 @@ export default function ProfilePage() {
     localStorage.setItem('gbm_theme', next ? 'dark' : 'light');
   };
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { toast('Image must be under 5 MB', 'error'); return; }
+    setAvatarCropFile(file);
+  };
+
+  const uploadCroppedAvatar = async (file: File) => {
+    setAvatarCropFile(null);
     setUploadingAvatar(true);
     try {
       const fd = new FormData();
@@ -175,10 +183,7 @@ export default function ProfilePage() {
       updateUser({ avatar: data.secure_url });
       toast('Avatar updated!', 'success');
     } catch (err: any) { toast(err?.message || 'Could not upload image', 'error'); }
-    finally {
-      setUploadingAvatar(false);
-      if (avatarInputRef.current) avatarInputRef.current.value = '';
-    }
+    finally { setUploadingAvatar(false); }
   };
 
   const save = async () => {
@@ -354,6 +359,14 @@ export default function ProfilePage() {
                 onChange={handleAvatarChange}
               />
             </div>
+
+            <ImageCropModal
+              file={avatarCropFile}
+              aspect={1}
+              outputWidth={500}
+              onCancel={() => setAvatarCropFile(null)}
+              onConfirm={uploadCroppedAvatar}
+            />
 
             {/* Identity + completion bar */}
             <div style={{ flex: 1, minWidth: 220 }}>

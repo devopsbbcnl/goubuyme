@@ -163,7 +163,9 @@
       "Bash(gh *)",
       "PowerShell(Get-CimInstance *)",
       "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse snapshot *)",
-      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse upload *)"
+      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse upload *)",
+      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse status *)",
+      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse console *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"
