@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
+import ImageCropModal from '@/components/ui/ImageCropModal';
 import api from '@/services/api';
 import { uploadToCloudinary } from '@/services/cloudinary';
 
@@ -20,6 +21,7 @@ export default function VendorPromotionsPage() {
   const [imgBusy, setImgBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tier, setTier] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -31,10 +33,14 @@ export default function VendorPromotionsPage() {
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file) return;
+    if (file) setCropFile(file);
+  };
+
+  const uploadCroppedImage = async (file: File) => {
+    setCropFile(null);
     setImgBusy(true);
     try {
       const url = await uploadToCloudinary(file, 'vendor-promotions');
@@ -160,6 +166,13 @@ export default function VendorPromotionsPage() {
           </div>
         </div>
       )}
+
+      <ImageCropModal
+        file={cropFile}
+        aspect={1080 / 580}
+        onCancel={() => setCropFile(null)}
+        onConfirm={uploadCroppedImage}
+      />
     </div>
   );
 }

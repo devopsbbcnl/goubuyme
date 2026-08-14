@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
+import ImageCropModal from '@/components/ui/ImageCropModal';
 import api from '@/services/api';
 import { uploadToCloudinary } from '@/services/cloudinary';
 import { useCommissionRates, CommissionRates } from '@/hooks/useCommissionRates';
@@ -55,16 +56,15 @@ const planDetails = (rates: CommissionRates): Record<Tier, { title: string; best
 // ── Reusable image upload box ───────────────────────────────────────────────────
 
 function ImageUploadBox({
-  label, value, onChange, height = 150, folder, circle,
-}: { label: string; value: string; onChange: (url: string) => void; height?: number; folder: string; circle?: boolean }) {
+  label, value, onChange, height = 150, folder, circle, aspect,
+}: { label: string; value: string; onChange: (url: string) => void; height?: number; folder: string; circle?: boolean; aspect?: number }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const toast = useToast();
 
-  const handle = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
+  const upload = async (file: File) => {
+    setCropFile(null);
     setUploading(true);
     try {
       const url = await uploadToCloudinary(file, folder);
@@ -74,6 +74,16 @@ function ImageUploadBox({
     } finally {
       setUploading(false);
     }
+  };
+
+  const handle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    // Aspect is only set for branding images (logo/cover) — ID/document
+    // photos skip cropping so nothing gets cut off the page.
+    if (aspect) setCropFile(file);
+    else upload(file);
   };
 
   return (
@@ -96,6 +106,9 @@ function ImageUploadBox({
         )}
       </div>
       <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handle} />
+      {aspect && (
+        <ImageCropModal file={cropFile} aspect={aspect} onCancel={() => setCropFile(null)} onConfirm={upload} />
+      )}
     </div>
   );
 }
@@ -251,9 +264,9 @@ export default function VendorCompleteProfilePage() {
         <div className="card card-pad" style={{ marginBottom: 20 }}>
           <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 16 }}>Store Photos</h2>
           <div style={{ marginBottom: 16 }}>
-            <ImageUploadBox label="Cover Photo" value={coverImage} onChange={setCoverImage} height={160} folder="vendor-onboarding/cover" />
+            <ImageUploadBox label="Cover Photo" value={coverImage} onChange={setCoverImage} height={160} folder="vendor-onboarding/cover" aspect={16 / 9} />
           </div>
-          <ImageUploadBox label="Store Logo" value={logo} onChange={setLogo} height={88} circle folder="vendor-onboarding/logo" />
+          <ImageUploadBox label="Store Logo" value={logo} onChange={setLogo} height={88} circle folder="vendor-onboarding/logo" aspect={1} />
         </div>
 
         {/* About */}

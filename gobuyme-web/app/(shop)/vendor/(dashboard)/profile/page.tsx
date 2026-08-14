@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
+import ImageCropModal from '@/components/ui/ImageCropModal';
 import api from '@/services/api';
 import { uploadToCloudinary } from '@/services/cloudinary';
 import Image from 'next/image';
@@ -25,19 +26,24 @@ interface VendorProfile {
 }
 
 function ImgUpload({
-  label, value, folder, onUploaded,
+  label, value, folder, aspect, onUploaded,
 }: {
-  label: string; value?: string; folder: string; onUploaded: (url: string) => void;
+  label: string; value?: string; folder: string; aspect: number; onUploaded: (url: string) => void;
 }) {
   const fileRef   = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const toast = useToast();
 
-  const handle = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handle = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file) return;
+    if (file) setCropFile(file);
+  };
+
+  const uploadCropped = async (file: File) => {
+    setCropFile(null);
     setBusy(true);
     try {
       const url = await uploadToCloudinary(file, folder);
@@ -52,6 +58,7 @@ function ImgUpload({
       <label className="label">{label}</label>
       <input ref={fileRef}   type="file" accept="image/*"                     style={{ display: 'none' }} onChange={handle} />
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handle} />
+      <ImageCropModal file={cropFile} aspect={aspect} onCancel={() => setCropFile(null)} onConfirm={uploadCropped} />
 
       {/* preview */}
       <div style={{ width: '100%', height: 130, borderRadius: 4, border: '1.5px dashed var(--line)', background: 'var(--surface2)', overflow: 'hidden', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
@@ -232,13 +239,13 @@ export default function VendorProfilePage() {
         {/* Logo */}
         <div className="card card-pad">
           <h3 style={{ fontWeight: 800, fontSize: 16, marginBottom: 18 }}>Store Logo</h3>
-          <ImgUpload label="Logo" value={profile.logo} folder="vendor-logos" onUploaded={url => set('logo', url)} />
+          <ImgUpload label="Logo" value={profile.logo} folder="vendor-logos" aspect={1} onUploaded={url => set('logo', url)} />
         </div>
 
         {/* Cover Image */}
         <div className="card card-pad">
           <h3 style={{ fontWeight: 800, fontSize: 16, marginBottom: 18 }}>Cover Image</h3>
-          <ImgUpload label="Cover Photo" value={profile.coverImage} folder="vendor-covers" onUploaded={url => set('coverImage', url)} />
+          <ImgUpload label="Cover Photo" value={profile.coverImage} folder="vendor-covers" aspect={16 / 9} onUploaded={url => set('coverImage', url)} />
         </div>
 
         {/* Commission Tier */}
