@@ -9,6 +9,10 @@ interface PickOptions {
 
 export function pickImage(options: PickOptions = {}): Promise<string | null> {
   const { aspect = [1, 1], quality = 0.8, allowsEditing = true } = options;
+  // allowsEditing forces a fixed-aspect crop before the picker resolves —
+  // fine for photos (logo/cover/avatar/menu item) but risks cutting text off
+  // a legal document (ID, CAC certificate, license). Callers uploading a
+  // document should pass allowsEditing: false to skip the forced crop.
 
   return new Promise((resolve) => {
     Alert.alert('Upload Photo', 'Choose a source', [

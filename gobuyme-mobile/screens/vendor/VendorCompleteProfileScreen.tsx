@@ -216,7 +216,7 @@ export default function VendorCompleteProfileScreen() {
   };
 
   const pickSelfie = async () => {
-    const uri = await openImagePicker({ aspect: [1, 1], quality: 0.9 });
+    const uri = await openImagePicker({ allowsEditing: false, quality: 0.9 });
     if (!uri) return;
     setSelfieUri(uri);
     setUploadingSelfie(true);
@@ -232,7 +232,7 @@ export default function VendorCompleteProfileScreen() {
   };
 
   const pickDocumentImage = async (side: 'front' | 'back') => {
-    const uri = await openImagePicker({ aspect: [3, 2], quality: 0.9 });
+    const uri = await openImagePicker({ allowsEditing: false, quality: 0.9 });
     if (!uri) return;
     if (side === 'front') { setDocFrontUri(uri); setUploadingDocFront(true); }
     else { setDocBackUri(uri); setUploadingDocBack(true); }
