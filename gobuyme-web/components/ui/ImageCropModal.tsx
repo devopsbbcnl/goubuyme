@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Props {
   file: File | null;
@@ -16,7 +16,9 @@ const MAX_ZOOM = 3;
 
 export default function ImageCropModal({ file, aspect = 4 / 3, outputWidth = 1080, onCancel, onConfirm }: Props) {
   const frameH = FRAME_W / aspect;
-  const imgUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  // A blob: URL would be simpler, but the app's CSP img-src only allows
+  // 'self' / data: / specific hosts — blob: is blocked, so read as a data URL.
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
 
@@ -29,9 +31,12 @@ export default function ImageCropModal({ file, aspect = 4 / 3, outputWidth = 108
     setNatural(null);
     setZoom(1);
     setOffset({ x: 0, y: 0 });
-  }, [imgUrl]);
-
-  useEffect(() => () => { if (imgUrl) URL.revokeObjectURL(imgUrl); }, [imgUrl]);
+    setImgUrl(null);
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setImgUrl(reader.result as string);
+    reader.readAsDataURL(file);
+  }, [file]);
 
   const baseScale = natural ? Math.max(FRAME_W / natural.w, frameH / natural.h) : 1;
   const scale = baseScale * zoom;
@@ -100,7 +105,7 @@ export default function ImageCropModal({ file, aspect = 4 / 3, outputWidth = 108
   if (!file || !imgUrl) return null;
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
+    <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={onCancel}>
       <div className="modal" style={{ maxWidth: FRAME_W + 48 }} onClick={e => e.stopPropagation()}>
         <div className="modal-head"><h3>Adjust Image</h3><button onClick={onCancel}>✕</button></div>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
