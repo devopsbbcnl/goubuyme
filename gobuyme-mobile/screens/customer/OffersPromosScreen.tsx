@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 interface Promo {
 	id: string;
@@ -100,7 +101,7 @@ export default function OffersPromosScreen() {
 				<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
 					<ActivityIndicator size="large" color={T.primary} />
 				</View>
-			) : <ScrollView
+			) : <KeyboardAvoidingWrapper><ScrollView
 				contentContainerStyle={styles.scroll}
 				showsVerticalScrollIndicator={false}
 			>
@@ -270,7 +271,7 @@ export default function OffersPromosScreen() {
 						</View>
 					))
 				)}
-			</ScrollView>}
+			</ScrollView></KeyboardAvoidingWrapper>}
 		</View>
 	);
 }

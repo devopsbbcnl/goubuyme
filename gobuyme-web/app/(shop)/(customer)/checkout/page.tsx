@@ -440,10 +440,10 @@ function CheckoutContent() {
         ...(promo ? { promoCode: promo.code } : {}),
       });
       const orderId = data.data?.id;
-      clearCart();
 
       // Order is created (PENDING) at this point — hand off to Paystack's hosted
-      // checkout to collect payment. verifyPayment on the callback page flips it to PAID/CONFIRMED.
+      // checkout to collect payment. verifyPayment on the callback page flips it to PAID/CONFIRMED
+      // and clears the cart there — not here, so a cancelled/failed payment leaves the cart intact.
       const { data: payData } = await api.post('/payments/initialize', { orderId });
       const authUrl = payData.data?.authorizationUrl;
       if (!authUrl) throw new Error('No payment link returned.');

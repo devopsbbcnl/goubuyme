@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { placeOrder, cancelOrder, rateOrder, estimateDeliveryFee, validatePromo } from '../controllers/order.controller';
+import { placeOrder, cancelOrder, cancelPaymentOrder, rateOrder, estimateDeliveryFee, validatePromo } from '../controllers/order.controller';
 import { verifyToken } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import { validate } from '../middleware/validate.middleware';
@@ -20,6 +20,7 @@ router.get('/estimate-fee', requireRole('CUSTOMER'), estimateDeliveryFee);
 router.get('/validate-promo', requireRole('CUSTOMER'), validatePromo);
 router.post('/', requireRole('CUSTOMER'), validate(placeOrderSchema), placeOrder);
 router.post('/:id/cancel', requireRole('CUSTOMER'), cancelOrder);
+router.post('/:id/cancel-payment', requireRole('CUSTOMER'), cancelPaymentOrder);
 router.post('/:id/rate', requireRole('CUSTOMER'), rateOrder);
 
 export default router;

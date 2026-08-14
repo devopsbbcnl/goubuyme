@@ -12,7 +12,7 @@ import { getIO } from '../config/socket';
 import { notifyUser } from '../services/notification.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { availabilityInclude, computeAvailability, AvailabilityInput } from '../services/availability.service';
-import { PaymentMethod, OrderStatus } from '@prisma/client';
+import { PaymentMethod, OrderStatus, PaymentStatus } from '@prisma/client';
 
 const generateOrderNumber = () => {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -421,6 +421,98 @@ export const cancelOrder = catchAsync(async (req: AuthRequest, res: Response) =>
   });
 
   return apiResponse.success(res, 'Order cancelled.');
+});
+
+// Releases a card/transfer order that never got paid: restores reserved stock, restores the
+// customer's cart (if it's still empty/same-vendor), and marks the order CANCELLED/FAILED so it
+// never sits around looking like an active, awaiting-processing order. Used by the explicit
+// customer cancel-payment endpoint, the Paystack verify failure path, the charge.failed webhook,
+// and the stale-order cleanup cron.
+export const releaseUnpaidOrder = async (orderId: string, reason: string): Promise<boolean> => {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: { select: { menuItemId: true, quantity: true, price: true, selections: true } },
+      customer: { select: { id: true, userId: true } },
+    },
+  });
+  if (!order) return false;
+  if (order.paymentStatus === PaymentStatus.PAID) return false;
+  if (order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY) return false;
+  if (order.status !== OrderStatus.PENDING) return false;
+
+  await prisma.$transaction(async (tx) => {
+    if (order.stockReserved) {
+      await Promise.all(order.items.map((item) =>
+        tx.menuItem.update({
+          where: { id: item.menuItemId },
+          data: { stockQuantity: { increment: item.quantity } },
+        }),
+      ));
+    }
+
+    await tx.order.update({
+      where: { id: order.id },
+      data: {
+        status: OrderStatus.CANCELLED,
+        paymentStatus: PaymentStatus.FAILED,
+        cancelReason: reason,
+        stockReserved: false,
+        deliveryPin: null,
+      },
+    });
+
+    // Only restore cart items into an empty cart — if the customer already started a fresh
+    // cart (possibly for a different vendor) while this order sat unpaid, leave it untouched.
+    let cart = await tx.cart.findUnique({ where: { customerId: order.customer.id } });
+    if (!cart) {
+      cart = await tx.cart.create({ data: { customerId: order.customer.id, vendorId: order.vendorId } });
+    }
+    const existingItemCount = await tx.cartItem.count({ where: { cartId: cart.id } });
+    if (existingItemCount === 0) {
+      if (!cart.vendorId) {
+        await tx.cart.update({ where: { id: cart.id }, data: { vendorId: order.vendorId } });
+      }
+      await tx.cartItem.createMany({
+        data: order.items.map((item) => ({
+          cartId: cart!.id,
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          selections: item.selections ?? undefined,
+        })),
+      });
+    }
+  });
+
+  notifyUser(order.customer.userId, {
+    title: 'Payment not completed',
+    body: `Your order #${order.orderNumber} was cancelled because payment wasn't completed. We've restored your cart.`,
+    type: 'order',
+    data: { orderId: order.id },
+  }).catch(() => {});
+
+  return true;
+};
+
+export const cancelPaymentOrder = catchAsync(async (req: AuthRequest, res: Response) => {
+  const customer = await prisma.customer.findUnique({
+    where: { userId: req.user!.userId },
+    select: { id: true },
+  });
+  if (!customer) return apiResponse.error(res, 'Customer not found.', 404);
+
+  const order = await prisma.order.findFirst({
+    where: { id: req.params.id, customerId: customer.id },
+  });
+  if (!order) return apiResponse.error(res, 'Order not found.', 404);
+
+  const released = await releaseUnpaidOrder(order.id, req.body?.reason || 'Payment cancelled by customer');
+  if (!released) {
+    return apiResponse.error(res, 'Order cannot be released — it may already be paid or already processed.', 400);
+  }
+
+  return apiResponse.success(res, 'Order cancelled and cart restored.');
 });
 
 export const rateOrder = catchAsync(async (req: AuthRequest, res: Response) => {

@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { connectSockets, subscribeBackendStatus } from '@/services/socketService';
 import { useGoogleSignIn } from '@/hooks/useGoogleSignIn';
 import GoogleIcon from '@/components/ui/GoogleIcon';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 const ROLE_ROUTE: Record<string, string> = {
   customer: '/(customer)',
@@ -155,6 +156,7 @@ export default function LoginScreen() {
   };
 
   return (
+    <KeyboardAvoidingWrapper>
     <ScrollView
       style={{ flex: 1, backgroundColor: T.bg }}
       contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
@@ -246,6 +248,7 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </KeyboardAvoidingWrapper>
   );
 }
 

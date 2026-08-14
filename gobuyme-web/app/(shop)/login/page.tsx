@@ -17,7 +17,7 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
-  const next = searchParams.get('next') ?? '/';
+  const next = searchParams.get('next') ?? '/home';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import api from '@/services/api';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -246,6 +247,7 @@ export default function VendorLicensesScreen() {
       >
         <View style={styles.modalBackdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAdd(false)} />
+          <KeyboardAvoidingWrapper style={{ flex: undefined, maxHeight: '88%' }}>
           <View style={[styles.modalSheet, { backgroundColor: T.bg }]}>
             <View style={[styles.handle, { backgroundColor: T.border }]} />
             <View style={styles.modalHeader}>
@@ -347,6 +349,7 @@ export default function VendorLicensesScreen() {
               <View style={{ height: 32 }} />
             </ScrollView>
           </View>
+          </KeyboardAvoidingWrapper>
         </View>
       </Modal>
     </View>

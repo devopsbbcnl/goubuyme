@@ -12,6 +12,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 import { forwardGeocode, lastGeocodeStatus } from '@/services/geocoding';
 import { useCommissionRates, CommissionRates } from '@/hooks/useCommissionRates';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -359,6 +360,7 @@ export default function VendorCompleteProfileScreen() {
   const modalDetails = modalTier ? PLAN_DETAILS[modalTier] : null;
 
   return (
+    <KeyboardAvoidingWrapper>
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 20 }]}
@@ -823,6 +825,7 @@ export default function VendorCompleteProfileScreen() {
         bottomInset={insets.bottom}
       />
     </View>
+    </KeyboardAvoidingWrapper>
   );
 }
 
@@ -1023,6 +1026,7 @@ function AddMenuItemModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <KeyboardAvoidingWrapper style={{ flex: undefined, maxHeight: '92%' }}>
         <View style={[styles.itemModalSheet, { backgroundColor: T.bg }]}>
           <View style={[styles.modalHandle, { backgroundColor: T.border }]} />
 
@@ -1199,6 +1203,7 @@ function AddMenuItemModal({
             </TouchableOpacity>
           </View>
         </View>
+        </KeyboardAvoidingWrapper>
       </View>
     </Modal>
   );

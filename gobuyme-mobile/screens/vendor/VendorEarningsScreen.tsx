@@ -20,6 +20,7 @@ import { shadows } from '@/theme';
 import api from '@/services/api';
 import { useCommissionRates, CommissionRates } from '@/hooks/useCommissionRates';
 import MfaCodeModal from '@/components/MfaCodeModal';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 interface Earnings {
   thisMonth: { amount: number; orders: number };
@@ -260,6 +261,7 @@ export default function VendorEarningsScreen() {
   const maxVal = Math.max(...weekData, 1);
 
   return (
+    <KeyboardAvoidingWrapper>
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -668,6 +670,7 @@ export default function VendorEarningsScreen() {
         </Modal>
       )}
     </View>
+    </KeyboardAvoidingWrapper>
   );
 }
 
