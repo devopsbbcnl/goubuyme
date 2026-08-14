@@ -158,7 +158,9 @@
       "Bash(git -C \"C:\\\\Users\\\\Okonk\\\\Pictures\\\\Gobuyme6\" show 8d628a6 --stat)",
       "Bash(git -C \"C:\\\\Users\\\\Okonk\\\\Pictures\\\\Gobuyme6\" status --porcelain)",
       "Bash(git -C \"C:\\\\Users\\\\Okonk\\\\Pictures\\\\Gobuyme6\" log --oneline -5 -- gobuyme-web/marketing/pages/Downloads.tsx)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(gh pr *)",
+      "Bash(gh *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"
