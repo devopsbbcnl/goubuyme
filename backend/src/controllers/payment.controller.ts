@@ -7,6 +7,7 @@ import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { activateReferral } from '../services/referral.service';
 import { notifyUser } from '../services/notification.service';
+import { releaseUnpaidOrder } from './order.controller';
 import { PaymentStatus, OrderStatus } from '@prisma/client';
 import logger from '../utils/logger';
 import { getPrimaryClientUrl } from '../utils/clientUrl';
@@ -87,6 +88,15 @@ export const verifyPayment = catchAsync(async (req: AuthRequest, res: Response) 
   );
 
   if (data.data.status !== 'success') {
+    // Web's hosted-checkout callback only has `reference` (no orderId) — the order's paystackRef
+    // was already saved at /payments/initialize, so fall back to looking it up that way.
+    const failedOrderId = orderId ?? (await prisma.order.findFirst({
+      where: { paystackRef: reference },
+      select: { id: true },
+    }))?.id;
+    if (failedOrderId) {
+      await releaseUnpaidOrder(failedOrderId as string, `Payment ${data.data.status || 'failed'} on Paystack`).catch(() => {});
+    }
     return apiResponse.error(res, 'Payment not successful.', 400);
   }
 
@@ -160,6 +170,13 @@ export const handleWebhook = async (req: Request, res: Response) => {
           status:           OrderStatus.CONFIRMED,
         },
       });
+    }
+
+    if (event === 'charge.failed' || event === 'charge.abandoned') {
+      const order = await prisma.order.findFirst({ where: { paystackRef: data.reference } });
+      if (order) {
+        await releaseUnpaidOrder(order.id, `Payment ${event === 'charge.failed' ? 'failed' : 'abandoned'} (Paystack webhook)`).catch(() => {});
+      }
     }
 
     if (event === 'transfer.success') {

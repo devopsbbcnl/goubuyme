@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { forwardGeocode } from '@/services/geocoding';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -251,6 +252,7 @@ export default function RiderProfileScreen() {
 	const statusColor = STATUS_COLOR[profile?.approvalStatus ?? 'PENDING'];
 
 	return (
+		<KeyboardAvoidingWrapper>
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
 			<ScrollView
 				contentContainerStyle={{ paddingBottom: 40 }}
@@ -545,6 +547,7 @@ export default function RiderProfileScreen() {
 				)}
 			</ScrollView>
 		</View>
+		</KeyboardAvoidingWrapper>
 	);
 }
 

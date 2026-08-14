@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 interface Props {
 	visible: boolean;
@@ -51,6 +52,7 @@ export default function DeliveryPinModal({
 			}}
 		>
 			<View style={styles.backdrop}>
+				<KeyboardAvoidingWrapper style={{ flex: undefined }}>
 				<View style={[styles.sheet, { backgroundColor: T.surface }]}>
 					<View style={styles.header}>
 						<View style={[styles.iconWrap, { backgroundColor: T.primaryTint }]}>
@@ -113,6 +115,7 @@ export default function DeliveryPinModal({
 						)}
 					</TouchableOpacity>
 				</View>
+				</KeyboardAvoidingWrapper>
 			</View>
 		</Modal>
 	);

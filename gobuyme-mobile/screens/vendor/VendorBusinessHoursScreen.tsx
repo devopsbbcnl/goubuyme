@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -167,6 +168,7 @@ export default function VendorBusinessHoursScreen() {
         <View style={{ width: 38 }} />
       </View>
 
+      <KeyboardAvoidingWrapper>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {status && (
           <View style={[styles.statusBanner, { backgroundColor: T.surface2 }]}>
@@ -311,6 +313,7 @@ export default function VendorBusinessHoursScreen() {
           </View>
         )}
       </ScrollView>
+      </KeyboardAvoidingWrapper>
     </View>
   );
 }

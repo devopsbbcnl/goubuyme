@@ -72,18 +72,8 @@ export default function MenuItemDetailScreen() {
   const [localQty, setLocalQty] = useState(Math.min(Math.max(cartQty, 0), item.stockQuantity));
   // drink id → quantity selected
   const [drinkSelections, setDrinkSelections] = useState<Record<string, number>>({});
-  // option item id → selected (for option groups)
-  const [optionSelections, setOptionSelections] = useState<Record<string, string>>({});
-
-  const toggleDrink = (id: string) => {
-    setDrinkSelections(prev => {
-      if (prev[id]) {
-        const { [id]: _removed, ...rest } = prev;
-        return rest;
-      }
-      return { ...prev, [id]: 1 };
-    });
-  };
+  // groupId → itemId → quantity selected (extras can be added more than once, per item)
+  const [optionSelections, setOptionSelections] = useState<Record<string, Record<string, number>>>({});
 
   const changeDrinkQty = (id: string, delta: number) => {
     setDrinkSelections(prev => {
@@ -96,8 +86,11 @@ export default function MenuItemDetailScreen() {
     });
   };
 
-  const selectOption = (groupId: string, itemId: string) => {
-    setOptionSelections(prev => ({ ...prev, [groupId]: itemId }));
+  const changeOptionQty = (groupId: string, itemId: string, delta: number) => {
+    setOptionSelections(prev => {
+      const next = Math.max(0, (prev[groupId]?.[itemId] ?? 0) + delta);
+      return { ...prev, [groupId]: { ...prev[groupId], [itemId]: next } };
+    });
   };
 
   const drinkSubtotal = Object.entries(drinkSelections).reduce((sum, [id, qty]) => {
@@ -105,11 +98,8 @@ export default function MenuItemDetailScreen() {
     return sum + (drink?.price ?? 0) * qty;
   }, 0);
 
-  const optionSubtotal = Object.entries(optionSelections).reduce((sum, [groupId, itemId]) => {
-    const group = optionGroups.find(g => g.id === groupId);
-    const item = group?.items.find(i => i.id === itemId);
-    return sum + (item?.extraPrice ?? 0);
-  }, 0);
+  const optionSubtotal = optionGroups.reduce((sum, group) =>
+    sum + group.items.reduce((s2, i2) => s2 + (optionSelections[group.id]?.[i2.id] ?? 0) * i2.extraPrice, 0), 0);
 
   const unitPrice = item.price + drinkSubtotal + optionSubtotal;
   const totalPrice = unitPrice * Math.max(localQty, 1);
@@ -126,12 +116,16 @@ export default function MenuItemDetailScreen() {
           price: (drink?.price ?? 0) * qty,
         };
       });
-    const optionSelectionEntries = Object.entries(optionSelections)
-      .map(([groupId, itemId]) => {
-        const group = optionGroups.find(g => g.id === groupId);
-        const optItem = group?.items.find(i => i.id === itemId);
-        return { label: optItem?.name ?? '', price: optItem?.extraPrice ?? 0 };
-      });
+    const optionSelectionEntries = optionGroups.flatMap(group =>
+      group.items
+        .filter(i2 => (optionSelections[group.id]?.[i2.id] ?? 0) > 0)
+        .map(i2 => {
+          const qty = optionSelections[group.id][i2.id];
+          return {
+            label: qty > 1 ? `${i2.name} ×${qty}` : i2.name,
+            price: i2.extraPrice * qty,
+          };
+        }));
     const selections = [...drinkSelectionEntries, ...optionSelectionEntries].filter(s => s.label);
     const allLabels = selections.map(s => s.label);
     const cartName = allLabels.length > 0
@@ -218,103 +212,104 @@ export default function MenuItemDetailScreen() {
           {hasDrinks && (
             <>
               <View style={[styles.divider, { backgroundColor: T.border }]} />
-              <Text style={[styles.sectionLabel, { color: T.textMuted }]}>Add Drinks</Text>
-              <Text style={[styles.drinkHint, { color: T.textMuted }]}>Optional — pick any, in any quantity</Text>
+              <Text style={[styles.sectionLabel, { color: T.textMuted }]}>Add a Drink</Text>
+              <Text style={[styles.drinkHint, { color: T.textMuted }]}>Optional — add any, in any quantity</Text>
 
-              {drinkOptions.map(drink => {
-                const qty = drinkSelections[drink.id] ?? 0;
-                const selected = qty > 0;
-                return (
-                  <View
-                    key={drink.id}
-                    style={[
-                      styles.drinkOption,
-                      { borderColor: selected ? T.primary : T.border, backgroundColor: selected ? T.primaryTint : T.surface },
-                    ]}
-                  >
-                    <TouchableOpacity
-                      onPress={() => toggleDrink(drink.id)}
-                      style={styles.drinkOptionMain}
-                      activeOpacity={0.75}
-                      disabled={!isVendorOpen}
+              <View style={styles.extrasGrid}>
+                {drinkOptions.map(drink => {
+                  const qty = drinkSelections[drink.id] ?? 0;
+                  return (
+                    <View
+                      key={drink.id}
+                      style={[
+                        styles.extraCard,
+                        { borderColor: qty > 0 ? T.primary : T.border, backgroundColor: qty > 0 ? T.primaryTint : T.surface },
+                      ]}
                     >
-                      <View style={[styles.checkbox, { borderColor: selected ? T.primary : T.border, backgroundColor: selected ? T.primary : 'transparent' }]}>
-                        {selected && <Ionicons name="checkmark" size={13} color="#fff" />}
-                      </View>
-                      <Text style={[styles.drinkName, { color: T.text, flex: 1 }]}>{drink.name}</Text>
-                      <Text style={[styles.drinkPrice, { color: T.primary }]}>+₦{drink.price.toLocaleString()}</Text>
-                    </TouchableOpacity>
-
-                    {selected && (
-                      <View style={[styles.drinkStepper, { borderTopColor: T.border }]}>
+                      <Text style={[styles.drinkName, { color: T.text }]} numberOfLines={2}>{drink.name}</Text>
+                      <Text style={[styles.drinkPrice, { color: T.primary, marginBottom: 10 }]}>+₦{drink.price.toLocaleString()}</Text>
+                      <View style={styles.extraStepper}>
                         <TouchableOpacity
                           onPress={() => changeDrinkQty(drink.id, -1)}
-                          style={[styles.drinkStepBtn, { backgroundColor: T.surface3 }]}
-                          disabled={!isVendorOpen}
+                          style={[styles.extraStepBtn, { borderColor: T.border, backgroundColor: T.surface }]}
+                          disabled={qty === 0 || !isVendorOpen}
                         >
-                          <Ionicons name="remove" size={14} color={isVendorOpen ? T.text : T.textMuted} />
+                          <Ionicons name="remove" size={14} color={qty > 0 && isVendorOpen ? T.text : T.textMuted} />
                         </TouchableOpacity>
-                        <Text style={[styles.drinkStepQty, { color: T.text }]}>{qty}</Text>
+                        <Text style={[styles.extraStepQty, { color: T.text }]}>{qty}</Text>
                         <TouchableOpacity
                           onPress={() => changeDrinkQty(drink.id, 1)}
-                          style={[styles.drinkStepBtn, { backgroundColor: isVendorOpen ? T.primary : T.surface3 }]}
+                          style={[styles.extraStepBtn, styles.extraStepBtnAdd, { backgroundColor: isVendorOpen ? T.primary : T.surface3 }]}
                           disabled={!isVendorOpen}
                         >
                           <Ionicons name="add" size={14} color={isVendorOpen ? '#fff' : T.textMuted} />
                         </TouchableOpacity>
                       </View>
-                    )}
-                  </View>
-                );
-              })}
+                    </View>
+                  );
+                })}
+              </View>
             </>
           )}
 
-          {/* Option groups */}
+          {/* Option groups (extras) */}
           {hasOptions && (
             <>
               <View style={[styles.divider, { backgroundColor: T.border }]} />
-              {optionGroups.map(group => {
-                const selectedItemId = optionSelections[group.id];
-                return (
-                  <View key={group.id} style={{ marginBottom: 20 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <Text style={[styles.sectionLabel, { color: T.textMuted }]}>{group.name}</Text>
-                      {group.required && (
-                        <View style={[styles.requiredPill, { backgroundColor: `${T.primary}18` }]}>
-                          <Text style={[styles.requiredPillText, { color: T.primary }]}>Required</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={[styles.drinkHint, { color: T.textMuted }]}>
-                      {group.required ? 'Select one option' : 'Optional — select one'}
-                    </Text>
-                    {group.items.filter(item => item.isAvailable).map(item => {
-                      const selected = selectedItemId === item.id;
+              {optionGroups.map(group => (
+                <View key={group.id} style={{ marginBottom: 20 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <Text style={[styles.sectionLabel, { color: T.textMuted, marginBottom: 0 }]}>{group.name}</Text>
+                    {group.required && (
+                      <View style={[styles.requiredPill, { backgroundColor: `${T.primary}18` }]}>
+                        <Text style={[styles.requiredPillText, { color: T.primary }]}>Required</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.drinkHint, { color: T.textMuted }]}>
+                    {group.required ? 'Select at least one — add extra quantity if you like' : 'Optional — add any, in any quantity'}
+                  </Text>
+
+                  <View style={styles.extrasGrid}>
+                    {group.items.filter(i2 => i2.isAvailable).map(i2 => {
+                      const qty = optionSelections[group.id]?.[i2.id] ?? 0;
                       return (
-                        <TouchableOpacity
-                          key={item.id}
-                          onPress={() => selectOption(group.id, item.id)}
+                        <View
+                          key={i2.id}
                           style={[
-                            styles.drinkOption,
-                            { borderColor: selected ? T.primary : T.border, backgroundColor: selected ? T.primaryTint : T.surface, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 14 },
+                            styles.extraCard,
+                            { borderColor: qty > 0 ? T.primary : T.border, backgroundColor: qty > 0 ? T.primaryTint : T.surface },
                           ]}
-                          activeOpacity={0.75}
-                          disabled={!isVendorOpen}
                         >
-                          <View style={[styles.checkbox, { borderColor: selected ? T.primary : T.border, backgroundColor: selected ? T.primary : 'transparent' }]}>
-                            {selected && <Ionicons name="checkmark" size={13} color="#fff" />}
-                          </View>
-                          <Text style={[styles.drinkName, { color: T.text, flex: 1 }]}>{item.name}</Text>
-                          {item.extraPrice > 0 && (
-                            <Text style={[styles.drinkPrice, { color: T.primary }]}>+₦{item.extraPrice.toLocaleString()}</Text>
+                          <Text style={[styles.drinkName, { color: T.text }]} numberOfLines={2}>{i2.name}</Text>
+                          {i2.extraPrice > 0 ? (
+                            <Text style={[styles.drinkPrice, { color: T.primary, marginBottom: 10 }]}>+₦{i2.extraPrice.toLocaleString()}</Text>
+                          ) : (
+                            <Text style={[styles.drinkPrice, { color: T.textMuted, marginBottom: 10 }]}>Free</Text>
                           )}
-                        </TouchableOpacity>
+                          <View style={styles.extraStepper}>
+                            <TouchableOpacity
+                              onPress={() => changeOptionQty(group.id, i2.id, -1)}
+                              style={[styles.extraStepBtn, { borderColor: T.border, backgroundColor: T.surface }]}
+                              disabled={qty === 0 || !isVendorOpen}
+                            >
+                              <Ionicons name="remove" size={14} color={qty > 0 && isVendorOpen ? T.text : T.textMuted} />
+                            </TouchableOpacity>
+                            <Text style={[styles.extraStepQty, { color: T.text }]}>{qty}</Text>
+                            <TouchableOpacity
+                              onPress={() => changeOptionQty(group.id, i2.id, 1)}
+                              style={[styles.extraStepBtn, styles.extraStepBtnAdd, { backgroundColor: isVendorOpen ? T.primary : T.surface3 }]}
+                              disabled={!isVendorOpen}
+                            >
+                              <Ionicons name="add" size={14} color={isVendorOpen ? '#fff' : T.textMuted} />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
                       );
                     })}
                   </View>
-                );
-              })}
+                </View>
+              ))}
             </>
           )}
 
@@ -386,14 +381,14 @@ const styles = StyleSheet.create({
   sectionLabel:     { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   description:      { fontSize: 15, lineHeight: 24, fontWeight: '400' },
   drinkHint:        { fontSize: 12, marginBottom: 10 },
-  drinkOption:      { borderRadius: 4, borderWidth: 1, marginBottom: 8, overflow: 'hidden' },
-  drinkOptionMain:  { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 14 },
-  checkbox:         { width: 22, height: 22, borderRadius: 4, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  drinkName:        { fontSize: 14, fontWeight: '600' },
-  drinkPrice:       { fontSize: 14, fontWeight: '700' },
-  drinkStepper:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1 },
-  drinkStepBtn:     { width: 32, height: 32, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
-  drinkStepQty:     { fontSize: 15, fontWeight: '800', minWidth: 24, textAlign: 'center' },
+  drinkName:        { fontSize: 13, fontWeight: '600', lineHeight: 17 },
+  drinkPrice:       { fontSize: 12, fontWeight: '700', marginTop: 2 },
+  extrasGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  extraCard:        { width: '31%', minWidth: 100, flexGrow: 1, borderRadius: 4, borderWidth: 1, padding: 10 },
+  extraStepper:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  extraStepBtn:     { width: 28, height: 28, borderRadius: 999, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  extraStepBtnAdd:  { borderWidth: 0 },
+  extraStepQty:     { fontSize: 14, fontWeight: '700', minWidth: 20, textAlign: 'center' },
   requiredPill:     { borderRadius: 4, paddingHorizontal: 8, paddingVertical: 2 },
   requiredPillText: { fontSize: 10, fontWeight: '700' },
   stepperRow:       { flexDirection: 'row', alignItems: 'center', gap: 20, marginTop: 4 },

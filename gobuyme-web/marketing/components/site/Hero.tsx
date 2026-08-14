@@ -74,7 +74,7 @@ export const Hero = () => {
               <span aria-hidden>→</span>
             </a>
             <a
-              href="#download"
+              href="/downloads"
               className="group inline-flex items-center gap-3 rounded-full border-2 border-ink bg-foreground px-6 py-4 text-background shadow-pop transition-all hover:-translate-y-1 hover:shadow-pop-orange"
             >
               <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

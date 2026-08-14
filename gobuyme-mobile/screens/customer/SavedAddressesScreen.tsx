@@ -17,6 +17,7 @@ import { geocodeAddress, reverseGeocode } from '@/services/geocoding';
 import { router } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 const TYPE_ICONS: Record<AddressType, string> = {
 	home: 'home',
@@ -352,6 +353,7 @@ export default function SavedAddressesScreen() {
 			{/* Add/Edit modal */}
 			<Modal visible={modalVisible} animationType="slide" transparent>
 				<View style={styles.modalBackdrop}>
+					<KeyboardAvoidingWrapper style={{ flex: undefined }}>
 					<View style={[styles.modalSheet, { backgroundColor: T.surface }]}>
 						<View style={styles.modalHeader}>
 							<Text style={[styles.modalTitle, { color: T.text }]}>
@@ -532,6 +534,7 @@ export default function SavedAddressesScreen() {
 							</Text>
 						</TouchableOpacity>
 					</View>
+					</KeyboardAvoidingWrapper>
 				</View>
 			</Modal>
 		</View>

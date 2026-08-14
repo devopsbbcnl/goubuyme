@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -131,6 +132,7 @@ export default function EditProfileScreen() {
 				<View style={{ width: 38 }} />
 			</View>
 
+			<KeyboardAvoidingWrapper>
 			<ScrollView
 				contentContainerStyle={styles.scroll}
 				showsVerticalScrollIndicator={false}
@@ -247,6 +249,7 @@ export default function EditProfileScreen() {
 					)}
 				</TouchableOpacity>
 			</View>
+			</KeyboardAvoidingWrapper>
 		</View>
 	);
 }

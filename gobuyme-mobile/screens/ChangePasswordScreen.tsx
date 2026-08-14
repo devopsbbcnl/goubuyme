@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import MfaCodeModal from '@/components/MfaCodeModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 export default function ChangePasswordScreen() {
 	const { theme: T } = useTheme();
@@ -118,6 +119,7 @@ export default function ChangePasswordScreen() {
 				<View style={{ width: 38 }} />
 			</View>
 
+			<KeyboardAvoidingWrapper>
 			<ScrollView
 				contentContainerStyle={styles.scroll}
 				keyboardShouldPersistTaps="handled"
@@ -180,6 +182,7 @@ export default function ChangePasswordScreen() {
 					)}
 				</TouchableOpacity>
 			</ScrollView>
+			</KeyboardAvoidingWrapper>
 
 			<MfaCodeModal
 				visible={mfaModal}

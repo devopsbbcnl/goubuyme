@@ -16,6 +16,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 export default function MfaSetupScreen() {
 	const { theme: T } = useTheme();
@@ -105,6 +106,7 @@ export default function MfaSetupScreen() {
 				<View style={{ width: 38 }} />
 			</View>
 
+			<KeyboardAvoidingWrapper>
 			<ScrollView
 				contentContainerStyle={styles.scroll}
 				keyboardShouldPersistTaps="handled"
@@ -226,6 +228,7 @@ export default function MfaSetupScreen() {
 					access if you lose your authenticator app.
 				</Text>
 			</ScrollView>
+			</KeyboardAvoidingWrapper>
 		</View>
 	);
 }

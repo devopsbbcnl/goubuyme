@@ -72,8 +72,8 @@ function PaymentVerifyContent() {
             <>
               <div style={{ fontSize: 44, marginBottom: 12 }}>⚠️</div>
               <h1 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6, color: 'var(--error)' }}>Payment not confirmed</h1>
-              <p className="muted" style={{ fontSize: 13, marginBottom: 20 }}>{errorMsg}</p>
-              <button className="btn btn-primary" onClick={() => router.replace('/orders')}>View my orders</button>
+              <p className="muted" style={{ fontSize: 13, marginBottom: 20 }}>{errorMsg} Your order was not placed and your cart is still here.</p>
+              <button className="btn btn-primary" onClick={() => router.replace('/checkout')}>Back to checkout</button>
             </>
           )}
         </div>

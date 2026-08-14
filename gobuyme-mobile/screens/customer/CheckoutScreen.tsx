@@ -12,6 +12,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 const TYPE_ICONS: Record<string, any> = { home: 'home', work: 'business', other: 'location-on' };
 
@@ -236,8 +237,14 @@ export default function CheckoutScreen() {
           });
         },
         onCancel: () => {
+          api.post(`/orders/${orderId}/cancel-payment`, { reason: 'Payment cancelled by customer' }).catch(() => {});
           setLoading(false);
-          Alert.alert('Payment cancelled', 'Your order is saved. Complete payment to confirm it.');
+          Alert.alert('Payment cancelled', 'Your order was not placed. Your cart has been restored.');
+        },
+        onError: () => {
+          api.post(`/orders/${orderId}/cancel-payment`, { reason: 'Payment failed or declined' }).catch(() => {});
+          setLoading(false);
+          Alert.alert('Payment failed', 'Your payment could not be completed. Your cart has been restored — please try again.');
         },
       });
     } catch (err: any) {
@@ -258,6 +265,7 @@ export default function CheckoutScreen() {
         <View style={{ width: 24 }} />
       </View>
 
+      <KeyboardAvoidingWrapper>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* ── Contact Number ── */}
@@ -444,6 +452,7 @@ export default function CheckoutScreen() {
           )}
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingWrapper>
 
       {/* Address picker — session-scoped selection for this order only, independent of
           which address is the account's default (setDefault is a separate, explicit action

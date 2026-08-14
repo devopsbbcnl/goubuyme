@@ -20,6 +20,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 interface DrinkOption {
 	id: string;
@@ -656,6 +657,7 @@ export default function ManageMenuScreen() {
 								<Ionicons name="close" size={22} color={T.textMuted} />
 							</TouchableOpacity>
 						</View>
+						<KeyboardAvoidingWrapper>
 						<ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 							{(drinkSheetItem?.drinkOptions ?? []).length === 0 ? (
 								<Text style={[styles.drinkEmpty, { color: T.textMuted }]}>No drink options yet. Add one below.</Text>
@@ -713,6 +715,7 @@ export default function ManageMenuScreen() {
 								</TouchableOpacity>
 							</View>
 						</ScrollView>
+						</KeyboardAvoidingWrapper>
 					</View>
 				</View>
 			</Modal>
@@ -736,6 +739,7 @@ export default function ManageMenuScreen() {
 								<Ionicons name="close" size={22} color={T.textMuted} />
 							</TouchableOpacity>
 						</View>
+						<KeyboardAvoidingWrapper>
 						<ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 							{(optSheetItem?.optionGroups ?? []).length === 0 && (
 								<Text style={[styles.drinkEmpty, { color: T.textMuted }]}>No option groups yet. Add one below.</Text>
@@ -864,6 +868,7 @@ export default function ManageMenuScreen() {
 								</TouchableOpacity>
 							</View>
 						</ScrollView>
+						</KeyboardAvoidingWrapper>
 					</View>
 				</View>
 			</Modal>
@@ -888,6 +893,7 @@ export default function ManageMenuScreen() {
 							</TouchableOpacity>
 						</View>
 
+						<KeyboardAvoidingWrapper>
 						<ScrollView
 							style={{ flex: 1 }}
 							contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
@@ -1012,6 +1018,7 @@ export default function ManageMenuScreen() {
 								)}
 							</TouchableOpacity>
 						</ScrollView>
+						</KeyboardAvoidingWrapper>
 					</View>
 				</View>
 			</Modal>

@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { shadows } from '@/theme';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 export default function CartScreen() {
   const { theme: T } = useTheme();
@@ -48,6 +49,7 @@ export default function CartScreen() {
         <Text style={[styles.headerTitle, { color: T.text }]}>Your Cart</Text>
       </View>
 
+      <KeyboardAvoidingWrapper>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 20, gap: 12 }} showsVerticalScrollIndicator={false}>
         {/* Cart items */}
         {items.map(item => (
@@ -114,6 +116,7 @@ export default function CartScreen() {
           Proceed to Checkout
         </PrimaryButton>
       </View>
+      </KeyboardAvoidingWrapper>
     </View>
   );
 }

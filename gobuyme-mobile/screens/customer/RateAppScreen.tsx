@@ -13,6 +13,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 const ASPECTS = [
 	{ id: 'speed', icon: '⚡', label: 'Delivery Speed' },
@@ -96,6 +97,7 @@ export default function RateAppScreen() {
 	}
 
 	return (
+		<KeyboardAvoidingWrapper>
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
 			{/* Header */}
 			<View
@@ -225,6 +227,7 @@ export default function RateAppScreen() {
 				</TouchableOpacity>
 			</View>
 		</View>
+		</KeyboardAvoidingWrapper>
 	);
 }
 

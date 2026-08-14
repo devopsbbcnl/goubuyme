@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import api from '@/services/api';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -218,6 +219,7 @@ export default function RiderDocumentScreen() {
   }, [existing, ninNumber, ninImgUri, selfieUri, vehicleImgUri]);
 
   return (
+    <KeyboardAvoidingWrapper>
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 16 }]}
@@ -370,6 +372,7 @@ export default function RiderDocumentScreen() {
         </View>
       )}
     </View>
+    </KeyboardAvoidingWrapper>
   );
 }
 

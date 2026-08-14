@@ -18,6 +18,7 @@ import { generatePassword } from '@/utils/generatePassword';
 import { forwardGeocode } from '@/services/geocoding';
 import { useGoogleSignIn } from '@/hooks/useGoogleSignIn';
 import GoogleIcon from '@/components/ui/GoogleIcon';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 type RoleParam = 'customer' | 'vendor' | 'rider';
 
@@ -334,6 +335,7 @@ export default function RegisterScreen() {
 	};
 
 	return (
+		<KeyboardAvoidingWrapper>
 		<ScrollView
 			style={{ flex: 1, backgroundColor: T.bg }}
 			contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
@@ -685,6 +687,7 @@ export default function RegisterScreen() {
 				</Text>
 			</TouchableOpacity>
 		</ScrollView>
+		</KeyboardAvoidingWrapper>
 	);
 }
 
