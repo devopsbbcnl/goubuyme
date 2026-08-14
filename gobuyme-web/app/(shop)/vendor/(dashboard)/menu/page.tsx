@@ -592,13 +592,6 @@ export default function VendorMenuPage() {
       <input ref={fileInputRef}   type="file" accept="image/*"                    style={{ display: 'none' }} onChange={handleFile} />
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFile} />
 
-      <ImageCropModal
-        file={cropFile}
-        aspect={4 / 3}
-        onCancel={() => setCropFile(null)}
-        onConfirm={(croppedFile) => { setCropFile(null); uploadImage(croppedFile); }}
-      />
-
       {/* ── Add / Edit modal ── */}
       {modal && (
         <div className="modal-overlay" onClick={() => setModal(false)}>
@@ -802,6 +795,13 @@ export default function VendorMenuPage() {
           </div>
         </div>
       )}
+
+      <ImageCropModal
+        file={cropFile}
+        aspect={4 / 3}
+        onCancel={() => setCropFile(null)}
+        onConfirm={(croppedFile) => { setCropFile(null); uploadImage(croppedFile); }}
+      />
     </div>
   );
 }
