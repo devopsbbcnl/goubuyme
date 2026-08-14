@@ -27,7 +27,7 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://accounts.google.com`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "img-src 'self' data: https://res.cloudinary.com",
+  "img-src 'self' data: https://res.cloudinary.com https://images.pexels.com https://ui-avatars.com https://picsum.photos",
   "font-src 'self' data: https://fonts.gstatic.com",
   `connect-src 'self' ${apiOrigin} ${apiWsOrigin} https://accounts.google.com https://api.cloudinary.com https://www.google-analytics.com https://tiles.openfreemap.org`,
   "frame-src 'self' https://accounts.google.com",

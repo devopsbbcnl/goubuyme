@@ -10,7 +10,7 @@ const csp = [
 	"default-src 'self'",
 	"script-src 'self' 'unsafe-inline'",
 	"style-src 'self' 'unsafe-inline'",
-	"img-src 'self' data: https://res.cloudinary.com https://images.unsplash.com",
+	"img-src 'self' data: https://res.cloudinary.com https://images.unsplash.com https://images.pexels.com https://ui-avatars.com https://picsum.photos",
 	"font-src 'self' data:",
 	"connect-src 'self' https://api.cloudinary.com",
 	"object-src 'none'",
@@ -23,6 +23,9 @@ const nextConfig: NextConfig = {
 	images: {
 		remotePatterns: [
 			{ protocol: 'https', hostname: 'images.unsplash.com' },
+			{ protocol: 'https', hostname: 'images.pexels.com' },
+			{ protocol: 'https', hostname: 'ui-avatars.com' },
+			{ protocol: 'https', hostname: 'picsum.photos' },
 		],
 	},
 	turbopack: {
