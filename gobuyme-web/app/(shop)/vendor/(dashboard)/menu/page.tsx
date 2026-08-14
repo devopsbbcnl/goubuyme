@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
+import ImageCropModal from '@/components/ui/ImageCropModal';
 import api from '@/services/api';
 
 const CLOUD_NAME   = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
@@ -230,6 +231,7 @@ export default function VendorMenuPage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef   = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   // Drink options modal
   const [drinkItem, setDrinkItem] = useState<Item | null>(null);
@@ -279,7 +281,7 @@ export default function VendorMenuPage() {
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) uploadImage(file);
+    if (file) setCropFile(file);
     e.target.value = '';
   };
 
@@ -589,6 +591,13 @@ export default function VendorMenuPage() {
       {/* hidden file inputs */}
       <input ref={fileInputRef}   type="file" accept="image/*"                    style={{ display: 'none' }} onChange={handleFile} />
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFile} />
+
+      <ImageCropModal
+        file={cropFile}
+        aspect={4 / 3}
+        onCancel={() => setCropFile(null)}
+        onConfirm={(croppedFile) => { setCropFile(null); uploadImage(croppedFile); }}
+      />
 
       {/* ── Add / Edit modal ── */}
       {modal && (
