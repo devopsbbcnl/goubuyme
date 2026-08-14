@@ -119,10 +119,7 @@ export default function RiderDocumentScreen() {
 
   useEffect(() => { fetchDoc(); }, [fetchDoc]);
 
-  const pickImg = async (
-    type: 'nin' | 'selfie' | 'vehicle',
-    aspect?: [number, number],
-  ) => {
+  const pickImg = async (type: 'nin' | 'selfie' | 'vehicle') => {
     let uri: string | null = null;
 
     if (type === 'selfie') {
@@ -133,13 +130,12 @@ export default function RiderDocumentScreen() {
       }
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsEditing: false,
         quality: 0.9,
       });
       uri = result.canceled ? null : result.assets[0].uri;
     } else {
-      uri = await openImagePicker({ aspect: aspect ?? [3, 2], quality: 0.9 });
+      uri = await openImagePicker({ allowsEditing: false, quality: 0.9 });
     }
 
     if (!uri) return;
@@ -282,7 +278,7 @@ export default function RiderDocumentScreen() {
               uri={selfieUri || selfieUrl}
               uploading={uploadingSelfie}
               disabled={false}
-              onPress={() => pickImg('selfie', [1, 1])}
+              onPress={() => pickImg('selfie')}
               icon="person-circle-outline"
               hint="Tap to upload a clear selfie"
               T={T}
@@ -296,7 +292,7 @@ export default function RiderDocumentScreen() {
               uri={vehicleImgUri || vehicleImgUrl}
               uploading={uploadingVehicle}
               disabled={false}
-              onPress={() => pickImg('vehicle', [4, 3])}
+              onPress={() => pickImg('vehicle')}
               icon="car-outline"
               hint="Tap to upload vehicle photo"
               T={T}

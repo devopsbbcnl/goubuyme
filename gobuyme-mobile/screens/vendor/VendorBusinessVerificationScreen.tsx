@@ -96,7 +96,7 @@ export default function VendorBusinessVerificationScreen() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const pickCacImage = async () => {
-    const uri = await openImagePicker({ aspect: [3, 2], quality: 0.9 });
+    const uri = await openImagePicker({ allowsEditing: false, quality: 0.9 });
     if (!uri) return;
     setCacImageUri(uri);
     setUploadingCac(true);

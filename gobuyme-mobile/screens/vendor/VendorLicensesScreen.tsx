@@ -105,7 +105,7 @@ export default function VendorLicensesScreen() {
   };
 
   const pickLicImage = async () => {
-    const uri = await openImagePicker({ aspect: [3, 2], quality: 0.9 });
+    const uri = await openImagePicker({ allowsEditing: false, quality: 0.9 });
     if (!uri) return;
     setLicImageUri(uri);
     setUploadingLic(true);
