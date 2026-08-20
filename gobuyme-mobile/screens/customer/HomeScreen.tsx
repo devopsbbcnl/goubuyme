@@ -165,6 +165,7 @@ export default function HomeScreen() {
   const [addrModal,    setAddrModal]    = useState(false);
   const [cityModal,    setCityModal]    = useState(false);
   const [vendors,      setVendors]      = useState<Vendor[]>([]);
+  const [failedCovers, setFailedCovers] = useState<Set<string>>(new Set());
   const [loading,      setLoading]      = useState(true);
   const [refreshing,   setRefreshing]   = useState(false);
   const [activePromo,  setActivePromo]  = useState(0);
@@ -532,6 +533,7 @@ export default function HomeScreen() {
           <View style={styles.vendorGrid}>
             {filtered.map(v => {
               const tag = deriveTag(v);
+              const coverFailed = failedCovers.has(v.id);
               return (
                 <TouchableOpacity
                   key={v.id}
@@ -540,8 +542,12 @@ export default function HomeScreen() {
                   style={[styles.vendorCard, { backgroundColor: T.surface, borderColor: T.border, ...shadows.card }]}
                 >
                   <View style={{ position: 'relative' }}>
-                    {v.coverImage ? (
-                      <Image source={{ uri: v.coverImage }} style={styles.vendorImage} />
+                    {v.coverImage && !coverFailed ? (
+                      <Image
+                        source={{ uri: v.coverImage }}
+                        style={styles.vendorImage}
+                        onError={() => setFailedCovers(prev => new Set(prev).add(v.id))}
+                      />
                     ) : (
                       <View style={[styles.vendorImage, { backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' }]}>
                         <Text style={{ fontSize: 32 }}>🍽️</Text>
