@@ -529,69 +529,65 @@ export default function HomeScreen() {
             </Text>
           </View>
         ) : (
-          filtered.map(v => {
-            const tag = deriveTag(v);
-            return (
-              <TouchableOpacity
-                key={v.id}
-                onPress={() => router.push({ pathname: '/vendor/[id]', params: { id: v.id } })}
-                activeOpacity={0.9}
-                style={[styles.vendorCard, { backgroundColor: T.surface, borderColor: T.border, ...shadows.card }]}
-              >
-                <View style={{ position: 'relative' }}>
-                  {v.coverImage ? (
-                    <Image source={{ uri: v.coverImage }} style={styles.vendorImage} />
-                  ) : (
-                    <View style={[styles.vendorImage, { backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' }]}>
-                      <Text style={{ fontSize: 40 }}>🍽️</Text>
-                    </View>
-                  )}
-                  {tag && (
-                    <View style={[styles.vendorTag, { backgroundColor: T.primary }]}>
-                      <Text style={styles.vendorTagText}>{tag}</Text>
-                    </View>
-                  )}
-                  {!v.isOpen && (
-                    <View style={styles.closedOverlay}>
-                      <Text style={styles.closedText}>Closed</Text>
-                    </View>
-                  )}
-                  <View style={[styles.arrowBtn, { backgroundColor: T.primary }]}>
-                    <FontAwesome name="angle-right" size={18} color="#fff" />
+          <View style={styles.vendorGrid}>
+            {filtered.map(v => {
+              const tag = deriveTag(v);
+              return (
+                <TouchableOpacity
+                  key={v.id}
+                  onPress={() => router.push({ pathname: '/vendor/[id]', params: { id: v.id } })}
+                  activeOpacity={0.9}
+                  style={[styles.vendorCard, { backgroundColor: T.surface, borderColor: T.border, ...shadows.card }]}
+                >
+                  <View style={{ position: 'relative' }}>
+                    {v.coverImage ? (
+                      <Image source={{ uri: v.coverImage }} style={styles.vendorImage} />
+                    ) : (
+                      <View style={[styles.vendorImage, { backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' }]}>
+                        <Text style={{ fontSize: 32 }}>🍽️</Text>
+                      </View>
+                    )}
+                    {tag && (
+                      <View style={[styles.vendorTag, { backgroundColor: T.primary }]}>
+                        <Text style={styles.vendorTagText}>{tag}</Text>
+                      </View>
+                    )}
+                    {!v.isOpen && (
+                      <View style={styles.closedOverlay}>
+                        <Text style={styles.closedText}>Closed</Text>
+                      </View>
+                    )}
                   </View>
-                </View>
-                <View style={styles.vendorInfo}>
-                  {v.logo ? (
-                    <Image source={{ uri: v.logo }} style={[styles.vendorLogo, { borderColor: T.border }]} />
-                  ) : (
-                    <View style={[styles.vendorLogo, { backgroundColor: T.primaryTint, borderColor: T.border, alignItems: 'center', justifyContent: 'center' }]}>
-                      <Text style={{ fontSize: 20 }}>🍽️</Text>
+                  <View style={styles.vendorInfo}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {v.logo ? (
+                        <Image source={{ uri: v.logo }} style={[styles.vendorLogo, { borderColor: T.border }]} />
+                      ) : (
+                        <View style={[styles.vendorLogo, { backgroundColor: T.primaryTint, borderColor: T.border, alignItems: 'center', justifyContent: 'center' }]}>
+                          <Text style={{ fontSize: 15 }}>🍽️</Text>
+                        </View>
+                      )}
+                      <View style={[styles.arrowBtn, { backgroundColor: T.primary }]}>
+                        <FontAwesome name="angle-right" size={14} color="#fff" />
+                      </View>
                     </View>
-                  )}
-                  <View style={styles.vendorText}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <Text style={[styles.vendorName, { color: T.text }]}>{v.businessName}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                      <Text style={[styles.vendorName, { color: T.text }]} numberOfLines={1}>{v.businessName}</Text>
                       {v.verificationBadge !== 'UNVERIFIED' && (
                         <VerifBadge badge={v.verificationBadge} />
                       )}
                     </View>
-                    <Text style={[styles.vendorCat, { color: T.textSec }]}>{CATEGORY_LABEL[v.category] ?? v.category}</Text>
+                    <Text style={[styles.vendorCat, { color: T.textSec }]} numberOfLines={1}>{CATEGORY_LABEL[v.category] ?? v.category}</Text>
                     <View style={styles.vendorMeta}>
                       <Text style={[styles.metaText, { color: T.text }]}>⭐ {v.rating.toFixed(1)}</Text>
                       <View style={[styles.metaDot, { backgroundColor: T.border }]} />
-                      <Text style={[styles.metaText, { color: T.textSec }]}>⚡ {formatTime(v.estimatedMinutes)}</Text>
-                      {v.minOrderPrice > 0 && (
-                        <>
-                          <View style={[styles.metaDot, { backgroundColor: T.border }]} />
-                          <Text style={[styles.metaText, { color: T.textSec }]}>Min ₦{v.minOrderPrice.toLocaleString()}</Text>
-                        </>
-                      )}
+                      <Text style={[styles.metaText, { color: T.textSec }]} numberOfLines={1}>⚡ {formatTime(v.estimatedMinutes)}</Text>
                     </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            );
-          })
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         )
         )}
       </ScrollView>
@@ -718,20 +714,20 @@ const styles = StyleSheet.create({
   catLabel:          { fontSize: 13, fontWeight: '600' },
   emptyState:        { alignItems: 'center', paddingVertical: 40, borderRadius: 4, borderWidth: 1, marginBottom: 14 },
   emptyText:         { fontSize: 14, textAlign: 'center', paddingHorizontal: 16 },
-  vendorCard:        { borderRadius: 4, overflow: 'hidden', borderWidth: 1, marginBottom: 14 },
-  vendorImage:       { width: '100%', height: 150 },
-  vendorTag:         { position: 'absolute', top: 12, left: 12, borderRadius: 4, paddingVertical: 4, paddingHorizontal: 10 },
-  vendorTagText:     { fontSize: 11, fontWeight: '700', color: '#fff' },
+  vendorGrid:        { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  vendorCard:        { width: '48%', borderRadius: 4, overflow: 'hidden', borderWidth: 1, marginBottom: 12 },
+  vendorImage:       { width: '100%', height: 110 },
+  vendorTag:         { position: 'absolute', top: 8, left: 8, borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8 },
+  vendorTagText:     { fontSize: 10, fontWeight: '700', color: '#fff' },
   closedOverlay:     { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
-  closedText:        { fontSize: 14, fontWeight: '700', color: '#fff' },
-  arrowBtn:          { position: 'absolute', bottom: 12, right: 12, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  vendorInfo:        { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
-  vendorLogo:        { width: 50, height: 50, borderRadius: 4, borderWidth: 1, flexShrink: 0 },
-  vendorText:        { flex: 1 },
-  vendorName:        { fontSize: 15, fontWeight: '700' },
-  vendorCat:         { fontSize: 12, marginTop: 2 },
-  vendorMeta:        { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  metaText:          { fontSize: 12, fontWeight: '600' },
+  closedText:        { fontSize: 13, fontWeight: '700', color: '#fff' },
+  arrowBtn:          { marginLeft: 'auto', width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  vendorInfo:        { padding: 10 },
+  vendorLogo:        { width: 32, height: 32, borderRadius: 4, borderWidth: 1, flexShrink: 0 },
+  vendorName:        { fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  vendorCat:         { fontSize: 11, marginTop: 2 },
+  vendorMeta:        { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  metaText:          { fontSize: 11, fontWeight: '600' },
   metaDot:           { width: 3, height: 3, borderRadius: 2 },
   // Modals
   modalBackdrop:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
