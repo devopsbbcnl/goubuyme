@@ -347,6 +347,8 @@ export default function VendorDetailScreen() {
                                 params: {
                                   id: item.id,
                                   vendorId: id,
+                                  vendorName: vendor.businessName,
+                                  vendorImage: vendor.logo ?? vendor.coverImage ?? '',
                                   name: item.name,
                                   description: item.description ?? '',
                                   price: String(item.price),
@@ -360,7 +362,7 @@ export default function VendorDetailScreen() {
                                 },
                               });
                             } else {
-                              addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, 1, id!);
+                              addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, 1, { id: id!, name: vendor.businessName, image: vendor.logo ?? vendor.coverImage ?? undefined });
                             }
                           }}
                           style={[styles.addBtn, { backgroundColor: vendor.isOpen ? T.primary : T.surface3 }]}
@@ -371,7 +373,7 @@ export default function VendorDetailScreen() {
                       ) : (
                         <View style={styles.stepper}>
                           <TouchableOpacity
-                            onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, -1, id!)}
+                            onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, -1, { id: id!, name: vendor.businessName, image: vendor.logo ?? vendor.coverImage ?? undefined })}
                             style={[styles.stepBtn, { backgroundColor: vendor.isOpen ? T.surface3 : T.surface2 }]}
                             disabled={!vendor.isOpen}
                           >
@@ -379,7 +381,7 @@ export default function VendorDetailScreen() {
                           </TouchableOpacity>
                           <Text style={[styles.stepQty, { color: T.text }]}>{qty}</Text>
                           <TouchableOpacity
-                            onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, 1, id!)}
+                            onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.image ?? '' }, 1, { id: id!, name: vendor.businessName, image: vendor.logo ?? vendor.coverImage ?? undefined })}
                             style={[styles.stepBtn, { backgroundColor: vendor.isOpen ? T.primary : T.surface3 }]}
                             disabled={!vendor.isOpen}
                           >
@@ -426,7 +428,7 @@ export default function VendorDetailScreen() {
             <Text style={[styles.cartBarItems, { color: T.textSec }]}>{vendorCount} item{vendorCount > 1 ? 's' : ''} in cart</Text>
           </View>
           <TouchableOpacity
-            onPress={() => router.push({ pathname: '/cart', params: { vendorId: id } })}
+            onPress={() => router.push({ pathname: '/cart/[vendorId]', params: { vendorId: id! } })}
             style={[styles.cartBarBtn, { backgroundColor: T.primary, ...shadows.primaryGlow(T.primary) }]}
           >
             <Text style={styles.cartBarBtnText}>View Cart</Text>

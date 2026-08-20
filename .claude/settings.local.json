@@ -165,7 +165,12 @@
       "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse snapshot *)",
       "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse upload *)",
       "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse status *)",
-      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse console *)"
+      "Bash(/c/Users/Okonk/.claude/skills/gstack/browse/dist/browse console *)",
+      "Bash(wsl.exe --status)",
+      "Bash(wsl.exe *)",
+      "Bash(MSYS_NO_PATHCONV=1 wsl.exe *)",
+      "Bash(MSYS_NO_PATHCONV=1 WSLENV=EXPO_TOKEN EXPO_TOKEN='-M2Pv_Aecl2jFpIDpd9W7jKjR3KuRRbZ82G9_cTH' wsl.exe *)",
+      "PowerShell(Get-MpComputerStatus *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\Gobuyme6\\gobuyme-mobile\\assets"

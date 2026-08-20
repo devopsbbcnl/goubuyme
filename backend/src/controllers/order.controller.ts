@@ -26,76 +26,40 @@ const generateDeliveryPin = () => String(Math.floor(1000 + Math.random() * 9000)
 export const estimateDeliveryFee = catchAsync(async (req: AuthRequest, res: Response) => {
   const { addressId, vendorId } = req.query as { addressId?: string; vendorId?: string };
   if (!addressId) return apiResponse.error(res, 'addressId is required.', 400);
-
-  console.log('[estimateDeliveryFee] Request:', { userId: req.user?.userId, addressId, vendorId });
+  if (!vendorId) return apiResponse.error(res, 'vendorId is required.', 400);
 
   const customer = await prisma.customer.findUnique({
     where: { userId: req.user!.userId },
-    include: { 
-      cart: {
-        include: {
-          items: {
-            include: {
-              menuItem: {
-                select: { vendorId: true, price: true }
-              }
-            }
-          }
-        }
-      }
-    },
   });
   if (!customer) {
-    console.log('[estimateDeliveryFee] Customer not found for userId:', req.user?.userId);
     return apiResponse.error(res, 'Customer not found.', 404);
   }
 
-  console.log('[estimateDeliveryFee] Customer found:', { customerId: customer.id, cartVendorId: customer.cart?.vendorId, cartId: customer.cart?.id, cartItemsCount: customer.cart?.items?.length });
+  const cart = await prisma.cart.findUnique({
+    where: { customerId_vendorId: { customerId: customer.id, vendorId } },
+    include: { items: { include: { menuItem: { select: { vendorId: true, price: true } } } } },
+  });
 
   const deliveryAddress = await prisma.address.findFirst({
     where: { id: addressId, customerId: customer.id },
   });
   if (!deliveryAddress) {
-    console.log('[estimateDeliveryFee] Address not found:', { addressId, customerId: customer.id });
     return apiResponse.error(res, 'Address not found.', 404);
   }
 
   if (!deliveryAddress.latitude || !deliveryAddress.longitude) {
-    console.log('[estimateDeliveryFee] Address coordinates missing:', { addressId });
     return apiResponse.error(res, 'Address coordinates missing.', 400);
   }
 
-  let finalVendorId = vendorId || customer.cart?.vendorId;
-  console.log('[estimateDeliveryFee] Initial vendorId:', finalVendorId);
-  
-  // If no vendorId provided and cart doesn't have vendorId, get it from the first cart item's menu item
-  if (!finalVendorId && customer.cart?.items && customer.cart.items.length > 0) {
-    console.log('[estimateDeliveryFee] Getting vendorId from cart items:', { itemCount: customer.cart.items.length });
-    finalVendorId = customer.cart.items[0].menuItem.vendorId;
-    console.log('[estimateDeliveryFee] VendorId from cart item:', finalVendorId);
-    // Update the cart with the vendorId for future requests
-    if (finalVendorId) {
-      await prisma.cart.update({
-        where: { id: customer.cart.id },
-        data: { vendorId: finalVendorId }
-      });
-    }
-  }
-
-  if (!finalVendorId) {
-    console.log('[estimateDeliveryFee] No vendorId found');
-    return apiResponse.error(res, 'No vendor specified. Please add items to your cart or provide a vendorId.', 400);
-  }
-
   const vendor = await prisma.vendor.findUnique({
-    where: { id: finalVendorId },
+    where: { id: vendorId },
     select: { id: true, latitude: true, longitude: true, city: true, state: true },
   });
   if (!vendor || !vendor.latitude || !vendor.longitude) {
     return apiResponse.error(res, 'Vendor not found or missing coordinates.', 404);
   }
 
-  const subtotal = (customer.cart?.items ?? []).reduce(
+  const subtotal = (cart?.items ?? []).reduce(
     (sum, i) => sum + (i.unitPrice ?? i.menuItem.price) * i.quantity,
     0,
   );
@@ -147,25 +111,27 @@ export const estimateDeliveryFee = catchAsync(async (req: AuthRequest, res: Resp
 export const validatePromo = catchAsync(async (req: AuthRequest, res: Response) => {
   const { code, vendorId } = req.query as { code?: string; vendorId?: string };
   if (!code) return apiResponse.error(res, 'Promo code is required.', 400);
+  if (!vendorId) return apiResponse.error(res, 'vendorId is required.', 400);
 
   const customer = await prisma.customer.findUnique({
     where: { userId: req.user!.userId },
-    include: {
-      cart: { include: { items: { include: { menuItem: { select: { vendorId: true, price: true } } } } } },
-    },
   });
   if (!customer) return apiResponse.error(res, 'Customer not found.', 404);
 
-  const items = customer.cart?.items ?? [];
+  const cart = await prisma.cart.findUnique({
+    where: { customerId_vendorId: { customerId: customer.id, vendorId } },
+    include: { items: { include: { menuItem: { select: { vendorId: true, price: true } } } } },
+  });
+
+  const items = cart?.items ?? [];
   if (!items.length) return apiResponse.error(res, 'Your cart is empty.', 400);
 
   const subtotal = items.reduce((sum, i) => sum + (i.unitPrice ?? i.menuItem.price) * i.quantity, 0);
-  const cartVendorId = vendorId || customer.cart?.vendorId || items[0].menuItem.vendorId;
 
   const result = await evaluatePromo({
     code,
     userId: req.user!.userId,
-    vendorId: cartVendorId!,
+    vendorId,
     subtotal,
   });
 
@@ -173,23 +139,13 @@ export const validatePromo = catchAsync(async (req: AuthRequest, res: Response) 
 });
 
 export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { deliveryAddressId, paymentMethod, note, promoCode } = req.body;
+  const { deliveryAddressId, paymentMethod, note, promoCode, vendorId } = req.body;
+  if (!vendorId) return apiResponse.error(res, 'vendorId is required.', 400);
 
   const customer = await prisma.customer.findUnique({
     where: { userId: req.user!.userId },
     include: {
       user: { select: { phone: true } },
-      cart: {
-        include: {
-          items: {
-            include: {
-              menuItem: {
-                select: { id: true, name: true, price: true, isAvailable: true, stockQuantity: true, vendorId: true },
-              },
-            },
-          },
-        },
-      },
     },
   });
 
@@ -197,9 +153,20 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
   if (!customer.user.phone?.trim()) {
     return apiResponse.error(res, 'Please add a phone number to your account before placing an order.', 400);
   }
-  if (!customer.cart || !customer.cart.items.length) return apiResponse.error(res, 'Cart is empty.', 400);
 
-  const { cart } = customer;
+  const cart = await prisma.cart.findUnique({
+    where: { customerId_vendorId: { customerId: customer.id, vendorId } },
+    include: {
+      items: {
+        include: {
+          menuItem: {
+            select: { id: true, name: true, price: true, isAvailable: true, stockQuantity: true, vendorId: true },
+          },
+        },
+      },
+    },
+  });
+  if (!cart || !cart.items.length) return apiResponse.error(res, 'Cart is empty.', 400);
 
   const unavailable = cart.items.find((i) => !i.menuItem.isAvailable || i.menuItem.stockQuantity <= 0);
   if (unavailable) return apiResponse.error(res, `${unavailable.menuItem.name} is no longer available.`, 400);
@@ -463,16 +430,15 @@ export const releaseUnpaidOrder = async (orderId: string, reason: string): Promi
     });
 
     // Only restore cart items into an empty cart — if the customer already started a fresh
-    // cart (possibly for a different vendor) while this order sat unpaid, leave it untouched.
-    let cart = await tx.cart.findUnique({ where: { customerId: order.customer.id } });
+    // cart for this vendor while this order sat unpaid, leave it untouched.
+    let cart = await tx.cart.findUnique({
+      where: { customerId_vendorId: { customerId: order.customer.id, vendorId: order.vendorId } },
+    });
     if (!cart) {
       cart = await tx.cart.create({ data: { customerId: order.customer.id, vendorId: order.vendorId } });
     }
     const existingItemCount = await tx.cartItem.count({ where: { cartId: cart.id } });
     if (existingItemCount === 0) {
-      if (!cart.vendorId) {
-        await tx.cart.update({ where: { id: cart.id }, data: { vendorId: order.vendorId } });
-      }
       await tx.cartItem.createMany({
         data: order.items.map((item) => ({
           cartId: cart!.id,

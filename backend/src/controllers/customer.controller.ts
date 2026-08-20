@@ -12,24 +12,54 @@ const getCustomerId = async (userId: string) => {
 
 // ─── Cart ─────────────────────────────────────────────────────────────────────
 
+const CART_ITEM_INCLUDE = {
+  menuItem: {
+    select: { id: true, name: true, price: true, image: true, isAvailable: true, vendorId: true },
+  },
+} as const;
+
 export const getCart = catchAsync(async (req: AuthRequest, res: Response) => {
   const customerId = await getCustomerId(req.user!.userId);
   if (!customerId) return apiResponse.error(res, 'Customer not found.', 404);
 
+  const vendorId = req.query.vendorId as string | undefined;
+
+  if (!vendorId) {
+    const carts = await prisma.cart.findMany({
+      where: { customerId },
+      include: { items: { include: CART_ITEM_INCLUDE } },
+    });
+    const active = carts.filter((c) => c.items.length > 0);
+    const vendors = await prisma.vendor.findMany({
+      where: { id: { in: active.map((c) => c.vendorId) } },
+      select: { id: true, businessName: true, logo: true },
+    });
+    const vendorById = new Map(vendors.map((v) => [v.id, v]));
+
+    const result = active.map((c) => {
+      const subtotal = c.items.reduce(
+        (sum, item) => sum + (item.unitPrice ?? item.menuItem.price) * item.quantity,
+        0
+      );
+      return {
+        vendorId: c.vendorId,
+        vendorName: vendorById.get(c.vendorId)?.businessName ?? '',
+        vendorLogo: vendorById.get(c.vendorId)?.logo ?? null,
+        items: c.items,
+        itemCount: c.items.reduce((sum, item) => sum + item.quantity, 0),
+        subtotal,
+      };
+    });
+
+    return apiResponse.success(res, 'Carts fetched.', { carts: result });
+  }
+
   const cart = await prisma.cart.findUnique({
-    where: { customerId },
-    include: {
-      items: {
-        include: {
-          menuItem: {
-            select: { id: true, name: true, price: true, image: true, isAvailable: true, vendorId: true },
-          },
-        },
-      },
-    },
+    where: { customerId_vendorId: { customerId, vendorId } },
+    include: { items: { include: CART_ITEM_INCLUDE } },
   });
 
-  return apiResponse.success(res, 'Cart fetched.', cart ?? { items: [], vendorId: null });
+  return apiResponse.success(res, 'Cart fetched.', cart ?? { items: [], vendorId });
 });
 
 export const addToCart = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -51,15 +81,10 @@ export const addToCart = catchAsync(async (req: AuthRequest, res: Response) => {
   }
 
   const cart = await prisma.cart.upsert({
-    where: { customerId },
+    where: { customerId_vendorId: { customerId, vendorId: menuItem.vendorId } },
     update: {},
     create: { customerId, vendorId: menuItem.vendorId },
   });
-
-  if (cart.vendorId && cart.vendorId !== menuItem.vendorId) {
-    await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
-    await prisma.cart.update({ where: { id: cart.id }, data: { vendorId: menuItem.vendorId } });
-  }
 
   const existing = await prisma.cartItem.findFirst({ where: { cartId: cart.id, menuItemId } });
   const nextQuantity = (existing?.quantity ?? 0) + requestedQty;
@@ -133,7 +158,10 @@ export const clearCart = catchAsync(async (req: AuthRequest, res: Response) => {
   const customerId = await getCustomerId(req.user!.userId);
   if (!customerId) return apiResponse.error(res, 'Customer not found.', 404);
 
-  await prisma.cartItem.deleteMany({ where: { cart: { customerId } } });
+  const vendorId = req.query.vendorId as string | undefined;
+  if (!vendorId) return apiResponse.error(res, 'vendorId is required.', 400);
+
+  await prisma.cartItem.deleteMany({ where: { cart: { customerId, vendorId } } });
   return apiResponse.success(res, 'Cart cleared.');
 });
 

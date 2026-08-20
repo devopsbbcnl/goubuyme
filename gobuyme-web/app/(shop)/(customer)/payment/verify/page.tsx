@@ -29,7 +29,7 @@ function PaymentVerifyContent() {
       .then(r => {
         const d = r.data.data;
         if (d?.status === 'success') {
-          clearCart();
+          if (d.vendorId) clearCart(d.vendorId);
           setOrderId(d.orderId ?? null);
           setState('success');
         } else {

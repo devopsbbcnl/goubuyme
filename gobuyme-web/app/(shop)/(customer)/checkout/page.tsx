@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect, useRef, KeyboardEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
@@ -347,9 +347,13 @@ function GuestAuthPanel() {
 // ── CheckoutContent ───────────────────────────────────────────────────────────
 function CheckoutContent() {
   const { user, loading: authLoading, updateUser } = useAuth();
-  const { items, totalAmount, clearCart } = useCart();
+  const { getVendorItems } = useCart();
   const router = useRouter();
   const toast = useToast();
+  const searchParams = useSearchParams();
+  const vendorId = searchParams.get('vendorId') ?? '';
+  const items = getVendorItems(vendorId);
+  const totalAmount = items.reduce((s, i) => s + i.price * i.qty, 0);
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddr, setSelectedAddr] = useState('');
@@ -388,7 +392,7 @@ function CheckoutContent() {
       setDeliveryFee(null); setOriginalDeliveryFee(null); setFreeDeliveryReason(null); return;
     }
     setFeeLoading(true);
-    api.get('/orders/estimate-fee', { params: { addressId: selectedAddr, vendorId: items[0].vendorId } })
+    api.get('/orders/estimate-fee', { params: { addressId: selectedAddr, vendorId } })
       .then(r => {
         const d = r.data.data;
         setDeliveryFee(d.deliveryFee);
@@ -406,7 +410,7 @@ function CheckoutContent() {
     setPromoError(null);
     try {
       const { data } = await api.get('/orders/validate-promo', {
-        params: { code, vendorId: items[0]?.vendorId },
+        params: { code, vendorId },
       });
       const r = data.data;
       if (r?.valid) {
@@ -436,7 +440,7 @@ function CheckoutContent() {
         updateUser({ phone: profileData.data?.phone ?? trimmedPhone });
       }
       const { data } = await api.post('/orders', {
-        deliveryAddressId: selectedAddr, paymentMethod: payMethod, note,
+        deliveryAddressId: selectedAddr, paymentMethod: payMethod, note, vendorId,
         ...(promo ? { promoCode: promo.code } : {}),
       });
       const orderId = data.data?.id;
