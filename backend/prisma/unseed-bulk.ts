@@ -42,6 +42,24 @@ async function unseedBulk() {
     console.log(`🗑️  Deleted ${bulkOrderIds.length} orders (and their earnings/payouts/conversations) referencing bulk vendors.`);
   }
 
+  // CartItem.menuItem also has no onDelete: Cascade — a real customer's
+  // still-in-cart item pointing at a bulk-seeded menu item blocks the
+  // Vendor→MenuItem cascade the same way orders did above.
+  const bulkMenuItems = await prisma.menuItem.findMany({
+    where: { vendorId: { in: bulkVendorIds } },
+    select: { id: true },
+  });
+  const bulkMenuItemIds = bulkMenuItems.map(m => m.id);
+
+  if (bulkMenuItemIds.length > 0) {
+    const { count: cartItemCount } = await prisma.cartItem.deleteMany({
+      where: { menuItemId: { in: bulkMenuItemIds } },
+    });
+    if (cartItemCount > 0) {
+      console.log(`🗑️  Deleted ${cartItemCount} cart items referencing bulk menu items.`);
+    }
+  }
+
   const { count } = await prisma.user.deleteMany({
     where: { id: { in: bulkUserIds } },
   });
