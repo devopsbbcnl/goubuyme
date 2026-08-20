@@ -8,6 +8,7 @@ import Joi from 'joi';
 const placeOrderSchema = Joi.object({
   deliveryAddressId: Joi.string().required(),
   paymentMethod: Joi.string().valid('CARD', 'BANK_TRANSFER', 'PAYSTACK_USSD', 'CASH_ON_DELIVERY').required(),
+  vendorId: Joi.string().required(),
   note: Joi.string().max(300).optional().allow(''),
   promoCode: Joi.string().max(40).optional().allow('', null),
 });

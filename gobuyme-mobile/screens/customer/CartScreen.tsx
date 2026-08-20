@@ -15,13 +15,16 @@ import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper
 export default function CartScreen() {
   const { theme: T } = useTheme();
   const insets = useSafeAreaInsets();
-  const { addItem, clearCart, getItems, getTotal } = useCart();
+  const { carts, addItem, getItems, getTotal } = useCart();
   const { vendorId } = useLocalSearchParams<{ vendorId: string }>();
   const [note, setNote] = useState('');
 
   const vid = vendorId ?? '';
   const items = getItems(vid);
   const total = getTotal(vid);
+  const vendorName = carts[vid]?.vendorName ?? '';
+  const vendorImage = carts[vid]?.vendorImage;
+  const vendor = { id: vid, name: vendorName, image: vendorImage };
 
   if (items.length === 0) {
     return (
@@ -46,7 +49,7 @@ export default function CartScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={T.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: T.text }]}>Your Cart</Text>
+        <Text style={[styles.headerTitle, { color: T.text }]} numberOfLines={1}>{vendorName || 'Your Cart'}</Text>
       </View>
 
       <KeyboardAvoidingWrapper>
@@ -68,14 +71,14 @@ export default function CartScreen() {
             </View>
             <View style={styles.qtyRow}>
               <TouchableOpacity
-                onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.img }, -1, vid)}
+                onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.img }, -1, vendor)}
                 style={[styles.qtyBtn, { backgroundColor: T.surface3 }]}
               >
                 <Ionicons name="remove" size={12} color={T.text} />
               </TouchableOpacity>
               <Text style={[styles.qtyText, { color: T.text }]}>{item.qty}</Text>
               <TouchableOpacity
-                onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.img }, 1, vid)}
+                onPress={() => addItem({ id: item.id, name: item.name, price: item.price, img: item.img }, 1, vendor)}
                 style={[styles.qtyBtn, { backgroundColor: T.primary }]}
               >
                 <Ionicons name="add" size={12} color="#fff" />

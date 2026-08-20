@@ -98,7 +98,7 @@ function ItemDesc({ description }: { description?: string }) {
 export default function VendorDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { addItem, items, updateQty } = useCart();
+  const { addItem, getVendorItems } = useCart();
   const toast = useToast();
 
   const [vendor, setVendor] = useState<VendorDetail | null>(null);
@@ -125,7 +125,7 @@ export default function VendorDetailPage() {
 
   const tags = [...new Set(menu.map(m => m.category).filter(Boolean))] as string[];
   const filtered = activeTag ? menu.filter(m => m.category === activeTag) : menu;
-  const cartQty = (itemId: string) => items.find(i => i.menuItemId === itemId)?.qty ?? 0;
+  const cartQty = (itemId: string) => getVendorItems(id).find(i => i.menuItemId === itemId)?.qty ?? 0;
 
   // ── Direct add (no options) ───────────────────────────────────────────────
 

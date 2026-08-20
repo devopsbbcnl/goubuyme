@@ -74,7 +74,7 @@ function StarRating({ rating, count }: { rating: number; count: number }) {
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router  = useRouter();
-  const { addItem, items, updateQty } = useCart();
+  const { addItem, getVendorItems, updateQty } = useCart();
   const toast   = useToast();
 
   const [item, setItem]         = useState<ItemDetail | null>(null);
@@ -147,7 +147,7 @@ export default function ItemDetailPage() {
   const badge       = vendor.verificationBadge ? BADGE_LABEL[vendor.verificationBadge] : null;
   const canOrder    = item.isAvailable && vendor.isOpen;
 
-  const cartEntry   = items.find(i => i.menuItemId === item.id && !i.compositeKey);
+  const cartEntry   = getVendorItems(vendor.id).find(i => i.menuItemId === item.id && !i.compositeKey);
   const cartQty     = cartEntry?.qty ?? 0;
 
   const drinkTotal  = item.drinkOptions.reduce((s, d) => s + (drinkQtys[d.id] ?? 0) * d.price, 0);
@@ -163,7 +163,7 @@ export default function ItemDetailPage() {
 
     if (!withOpts) {
       if (cartQty > 0) {
-        updateQty(item.id, cartQty + qty);
+        updateQty(vendor.id, item.id, cartQty + qty);
       } else {
         addItem({ menuItemId: item.id, name: item.name, price: item.price, image: item.image, vendorId: vendor.id, vendorName: vendor.businessName }, qty);
       }

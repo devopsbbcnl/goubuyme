@@ -35,6 +35,8 @@ export default function MenuItemDetailScreen() {
   const params = useLocalSearchParams<{
     id: string;
     vendorId: string;
+    vendorName: string;
+    vendorImage: string;
     name: string;
     description: string;
     price: string;
@@ -48,6 +50,8 @@ export default function MenuItemDetailScreen() {
   }>();
 
   const vendorId = params.vendorId ?? '';
+  const vendorName = params.vendorName ?? '';
+  const vendorImage = params.vendorImage ?? undefined;
   const isVendorOpen = params.vendorOpen === '1';
   const item = {
     id:          params.id ?? '',
@@ -135,7 +139,7 @@ export default function MenuItemDetailScreen() {
     replaceItem(
       { id: item.id, name: cartName, price: unitPrice, img: item.image, selections },
       localQty > 0 ? localQty : 0,
-      vendorId,
+      { id: vendorId, name: vendorName, image: vendorImage },
     );
     router.back();
   };

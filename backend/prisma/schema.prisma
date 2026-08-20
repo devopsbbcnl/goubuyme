@@ -65,7 +65,7 @@ model Customer {
   userId         String         @unique
   createdAt      DateTime       @default(now())
   addresses      Address[]
-  cart           Cart?
+  carts          Cart[]
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   favorites      Favorite[]
   orders         Order[]
@@ -257,12 +257,13 @@ model MenuItemDrinkOption {
 
 model Cart {
   id         String     @id @default(uuid())
-  customerId String     @unique
-  vendorId   String?
+  customerId String
+  vendorId   String
   updatedAt  DateTime   @updatedAt
   items      CartItem[]
   customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
+  @@unique([customerId, vendorId])
   @@map("carts")
 }
 

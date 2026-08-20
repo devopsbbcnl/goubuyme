@@ -137,6 +137,7 @@ export const verifyPayment = catchAsync(async (req: AuthRequest, res: Response) 
     return apiResponse.success(res, 'Payment verified.', {
       status:  'success',
       orderId: order.id,
+      vendorId: updatedOrder.vendorId,
     });
   }
 

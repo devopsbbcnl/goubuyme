@@ -121,7 +121,7 @@ export default function CheckoutScreen() {
     try {
       // The validate endpoint reads the server-side cart, so push the in-memory cart first
       // (mirrors what handlePay does before placing the order).
-      await api.delete('/cart/clear').catch(() => {});
+      await api.delete('/cart/clear', { params: { vendorId: vid } }).catch(() => {});
       await Promise.all(
         items.map(item => api.post('/cart/add', {
           menuItemId: item.id,
@@ -180,7 +180,7 @@ export default function CheckoutScreen() {
       }
 
       // 1. Sync in-memory cart to backend
-      await api.delete('/cart/clear').catch(() => {});
+      await api.delete('/cart/clear', { params: { vendorId: vid } }).catch(() => {});
       await Promise.all(
         items.map(item => api.post('/cart/add', {
           menuItemId: item.id,
@@ -194,6 +194,7 @@ export default function CheckoutScreen() {
       const orderRes = await api.post('/orders', {
         deliveryAddressId: selected.id,
         paymentMethod: 'CARD',
+        vendorId: vid,
         ...(promo ? { promoCode: promo.code } : {}),
       });
       const order = orderRes.data.data;

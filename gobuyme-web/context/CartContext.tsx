@@ -16,18 +16,27 @@ export interface CartItem {
   compositeKey?: string; // local-only key distinguishing variant selections of the same menuItemId
 }
 
-interface CartCtx {
+export interface VendorCart {
+  vendorId: string;
+  vendorName: string;
+  vendorLogo?: string;
   items: CartItem[];
+}
+
+interface CartCtx {
+  carts: VendorCart[];
   totalCount: number;
-  totalAmount: number;
+  getVendorCart: (vendorId: string) => VendorCart | undefined;
+  getVendorItems: (vendorId: string) => CartItem[];
   addItem: (item: Omit<CartItem, 'qty'>, initialQty?: number) => void;
-  removeItem: (key: string) => void;
-  updateQty: (key: string, qty: number) => void;
-  clearCart: () => void;
+  removeItem: (vendorId: string, key: string) => void;
+  updateQty: (vendorId: string, key: string, qty: number) => void;
+  clearCart: (vendorId: string) => void;
 }
 
 const Ctx = createContext<CartCtx>({
-  items: [], totalCount: 0, totalAmount: 0,
+  carts: [], totalCount: 0,
+  getVendorCart: () => undefined, getVendorItems: () => [],
   addItem: () => {}, removeItem: () => {}, updateQty: () => {}, clearCart: () => {},
 });
 
@@ -39,60 +48,68 @@ const Ctx = createContext<CartCtx>({
 // limitation of the backend cart model, not something fixed here.
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [items, setItems] = useState<CartItem[]>([]);
-  const itemsRef = useRef<CartItem[]>([]);
-  useEffect(() => { itemsRef.current = items; }, [items]);
+  const [carts, setCarts] = useState<VendorCart[]>([]);
+  const cartsRef = useRef<VendorCart[]>([]);
+  useEffect(() => { cartsRef.current = carts; }, [carts]);
 
   const refresh = useCallback(async () => {
-    if (!user) { setItems([]); return; }
+    if (!user) { setCarts([]); return; }
     try {
       const { data } = await api.get('/cart');
-      const cart = data.data;
-      const rawItems: any[] = cart?.items ?? [];
-      if (!rawItems.length) { setItems([]); return; }
+      const rawCarts: any[] = data.data?.carts ?? [];
 
-      const vendorId = cart.vendorId ?? rawItems[0]?.menuItem?.vendorId;
-      let vendorName = '';
-      if (vendorId) {
-        try {
-          const v = await api.get(`/vendors/${vendorId}`);
-          vendorName = v.data?.data?.businessName ?? '';
-        } catch { /* keep vendorName blank rather than fail the whole cart load */ }
-      }
-
-      setItems(rawItems.map((ci): CartItem => ({
-        id: ci.id,
-        menuItemId: ci.menuItemId,
-        name: ci.menuItem?.name ?? '',
-        price: ci.unitPrice ?? ci.menuItem?.price ?? 0,
-        qty: ci.quantity,
-        image: ci.menuItem?.image,
-        vendorId: ci.menuItem?.vendorId ?? vendorId,
-        vendorName,
-        // The note is the closest thing the backend keeps to a variant description —
-        // reuse it as the local dedup key so a page reload doesn't collapse distinct
-        // variants that happen to share a menuItemId into one row visually.
-        compositeKey: ci.note || undefined,
+      setCarts(rawCarts.map((c): VendorCart => ({
+        vendorId: c.vendorId,
+        vendorName: c.vendorName ?? '',
+        vendorLogo: c.vendorLogo ?? undefined,
+        items: (c.items ?? []).map((ci: any): CartItem => ({
+          id: ci.id,
+          menuItemId: ci.menuItemId,
+          name: ci.menuItem?.name ?? '',
+          price: ci.unitPrice ?? ci.menuItem?.price ?? 0,
+          qty: ci.quantity,
+          image: ci.menuItem?.image,
+          vendorId: ci.menuItem?.vendorId ?? c.vendorId,
+          vendorName: c.vendorName ?? '',
+          // The note is the closest thing the backend keeps to a variant description —
+          // reuse it as the local dedup key so a page reload doesn't collapse distinct
+          // variants that happen to share a menuItemId into one row visually.
+          compositeKey: ci.note || undefined,
+        })),
       })));
     } catch {
-      setItems([]);
+      setCarts([]);
     }
   }, [user]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const resolveServerId = (key: string): string | undefined =>
-    itemsRef.current.find(i => (i.compositeKey ?? i.menuItemId) === key)?.id;
+  const getVendorCart = (vendorId: string) => cartsRef.current.find(c => c.vendorId === vendorId);
+  const getVendorItems = (vendorId: string) => getVendorCart(vendorId)?.items ?? [];
+
+  const resolveServerId = (vendorId: string, key: string): string | undefined =>
+    getVendorItems(vendorId).find(i => (i.compositeKey ?? i.menuItemId) === key)?.id;
+
+  const updateLocalCarts = (updater: (prev: VendorCart[]) => VendorCart[]) => {
+    setCarts(prev => {
+      const next = updater(prev);
+      cartsRef.current = next;
+      return next;
+    });
+  };
 
   const addItem = (item: Omit<CartItem, 'qty'>, initialQty = 1) => {
     const key = item.compositeKey ?? item.menuItemId;
-    setItems(prev => {
-      const existing = prev.find(i => (i.compositeKey ?? i.menuItemId) === key);
-      const next = existing
-        ? prev.map(i => (i.compositeKey ?? i.menuItemId) === key ? { ...i, qty: i.qty + initialQty } : i)
-        : [...prev, { ...item, id: undefined, qty: initialQty }];
-      itemsRef.current = next;
-      return next;
+    updateLocalCarts(prev => {
+      const existingCart = prev.find(c => c.vendorId === item.vendorId);
+      if (!existingCart) {
+        return [...prev, { vendorId: item.vendorId, vendorName: item.vendorName, items: [{ ...item, id: undefined, qty: initialQty }] }];
+      }
+      const existingItem = existingCart.items.find(i => (i.compositeKey ?? i.menuItemId) === key);
+      const nextItems = existingItem
+        ? existingCart.items.map(i => (i.compositeKey ?? i.menuItemId) === key ? { ...i, qty: i.qty + initialQty } : i)
+        : [...existingCart.items, { ...item, id: undefined, qty: initialQty }];
+      return prev.map(c => c.vendorId === item.vendorId ? { ...c, items: nextItems } : c);
     });
     api.post('/cart/add', {
       menuItemId: item.menuItemId,
@@ -104,13 +121,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }).then(refresh).catch(refresh);
   };
 
-  const removeItem = (key: string) => {
-    setItems(prev => {
-      const next = prev.filter(i => (i.compositeKey ?? i.menuItemId) !== key);
-      itemsRef.current = next;
-      return next;
-    });
-    const serverId = resolveServerId(key);
+  const removeItem = (vendorId: string, key: string) => {
+    updateLocalCarts(prev => prev.map(c =>
+      c.vendorId === vendorId ? { ...c, items: c.items.filter(i => (i.compositeKey ?? i.menuItemId) !== key) } : c
+    ));
+    const serverId = resolveServerId(vendorId, key);
     if (serverId) {
       api.delete(`/cart/remove/${serverId}`).then(refresh).catch(refresh);
     } else {
@@ -120,14 +135,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateQty = (key: string, qty: number) => {
-    if (qty <= 0) { removeItem(key); return; }
-    setItems(prev => {
-      const next = prev.map(i => (i.compositeKey ?? i.menuItemId) === key ? { ...i, qty } : i);
-      itemsRef.current = next;
-      return next;
-    });
-    const serverId = resolveServerId(key);
+  const updateQty = (vendorId: string, key: string, qty: number) => {
+    if (qty <= 0) { removeItem(vendorId, key); return; }
+    updateLocalCarts(prev => prev.map(c =>
+      c.vendorId === vendorId
+        ? { ...c, items: c.items.map(i => (i.compositeKey ?? i.menuItemId) === key ? { ...i, qty } : i) }
+        : c
+    ));
+    const serverId = resolveServerId(vendorId, key);
     if (serverId) {
       api.put(`/cart/update/${serverId}`, { quantity: qty }).then(refresh).catch(refresh);
     } else {
@@ -135,17 +150,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const clearCart = () => {
-    setItems([]);
-    itemsRef.current = [];
-    api.delete('/cart/clear').catch(() => {});
+  const clearCart = (vendorId: string) => {
+    updateLocalCarts(prev => prev.filter(c => c.vendorId !== vendorId));
+    api.delete('/cart/clear', { params: { vendorId } }).catch(() => {});
   };
 
-  const totalCount = items.reduce((s, i) => s + i.qty, 0);
-  const totalAmount = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const totalCount = carts.reduce((s, c) => s + c.items.reduce((s2, i) => s2 + i.qty, 0), 0);
 
   return (
-    <Ctx.Provider value={{ items, totalCount, totalAmount, addItem, removeItem, updateQty, clearCart }}>
+    <Ctx.Provider value={{ carts, totalCount, getVendorCart, getVendorItems, addItem, removeItem, updateQty, clearCart }}>
       {children}
     </Ctx.Provider>
   );
