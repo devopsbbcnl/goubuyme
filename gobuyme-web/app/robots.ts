@@ -12,7 +12,7 @@ export default function robots(): MetadataRoute.Robots {
         // the exact dashboard routes are blocked ($ = end-of-URL for Googlebot).
         '/cart', '/checkout', '/orders', '/profile', '/notifications',
         '/vendor$', '/vendor/menu', '/vendor/orders', '/vendor/earnings',
-        '/vendor/promotions', '/rider', '/verify-otp', '/account-not-active',
+        '/vendor/promotions', '/rider', '/verify-otp',
         '/vendor-complete-profile', '/role-select', '/api/',
       ],
     },

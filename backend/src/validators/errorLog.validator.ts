@@ -15,3 +15,8 @@ export const reportErrorSchema = Joi.object({
 export const resolveErrorLogSchema = Joi.object({
   resolved: Joi.boolean().optional(),
 });
+
+export const bulkResolveErrorLogsSchema = Joi.object({
+  ids: Joi.array().items(Joi.string()).min(1).max(500).required(),
+  resolved: Joi.boolean().optional(),
+});

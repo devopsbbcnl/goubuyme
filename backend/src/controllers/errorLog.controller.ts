@@ -100,3 +100,21 @@ export const resolveErrorLog = catchAsync(async (req: Request, res: Response) =>
 
   return apiResponse.success(res, resolved ? 'Marked resolved.' : 'Reopened.', log);
 });
+
+// PATCH /admin/error-logs/bulk-resolve — batch resolve/reopen (e.g. selecting every
+// occurrence of the same recurring error and clearing them in one action)
+export const bulkResolveErrorLogs = catchAsync(async (req: Request, res: Response) => {
+  const { ids, resolved = true } = req.body as { ids: string[]; resolved?: boolean };
+  const authReq = req as AuthRequest;
+
+  const { count } = await prisma.errorLog.updateMany({
+    where: { id: { in: ids } },
+    data: {
+      resolved,
+      resolvedAt: resolved ? new Date() : null,
+      resolvedBy: resolved ? authReq.user?.userId ?? null : null,
+    },
+  });
+
+  return apiResponse.success(res, `${count} log(s) ${resolved ? 'resolved' : 'reopened'}.`, { count });
+});

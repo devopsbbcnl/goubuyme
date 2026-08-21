@@ -124,7 +124,10 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
         // Ignore corrupt local cache and let the server response win.
       }
 
-      if (!user) {
+      // /addresses is customer-only server-side (requireRole('CUSTOMER')) — vendor and
+      // rider sessions would otherwise fire this on every login and get a 403, since this
+      // provider is mounted globally in app/_layout.tsx, not just under (customer).
+      if (!user || user.role !== 'customer') {
         if (mounted) {
           setAddresses([]);
           setSelectedId(null);

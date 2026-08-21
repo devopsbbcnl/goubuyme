@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { resolveVendorRoute } from '@/services/vendorGate';
 import { VendorSidebar } from '@/components/layout/VendorSidebar';
+import { ApprovalBanner } from '@/components/ui/ApprovalBanner';
 
 export default function VendorLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -18,7 +19,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
     if (user.role !== 'vendor') { router.replace('/'); return; }
 
     let cancelled = false;
-    resolveVendorRoute(user.approvalStatus).then(route => {
+    resolveVendorRoute().then(route => {
       if (cancelled) return;
       if (route !== '/vendor') router.replace(route);
       else setGateChecked(true);
@@ -43,6 +44,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
             <div style={{ fontSize: 13, color: 'var(--muted)' }}>Welcome back, {user.name?.split(' ')[0]}</div>
           </div>
         </header>
+        {user.approvalStatus !== 'APPROVED' && <ApprovalBanner role="vendor" />}
         <div className="v-content">
           {children}
         </div>

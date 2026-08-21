@@ -11,7 +11,7 @@ import { notifyUser } from '../services/notification.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 
 const resolveRider = async (userId: string) =>
-  prisma.rider.findUnique({ where: { userId }, select: { id: true } });
+  prisma.rider.findUnique({ where: { userId }, select: { id: true, approvalStatus: true } });
 
 function formatTimeAgo(date: Date): string {
   const diffMs = Date.now() - date.getTime();
@@ -67,9 +67,12 @@ export const updateMyRiderProfile = catchAsync(async (req: AuthRequest, res: Res
 export const toggleOnlineStatus = catchAsync(async (req: AuthRequest, res: Response) => {
   const existing = await prisma.rider.findUnique({
     where: { userId: req.user!.userId },
-    select: { isOnline: true },
+    select: { isOnline: true, approvalStatus: true },
   });
   if (!existing) return apiResponse.error(res, 'Rider not found.', 404);
+  if (!existing.isOnline && existing.approvalStatus !== 'APPROVED') {
+    return apiResponse.error(res, 'Your account must be approved before you can go online.', 403);
+  }
 
   const rider = await prisma.rider.update({
     where: { userId: req.user!.userId },
@@ -181,6 +184,9 @@ export const getAvailableJobs = catchAsync(async (req: AuthRequest, res: Respons
 export const acceptJob = catchAsync(async (req: AuthRequest, res: Response) => {
   const rider = await resolveRider(req.user!.userId);
   if (!rider) return apiResponse.error(res, 'Rider not found.', 404);
+  if (rider.approvalStatus !== 'APPROVED') {
+    return apiResponse.error(res, 'Your account must be approved before you can accept jobs.', 403);
+  }
 
   const { orderId } = req.params;
 

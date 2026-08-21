@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { RiderSidebar } from '@/components/layout/RiderSidebar';
+import { ApprovalBanner } from '@/components/ui/ApprovalBanner';
 
 export default function RiderLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -34,6 +35,7 @@ export default function RiderLayout({ children }: { children: React.ReactNode })
             <div style={{ fontSize: 13, color: 'var(--muted)' }}>Welcome back, {user.name?.split(' ')[0]}</div>
           </div>
         </header>
+        {user.approvalStatus !== 'APPROVED' && <ApprovalBanner role="rider" />}
         <div className="v-content">
           {children}
         </div>

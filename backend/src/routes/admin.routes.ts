@@ -25,7 +25,9 @@ import {
   updateAdminRole,
   deactivateAdminUser,
 } from '../controllers/admin.controller';
-import { listErrorLogs, getErrorLogDetail, resolveErrorLog } from '../controllers/errorLog.controller';
+import { listErrorLogs, getErrorLogDetail, resolveErrorLog, bulkResolveErrorLogs } from '../controllers/errorLog.controller';
+import { validate } from '../middleware/validate.middleware';
+import { bulkResolveErrorLogsSchema } from '../validators/errorLog.validator';
 import { getOnboardingFunnel, getStuckUsers, getOnboardingEventFunnel } from '../controllers/analytics.controller';
 import { createOffer, updateOffer } from '../controllers/offer.controller';
 import {
@@ -107,6 +109,7 @@ router.get('/logs',       ...superAdminAuth, getServerLogs);
 
 // Client/backend error logs — all admin roles can view and resolve
 router.get('/error-logs',            ...readAuth, listErrorLogs);
+router.patch('/error-logs/bulk-resolve', ...readAuth, validate(bulkResolveErrorLogsSchema), bulkResolveErrorLogs);
 router.get('/error-logs/:id',        ...readAuth, getErrorLogDetail);
 router.patch('/error-logs/:id/resolve', ...readAuth, resolveErrorLog);
 

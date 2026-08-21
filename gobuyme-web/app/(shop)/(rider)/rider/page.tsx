@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import api from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/Toast';
 
 // Flat shape returned by GET /riders/me/stats (see rider.controller.ts getRiderDashboardStats)
 interface Stats { todayDeliveries: number; todayEarnings: number; weeklyEarnings: number[]; rating: number; isOnline: boolean; nearbyJobs: number; }
@@ -10,6 +12,8 @@ interface Stats { todayDeliveries: number; todayEarnings: number; weeklyEarnings
 interface Delivery { id: string; vendor: string; amount: number; time: string; rating: number; }
 
 export default function RiderDashboard() {
+  const { user } = useAuth();
+  const toast = useToast();
   const [stats, setStats] = useState<Stats | null>(null);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,12 +31,18 @@ export default function RiderDashboard() {
 
   const toggle = async () => {
     if (!stats) return;
+    if (!stats.isOnline && user?.approvalStatus !== 'APPROVED') {
+      toast("You can't go online until your account has been approved.", 'error');
+      return;
+    }
     setToggling(true);
     try {
       // Backend self-toggles isOnline/isAvailable server-side — no body needed.
       await api.patch('/riders/me/online');
       setStats(s => s ? { ...s, isOnline: !s.isOnline } : s);
-    } catch {} finally { setToggling(false); }
+    } catch (e: any) {
+      toast(e?.response?.data?.message ?? 'Could not update status.', 'error');
+    } finally { setToggling(false); }
   };
 
   return (

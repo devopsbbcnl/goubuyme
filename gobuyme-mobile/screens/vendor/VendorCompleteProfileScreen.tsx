@@ -344,11 +344,7 @@ export default function VendorCompleteProfileScreen() {
       const statusRes = await api.get('/auth/activation-status');
       const { approvalStatus } = statusRes.data.data;
       updateApprovalStatus(approvalStatus);
-      if (approvalStatus === 'APPROVED') {
-        router.replace('/(vendor)' as never);
-      } else {
-        router.replace({ pathname: '/account-not-active', params: { role: 'vendor' } } as never);
-      }
+      router.replace('/(vendor)' as never);
     } catch {
       Alert.alert('Save failed', 'Could not save your profile. Please try again.');
     } finally {

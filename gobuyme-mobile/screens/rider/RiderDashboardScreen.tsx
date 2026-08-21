@@ -8,6 +8,7 @@ import {
 	Animated,
 	ActivityIndicator,
 	RefreshControl,
+	Alert,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -112,6 +113,15 @@ export default function RiderDashboardScreen() {
 	const toggleOnline = async () => {
 		const prev = online;
 		const next = !prev;
+
+		if (next && user?.approvalStatus !== 'APPROVED') {
+			Alert.alert(
+				'Account pending approval',
+				"You can't go online until your account has been approved.",
+			);
+			return;
+		}
+
 		setOnline(next);
 		if (next) startRipple();
 		try {
