@@ -9,7 +9,7 @@ import { activateReferral } from '../services/referral.service';
 import { notifyUser } from '../services/notification.service';
 import { releaseUnpaidOrder } from './order.controller';
 import { PaymentStatus, OrderStatus } from '@prisma/client';
-import logger from '../utils/logger';
+import { recordError } from '../utils/recordError';
 import { getPrimaryClientUrl } from '../utils/clientUrl';
 
 const PAYSTACK_BASE = 'https://api.paystack.co';
@@ -235,7 +235,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
       }
     }
   } catch (err) {
-    logger.error('Webhook processing error', err);
+    recordError('payment-webhook', 'Webhook processing error', err);
   }
 };
 

@@ -12,7 +12,7 @@ import { generateReferralCode } from '../utils/generateToken';
 import { getPlatformSettings, updatePlatformSettings, PlatformSettingsPatch } from '../services/settings.service';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
-import logger from '../utils/logger';
+import { recordError } from '../utils/recordError';
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
@@ -237,7 +237,7 @@ export const updateVendorStatus = catchAsync(async (req: AuthRequest, res: Respo
       vendor.user.name,
       vendor.businessName,
       status as 'APPROVED' | 'REJECTED' | 'SUSPENDED',
-    ).catch(err => logger.error('Vendor approval email failed', err));
+    ).catch(err => recordError('admin', 'Vendor approval email failed', err, { vendorId: id, status }));
   }
 
   return apiResponse.success(res, `Vendor ${status.toLowerCase()}.`, { id: vendor.id, businessName: vendor.businessName, approvalStatus: vendor.approvalStatus });
@@ -375,7 +375,7 @@ export const updateRiderStatus = catchAsync(async (req: AuthRequest, res: Respon
       rider.user.email,
       rider.user.name,
       status as 'APPROVED' | 'REJECTED' | 'SUSPENDED',
-    ).catch(err => logger.error('Rider approval email failed', err));
+    ).catch(err => recordError('admin', 'Rider approval email failed', err, { riderId: id, status }));
   }
 
   return apiResponse.success(res, `Rider ${status.toLowerCase()}.`, { id: rider.id, approvalStatus: rider.approvalStatus });
@@ -955,7 +955,7 @@ export const processManualPayout = catchAsync(async (req: AuthRequest, res: Resp
 // POST /admin/payouts/run-batch  — fires the cron payout job immediately (for testing)
 export const triggerPayoutBatch = catchAsync(async (_req: AuthRequest, res: Response) => {
   const { runPayoutBatch } = await import('../services/payout.service');
-  runPayoutBatch().catch(err => logger.error('Manual payout batch error', err));
+  runPayoutBatch().catch(err => recordError('admin', 'Manual payout batch error', err));
   return apiResponse.success(res, 'Payout batch triggered. Check server logs for progress.');
 });
 

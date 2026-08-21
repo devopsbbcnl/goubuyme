@@ -2,6 +2,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 import { Server } from 'socket.io';
 import logger from '../utils/logger';
+import { recordError } from '../utils/recordError';
 
 // Wires the Socket.IO Redis adapter so broadcasts (getIO().to(room).emit(...))
 // reach clients regardless of which PM2 cluster worker holds their socket.
@@ -26,8 +27,8 @@ export const attachRedisAdapter = (io: Server): void => {
   const pubClient = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null });
   const subClient = pubClient.duplicate();
 
-  pubClient.on('error', (err) => logger.error('[socket] Redis pub client error', { error: err.message }));
-  subClient.on('error', (err) => logger.error('[socket] Redis sub client error', { error: err.message }));
+  pubClient.on('error', (err) => recordError('socket-adapter', '[socket] Redis pub client error', err));
+  subClient.on('error', (err) => recordError('socket-adapter', '[socket] Redis sub client error', err));
 
   io.adapter(createAdapter(pubClient, subClient));
   logger.info('[socket] Redis adapter attached — cross-worker broadcasting enabled');

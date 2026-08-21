@@ -1,7 +1,7 @@
 import { Expo, ExpoPushMessage, ExpoPushTicket } from 'expo-server-sdk';
 import { Prisma } from '@prisma/client';
 import prisma from '../config/db';
-import logger from '../utils/logger';
+import { recordError } from '../utils/recordError';
 
 const expo = new Expo();
 
@@ -14,7 +14,7 @@ export interface PushPayload {
 
 export const sendPush = async (pushToken: string, payload: PushPayload): Promise<void> => {
   if (!Expo.isExpoPushToken(pushToken)) {
-    logger.warn(`Invalid Expo push token: ${pushToken}`);
+    recordError('notification', 'Invalid Expo push token', undefined, { pushToken });
     return;
   }
 
@@ -32,12 +32,12 @@ export const sendPush = async (pushToken: string, payload: PushPayload): Promise
       const tickets: ExpoPushTicket[] = await expo.sendPushNotificationsAsync(chunk);
       for (const ticket of tickets) {
         if (ticket.status === 'error') {
-          logger.error('Push error', { details: ticket.details });
+          recordError('notification', 'Push error', undefined, { details: ticket.details });
         }
       }
     }
   } catch (err) {
-    logger.error('sendPush failed', err);
+    recordError('notification', 'sendPush failed', err);
   }
 };
 
@@ -59,7 +59,7 @@ export const sendPushToMany = async (tokens: string[], payload: PushPayload): Pr
       await expo.sendPushNotificationsAsync(chunk);
     }
   } catch (err) {
-    logger.error('sendPushToMany failed', err);
+    recordError('notification', 'sendPushToMany failed', err);
   }
 };
 

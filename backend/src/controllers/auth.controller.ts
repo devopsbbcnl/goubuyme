@@ -14,7 +14,7 @@ import { sendPasswordResetEmail, sendOtpEmail, sendWelcomeEmail } from '../servi
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { Role, CommissionTier, VendorCategory } from '@prisma/client';
-import logger from '../utils/logger';
+import { recordError } from '../utils/recordError';
 
 const SALT_ROUNDS = 12;
 
@@ -261,12 +261,12 @@ export const googleAuth = catchAsync(async (req: Request, res: Response) => {
     const ticket = await googleClient.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_IDS });
     payload = ticket.getPayload();
   } catch (err) {
-    logger.warn('Google sign-in failed: invalid or expired token', { error: (err as Error).message });
+    recordError('auth', 'Google sign-in failed: invalid or expired token', err);
     return apiResponse.error(res, 'Invalid or expired Google token.', 401);
   }
 
   if (!payload?.email) {
-    logger.warn('Google sign-in failed: no email on Google account');
+    recordError('auth', 'Google sign-in failed: no email on Google account');
     return apiResponse.error(res, 'Google account has no email address.', 400);
   }
 

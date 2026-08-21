@@ -1,6 +1,6 @@
 import prisma from '../config/db';
 import { OnboardingEventType, Role, Prisma } from '@prisma/client';
-import logger from '../utils/logger';
+import { recordError } from '../utils/recordError';
 
 /**
  * Records an onboarding transition for a user. First occurrence wins — the
@@ -28,6 +28,6 @@ export async function recordOnboardingEvent(
       update: {}, // keep the original timestamp of the first occurrence
     });
   } catch (err) {
-    logger.error('Failed to record onboarding event', { userId, role, event, err });
+    recordError('onboarding', 'Failed to record onboarding event', err, { userId, role, event });
   }
 }
