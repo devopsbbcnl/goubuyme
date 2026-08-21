@@ -290,7 +290,7 @@ export default function VendorsPage() {
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
           <div>
             <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Vendors</div>
             <div style={{ fontSize: 13, color: T.textSec }}>
@@ -302,8 +302,8 @@ export default function VendorsPage() {
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 10 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {tabs.map(t => (
               <button key={t} onClick={() => { setFilter(t); setPage(1); }} style={{
                 padding: '7px 14px', borderRadius: 4,
@@ -316,7 +316,7 @@ export default function VendorsPage() {
               </button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <select
               value={catFilter}
               onChange={e => { setCatFilter(e.target.value as typeof catFilter); setPage(1); }}
@@ -339,14 +339,16 @@ export default function VendorsPage() {
               placeholder="Search vendors…"
               style={{
                 background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
-                padding: '8px 14px', color: T.text, fontSize: 13, outline: 'none', width: 220,
+                padding: '8px 14px', color: T.text, fontSize: 13, outline: 'none',
+                flex: '1 1 160px', minWidth: 140, maxWidth: 220,
               }}
             />
           </div>
         </div>
 
         <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: T.surface2 }}>
                 {['Vendor', 'Owner', 'Category', 'City', 'Orders', 'Revenue', 'Rating', 'Status', 'Actions'].map(h => (
@@ -407,6 +409,7 @@ export default function VendorsPage() {
               ))}
             </tbody>
           </table>
+          </div>
           <Pagination
             total={total}
             page={page}
@@ -452,7 +455,7 @@ export default function VendorsPage() {
             )}
 
             {/* Stats row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
               {[
                 { label: 'Orders', value: detail.totalOrders },
                 { label: 'Revenue', value: fmtCurrency(detail.totalRevenue) },
@@ -466,7 +469,7 @@ export default function VendorsPage() {
               ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
               {/* Business info */}
               <div>
                 <SectionHead label="Business Info" T={T} />

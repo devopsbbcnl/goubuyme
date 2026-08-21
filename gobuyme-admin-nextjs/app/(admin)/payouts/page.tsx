@@ -68,7 +68,7 @@ export default function PayoutsPage() {
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
         {[
           { label: 'Pending Payouts', value: `₦${pendingTotal.toLocaleString()}`, sub: `${pendingPayouts.length} recipients`, color: T.warning },
           { label: 'Paid This Month', value: `₦${paidTotal.toLocaleString()}`, sub: `${paidPayouts.length} completed`, color: T.success },
@@ -98,7 +98,8 @@ export default function PayoutsPage() {
 
       {/* Table */}
       <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: T.surface2 }}>
               {['Recipient', 'Type', 'Amount Due', 'Last Paid', 'Status', 'Action'].map(h => (
@@ -152,6 +153,7 @@ export default function PayoutsPage() {
             ))}
           </tbody>
         </table>
+        </div>
         <Pagination
           total={filtered.length}
           page={page}

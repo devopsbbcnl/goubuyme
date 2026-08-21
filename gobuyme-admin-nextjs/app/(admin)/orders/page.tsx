@@ -213,7 +213,7 @@ export default function OrdersPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 10 }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {STATUS_TABS.map(s => (
               <button key={s} onClick={() => { setFilter(s); setPage(1); }} style={{
@@ -230,12 +230,13 @@ export default function OrdersPage() {
           <input
             value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search order, customer, vendor..."
-            style={{ background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 14px', color: T.text, fontSize: 13, outline: 'none', width: 260 }}
+            style={{ background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 14px', color: T.text, fontSize: 13, outline: 'none', flex: '1 1 200px', minWidth: 160, maxWidth: 260 }}
           />
         </div>
 
         <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: T.surface2 }}>
                 {['Order ID', 'Customer', 'Vendor', 'Rider', 'Amount', 'Status', 'Time'].map(h => (
@@ -275,6 +276,7 @@ export default function OrdersPage() {
               ))}
             </tbody>
           </table>
+          </div>
           <Pagination
             total={total}
             page={page}
@@ -310,7 +312,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
               {[
                 { label: 'Total', value: fmtCurrency(detail.totalAmount) },
                 { label: 'Items', value: detail.items.reduce((sum, item) => sum + item.quantity, 0) },
@@ -324,7 +326,7 @@ export default function OrdersPage() {
               ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
               <div>
                 <SectionHead label="Order Info" T={T} />
                 <InfoGrid rows={[
@@ -351,7 +353,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
               <div>
                 <SectionHead label="Customer" T={T} />
                 <PersonBlock
@@ -388,7 +390,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
               <div>
                 <SectionHead label="Rider" T={T} />
                 {!detail.rider ? (
@@ -429,7 +431,8 @@ export default function OrdersPage() {
             <div>
               <SectionHead label="Items" T={T} />
               <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: T.surface2 }}>
                       {['Item', 'Category', 'Qty', 'Unit Price', 'Line Total', 'Available'].map(h => (
@@ -458,6 +461,7 @@ export default function OrdersPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
 

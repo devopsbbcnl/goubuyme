@@ -68,7 +68,7 @@ export default function LoginPage() {
                   width: '100%', boxSizing: 'border-box',
                   background: T.surface2, border: `1px solid ${T.border}`,
                   borderRadius: 4, padding: '10px 14px',
-                  color: T.text, fontSize: 14, outline: 'none',
+                  color: T.text, fontSize: 16, outline: 'none',
                   fontFamily: 'inherit',
                 }}
               />
@@ -88,7 +88,7 @@ export default function LoginPage() {
                   width: '100%', boxSizing: 'border-box',
                   background: T.surface2, border: `1px solid ${T.border}`,
                   borderRadius: 4, padding: '10px 14px',
-                  color: T.text, fontSize: 14, outline: 'none',
+                  color: T.text, fontSize: 16, outline: 'none',
                   fontFamily: 'inherit',
                 }}
               />

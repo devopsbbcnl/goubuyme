@@ -137,7 +137,7 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Role legend */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
         {(['SUPER_ADMIN', 'OPERATIONS_ADMIN', 'SUPPORT_ADMIN'] as const).map(role => (
           <div key={role} style={{
             background: T.surface, border: `1px solid ${T.border}`,
@@ -154,7 +154,8 @@ export default function AdminUsersPage() {
 
       {/* Table */}
       <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.surface2 }}>
               {['Name', 'Email', 'Role', 'Status', 'Created', 'Actions'].map(h => (
@@ -231,6 +232,7 @@ export default function AdminUsersPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Create Modal */}

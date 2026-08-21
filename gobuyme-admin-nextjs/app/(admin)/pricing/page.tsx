@@ -643,7 +643,7 @@ export default function PricingPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: `1px solid ${T.border}` }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: `1px solid ${T.border}`, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {[
           { key: 'profiles' as const, label: 'Pricing Profiles' },
           { key: 'zones' as const, label: 'Delivery Zones' },
@@ -666,6 +666,8 @@ export default function PricingPage() {
               fontWeight: activeTab === tab.key ? 600 : 500,
               color: activeTab === tab.key ? T.primary : T.textSec,
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             {tab.label}
@@ -977,7 +979,7 @@ export default function PricingPage() {
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 600, color: T.text, marginBottom: 16 }}>Pricing Simulation</h2>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24 }}>
             {/* Form */}
             <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, padding: 20 }}>
               <h3 style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 16 }}>Input Parameters</h3>
@@ -1328,7 +1330,7 @@ export default function PricingPage() {
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 500, color: T.textSec, marginBottom: 4, display: 'block' }}>
                   State
@@ -1369,7 +1371,7 @@ export default function PricingPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 500, color: T.textSec, marginBottom: 4, display: 'block' }}>
                   Base Fee (₦) *
@@ -1410,7 +1412,7 @@ export default function PricingPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 500, color: T.textSec, marginBottom: 4, display: 'block' }}>
                   Maximum Fee (₦)
@@ -1650,7 +1652,7 @@ export default function PricingPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 500, color: T.textSec, marginBottom: 4, display: 'block' }}>
                   Zone Hierarchy Type *
@@ -1880,7 +1882,7 @@ export default function PricingPage() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 500, color: T.textSec, marginBottom: 4, display: 'block' }}>
                   Start Time *
@@ -1941,7 +1943,7 @@ export default function PricingPage() {
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 500, color: T.textSec, marginBottom: 4, display: 'block' }}>
                   State
@@ -2144,7 +2146,7 @@ export default function PricingPage() {
       >
         <div style={{ padding: 20 }}>
           <div style={{ display: 'grid', gap: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 500, color: T.textSec, marginBottom: 4, display: 'block' }}>
                   Min Distance (km) *

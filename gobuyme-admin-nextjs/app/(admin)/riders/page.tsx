@@ -144,7 +144,7 @@ export default function RidersPage() {
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
           <div>
             <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Riders</div>
             <div style={{ fontSize: 13, color: T.textSec }}>
@@ -156,8 +156,8 @@ export default function RidersPage() {
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 10 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {tabs.map(t => (
               <button key={t} onClick={() => { setFilter(t); setPage(1); }} style={{
                 padding: '7px 14px', borderRadius: 4,
@@ -173,12 +173,13 @@ export default function RidersPage() {
           <input
             value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search riders…"
-            style={{ background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 14px', color: T.text, fontSize: 13, outline: 'none', width: 220 }}
+            style={{ background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 14px', color: T.text, fontSize: 13, outline: 'none', flex: '1 1 160px', minWidth: 140, maxWidth: 220 }}
           />
         </div>
 
         <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: T.surface2 }}>
                 {['Rider', 'Phone', 'Vehicle', 'Plate', 'Deliveries', 'Earned', 'Rating', 'Status', 'Online', 'Actions'].map(h => (
@@ -240,6 +241,7 @@ export default function RidersPage() {
               ))}
             </tbody>
           </table>
+          </div>
           <Pagination
             total={total}
             page={page}
@@ -289,7 +291,7 @@ export default function RidersPage() {
             </div>
 
             {/* Stats row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
               {[
                 { label: 'Deliveries', value: detail.totalDeliveries },
                 { label: 'Earnings', value: fmtCurrency(detail.totalEarnings) },
@@ -303,7 +305,7 @@ export default function RidersPage() {
               ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
               {/* Rider info */}
               <div>
                 <SectionHead label="Rider Info" T={T} />
