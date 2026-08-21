@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 
 const COPY: Record<'vendor' | 'rider', string> = {
@@ -10,9 +11,10 @@ const COPY: Record<'vendor' | 'rider', string> = {
 
 export function ApprovalBanner({ role }: { role: 'vendor' | 'rider' }) {
   const { theme: T } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { backgroundColor: T.warningBg, borderBottomColor: T.warning }]}>
+    <View style={[styles.container, { backgroundColor: T.warningBg, borderBottomColor: T.warning, paddingTop: insets.top + 10 }]}>
       <Ionicons name="alert-circle-outline" size={16} color={T.warning} />
       <Text style={[styles.text, { color: T.text }]} numberOfLines={2}>
         {COPY[role]}
@@ -27,7 +29,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingBottom: 10,
     borderBottomWidth: 1,
   },
   text: {

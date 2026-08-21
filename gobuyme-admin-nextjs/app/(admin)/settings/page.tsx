@@ -156,7 +156,7 @@ export default function SettingsPage() {
   const sectionBody = {
     padding: '20px',
     display: 'grid' as const,
-    gridTemplateColumns: '1fr 1fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
     gap: 16,
   };
 
@@ -226,7 +226,7 @@ export default function SettingsPage() {
 
       <div style={sectionStyle}>
         <div style={sectionHeader}>Delivery Pricing</div>
-        <div style={{ ...sectionBody, gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <div style={{ ...sectionBody, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
           <div>
             <label style={labelStyle}>Base Fee (Naira)</label>
             <input style={inputStyle} type="number" min="0" value={cfg.deliveryBaseFee} onChange={e => set('deliveryBaseFee', e.target.value)} />

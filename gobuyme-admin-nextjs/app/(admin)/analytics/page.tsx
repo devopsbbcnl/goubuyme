@@ -181,12 +181,12 @@ export default function AnalyticsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Onboarding Analytics</div>
           <div style={{ fontSize: 13, color: T.textSec }}>Signup & onboarding funnel — find who dropped off and reach out.</div>
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {WINDOWS.map(w => (
             <button key={w.label} onClick={() => setWindowDays(w.days)} style={{
               padding: '7px 12px', borderRadius: 4,
@@ -324,7 +324,8 @@ export default function AnalyticsPage() {
           )}
         </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: T.surface2 }}>
               {['Name', 'Email', 'Phone', 'Signed up', 'Waiting'].map(h => (
@@ -350,6 +351,7 @@ export default function AnalyticsPage() {
             ))}
           </tbody>
         </table>
+        </div>
         <Pagination
           total={total}
           page={page}

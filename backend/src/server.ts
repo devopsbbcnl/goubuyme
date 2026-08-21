@@ -55,13 +55,16 @@ import logger from './utils/logger';
 const app = express();
 const httpServer = http.createServer(app);
 
-// This API runs behind a reverse proxy (nginx) on the VPS, which sets
-// X-Forwarded-For. Without `trust proxy`, express-rate-limit refuses to key
-// off that header (rightly — trusting it blindly would let a client spoof
-// their own IP and dodge every limit) and throws instead of limiting.
-// `1` means "trust exactly one hop" — the proxy directly in front of Node —
-// matching this deployment's actual topology (client -> nginx -> Node).
-app.set('trust proxy', 1);
+// This API is served through Cloudflare in front of nginx on the VPS, so the
+// real chain is client -> Cloudflare -> nginx -> Node (2 proxy hops), each of
+// which appends to X-Forwarded-For. Without `trust proxy`, express-rate-limit
+// refuses to key off that header (rightly — trusting it blindly would let a
+// client spoof their own IP and dodge every limit) and throws instead of
+// limiting. `2` means "trust the two hops closest to Node" so `req.ip`
+// resolves to the real client IP instead of Cloudflare's edge address —
+// getting this wrong previously bucketed every visitor behind the same
+// Cloudflare IP into one shared rate-limit quota.
+app.set('trust proxy', 2);
 
 const allowedOrigins = [
   ...(process.env.CLIENT_URL ?? '').split(','),

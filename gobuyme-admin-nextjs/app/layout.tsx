@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
@@ -13,6 +13,11 @@ const font = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
 	title: 'GoBuyMe Admin',
 	description: 'GoBuyMe Admin Console',
+};
+
+export const viewport: Viewport = {
+	width: 'device-width',
+	initialScale: 1,
 };
 
 export default function RootLayout({

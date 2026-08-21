@@ -181,7 +181,8 @@ export default function CustomersPage() {
                 <div style={{ fontSize: 12, color: T.textSec, padding: '8px 0' }}>No orders yet.</div>
               ) : (
                 <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: T.surface2 }}>
                         {['Order', 'Vendor', 'Amount', 'Status', 'Date'].map(h => (
@@ -210,6 +211,7 @@ export default function CustomersPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -279,7 +281,7 @@ export default function CustomersPage() {
         isLoading={deleteLoading}
         isDangerous
       />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Customers</div>
           <div style={{ fontSize: 13, color: T.textSec }}>
@@ -288,8 +290,8 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 10 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {(['ALL', 'ACTIVE', 'INACTIVE'] as const).map(f => (
             <button key={f} onClick={() => { setFilter(f); setPage(1); }} style={{
               padding: '7px 14px', borderRadius: 4,
@@ -305,12 +307,13 @@ export default function CustomersPage() {
         <input
           value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Search by name or phone…"
-          style={{ background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 14px', color: T.text, fontSize: 13, outline: 'none', width: 240 }}
+          style={{ background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 14px', color: T.text, fontSize: 13, outline: 'none', flex: '1 1 180px', minWidth: 140, maxWidth: 240 }}
         />
       </div>
 
       <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: T.surface2 }}>
               {['Customer', 'Phone', 'Email', 'Orders', 'Total Spent', 'Joined', 'Status', 'Actions'].map(h => (
@@ -364,6 +367,7 @@ export default function CustomersPage() {
             ))}
           </tbody>
         </table>
+        </div>
         <Pagination
           total={total}
           page={page}

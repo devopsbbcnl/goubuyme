@@ -5,6 +5,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { BarChart } from '@/components/ui/BarChart';
 import { Badge } from '@/components/ui/Badge';
 import { api } from '@/lib/api';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 
@@ -53,6 +54,7 @@ const timeAgo = (iso: string) => {
 
 export default function DashboardPage() {
   const { theme: T } = useTheme();
+  const isMobile = useIsMobile();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -126,12 +128,16 @@ export default function DashboardPage() {
       )}
 
       {/* Stats */}
-      <div style={{ display: 'flex', gap: 16 }}>
-        {stats.map(s => <StatCard key={s.label} {...s} />)}
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        {stats.map(s => (
+          <div key={s.label} style={{ flex: '1 1 200px' }}>
+            <StatCard {...s} />
+          </div>
+        ))}
       </div>
 
       {/* Charts row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: 16 }}>
         <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: '20px 22px' }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 16 }}>Monthly Revenue</div>
           {loading ? (
@@ -163,14 +169,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Bottom row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '3fr 2fr', gap: 16 }}>
         {/* Recent orders */}
         <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', justifyContent: 'space-between' }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>Recent Orders</div>
             <a href="/orders" style={{ fontSize: 12, color: T.primary, fontWeight: 600 }}>View All</a>
           </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: T.surface2 }}>
                 {['Order ID', 'Customer', 'Vendor', 'Amount', 'Status', 'Time'].map(h => (
@@ -203,6 +210,7 @@ export default function DashboardPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* Pending vendors */}

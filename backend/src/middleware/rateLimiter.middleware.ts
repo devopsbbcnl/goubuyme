@@ -32,6 +32,36 @@ const sharedStore = (prefix: string) =>
 // not to throttle the person building it.
 const skipOutsideProduction = () => process.env.NODE_ENV !== 'production';
 
+// A client that keeps retrying after a 429 (a stuck poll loop, a misconfigured
+// job, or many users sharing one rate-limit bucket because of a proxy-hop
+// mismatch — see `trust proxy` in server.ts) would otherwise get a fresh
+// ErrorLog row persisted on every single rejected request, forever. This caps
+// that to at most one persisted row per ip+path per window, across all PM2
+// workers when Redis is configured, per-process otherwise — the 429 response
+// itself is never throttled, only the DB write behind it.
+const RATE_LIMIT_LOG_THROTTLE_MS = 60_000;
+const loggedRecently = new Map<string, number>();
+setInterval(() => {
+  const cutoff = Date.now() - RATE_LIMIT_LOG_THROTTLE_MS;
+  for (const [key, ts] of loggedRecently) {
+    if (ts < cutoff) loggedRecently.delete(key);
+  }
+}, RATE_LIMIT_LOG_THROTTLE_MS).unref();
+
+const shouldPersistRateLimitLog = async (key: string): Promise<boolean> => {
+  if (redisClient) {
+    const set = await redisClient
+      .set(`rl:logged:${key}`, '1', 'PX', RATE_LIMIT_LOG_THROTTLE_MS, 'NX')
+      .catch(() => null);
+    return set === 'OK';
+  }
+  const now = Date.now();
+  const last = loggedRecently.get(key);
+  if (last && now - last < RATE_LIMIT_LOG_THROTTLE_MS) return false;
+  loggedRecently.set(key, now);
+  return true;
+};
+
 // express-rate-limit's `message` option only fires on the default handler. Overriding
 // `handler` (required to also persist an ErrorLog) means we own the response too — so
 // every limiter below builds its response from the same message it used to pass via
@@ -40,20 +70,22 @@ const skipOutsideProduction = () => process.env.NODE_ENV !== 'production';
 const rateLimitHandler = (message: string) => async (req: Request, res: Response) => {
   logger.warn('Rate limit exceeded', { path: req.originalUrl, ip: req.ip });
   try {
-    await prisma.errorLog.create({
-      data: {
-        platform: 'BACKEND',
-        source: 'rate-limit',
-        message,
-        url: req.originalUrl,
-        method: req.method,
-        context: {
-          ip: req.ip,
-          userAgent: req.headers['user-agent'],
-          body: req.body?.email ? { email: req.body.email } : undefined,
+    if (await shouldPersistRateLimitLog(`${req.ip}:${req.originalUrl}`)) {
+      await prisma.errorLog.create({
+        data: {
+          platform: 'BACKEND',
+          source: 'rate-limit',
+          message,
+          url: req.originalUrl,
+          method: req.method,
+          context: {
+            ip: req.ip,
+            userAgent: req.headers['user-agent'],
+            body: req.body?.email ? { email: req.body.email } : undefined,
+          },
         },
-      },
-    });
+      });
+    }
   } catch (err) {
     logger.error('Failed to record rate-limit error log', { error: (err as Error).message });
   }

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard Overview',
@@ -56,9 +57,10 @@ function timeAgo(iso: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-export function TopBar({ pathname }: { pathname: string }) {
+export function TopBar({ pathname, onMenuClick }: { pathname: string; onMenuClick?: () => void }) {
   const { theme: T } = useTheme();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const title = PAGE_TITLES[pathname] ?? 'Dashboard';
   const today = new Date().toLocaleDateString('en-NG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -96,18 +98,32 @@ export function TopBar({ pathname }: { pathname: string }) {
 
   return (
     <header style={{
-      height: 58, background: T.surface,
+      minHeight: 58, background: T.surface,
       borderBottom: `1px solid ${T.border}`,
       display: 'flex', alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 28px', flexShrink: 0,
+      padding: isMobile ? '0 12px' : '0 28px', flexShrink: 0,
+      gap: 8,
     }}>
-      <div>
-        <div style={{ fontSize: 16, fontWeight: 800, color: T.text }}>{title}</div>
-        <div style={{ fontSize: 11, color: T.textSec }}>{today}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        {isMobile && (
+          <button
+            onClick={onMenuClick}
+            aria-label="Open menu"
+            style={{
+              width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
+              fontSize: 16, color: T.text, cursor: 'pointer',
+            }}
+          >☰</button>
+        )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 800, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+          {!isMobile && <div style={{ fontSize: 11, color: T.textSec }}>{today}</div>}
+        </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 14, flexShrink: 0 }}>
         {/* Bell */}
         <div ref={dropRef} style={{ position: 'relative' }}>
           <button
@@ -131,8 +147,10 @@ export function TopBar({ pathname }: { pathname: string }) {
 
           {open && (
             <div style={{
-              position: 'absolute', top: 'calc(100% + 10px)', right: 0,
-              width: 340, background: T.surface,
+              ...(isMobile
+                ? { position: 'fixed' as const, top: 62, right: 12 }
+                : { position: 'absolute' as const, top: 'calc(100% + 10px)', right: 0 }),
+              width: 'min(340px, calc(100vw - 24px))', background: T.surface,
               border: `1px solid ${T.border}`,
               borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
               zIndex: 200, overflow: 'hidden',
@@ -232,19 +250,22 @@ export function TopBar({ pathname }: { pathname: string }) {
         {/* Admin badge */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
-          background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4, padding: '6px 12px',
+          background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
+          padding: isMobile ? '6px' : '6px 12px',
         }}>
           <div style={{
-            width: 26, height: 26, borderRadius: 13,
+            width: 26, height: 26, borderRadius: 13, flexShrink: 0,
             background: `linear-gradient(135deg,${ROLE_COLOR[user?.role ?? ''] ?? '#FF521B'},${ROLE_COLOR[user?.role ?? ''] ?? '#CC3D0E'}cc)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
           }}>👤</div>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.text, lineHeight: 1.2 }}>{user?.name ?? 'Admin'}</div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: ROLE_COLOR[user?.role ?? ''] ?? '#FF521B', lineHeight: 1.2 }}>
-              {ROLE_LABEL[user?.role ?? ''] ?? user?.role}
+          {!isMobile && (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.text, lineHeight: 1.2 }}>{user?.name ?? 'Admin'}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: ROLE_COLOR[user?.role ?? ''] ?? '#FF521B', lineHeight: 1.2 }}>
+                {ROLE_LABEL[user?.role ?? ''] ?? user?.role}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </header>

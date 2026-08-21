@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 
 type NavItem = {
@@ -43,10 +44,11 @@ function canSeeItem(userRole: string, minRole?: string) {
   return (ROLE_RANK[userRole] ?? 0) >= (ROLE_RANK[minRole] ?? 0);
 }
 
-export function Sidebar() {
+export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
   const { theme: T, isDark, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+  const isMobile = useIsMobile();
   const [pending, setPending] = useState<{ vendors: number; riders: number; errorLogs: number }>({ vendors: 0, riders: 0, errorLogs: 0 });
 
   useEffect(() => {
@@ -70,14 +72,32 @@ export function Sidebar() {
   const userRole = user?.role ?? 'SUPPORT_ADMIN';
 
   return (
-    <aside style={{
-      width: 220, background: T.surface,
-      borderRight: `1px solid ${T.border}`,
-      display: 'flex', flexDirection: 'column',
-      height: '100vh', flexShrink: 0, position: 'sticky', top: 0,
-    }}>
+    <>
+      {isMobile && isOpen && (
+        <div
+          onClick={onClose}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            zIndex: 90,
+          }}
+        />
+      )}
+      <aside style={{
+        width: 220, background: T.surface,
+        borderRight: `1px solid ${T.border}`,
+        display: 'flex', flexDirection: 'column',
+        height: '100dvh', flexShrink: 0,
+        ...(isMobile
+          ? {
+              position: 'fixed', top: 0, left: 0, zIndex: 100,
+              transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+              transition: 'transform 220ms ease',
+              boxShadow: isOpen ? '4px 0 24px rgba(0,0,0,0.25)' : 'none',
+            }
+          : { position: 'sticky', top: 0 }),
+      }}>
       {/* Logo */}
-      <div style={{ padding: '22px 20px 18px', borderBottom: `1px solid ${T.border}` }}>
+      <div style={{ padding: '22px 20px 18px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Image src="/icon.png" alt="GoBuyMe" width={34} height={34} style={{ borderRadius: 9 }} />
           <div>
@@ -85,6 +105,17 @@ export function Sidebar() {
             <div style={{ fontSize: 10, color: T.textSec, fontWeight: 600 }}>Admin Console</div>
           </div>
         </div>
+        {isMobile && (
+          <button
+            onClick={onClose}
+            aria-label="Close menu"
+            style={{
+              width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
+              fontSize: 16, color: T.textSec, cursor: 'pointer', flexShrink: 0,
+            }}
+          >✕</button>
+        )}
       </div>
 
       {/* Nav */}
@@ -93,7 +124,7 @@ export function Sidebar() {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           const badge = item.pendingKey ? pending[item.pendingKey] : 0;
           return (
-            <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }} onClick={() => { if (isMobile) onClose?.(); }}>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '10px 12px', borderRadius: 4, marginBottom: 2,
@@ -143,6 +174,7 @@ export function Sidebar() {
           <span style={{ fontSize: 12, fontWeight: 600, color: T.textSec }}>Sign out</span>
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
