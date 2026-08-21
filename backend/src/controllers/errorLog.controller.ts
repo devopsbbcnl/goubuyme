@@ -37,6 +37,34 @@ export const reportError = catchAsync(async (req: Request, res: Response) => {
   return apiResponse.success(res, 'Error report received.', { id: log.id }, 201);
 });
 
+interface ErrorLogFilters {
+  platform?: string;
+  source?: string;
+  role?: string;
+  resolved?: boolean;
+  search?: string;
+  from?: string;
+  to?: string;
+}
+
+// Shared between the list view and bulk-resolve's "all matching" mode so the
+// two can never drift on what a given filter combination actually selects.
+const buildErrorLogWhere = (f: ErrorLogFilters): Record<string, unknown> => {
+  const where: Record<string, unknown> = {};
+  if (f.platform) where.platform = f.platform;
+  if (f.source) where.source = f.source;
+  if (f.role) where.role = f.role;
+  if (f.resolved !== undefined) where.resolved = f.resolved;
+  if (f.search) where.message = { contains: f.search, mode: 'insensitive' };
+  if (f.from || f.to) {
+    where.createdAt = {
+      ...(f.from ? { gte: new Date(f.from) } : {}),
+      ...(f.to ? { lte: new Date(f.to) } : {}),
+    };
+  }
+  return where;
+};
+
 // GET /admin/error-logs
 export const listErrorLogs = catchAsync(async (req: Request, res: Response) => {
   const {
@@ -46,18 +74,10 @@ export const listErrorLogs = catchAsync(async (req: Request, res: Response) => {
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, parseInt(limit));
 
-  const where: Record<string, unknown> = {};
-  if (platform) where.platform = platform;
-  if (source) where.source = source;
-  if (role) where.role = role;
-  if (resolved !== undefined) where.resolved = resolved === 'true';
-  if (search) where.message = { contains: search, mode: 'insensitive' };
-  if (from || to) {
-    where.createdAt = {
-      ...(from ? { gte: new Date(from) } : {}),
-      ...(to ? { lte: new Date(to) } : {}),
-    };
-  }
+  const where = buildErrorLogWhere({
+    platform, source, role, search, from, to,
+    resolved: resolved !== undefined ? resolved === 'true' : undefined,
+  });
 
   const [logs, total] = await Promise.all([
     prisma.errorLog.findMany({
@@ -101,14 +121,27 @@ export const resolveErrorLog = catchAsync(async (req: Request, res: Response) =>
   return apiResponse.success(res, resolved ? 'Marked resolved.' : 'Reopened.', log);
 });
 
-// PATCH /admin/error-logs/bulk-resolve — batch resolve/reopen (e.g. selecting every
-// occurrence of the same recurring error and clearing them in one action)
+// PATCH /admin/error-logs/bulk-resolve — batch resolve/reopen, either an explicit
+// page-scoped `ids` list, or `all: true` + the list view's current filters to sweep
+// every matching row (e.g. "select all 2,983 unresolved errors") without the client
+// ever having to fetch and ship every id.
 export const bulkResolveErrorLogs = catchAsync(async (req: Request, res: Response) => {
-  const { ids, resolved = true } = req.body as { ids: string[]; resolved?: boolean };
+  const {
+    ids, all, resolved = true,
+    platform, source, role, search, from, to, filterResolved,
+  } = req.body as {
+    ids?: string[]; all?: boolean; resolved?: boolean;
+    platform?: string; source?: string; role?: string; search?: string; from?: string; to?: string;
+    filterResolved?: boolean;
+  };
   const authReq = req as AuthRequest;
 
+  const where = all
+    ? buildErrorLogWhere({ platform, source, role, search, from, to, resolved: filterResolved })
+    : { id: { in: ids! } };
+
   const { count } = await prisma.errorLog.updateMany({
-    where: { id: { in: ids } },
+    where,
     data: {
       resolved,
       resolvedAt: resolved ? new Date() : null,
