@@ -28,21 +28,27 @@ function LoginContent() {
 
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    // Once the backend is confirmed online there's nothing left to watch for —
+    // re-polling every 5s for the lifetime of an open tab was hitting the API's
+    // rate limiter and flooding the error log. Only keep retrying while offline.
     const check = async () => {
       try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 4000);
         const res = await fetch(PING_URL, { signal: ctrl.signal });
-        if (!res.ok) throw new Error('offline');
         clearTimeout(timer);
-        if (!cancelled) setBackendOnline(true);
+        if (cancelled) return;
+        if (!res.ok) throw new Error('offline');
+        setBackendOnline(true);
       } catch {
-        if (!cancelled) setBackendOnline(false);
+        if (cancelled) return;
+        setBackendOnline(false);
+        retryTimer = setTimeout(check, 5000);
       }
     };
     check();
-    const id = setInterval(check, 5000);
-    return () => { cancelled = true; clearInterval(id); };
+    return () => { cancelled = true; clearTimeout(retryTimer); };
   }, []);
 
   const submit = async (e: React.FormEvent) => {
