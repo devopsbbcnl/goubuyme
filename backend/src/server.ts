@@ -104,7 +104,23 @@ app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+} else {
+  // nginx's access log is the other copy of this data, but it rotates on its own
+  // schedule and isn't always kept long enough (or readable without VPS access) to
+  // trace an intermittent caller after the fact. This app-level log rides winston's
+  // existing 30-day DailyRotateFile so `grep auth/login logs/combined-*.log` always
+  // has remote IP + User-Agent to point at, whether the caller is a real client, a
+  // manually-run script, or something unexpected.
+  morgan.token('remote-addr', (req: express.Request) => req.ip);
+  app.use(
+    morgan(
+      ':remote-addr :method :url :status :response-time ms - ":user-agent"',
+      { stream: { write: (line: string) => logger.info(line.trim(), { source: 'http' }) } },
+    ),
+  );
+}
 app.use(globalLimiter);
 app.use(maintenanceGuard);
 
