@@ -1,6 +1,6 @@
 import { Socket, Namespace } from 'socket.io';
 import prisma from '../config/db';
-import logger from '../utils/logger';
+import { recordError } from '../utils/recordError';
 
 export const setupRiderSocket = (socket: Socket, ns: Namespace): void => {
   socket.on('rider:join', ({ riderId }: { riderId: string }) => {
@@ -14,7 +14,7 @@ export const setupRiderSocket = (socket: Socket, ns: Namespace): void => {
         await prisma.rider.update({ where: { id: riderId }, data: { latitude, longitude } });
         ns.emit('rider:location', { riderId, lat: latitude, lng: longitude });
       } catch (err) {
-        logger.error('rider:updateLocation failed', err);
+        recordError('rider-socket', 'rider:updateLocation failed', err, { riderId });
       }
     },
   );

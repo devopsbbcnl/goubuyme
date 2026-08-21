@@ -1,5 +1,6 @@
 import prisma from '../config/db';
 import logger from '../utils/logger';
+import { recordError } from '../utils/recordError';
 import { PayoutStatus } from '@prisma/client';
 import { notifyUser } from './notification.service';
 import { initiateTransfer } from './paystack.service';
@@ -42,7 +43,7 @@ export const runPayoutBatch = async (): Promise<void> => {
       const { rider } = earnings[0];
 
       if (!rider.payoutAccount?.paystackRecipientCode) {
-        logger.warn(`Rider ${riderId} (${rider.user.name}) has no payout account — skipping`);
+        recordError('payout', `Rider ${rider.user.name} has no payout account — skipping`, undefined, { riderId });
         continue;
       }
 
@@ -84,7 +85,7 @@ export const runPayoutBatch = async (): Promise<void> => {
           data:  { batchId: batch.id, amount: totalNet },
         }).catch(() => {});
       } catch (err) {
-        logger.error(`Transfer failed for rider ${riderId}`, err);
+        recordError('payout', `Rider payout transfer failed for ${rider.user.name}`, err, { riderId, batchId: batch.id, amount: totalNet });
         await prisma.payoutBatch.update({
           where: { id: batch.id },
           data:  { status: PayoutStatus.FAILED, failureReason: 'Transfer initiation failed' },
@@ -114,7 +115,7 @@ export const runPayoutBatch = async (): Promise<void> => {
       const { vendor } = payouts[0];
 
       if (!vendor.payoutAccount?.paystackRecipientCode) {
-        logger.warn(`Vendor ${vendorId} (${vendor.businessName}) has no payout account — skipping`);
+        recordError('payout', `Vendor ${vendor.businessName} has no payout account — skipping`, undefined, { vendorId });
         continue;
       }
 
@@ -156,7 +157,7 @@ export const runPayoutBatch = async (): Promise<void> => {
           data:  { batchId: batch.id, amount: totalNet },
         }).catch(() => {});
       } catch (err) {
-        logger.error(`Transfer failed for vendor ${vendorId}`, err);
+        recordError('payout', `Vendor payout transfer failed for ${vendor.businessName}`, err, { vendorId, batchId: batch.id, amount: totalNet });
         await prisma.payoutBatch.update({
           where: { id: batch.id },
           data:  { status: PayoutStatus.FAILED, failureReason: 'Transfer initiation failed' },
@@ -174,6 +175,6 @@ export const runPayoutBatch = async (): Promise<void> => {
       logger.info('Payout batch completed');
     }
   } catch (err) {
-    logger.error('Payout batch failed', err);
+    recordError('payout', 'Payout batch failed', err);
   }
 };

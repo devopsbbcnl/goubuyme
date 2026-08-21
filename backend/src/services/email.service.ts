@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import logger from '../utils/logger';
+import { recordError } from '../utils/recordError';
 import { getPrimaryClientUrl } from '../utils/clientUrl';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -15,7 +16,7 @@ export const sendEmail = async (to: string, subject: string, html: string): Prom
     await resend.emails.send({ from: FROM, to, subject, html });
     logger.info(`Email sent to ${to}: ${subject}`);
   } catch (err) {
-    logger.error('Email send failed', err);
+    recordError('email', `Email send failed: ${subject}`, err, { to });
   }
 };
 

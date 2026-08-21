@@ -1,5 +1,6 @@
 import prisma from '../config/db';
 import logger from '../utils/logger';
+import { recordError } from '../utils/recordError';
 import { notifyUser } from './notification.service';
 
 // Two-sided reward: when the referred user's first order is paid, both the referrer and the
@@ -41,7 +42,7 @@ export const activateReferral = async (refereeId: string): Promise<void> => {
       type: 'referral',
     }).catch(() => {});
   } catch (err) {
-    logger.error('activateReferral failed', err);
+    recordError('referral', 'activateReferral failed', err, { refereeId });
   }
 };
 

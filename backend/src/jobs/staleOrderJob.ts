@@ -3,6 +3,7 @@ import prisma from '../config/db';
 import { releaseUnpaidOrder } from '../controllers/order.controller';
 import { OrderStatus, PaymentStatus, PaymentMethod } from '@prisma/client';
 import logger from '../utils/logger';
+import { recordError } from '../utils/recordError';
 
 // Safety net for the mobile/web checkout flow: if the app never reports back
 // (crash, dropped network, closed WebView) after a card/transfer order is
@@ -26,7 +27,7 @@ export const startStaleOrderJob = (): void => {
 
     for (const o of staleOrders) {
       await releaseUnpaidOrder(o.id, 'Payment not completed within time window').catch((err) =>
-        logger.error('Stale order release failed', err),
+        recordError('stale-order-job', 'Stale order release failed', err, { orderId: o.id }),
       );
     }
     if (staleOrders.length) {
