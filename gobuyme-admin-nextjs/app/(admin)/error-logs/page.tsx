@@ -72,6 +72,7 @@ export default function ErrorLogsPage() {
   const [platform, setPlatform] = useState<'ALL' | Platform>('ALL');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
   const [logs, setLogs] = useState<ErrorLogEntry[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,10 +81,13 @@ export default function ErrorLogsPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  // True once the user explicitly opts into "select all N matching errors" — as
+  // opposed to `selected`, which only ever holds ids for the current page.
+  const [selectAllMatching, setSelectAllMatching] = useState(false);
 
   const fetchLogs = useCallback(() => {
     setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: '20' });
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (resolvedFilter !== 'ALL') params.set('resolved', String(resolvedFilter === 'RESOLVED'));
     if (platform !== 'ALL') params.set('platform', platform);
     if (search) params.set('search', search);
@@ -91,14 +95,15 @@ export default function ErrorLogsPage() {
       .then(res => { setLogs(res.data); setPagination(res.pagination); })
       .catch(() => { setLogs([]); setPagination(null); })
       .finally(() => setLoading(false));
-  }, [resolvedFilter, platform, search, page]);
+  }, [resolvedFilter, platform, search, page, limit]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
   // Selection is page-scoped — clear it whenever the underlying list changes so a stale
   // checked id from a previous page/filter can never ride along into a bulk action.
-  useEffect(() => { setSelected(new Set()); }, [logs]);
+  useEffect(() => { setSelected(new Set()); setSelectAllMatching(false); }, [logs]);
 
   const toggleSelected = (id: string) => {
+    setSelectAllMatching(false);
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -108,10 +113,30 @@ export default function ErrorLogsPage() {
 
   const allSelected = logs.length > 0 && selected.size === logs.length;
   const toggleSelectAll = () => {
+    setSelectAllMatching(false);
     setSelected(allSelected ? new Set() : new Set(logs.map(l => l.id)));
   };
 
   const bulkResolve = async (resolved: boolean) => {
+    if (selectAllMatching) {
+      setBulkUpdating(true);
+      try {
+        await api.patch('/admin/error-logs/bulk-resolve', {
+          all: true,
+          resolved,
+          ...(platform !== 'ALL' ? { platform } : {}),
+          ...(search ? { search } : {}),
+          ...(resolvedFilter !== 'ALL' ? { filterResolved: resolvedFilter === 'RESOLVED' } : {}),
+        });
+        setSelected(new Set());
+        setSelectAllMatching(false);
+        setPage(1);
+        fetchLogs();
+      } finally {
+        setBulkUpdating(false);
+      }
+      return;
+    }
     if (selected.size === 0) return;
     setBulkUpdating(true);
     try {
@@ -187,14 +212,39 @@ export default function ErrorLogsPage() {
           onChange={e => { setSearch(e.target.value); setPage(1); }}
           style={{ background: T.surface, color: T.text, border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 10px', fontSize: 13, flex: 1, minWidth: 180 }}
         />
+
+        <select
+          value={limit}
+          onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}
+          style={{ background: T.surface, color: T.text, border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 10px', fontSize: 13 }}
+        >
+          <option value={20}>20 / page</option>
+          <option value={50}>50 / page</option>
+          <option value={100}>100 / page</option>
+        </select>
       </div>
 
-      {selected.size > 0 && (
+      {allSelected && !selectAllMatching && pagination && pagination.total > logs.length && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',
+          background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4, fontSize: 12, color: T.textSec,
+        }}>
+          <span>All {logs.length} errors on this page are selected.</span>
+          <button
+            onClick={() => setSelectAllMatching(true)}
+            style={{ fontSize: 12, fontWeight: 700, color: T.primary, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+          >Select all {pagination.total} matching errors</button>
+        </div>
+      )}
+
+      {(selected.size > 0 || selectAllMatching) && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
           background: T.primaryTint, border: `1px solid ${T.primary}`, borderRadius: 4,
         }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: T.primary }}>{selected.size} selected</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: T.primary }}>
+            {selectAllMatching ? `All ${pagination?.total ?? selected.size} matching errors selected` : `${selected.size} selected`}
+          </span>
           <div style={{ flex: 1 }} />
           <button
             onClick={() => bulkResolve(true)}
@@ -213,7 +263,7 @@ export default function ErrorLogsPage() {
             }}
           >Reopen</button>
           <button
-            onClick={() => setSelected(new Set())}
+            onClick={() => { setSelected(new Set()); setSelectAllMatching(false); }}
             disabled={bulkUpdating}
             style={{
               fontSize: 12, fontWeight: 700, color: T.textSec, background: 'transparent', border: 'none',
