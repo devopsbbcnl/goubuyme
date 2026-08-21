@@ -117,6 +117,10 @@ export default function ErrorLogsPage() {
     setSelected(allSelected ? new Set() : new Set(logs.map(l => l.id)));
   };
 
+  // Sidebar's error-log badge fetches its own count once on mount — nudge it to
+  // refetch after any action here instead of making the user reload the page.
+  const notifyPendingCountsChanged = () => window.dispatchEvent(new Event('gbm:pending-counts-updated'));
+
   const bulkResolve = async (resolved: boolean) => {
     if (selectAllMatching) {
       setBulkUpdating(true);
@@ -132,6 +136,7 @@ export default function ErrorLogsPage() {
         setSelectAllMatching(false);
         setPage(1);
         fetchLogs();
+        notifyPendingCountsChanged();
       } finally {
         setBulkUpdating(false);
       }
@@ -143,6 +148,7 @@ export default function ErrorLogsPage() {
       await api.patch('/admin/error-logs/bulk-resolve', { ids: Array.from(selected), resolved });
       setSelected(new Set());
       fetchLogs();
+      notifyPendingCountsChanged();
     } finally {
       setBulkUpdating(false);
     }
@@ -164,6 +170,7 @@ export default function ErrorLogsPage() {
     try {
       await api.patch(`/admin/error-logs/${log.id}/resolve`, { resolved: !log.resolved });
       fetchLogs();
+      notifyPendingCountsChanged();
     } finally {
       setUpdating(null);
     }

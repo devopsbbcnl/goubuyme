@@ -52,21 +52,29 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
   const [pending, setPending] = useState<{ vendors: number; riders: number; errorLogs: number }>({ vendors: 0, riders: 0, errorLogs: 0 });
 
   useEffect(() => {
-    Promise.allSettled([
-      api.get<{ data: Array<{ approvalStatus: string }> }>('/admin/vendors?status=PENDING&limit=200'),
-      api.get<{ data: Array<{ approvalStatus: string }> }>('/admin/riders?status=PENDING&limit=200'),
-      api.get<{ pagination: { total: number } }>('/admin/error-logs?resolved=false&limit=1'),
-    ]).then(([vRes, rRes, eRes]) => {
-      setPending({
-        vendors: vRes.status === 'fulfilled'
-          ? vRes.value.data.filter(v => v.approvalStatus === 'PENDING').length
-          : 0,
-        riders: rRes.status === 'fulfilled'
-          ? rRes.value.data.filter(r => r.approvalStatus === 'PENDING').length
-          : 0,
-        errorLogs: eRes.status === 'fulfilled' ? eRes.value.pagination.total : 0,
+    const loadPendingCounts = () => {
+      Promise.allSettled([
+        api.get<{ data: Array<{ approvalStatus: string }> }>('/admin/vendors?status=PENDING&limit=200'),
+        api.get<{ data: Array<{ approvalStatus: string }> }>('/admin/riders?status=PENDING&limit=200'),
+        api.get<{ pagination: { total: number } }>('/admin/error-logs?resolved=false&limit=1'),
+      ]).then(([vRes, rRes, eRes]) => {
+        setPending({
+          vendors: vRes.status === 'fulfilled'
+            ? vRes.value.data.filter(v => v.approvalStatus === 'PENDING').length
+            : 0,
+          riders: rRes.status === 'fulfilled'
+            ? rRes.value.data.filter(r => r.approvalStatus === 'PENDING').length
+            : 0,
+          errorLogs: eRes.status === 'fulfilled' ? eRes.value.pagination.total : 0,
+        });
       });
-    });
+    };
+
+    loadPendingCounts();
+    // Pages that mutate one of these counts (e.g. resolving an error log) dispatch
+    // this instead of forcing a full page reload just to refresh the sidebar badge.
+    window.addEventListener('gbm:pending-counts-updated', loadPendingCounts);
+    return () => window.removeEventListener('gbm:pending-counts-updated', loadPendingCounts);
   }, []);
 
   const userRole = user?.role ?? 'SUPPORT_ADMIN';
