@@ -78,6 +78,8 @@ export default function ErrorLogsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const fetchLogs = useCallback(() => {
     setLoading(true);
@@ -92,6 +94,34 @@ export default function ErrorLogsPage() {
   }, [resolvedFilter, platform, search, page]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
+  // Selection is page-scoped — clear it whenever the underlying list changes so a stale
+  // checked id from a previous page/filter can never ride along into a bulk action.
+  useEffect(() => { setSelected(new Set()); }, [logs]);
+
+  const toggleSelected = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected = logs.length > 0 && selected.size === logs.length;
+  const toggleSelectAll = () => {
+    setSelected(allSelected ? new Set() : new Set(logs.map(l => l.id)));
+  };
+
+  const bulkResolve = async (resolved: boolean) => {
+    if (selected.size === 0) return;
+    setBulkUpdating(true);
+    try {
+      await api.patch('/admin/error-logs/bulk-resolve', { ids: Array.from(selected), resolved });
+      setSelected(new Set());
+      fetchLogs();
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
 
   const copyLog = async (e: MouseEvent, log: ErrorLogEntry) => {
     e.stopPropagation();
@@ -159,12 +189,57 @@ export default function ErrorLogsPage() {
         />
       </div>
 
+      {selected.size > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
+          background: T.primaryTint, border: `1px solid ${T.primary}`, borderRadius: 4,
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: T.primary }}>{selected.size} selected</span>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={() => bulkResolve(true)}
+            disabled={bulkUpdating}
+            style={{
+              fontSize: 12, fontWeight: 700, color: '#fff', background: T.primary, border: 'none',
+              borderRadius: 4, padding: '6px 12px', cursor: bulkUpdating ? 'default' : 'pointer', opacity: bulkUpdating ? 0.6 : 1,
+            }}
+          >Mark resolved</button>
+          <button
+            onClick={() => bulkResolve(false)}
+            disabled={bulkUpdating}
+            style={{
+              fontSize: 12, fontWeight: 700, color: T.text, background: T.surface, border: `1px solid ${T.border}`,
+              borderRadius: 4, padding: '6px 12px', cursor: bulkUpdating ? 'default' : 'pointer', opacity: bulkUpdating ? 0.6 : 1,
+            }}
+          >Reopen</button>
+          <button
+            onClick={() => setSelected(new Set())}
+            disabled={bulkUpdating}
+            style={{
+              fontSize: 12, fontWeight: 700, color: T.textSec, background: 'transparent', border: 'none',
+              cursor: bulkUpdating ? 'default' : 'pointer',
+            }}
+          >Clear</button>
+        </div>
+      )}
+
       <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden' }}>
         {loading ? (
           <div style={{ padding: '32px 20px', textAlign: 'center', fontSize: 13, color: T.textSec }}>Loading…</div>
         ) : logs.length === 0 ? (
           <div style={{ padding: '32px 20px', textAlign: 'center', fontSize: 13, color: T.textSec }}>No error logs found.</div>
-        ) : logs.map((log, i) => {
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${T.border}` }}>
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleSelectAll}
+                style={{ width: 15, height: 15, cursor: 'pointer', flexShrink: 0 }}
+              />
+              <span style={{ fontSize: 11, fontWeight: 700, color: T.textSec }}>Select all on page</span>
+            </div>
+            {logs.map((log, i) => {
           const { color, bg } = resolvedColor(log.resolved, T);
           const isOpen = expanded === log.id;
           return (
@@ -173,6 +248,13 @@ export default function ErrorLogsPage() {
                 onClick={() => setExpanded(isOpen ? null : log.id)}
                 style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 20px', cursor: 'pointer' }}
               >
+                <input
+                  type="checkbox"
+                  checked={selected.has(log.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => toggleSelected(log.id)}
+                  style={{ width: 15, height: 15, cursor: 'pointer', flexShrink: 0, marginTop: 2 }}
+                />
                 <span style={{
                   fontSize: 11, fontWeight: 700, color, background: bg,
                   borderRadius: 4, padding: '2px 8px', whiteSpace: 'nowrap', flexShrink: 0, marginTop: 1,
@@ -239,7 +321,9 @@ export default function ErrorLogsPage() {
               </div>
             </div>
           );
-        })}
+            })}
+          </>
+        )}
       </div>
 
       {pagination && pagination.totalPages > 1 && (

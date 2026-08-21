@@ -74,7 +74,6 @@ function AppContent() {
       <Stack.Screen name="register" />
       <Stack.Screen name="verify-otp" />
       <Stack.Screen name="register-success" />
-      <Stack.Screen name="account-not-active" />
       <Stack.Screen name="(customer)" />
       <Stack.Screen name="(vendor)" />
       <Stack.Screen name="(rider)" />

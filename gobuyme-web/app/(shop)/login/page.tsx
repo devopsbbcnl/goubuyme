@@ -60,7 +60,7 @@ function LoginContent() {
       });
       toast('Welcome back!', 'success');
       const role = d.user.role?.toLowerCase();
-      if (role === 'vendor') router.replace(await resolveVendorRoute(d.user.approvalStatus));
+      if (role === 'vendor') router.replace(await resolveVendorRoute());
       else if (role === 'rider') router.replace('/rider');
       else router.replace(next);
     } catch (e: any) {

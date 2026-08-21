@@ -113,18 +113,9 @@ export default function LoginScreen() {
             return;
           }
         } catch {
-          // if vendor profile check fails, fall through to approval status check
-        }
-        if (user.approvalStatus !== 'APPROVED') {
-          router.replace({ pathname: '/account-not-active', params: { role } } as never);
-          return;
+          // if vendor profile check fails, fall through to dashboard
         }
         router.replace('/(vendor)' as never);
-        return;
-      }
-
-      if (role === 'rider' && user.approvalStatus !== 'APPROVED') {
-        router.replace({ pathname: '/account-not-active', params: { role } } as never);
         return;
       }
 

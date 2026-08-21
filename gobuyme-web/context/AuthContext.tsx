@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
 
         // /auth/me doesn't include approvalStatus (only /auth/login computes it) —
-        // for vendors/riders, fetch it the same way account-not-active already does.
+        // fetch it separately for vendors/riders so the dashboard banner stays accurate.
         if (base.role === 'vendor' || base.role === 'rider') {
           try {
             const { data } = await api.get('/auth/activation-status');

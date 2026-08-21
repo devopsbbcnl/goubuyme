@@ -231,7 +231,7 @@ export default function VendorCompleteProfilePage() {
       const { data } = await api.get('/auth/activation-status');
       const { approvalStatus } = data.data;
       updateUser({ approvalStatus });
-      router.replace(approvalStatus === 'APPROVED' ? '/vendor' : '/account-not-active');
+      router.replace('/vendor');
     } catch (e: any) {
       toast(e?.response?.data?.message ?? 'Could not save your profile. Please try again.', 'error');
     } finally {

@@ -1,55 +1,42 @@
-import { Tabs, router } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { AppState, StatusBar } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
+import { ApprovalBanner } from '@/components/ui/ApprovalBanner';
 
 export default function RiderLayout() {
   const { user, updateApprovalStatus } = useAuth();
   const { theme: T } = useTheme();
   const insets = useSafeAreaInsets();
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (!user) return;
 
-    const checkApproval = () => {
+    const refreshApproval = () => {
       api.get('/auth/activation-status')
         .then(res => {
           const { approvalStatus } = res.data.data;
           if (approvalStatus !== user.approvalStatus) updateApprovalStatus(approvalStatus);
-          if (approvalStatus !== 'APPROVED') {
-            router.replace({ pathname: '/account-not-active', params: { role: 'rider' } } as never);
-          } else {
-            setReady(true);
-          }
         })
-        .catch(() => {
-          // Network failed — fall back to cached status rather than failing open
-          if (user.approvalStatus === 'APPROVED') {
-            setReady(true);
-          } else {
-            router.replace({ pathname: '/account-not-active', params: { role: 'rider' } } as never);
-          }
-        });
+        .catch(() => {});
     };
 
-    checkApproval();
+    refreshApproval();
 
     const sub = AppState.addEventListener('change', state => {
-      if (state === 'active') checkApproval();
+      if (state === 'active') refreshApproval();
     });
     return () => sub.remove();
   }, [user?.id]);
 
-  if (!ready) return null;
-
   return (
     <>
       <StatusBar translucent backgroundColor="transparent" />
+      {user?.approvalStatus !== 'APPROVED' && <ApprovalBanner role="rider" />}
       <Tabs
         screenOptions={{
           headerShown: false,
