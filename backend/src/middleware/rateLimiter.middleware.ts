@@ -133,3 +133,20 @@ export const geocodeLimiter = rateLimit({
   skip: skipOutsideProduction,
   handler: rateLimitHandler('Too many address lookups. Please try again later.'),
 });
+
+// /api/v1/settings/public is near-static config (delivery fee, radius, etc.) read by
+// every unauthenticated visitor — web login/register screens, mobile app boot — often
+// several distinct real users behind one shared carrier NAT IP in markets with heavy
+// CGNAT (common in Nigeria). Sharing globalLimiter's 100-req/15min bucket with sensitive
+// auth/payment routes meant one busy NAT gateway or a slow client could exhaust the
+// whole app's quota for every other route too. This endpoint alone gets a far more
+// generous, dedicated bucket instead.
+export const publicSettingsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: sharedStore('rl:settings-public:'),
+  skip: skipOutsideProduction,
+  handler: rateLimitHandler('Too many requests. Please try again later.'),
+});
