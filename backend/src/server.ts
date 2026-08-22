@@ -35,7 +35,7 @@ import { startPayoutJob } from './jobs/payoutJob';
 import { startStoreHoursJob } from './jobs/storeHoursJob';
 import { startStaleOrderJob } from './jobs/staleOrderJob';
 import { errorHandler } from './middleware/error.middleware';
-import { globalLimiter } from './middleware/rateLimiter.middleware';
+import { globalLimiter, publicSettingsLimiter } from './middleware/rateLimiter.middleware';
 import { maintenanceGuard } from './middleware/maintenance.middleware';
 import authRoutes from './routes/auth.routes';
 import vendorRoutes from './routes/vendor.routes';
@@ -124,6 +124,29 @@ if (process.env.NODE_ENV === 'development') {
     ),
   );
 }
+// Registered ahead of globalLimiter with its own generous, dedicated limiter (see
+// rateLimiter.middleware.ts) instead of sharing the 100-req/15min bucket meant for
+// auth/payment routes — this is near-static public config hit by every unauthenticated
+// visitor (web login/register, mobile boot), often several real users behind one
+// shared carrier NAT IP. Cache-Control lets browsers/CDN skip re-fetching entirely.
+app.get('/api/v1/settings/public', publicSettingsLimiter, async (_req, res) => {
+  try {
+    const settings = await (await import('./services/settings.service')).getPlatformSettings();
+    res.set('Cache-Control', 'public, max-age=60');
+    return res.json({
+      success: true,
+      data: {
+        deliveryBaseFee: settings.deliveryBaseFee,
+        deliveryPerKmRate: settings.deliveryPerKmRate,
+        deliveryMaxFee: settings.deliveryMaxFee,
+        maxDeliveryRadiusKm: settings.maxDeliveryRadiusKm,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to fetch settings' });
+  }
+});
+
 app.use(globalLimiter);
 app.use(maintenanceGuard);
 
@@ -140,24 +163,6 @@ app.use('/api/v1/support', supportRoutes);
 app.use('/api/v1/messages', messageRoutes);
 app.use('/api/v1/geocode', geocodeRoutes);
 app.use('/api/v1/errors', errorLogRoutes);
-
-// Public endpoint for mobile apps to fetch delivery fee settings
-app.get('/api/v1/settings/public', async (_req, res) => {
-  try {
-    const settings = await (await import('./services/settings.service')).getPlatformSettings();
-    return res.json({
-      success: true,
-      data: {
-        deliveryBaseFee: settings.deliveryBaseFee,
-        deliveryPerKmRate: settings.deliveryPerKmRate,
-        deliveryMaxFee: settings.deliveryMaxFee,
-        maxDeliveryRadiusKm: settings.maxDeliveryRadiusKm,
-      },
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: 'Failed to fetch settings' });
-  }
-});
 
 app.get('/health', cors({ origin: '*' }), async (_req, res) => {
   try {
