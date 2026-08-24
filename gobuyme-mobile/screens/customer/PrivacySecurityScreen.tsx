@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 import MfaCodeModal from '@/components/MfaCodeModal';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 export default function PrivacySecurityScreen() {
 	const { theme: T } = useTheme();
@@ -377,6 +378,7 @@ export default function PrivacySecurityScreen() {
 			{/* Change Password Modal */}
 			<Modal visible={pwModal} animationType="slide" transparent>
 				<View style={styles.modalBackdrop}>
+					<KeyboardAvoidingWrapper style={{ flex: undefined, maxHeight: '88%' }}>
 					<View style={[styles.modalSheet, { backgroundColor: T.surface }]}>
 						<View style={styles.modalHeader}>
 							<Text style={[styles.modalTitle, { color: T.text }]}>
@@ -386,6 +388,11 @@ export default function PrivacySecurityScreen() {
 								<Ionicons name="close" size={22} color={T.textSec} />
 							</TouchableOpacity>
 						</View>
+						<ScrollView
+							keyboardShouldPersistTaps="handled"
+							showsVerticalScrollIndicator={false}
+							contentContainerStyle={styles.modalScrollContent}
+						>
 
 						{mfaEnabled ? (
 							<View style={[styles.pwMfaBadge, { backgroundColor: '#1A9E5F18', borderColor: '#1A9E5F40' }]}>
@@ -447,7 +454,9 @@ export default function PrivacySecurityScreen() {
 								</Text>
 							)}
 						</TouchableOpacity>
+						</ScrollView>
 					</View>
+					</KeyboardAvoidingWrapper>
 				</View>
 			</Modal>
 
@@ -595,9 +604,12 @@ const styles = StyleSheet.create({
 	modalSheet: {
 		borderTopLeftRadius: 16,
 		borderTopRightRadius: 16,
-		padding: 24,
-		paddingBottom: 40,
+		paddingHorizontal: 24,
+		paddingTop: 24,
+	},
+	modalScrollContent: {
 		gap: 14,
+		paddingBottom: 40,
 	},
 	modalHeader: {
 		flexDirection: 'row',

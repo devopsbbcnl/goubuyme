@@ -361,7 +361,7 @@ export default function SavedAddressesScreen() {
 			{/* Add/Edit modal */}
 			<Modal visible={modalVisible} animationType="slide" transparent>
 				<View style={styles.modalBackdrop}>
-					<KeyboardAvoidingWrapper style={{ flex: undefined }}>
+					<KeyboardAvoidingWrapper style={{ flex: undefined, maxHeight: '88%' }}>
 					<View style={[styles.modalSheet, { backgroundColor: T.surface }]}>
 						<View style={styles.modalHeader}>
 							<Text style={[styles.modalTitle, { color: T.text }]}>
@@ -371,6 +371,11 @@ export default function SavedAddressesScreen() {
 								<Ionicons name="close" size={22} color={T.textSec} />
 							</TouchableOpacity>
 						</View>
+						<ScrollView
+							keyboardShouldPersistTaps="handled"
+							showsVerticalScrollIndicator={false}
+							contentContainerStyle={styles.modalScrollContent}
+						>
 
 						{/* Type picker */}
 						<Text style={[styles.fLabel, { color: T.textSec }]}>Type</Text>
@@ -548,6 +553,7 @@ export default function SavedAddressesScreen() {
 								{saving ? 'Saving...' : 'Save Address'}
 							</Text>
 						</TouchableOpacity>
+						</ScrollView>
 					</View>
 					</KeyboardAvoidingWrapper>
 				</View>
@@ -636,9 +642,12 @@ const styles = StyleSheet.create({
 	modalSheet: {
 		borderTopLeftRadius: 16,
 		borderTopRightRadius: 16,
-		padding: 24,
-		paddingBottom: 40,
+		paddingHorizontal: 24,
+		paddingTop: 24,
+	},
+	modalScrollContent: {
 		gap: 12,
+		paddingBottom: 40,
 	},
 	modalHeader: {
 		flexDirection: 'row',
