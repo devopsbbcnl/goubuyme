@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
@@ -88,6 +89,8 @@ const LICENSE_LABELS: Record<LicenseType, string> = {
 
 export default function VendorsPage() {
   const { theme: T } = useTheme();
+  const { user } = useAuth();
+  const canDelete = user?.role === 'SUPER_ADMIN';
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -282,7 +285,7 @@ export default function VendorsPage() {
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         title="Delete Vendor"
-        message="This action will permanently delete the vendor account and all associated data. This cannot be undone."
+        message="This will deactivate the vendor's account. Historical orders and payout records are retained."
         itemName={deleteVendorName}
         onConfirm={deleteVendorHandler}
         isLoading={deleteLoading}
@@ -402,7 +405,9 @@ export default function VendorsPage() {
                       {(v.approvalStatus === 'SUSPENDED' || v.approvalStatus === 'REJECTED') && (
                         <button onClick={() => setStatus(v.id, 'APPROVED')} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: T.primary, color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Reinstate</button>
                       )}
-                      <button onClick={() => openDeleteModal(v.id, v.businessName)} style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Delete</button>
+                      {canDelete && (
+                        <button onClick={() => openDeleteModal(v.id, v.businessName)} style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Delete</button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -764,7 +769,9 @@ export default function VendorsPage() {
                 {(detail.approvalStatus === 'SUSPENDED' || detail.approvalStatus === 'REJECTED') && (
                   <ActionButton label="Reinstate Account" color={T.primary} textColor="#fff" onClick={() => setStatus(detail.id, 'APPROVED')} />
                 )}
-                <ActionButton label="Delete Account" color="none" border={T.error} textColor={T.error} onClick={() => openDeleteModal(detail.id, detail.businessName)} />
+                {canDelete && (
+                  <ActionButton label="Delete Account" color="none" border={T.error} textColor={T.error} onClick={() => openDeleteModal(detail.id, detail.businessName)} />
+                )}
                 <div style={{ flex: 1 }} />
                 <ActionButton
                   label={catSaving ? 'Updating…' : 'Update Profile'}

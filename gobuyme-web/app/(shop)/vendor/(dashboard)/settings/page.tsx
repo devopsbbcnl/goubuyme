@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 import { useCommissionRates } from '@/hooks/useCommissionRates';
+import DeleteAccountModal from '@/components/ui/DeleteAccountModal';
 
 // ── Nigerian bank list ─────────────────────────────────────────────────────────
 
@@ -634,6 +635,7 @@ function PayoutAccountSection() {
 function DangerZone() {
   const { logout } = useAuth();
   const [confirming, setConfirming] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   return (
     <Section title="Danger Zone">
@@ -649,6 +651,16 @@ function DangerZone() {
           <button className="btn btn-danger btn-sm" onClick={logout}>Yes, sign out</button>
         </div>
       )}
+
+      <div className="divider" style={{ margin: '16px 0' }} />
+      <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+        Deleting your account deactivates your vendor profile and revokes access immediately.
+      </p>
+      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => setShowDeleteModal(true)}>
+        Delete My Account
+      </button>
+
+      <DeleteAccountModal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} />
     </Section>
   );
 }

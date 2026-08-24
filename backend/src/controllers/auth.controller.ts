@@ -13,7 +13,7 @@ import {
 import { sendPasswordResetEmail, sendOtpEmail, sendWelcomeEmail } from '../services/email.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { Role, CommissionTier, VendorCategory } from '@prisma/client';
+import { Role, CommissionTier, VendorCategory, OrderStatus } from '@prisma/client';
 import { recordError } from '../utils/recordError';
 
 const SALT_ROUNDS = 12;
@@ -474,6 +474,81 @@ export const changePassword = catchAsync(async (req: AuthRequest, res: Response)
   ]);
 
   return apiResponse.success(res, 'Password changed successfully.');
+});
+
+const TERMINAL_ORDER_STATUSES: OrderStatus[] = ['DELIVERED', 'CANCELLED'];
+
+export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { password } = req.body as { password: string };
+  const { userId, role } = req.user!;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, phone: true, password: true },
+  });
+  if (!user || !user.password) return apiResponse.error(res, 'User not found.', 404);
+
+  const valid = await bcrypt.compare(password, user.password);
+  if (!valid) return apiResponse.error(res, 'Incorrect password.', 401);
+
+  let domainId: string | undefined;
+  let orderWhere: Record<string, string> | undefined;
+  let entity: 'Customer' | 'Vendor' | 'Rider' | undefined;
+
+  if (role === 'CUSTOMER') {
+    const customer = await prisma.customer.findUnique({ where: { userId }, select: { id: true } });
+    if (customer) { domainId = customer.id; orderWhere = { customerId: customer.id }; entity = 'Customer'; }
+  } else if (role === 'VENDOR') {
+    const vendor = await prisma.vendor.findUnique({ where: { userId }, select: { id: true } });
+    if (vendor) { domainId = vendor.id; orderWhere = { vendorId: vendor.id }; entity = 'Vendor'; }
+  } else if (role === 'RIDER') {
+    const rider = await prisma.rider.findUnique({ where: { userId }, select: { id: true } });
+    if (rider) { domainId = rider.id; orderWhere = { riderId: rider.id }; entity = 'Rider'; }
+  }
+
+  if (orderWhere) {
+    const activeOrder = await prisma.order.findFirst({
+      where: { ...orderWhere, status: { notIn: TERMINAL_ORDER_STATUSES } },
+    });
+    if (activeOrder) {
+      return apiResponse.error(res, 'This account has an order in progress and cannot be deleted yet.', 409);
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        isActive: false,
+        deletedAt: new Date(),
+        email: `deleted-${user.id}@deleted.gobuyme.local`,
+        phone: null,
+        refreshToken: null,
+        pushToken: null,
+      },
+    });
+
+    // Vendor/rider public-facing queries filter on approvalStatus === APPROVED,
+    // so suspending here removes them from customer-facing discovery without
+    // touching every one of those query sites individually.
+    if (role === 'VENDOR' && domainId) {
+      await tx.vendor.update({ where: { id: domainId }, data: { approvalStatus: 'SUSPENDED' } });
+    } else if (role === 'RIDER' && domainId) {
+      await tx.rider.update({ where: { id: domainId }, data: { approvalStatus: 'SUSPENDED' } });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        action: `${role}_SELF_DELETED`,
+        entity: entity ?? 'User',
+        entityId: domainId ?? user.id,
+        meta: { originalEmail: user.email, originalPhone: user.phone },
+      },
+    });
+  });
+
+  return apiResponse.success(res, 'Account deleted.');
 });
 
 export const resetPassword = catchAsync(async (req: Request, res: Response) => {

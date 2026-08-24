@@ -153,7 +153,7 @@ export const getAdminVendors = catchAsync(async (req: Request, res: Response) =>
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, parseInt(limit));
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { user: { deletedAt: null } };
   if (status && status !== 'ALL') where.approvalStatus = status as ApprovalStatus;
   if (category && category !== '') where.category = category as VendorCategory;
   if (search) where.businessName = { contains: search, mode: 'insensitive' };
@@ -251,7 +251,9 @@ export const getAdminRiders = catchAsync(async (req: Request, res: Response) => 
 
   const where: Record<string, unknown> = {};
   if (status && status !== 'ALL') where.approvalStatus = status as ApprovalStatus;
-  if (search) where.user = { name: { contains: search, mode: 'insensitive' } };
+  where.user = search
+    ? { name: { contains: search, mode: 'insensitive' }, deletedAt: null }
+    : { deletedAt: null };
 
   const [riders, total] = await Promise.all([
     prisma.rider.findMany({
@@ -387,7 +389,7 @@ export const getAdminCustomers = catchAsync(async (req: Request, res: Response) 
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, parseInt(limit));
 
-  const userWhere: Record<string, unknown> = {};
+  const userWhere: Record<string, unknown> = { deletedAt: null };
   if (search) {
     userWhere.OR = [
       { name: { contains: search, mode: 'insensitive' } },
@@ -398,7 +400,7 @@ export const getAdminCustomers = catchAsync(async (req: Request, res: Response) 
   if (isActive !== undefined && isActive !== '') {
     userWhere.isActive = isActive === 'true';
   }
-  const where: Record<string, unknown> = Object.keys(userWhere).length > 0 ? { user: userWhere } : {};
+  const where: Record<string, unknown> = { user: userWhere };
 
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({
@@ -1625,28 +1627,65 @@ export const adminCreateRider = catchAsync(async (req: AuthRequest, res: Respons
   return apiResponse.success(res, 'Rider account created successfully.', result, 201);
 });
 
+const TERMINAL_ORDER_STATUSES: OrderStatus[] = ['DELIVERED', 'CANCELLED'];
+
+async function softDeleteUser(
+  tx: Prisma.TransactionClient,
+  actorUserId: string,
+  target: { userId: string; email: string; phone: string | null },
+  entity: 'Customer' | 'Vendor' | 'Rider',
+  entityId: string,
+  action: string,
+  extraMeta: Record<string, unknown> = {},
+) {
+  await tx.user.update({
+    where: { id: target.userId },
+    data: {
+      isActive: false,
+      deletedAt: new Date(),
+      email: `deleted-${target.userId}@deleted.gobuyme.local`,
+      phone: null,
+      refreshToken: null,
+      pushToken: null,
+    },
+  });
+
+  await tx.auditLog.create({
+    data: {
+      userId: actorUserId,
+      action,
+      entity,
+      entityId,
+      meta: { originalEmail: target.email, originalPhone: target.phone, ...extraMeta },
+    },
+  });
+}
+
 // DELETE /admin/vendors/:id
 export const deleteVendor = catchAsync(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
   const vendor = await prisma.vendor.findUnique({
     where: { id },
-    select: { id: true, businessName: true, userId: true },
+    select: { id: true, businessName: true, userId: true, user: { select: { email: true, phone: true } } },
   });
 
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
+  const activeOrder = await prisma.order.findFirst({
+    where: { vendorId: vendor.id, status: { notIn: TERMINAL_ORDER_STATUSES } },
+  });
+  if (activeOrder) {
+    return apiResponse.error(res, 'This vendor has an order in progress and cannot be deleted yet.', 409);
+  }
+
   await prisma.$transaction(async (tx) => {
-    await tx.user.delete({ where: { id: vendor.userId } });
-    await tx.auditLog.create({
-      data: {
-        userId: req.user!.userId,
-        action: 'VENDOR_DELETED',
-        entity: 'Vendor',
-        entityId: id,
-        meta: { businessName: vendor.businessName },
-      },
-    });
+    await softDeleteUser(
+      tx, req.user!.userId,
+      { userId: vendor.userId, email: vendor.user.email, phone: vendor.user.phone },
+      'Vendor', id, 'VENDOR_ADMIN_DELETED', { businessName: vendor.businessName },
+    );
+    await tx.vendor.update({ where: { id: vendor.id }, data: { approvalStatus: 'SUSPENDED' } });
   });
 
   return apiResponse.success(res, 'Vendor deleted successfully.', { id, businessName: vendor.businessName });
@@ -1658,25 +1697,57 @@ export const deleteCustomer = catchAsync(async (req: AuthRequest, res: Response)
 
   const customer = await prisma.customer.findUnique({
     where: { id },
-    select: { id: true, userId: true, user: { select: { name: true, email: true } } },
+    select: { id: true, userId: true, user: { select: { name: true, email: true, phone: true } } },
   });
 
   if (!customer) return apiResponse.error(res, 'Customer not found.', 404);
 
+  const activeOrder = await prisma.order.findFirst({
+    where: { customerId: customer.id, status: { notIn: TERMINAL_ORDER_STATUSES } },
+  });
+  if (activeOrder) {
+    return apiResponse.error(res, 'This customer has an order in progress and cannot be deleted yet.', 409);
+  }
+
   await prisma.$transaction(async (tx) => {
-    await tx.user.delete({ where: { id: customer.userId } });
-    await tx.auditLog.create({
-      data: {
-        userId: req.user!.userId,
-        action: 'CUSTOMER_DELETED',
-        entity: 'Customer',
-        entityId: id,
-        meta: { customerName: customer.user.name, email: customer.user.email },
-      },
-    });
+    await softDeleteUser(
+      tx, req.user!.userId,
+      { userId: customer.userId, email: customer.user.email, phone: customer.user.phone },
+      'Customer', id, 'CUSTOMER_ADMIN_DELETED', { customerName: customer.user.name },
+    );
   });
 
   return apiResponse.success(res, 'Customer deleted successfully.', { id, name: customer.user.name });
+});
+
+// DELETE /admin/riders/:id
+export const deleteRider = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+
+  const rider = await prisma.rider.findUnique({
+    where: { id },
+    select: { id: true, userId: true, user: { select: { name: true, email: true, phone: true } } },
+  });
+
+  if (!rider) return apiResponse.error(res, 'Rider not found.', 404);
+
+  const activeOrder = await prisma.order.findFirst({
+    where: { riderId: rider.id, status: { notIn: TERMINAL_ORDER_STATUSES } },
+  });
+  if (activeOrder) {
+    return apiResponse.error(res, 'This rider has a delivery in progress and cannot be deleted yet.', 409);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await softDeleteUser(
+      tx, req.user!.userId,
+      { userId: rider.userId, email: rider.user.email, phone: rider.user.phone },
+      'Rider', id, 'RIDER_ADMIN_DELETED', { riderName: rider.user.name },
+    );
+    await tx.rider.update({ where: { id: rider.id }, data: { approvalStatus: 'SUSPENDED' } });
+  });
+
+  return apiResponse.success(res, 'Rider deleted successfully.', { id, name: rider.user.name });
 });
 
 // PATCH /admin/vendors/:id/feature

@@ -108,3 +108,7 @@ export const changePasswordSchema = Joi.object({
   newPassword: Joi.string().min(8).required(),
   otp: Joi.string().length(6).required(),
 });
+
+export const deleteAccountSchema = Joi.object({
+  password: Joi.string().required(),
+});

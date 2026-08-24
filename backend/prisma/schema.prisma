@@ -19,6 +19,7 @@ model User {
   isEmailVerified        Boolean    @default(false)
   isPhoneVerified        Boolean    @default(false)
   isActive               Boolean    @default(true)
+  deletedAt              DateTime?
   refreshToken           String?
   pushToken              String?
   preferredLocale        String     @default("en")

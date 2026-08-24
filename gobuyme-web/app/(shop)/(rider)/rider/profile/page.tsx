@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import api from '@/services/api';
+import DeleteAccountModal from '@/components/ui/DeleteAccountModal';
 
 interface RiderProfile {
   name: string; phone: string; vehicleType: string; plateNumber: string;
@@ -25,6 +26,7 @@ export default function RiderProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     api.get('/riders/me').then(r => {
@@ -187,6 +189,17 @@ export default function RiderProfilePage() {
           <button className="btn btn-danger btn-block" style={{ marginTop: 12 }} onClick={logout}>Sign Out</button>
         </div>
 
+        {/* Danger zone */}
+        <div className="card card-pad" style={{ gridColumn: '1 / -1', borderColor: 'rgba(226,59,59,.25)' }}>
+          <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 6, color: 'var(--error)' }}>Danger Zone</h3>
+          <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
+            Deleting your account deactivates your rider profile and revokes access immediately.
+          </p>
+          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => setShowDeleteModal(true)}>
+            Delete My Account
+          </button>
+        </div>
+
         {/* Edit actions */}
         {editing && (
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 12 }}>
@@ -199,6 +212,8 @@ export default function RiderProfilePage() {
           </div>
         )}
       </div>
+
+      <DeleteAccountModal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} />
     </div>
   );
 }
