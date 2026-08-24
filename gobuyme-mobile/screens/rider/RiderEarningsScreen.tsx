@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import MfaCodeModal from '@/components/MfaCodeModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 const NIGERIAN_BANKS = [
 	{ name: 'Access Bank', code: '044' },
@@ -221,9 +222,11 @@ export default function RiderEarningsScreen() {
 				<View style={{ width: 38 }} />
 			</View>
 
+			<KeyboardAvoidingWrapper keyboardVerticalOffset={insets.top}>
 			<ScrollView
 				contentContainerStyle={styles.scroll}
 				showsVerticalScrollIndicator={false}
+				keyboardShouldPersistTaps="handled"
 				refreshControl={
 					<RefreshControl
 						refreshing={refreshing}
@@ -439,6 +442,7 @@ export default function RiderEarningsScreen() {
 					)}
 				</View>
 			</ScrollView>
+			</KeyboardAvoidingWrapper>
 
 			<MfaCodeModal
 				visible={mfaModal}
