@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
@@ -38,6 +39,8 @@ const fmtDate = (iso: string) =>
 
 export default function CustomersPage() {
   const { theme: T } = useTheme();
+  const { user } = useAuth();
+  const canDelete = user?.role === 'SUPER_ADMIN';
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [total, setTotal] = useState(0);
@@ -251,15 +254,17 @@ export default function CustomersPage() {
 
             {/* Actions */}
             <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button
-                onClick={() => {
-                  setSelectedCustomer(null);
-                  openDeleteModal(selectedCustomer.id, selectedCustomer.name);
-                }}
-                style={{ padding: '8px 16px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}
-              >
-                Delete Account
-              </button>
+              {canDelete && (
+                <button
+                  onClick={() => {
+                    setSelectedCustomer(null);
+                    openDeleteModal(selectedCustomer.id, selectedCustomer.name);
+                  }}
+                  style={{ padding: '8px 16px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}
+                >
+                  Delete Account
+                </button>
+              )}
               <button
                 onClick={() => setSelectedCustomer(null)}
                 style={{ padding: '8px 16px', borderRadius: 4, border: 'none', background: T.surface2, color: T.text, fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}
@@ -275,7 +280,7 @@ export default function CustomersPage() {
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         title="Delete Customer"
-        message="This action will permanently delete the customer account and all associated data. This cannot be undone."
+        message="This will deactivate the customer's account. Historical orders and records are retained."
         itemName={deleteCustomerName}
         onConfirm={deleteCustomerHandler}
         isLoading={deleteLoading}
@@ -361,7 +366,9 @@ export default function CustomersPage() {
                   </span>
                 </td>
                 <td style={{ padding: '13px 16px' }} onClick={e => e.stopPropagation()}>
-                  <button onClick={() => openDeleteModal(c.id, c.name)} style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Delete</button>
+                  {canDelete && (
+                    <button onClick={() => openDeleteModal(c.id, c.name)} style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Delete</button>
+                  )}
                 </td>
               </tr>
             ))}

@@ -1,8 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { AddRiderModal } from '@/components/rider/AddRiderModal';
 import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
@@ -53,6 +55,8 @@ const DOC_STATUS_COLORS: Record<DocStatus, { bg: string; text: string }> = {
 
 export default function RidersPage() {
   const { theme: T } = useTheme();
+  const { user } = useAuth();
+  const canDelete = user?.role === 'SUPER_ADMIN';
   const [riders, setRiders] = useState<Rider[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -70,6 +74,11 @@ export default function RidersPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [reviewNote, setReviewNote] = useState('');
   const [docActing, setDocActing] = useState(false);
+
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteRiderId, setDeleteRiderId] = useState<string | null>(null);
+  const [deleteRiderName, setDeleteRiderName] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => { setPage(1); setDebouncedSearch(search); }, 400);
@@ -132,6 +141,29 @@ export default function RidersPage() {
     }
   };
 
+  const deleteRiderHandler = async () => {
+    if (!deleteRiderId) return;
+    setDeleteLoading(true);
+    try {
+      await api.del(`/admin/riders/${deleteRiderId}`);
+      setRiders(rs => rs.filter(r => r.id !== deleteRiderId));
+      setTotal(t => t - 1);
+      if (detail?.id === deleteRiderId) setDetailOpen(false);
+      setDeleteRiderId(null);
+      setDeleteRiderName('');
+    } catch {
+      // error handled by api wrapper
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const openDeleteModal = (id: string, name: string) => {
+    setDeleteRiderId(id);
+    setDeleteRiderName(name);
+    setDeleteModalOpen(true);
+  };
+
   const tabs: Array<'ALL' | RiderStatus> = ['ALL', 'PENDING', 'APPROVED', 'SUSPENDED'];
   const onlineCount = riders.filter(r => r.isOnline).length;
 
@@ -141,6 +173,17 @@ export default function RidersPage() {
         open={addRiderOpen}
         onClose={() => setAddRiderOpen(false)}
         onCreated={() => { setAddRiderOpen(false); refresh(); }}
+      />
+
+      <ConfirmDeleteModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Rider"
+        message="This will deactivate the rider's account. Historical deliveries and earnings records are retained."
+        itemName={deleteRiderName}
+        onConfirm={deleteRiderHandler}
+        isLoading={deleteLoading}
+        isDangerous
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -234,6 +277,9 @@ export default function RidersPage() {
                       )}
                       {r.approvalStatus === 'SUSPENDED' && (
                         <button onClick={() => setStatus(r.id, 'APPROVED')} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: T.primary, color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Reinstate</button>
+                      )}
+                      {canDelete && (
+                        <button onClick={() => openDeleteModal(r.id, r.name)} style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Delete</button>
                       )}
                     </div>
                   </td>
@@ -437,6 +483,9 @@ export default function RidersPage() {
                 )}
                 {detail.approvalStatus === 'SUSPENDED' && (
                   <ActionButton label="Reinstate Account" color={T.primary} textColor="#fff" onClick={() => setStatus(detail.id, 'APPROVED')} />
+                )}
+                {canDelete && (
+                  <ActionButton label="Delete Account" color="none" border={T.error} textColor={T.error} onClick={() => openDeleteModal(detail.id, detail.user.name)} />
                 )}
                 <div style={{ fontSize: 13, color: T.textSec, display: 'flex', alignItems: 'center', marginLeft: 4 }}>
                   Current: <Badge status={detail.approvalStatus} />

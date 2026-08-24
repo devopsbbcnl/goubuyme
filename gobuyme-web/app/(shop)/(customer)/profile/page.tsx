@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import ImageCropModal from '@/components/ui/ImageCropModal';
+import DeleteAccountModal from '@/components/ui/DeleteAccountModal';
 import Image from 'next/image';
 import api from '@/services/api';
 
@@ -125,6 +126,7 @@ export default function ProfilePage() {
 
   const [centerTab, setCenterTab] = useState<'orders' | 'addresses'>('orders');
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPwModal, setShowPwModal] = useState(false);
   const [pwStep, setPwStep] = useState<'send' | 'otp' | 'newpw'>('send');
   const [pwOtp, setPwOtp] = useState(['', '', '', '', '', '']);
@@ -749,6 +751,13 @@ export default function ProfilePage() {
               >
                 <IconLogout /> Sign Out
               </button>
+              <button
+                className="btn btn-ghost btn-block"
+                style={{ height: 40, fontSize: 13, marginTop: 8, color: 'var(--error)' }}
+                onClick={() => setShowDeleteModal(true)}
+              >
+                Delete My Account
+              </button>
             </div>
           </div>
         </div>
@@ -912,6 +921,8 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      <DeleteAccountModal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} />
     </div>
   );
 }

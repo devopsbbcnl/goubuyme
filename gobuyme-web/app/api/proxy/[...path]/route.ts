@@ -61,7 +61,7 @@ function refreshTokens(refresh: string) {
 async function proxyRequest(req: NextRequest, pathSegments: string[]) {
   const path = pathSegments.join('/');
   const search = req.nextUrl.search;
-  const isBodyMethod = ['POST', 'PUT', 'PATCH'].includes(req.method);
+  const isBodyMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
   const body = isBodyMethod ? await req.text() : undefined;
 
   const token = req.cookies.get('gbm_access')?.value;

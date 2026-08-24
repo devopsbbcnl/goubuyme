@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 import MfaCodeModal from '@/components/MfaCodeModal';
+import DeleteAccountModal from '@/components/DeleteAccountModal';
 
 export default function PrivacySecurityScreen() {
 	const { theme: T } = useTheme();
@@ -46,6 +47,9 @@ export default function PrivacySecurityScreen() {
 		currentPassword: string;
 		newPassword: string;
 	} | null>(null);
+
+	// Delete account
+	const [deleteModal, setDeleteModal] = useState(false);
 
 	const fetchMfaStatus = useCallback(async () => {
 		try {
@@ -135,40 +139,6 @@ export default function PrivacySecurityScreen() {
 		} finally {
 			setMfaDisableLoading(false);
 		}
-	};
-
-	// ── Delete account ───────────────────────────────────────────────────────────
-
-	const handleDeleteAccount = () => {
-		Alert.alert(
-			'Delete Account',
-			'Are you absolutely sure? This will permanently delete your account and all your data. This action cannot be undone.',
-			[
-				{ text: 'Cancel', style: 'cancel' },
-				{
-					text: 'Delete My Account',
-					style: 'destructive',
-					onPress: () => {
-						Alert.alert('Final Confirmation', 'Type DELETE to confirm', [
-							{ text: 'Cancel', style: 'cancel' },
-							{
-								text: 'Confirm Delete',
-								style: 'destructive',
-								onPress: async () => {
-									try {
-										await api.delete('/users/account');
-									} catch {
-										/* proceed with local logout even if backend fails */
-									}
-									await logout();
-									router.replace('/onboarding');
-								},
-							},
-						]);
-					},
-				},
-			],
-		);
 	};
 
 	// ── Sections ─────────────────────────────────────────────────────────────────
@@ -389,7 +359,7 @@ export default function PrivacySecurityScreen() {
 						DANGER ZONE
 					</Text>
 					<TouchableOpacity
-						onPress={handleDeleteAccount}
+						onPress={() => setDeleteModal(true)}
 						style={[
 							styles.deleteBtn,
 							{ borderColor: T.error, backgroundColor: T.errorBg },
@@ -503,6 +473,8 @@ export default function PrivacySecurityScreen() {
 				title="Disable Two-Factor Auth"
 				subtitle="Enter your authenticator code to turn off two-factor authentication."
 			/>
+
+			<DeleteAccountModal visible={deleteModal} onClose={() => setDeleteModal(false)} />
 		</View>
 	);
 }

@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DeleteAccountModal from '@/components/DeleteAccountModal';
 
 type NavApp = 'google_maps' | 'waze' | 'in_app';
 
@@ -34,6 +35,7 @@ export default function RiderSettingsScreen() {
 	const insets = useSafeAreaInsets();
 
 	const [navApp, setNavApp] = useState<NavApp>('in_app');
+	const [deleteModal, setDeleteModal] = useState(false);
 
 	useEffect(() => {
 		AsyncStorage.getItem('rider_nav_app').then(val => {
@@ -242,10 +244,24 @@ export default function RiderSettingsScreen() {
 					</View>
 				))}
 
+				<View style={{ gap: 8 }}>
+					<Text style={[styles.sectionLabel, { color: T.error }]}>DANGER ZONE</Text>
+					<TouchableOpacity
+						onPress={() => setDeleteModal(true)}
+						style={[styles.deleteBtn, { borderColor: T.error, backgroundColor: T.errorBg }]}
+						activeOpacity={0.75}
+					>
+						<Ionicons name="trash-outline" size={18} color={T.error} />
+						<Text style={[styles.deleteBtnText, { color: T.error }]}>Delete My Account</Text>
+					</TouchableOpacity>
+				</View>
+
 				<Text style={[styles.buildInfo, { color: T.textMuted }]}>
 					GoBuyMe © 2026 · Bubble Barrel
 				</Text>
 			</ScrollView>
+
+			<DeleteAccountModal visible={deleteModal} onClose={() => setDeleteModal(false)} />
 		</View>
 	);
 }
@@ -275,4 +291,13 @@ const styles = StyleSheet.create({
 	rowLabel: { fontSize: 14, fontWeight: '600' },
 	rowSub: { fontSize: 12, marginTop: 1 },
 	buildInfo: { textAlign: 'center', fontSize: 12, marginTop: 8 },
+	deleteBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 12,
+		padding: 16,
+		borderRadius: 4,
+		borderWidth: 1.5,
+	},
+	deleteBtnText: { fontSize: 14, fontWeight: '700' },
 });
