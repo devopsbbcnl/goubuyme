@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
+import LocationPickerModal from '@/components/ui/LocationPickerModal';
 import api from '@/services/api';
 
 interface Address {
@@ -67,6 +68,7 @@ export default function AddressesPage() {
   const [geocodeErr, setGeocodeErr] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -124,6 +126,12 @@ export default function AddressesPage() {
     const next = { ...form, [key]: val };
     setForm(next);
     if (key === 'address' || key === 'city' || key === 'state') triggerGeocode(next);
+  };
+
+  const handlePickOnMap = (result: { lat: number; lng: number }) => {
+    setLatLng(result);
+    setGeocodeErr('');
+    setPickerOpen(false);
   };
 
   const handleSave = async () => {
@@ -413,7 +421,18 @@ export default function AddressesPage() {
                     )}
                   </span>
                 </div>
-                {geocodeErr && <p className="input-error">{geocodeErr}</p>}
+                {geocodeErr && (
+                  <p className="input-error" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {geocodeErr}
+                    <button
+                      type="button"
+                      onClick={() => setPickerOpen(true)}
+                      style={{ color: 'var(--brand)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0 }}
+                    >
+                      Pick on map
+                    </button>
+                  </p>
+                )}
                 {latLng && !geocodeErr && (
                   <p style={{ fontSize: 12, color: 'var(--success)', marginTop: 5, fontWeight: 600 }}>
                     Location confirmed
@@ -463,6 +482,13 @@ export default function AddressesPage() {
           </div>
         </div>
       )}
+
+      <LocationPickerModal
+        open={pickerOpen}
+        initial={latLng}
+        onCancel={() => setPickerOpen(false)}
+        onConfirm={handlePickOnMap}
+      />
     </div>
   );
 }
