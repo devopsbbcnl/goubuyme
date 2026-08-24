@@ -78,7 +78,10 @@ async function queryNominatim(query: string): Promise<VendorCoordinates | null> 
 async function queryMapTiler(query: string): Promise<VendorCoordinates | null> {
   try {
     const apiKey = process.env.MAPTILER_API_KEY;
-    if (!apiKey) return null;
+    if (!apiKey) {
+      console.warn('[Geocode] MAPTILER_API_KEY not set — skipping MapTiler fallback for query:', query);
+      return null;
+    }
 
     const response = await axios.get(`${MAPTILER_BASE_URL}/${encodeURIComponent(query)}.json`, {
       params: { key: apiKey, country: 'ng', limit: 1 },
@@ -145,7 +148,10 @@ async function searchAddressSuggestionsNominatim(query: string): Promise<Geocode
 async function searchAddressSuggestionsMapTiler(query: string): Promise<GeocodeSuggestion[]> {
   try {
     const apiKey = process.env.MAPTILER_API_KEY;
-    if (!apiKey) return [];
+    if (!apiKey) {
+      console.warn('[Geocode] MAPTILER_API_KEY not set — skipping MapTiler fallback for query:', query);
+      return [];
+    }
 
     const response = await axios.get(`${MAPTILER_BASE_URL}/${encodeURIComponent(query)}.json`, {
       params: { key: apiKey, country: 'ng', limit: 5 },
@@ -193,7 +199,10 @@ async function reverseGeocodeMapTiler(
 ): Promise<{ address: string; city: string; state: string } | null> {
   try {
     const apiKey = process.env.MAPTILER_API_KEY;
-    if (!apiKey) return null;
+    if (!apiKey) {
+      console.warn('[Geocode] MAPTILER_API_KEY not set — skipping MapTiler reverse-geocode fallback for', lat, lng);
+      return null;
+    }
 
     const response = await axios.get(`${MAPTILER_BASE_URL}/${lng},${lat}.json`, {
       params: { key: apiKey },

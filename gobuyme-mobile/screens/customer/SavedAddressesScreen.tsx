@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
+import LocationPickerModal from '@/components/LocationPickerModal';
 
 const TYPE_ICONS: Record<AddressType, string> = {
 	home: 'home',
@@ -46,6 +47,7 @@ export default function SavedAddressesScreen() {
 	const [geocodeErr, setGeocodeErr] = useState('');
 	const [locating, setLocating] = useState(false);
 	const [saving, setSaving] = useState(false);
+	const [pickerVisible, setPickerVisible] = useState(false);
 	const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const openAdd = () => {
@@ -139,6 +141,12 @@ export default function SavedAddressesScreen() {
 		} finally {
 			setLocating(false);
 		}
+	};
+
+	const handlePickOnMap = (result: { lat: number; lng: number }) => {
+		setLatLng(result);
+		setGeocodeErr('');
+		setPickerVisible(false);
 	};
 
 	const handleSave = async () => {
@@ -475,7 +483,14 @@ export default function SavedAddressesScreen() {
 							)}
 						</View>
 						{geocodeErr ? (
-							<Text style={{ color: T.error, fontSize: 12 }}>{geocodeErr}</Text>
+							<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+								<Text style={{ color: T.error, fontSize: 12, flexShrink: 1 }}>{geocodeErr}</Text>
+								<TouchableOpacity onPress={() => setPickerVisible(true)}>
+									<Text style={{ color: T.primary, fontSize: 12, fontWeight: '700' }}>
+										Pick on map
+									</Text>
+								</TouchableOpacity>
+							</View>
 						) : latLng ? (
 							<Text style={{ color: T.primary, fontSize: 12, fontWeight: '600' }}>
 								Location confirmed
@@ -537,6 +552,13 @@ export default function SavedAddressesScreen() {
 					</KeyboardAvoidingWrapper>
 				</View>
 			</Modal>
+
+			<LocationPickerModal
+				visible={pickerVisible}
+				initial={latLng}
+				onCancel={() => setPickerVisible(false)}
+				onConfirm={handlePickOnMap}
+			/>
 		</View>
 	);
 }
