@@ -341,7 +341,7 @@ export default function HomeScreen() {
             <Ionicons name="search-outline" size={18} color={T.textMuted} />
             <Text style={[styles.searchPlaceholder, { color: T.textMuted }]}>Search for food or restaurant...</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.filterBtn, { backgroundColor: T.surface, borderColor: T.border }]}>
+          <TouchableOpacity onPress={() => router.push('/search')} style={[styles.filterBtn, { backgroundColor: T.surface, borderColor: T.border }]}>
             <Ionicons name="options-outline" size={20} color={T.text} />
           </TouchableOpacity>
         </View>

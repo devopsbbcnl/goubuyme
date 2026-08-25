@@ -199,7 +199,7 @@ export default function LoginScreen() {
           <Text style={[styles.errorText, { color: '#E53E3E' }]}>{errors.general}</Text>
         )}
 
-        <TouchableOpacity style={{ alignSelf: 'flex-end', marginBottom: 24 }}>
+        <TouchableOpacity style={{ alignSelf: 'flex-end', marginBottom: 24 }} onPress={() => router.push('/forgot-password')}>
           <Text style={{ fontSize: 13, fontWeight: '600', color: T.primary, fontFamily: 'PlusJakartaSans_600SemiBold' }}>
             Forgot password?
           </Text>
