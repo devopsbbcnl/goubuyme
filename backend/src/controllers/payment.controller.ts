@@ -34,7 +34,7 @@ export const initializePayment = catchAsync(async (req: AuthRequest, res: Respon
       return apiResponse.error(res, 'Order already paid.', 400);
 
     payloadEmail  = order.customer.user.email;
-    payloadAmount = Math.round(order.totalAmount * 100);
+    payloadAmount = Math.round((order.totalAmount - order.creditApplied) * 100);
     payloadMeta   = { orderId: order.id, orderNumber: order.orderNumber };
     existingOrderId = order.id;
   } else {

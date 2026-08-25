@@ -4,10 +4,11 @@ import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { haversineDistance, estimateDeliveryMinutes } from '../services/distance.service';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
-import { ApprovalStatus, CommissionTier, LicenseType, OrderStatus, Prisma, VendorCategory, VerificationBadge } from '@prisma/client';
+import { ApprovalStatus, CommissionTier, LicenseType, OrderStatus, PaymentStatus, Prisma, VendorCategory, VerificationBadge } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getPlatformSettings } from '../services/settings.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
+import { issueCredit } from '../services/storeCredit.service';
 import {
   availabilityInclude,
   computeAvailability,
@@ -645,7 +646,10 @@ export const updateMyOrderStatus = catchAsync(async (req: AuthRequest, res: Resp
 
   const order = await prisma.order.findFirst({
     where: { id: orderId, vendorId: vendor.id },
-    include: { items: { select: { menuItemId: true, quantity: true } } },
+    include: {
+      items: { select: { menuItemId: true, quantity: true } },
+      customer: { select: { userId: true } },
+    },
   });
   if (!order) return apiResponse.error(res, 'Order not found.', 404);
 
@@ -666,6 +670,7 @@ export const updateMyOrderStatus = catchAsync(async (req: AuthRequest, res: Resp
   }
 
   const transition = { to: transitionTo[action] };
+  const wasPaid = action === 'reject' && order.paymentStatus === 'PAID';
 
   const updated = action === 'reject'
     ? await prisma.$transaction(async (tx) => {
@@ -674,6 +679,7 @@ export const updateMyOrderStatus = catchAsync(async (req: AuthRequest, res: Resp
           data: {
             status: transition.to,
             ...(reason ? { cancelReason: reason } : {}),
+            ...(wasPaid ? { paymentStatus: PaymentStatus.REFUNDED, creditIssued: order.totalAmount } : {}),
           },
           select: { id: true, orderNumber: true, status: true },
         });
@@ -697,7 +703,52 @@ export const updateMyOrderStatus = catchAsync(async (req: AuthRequest, res: Resp
         select: { id: true, orderNumber: true, status: true },
       });
 
+  if (wasPaid) {
+    issueCredit(order.customer.userId, order.totalAmount, 'VENDOR_REJECT_REFUND', order.id).catch(() => {});
+  }
+
   return apiResponse.success(res, 'Order status updated.', updated);
+});
+
+// Marks the moment a vendor actually opens an order — the escalation cron uses this to stop
+// sending reminders (a vendor who's looked at the order isn't "unresponsive" anymore, even if
+// they haven't accepted/rejected it yet).
+export const markOrderViewed = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendor = await prisma.vendor.findUnique({
+    where: { userId: req.user!.userId },
+    select: { id: true },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+
+  const order = await prisma.order.findFirst({
+    where: { id: req.params.orderId, vendorId: vendor.id },
+    select: { id: true, vendorViewedAt: true },
+  });
+  if (!order) return apiResponse.error(res, 'Order not found.', 404);
+
+  if (!order.vendorViewedAt) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { vendorViewedAt: new Date() },
+    });
+  }
+
+  return apiResponse.success(res, 'Order marked as viewed.');
+});
+
+export const registerPushSubscription = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { endpoint, keys } = req.body as { endpoint: string; keys: { p256dh: string; auth: string } };
+  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    return apiResponse.error(res, 'endpoint and keys.p256dh/keys.auth are required.', 400);
+  }
+
+  await prisma.pushSubscription.upsert({
+    where: { endpoint },
+    update: { userId: req.user!.userId, p256dh: keys.p256dh, auth: keys.auth },
+    create: { userId: req.user!.userId, endpoint, p256dh: keys.p256dh, auth: keys.auth },
+  });
+
+  return apiResponse.success(res, 'Push subscription registered.');
 });
 
 export const getMyEarnings = catchAsync(async (req: AuthRequest, res: Response) => {

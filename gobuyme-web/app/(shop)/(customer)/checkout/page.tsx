@@ -444,6 +444,16 @@ function CheckoutContent() {
         ...(promo ? { promoCode: promo.code } : {}),
       });
       const orderId = data.data?.id;
+      const creditApplied: number = data.data?.creditApplied ?? 0;
+      const amountToCharge: number = data.data?.amountToCharge ?? data.data?.totalAmount ?? 0;
+
+      // Store credit fully covered the order — nothing left for Paystack to collect, so the
+      // backend already marked it PAID/CONFIRMED at creation. Skip straight to the order page.
+      if (amountToCharge <= 0) {
+        if (creditApplied > 0) toast(`₦${creditApplied.toLocaleString()} in store credit covered this order 🎉`, 'success');
+        router.push(`/orders/${orderId}`);
+        return;
+      }
 
       // Order is created (PENDING) at this point — hand off to Paystack's hosted
       // checkout to collect payment. verifyPayment on the callback page flips it to PAID/CONFIRMED

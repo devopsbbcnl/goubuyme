@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { resolveVendorRoute } from '@/services/vendorGate';
 import { VendorSidebar } from '@/components/layout/VendorSidebar';
 import { ApprovalBanner } from '@/components/ui/ApprovalBanner';
+import { useVendorPushSubscription } from '@/hooks/useVendorPushSubscription';
 
 export default function VendorLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -26,6 +27,8 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
     });
     return () => { cancelled = true; };
   }, [user, loading, router]);
+
+  useVendorPushSubscription(gateChecked);
 
   if (loading || !user || user.role !== 'vendor' || !gateChecked) return null;
 

@@ -30,6 +30,7 @@ interface VendorDetail {
   openingTime: string | null; closingTime: string | null; avgDeliveryTime: number | null;
   createdAt: string; updatedAt: string;
   totalOrders: number; totalMenuItems: number; totalRevenue: number;
+  responseRate30d: number | null; noResponseIncidents30d: number;
   user: {
     name: string; email: string; phone: string | null;
     isEmailVerified: boolean; isActive: boolean; createdAt: string;
@@ -466,6 +467,8 @@ export default function VendorsPage() {
                 { label: 'Revenue', value: fmtCurrency(detail.totalRevenue) },
                 { label: 'Menu Items', value: detail.totalMenuItems },
                 { label: 'Rating', value: detail.rating > 0 ? `${detail.rating.toFixed(1)} (${detail.totalRatings})` : '—' },
+                { label: 'Response Rate (30d)', value: detail.responseRate30d != null ? `${Math.round(detail.responseRate30d * 100)}%` : '—' },
+                { label: 'No-Response Incidents (30d)', value: detail.noResponseIncidents30d },
               ].map(s => (
                 <div key={s.label} style={{ background: T.surface2, borderRadius: 4, padding: '12px 14px' }}>
                   <div style={{ fontSize: 11, color: T.textSec, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>{s.label}</div>

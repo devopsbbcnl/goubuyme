@@ -4,7 +4,7 @@ import {
   getMyVendorProfile, updateMyVendorProfile, toggleStoreStatus,
   getMyAvailability, updateAvailabilityMode, setBusinessHours,
   listTemporaryClosures, createTemporaryClosure, deleteTemporaryClosure,
-  getVendorDashboardStats, getMyOrders, getMyOrderById, updateMyOrderStatus, getMyEarnings,
+  getVendorDashboardStats, getMyOrders, getMyOrderById, updateMyOrderStatus, markOrderViewed, registerPushSubscription, getMyEarnings,
   getMyMenuItems, createMenuItem, updateMenuItem, deleteMenuItem,
   getMenuItemDrinkOptions, createMenuItemDrinkOption, updateMenuItemDrinkOption, deleteMenuItemDrinkOption,
   getMenuItemOptionGroups, createMenuItemOptionGroup, deleteMenuItemOptionGroup,
@@ -38,6 +38,8 @@ router.get('/me/stats',                    ...vendorAuth, getVendorDashboardStat
 router.get('/me/orders',                   ...vendorAuth, getMyOrders);
 router.get('/me/orders/:orderId',          ...vendorAuth, getMyOrderById);
 router.patch('/me/orders/:orderId/status', ...vendorAuth, updateMyOrderStatus);
+router.patch('/me/orders/:orderId/view',   ...vendorAuth, markOrderViewed);
+router.post('/me/push-subscriptions',      ...vendorAuth, registerPushSubscription);
 router.get('/me/earnings',                 ...vendorAuth, getMyEarnings);
 router.get('/me/payout-account',           ...vendorAuth, getPayoutAccount);
 router.post('/me/payout-account',          ...vendorAuth, requireMfa, savePayoutAccount);

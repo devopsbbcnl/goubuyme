@@ -71,6 +71,9 @@ export default function VendorOrderDetailScreen() {
     try {
       const res = await api.get(`/vendors/me/orders/${orderId}`);
       setOrder(res.data.data);
+      // Tell the backend this order was actually opened — stops the escalation cron
+      // from treating the vendor as unresponsive even before they accept/reject.
+      api.patch(`/vendors/me/orders/${orderId}/view`).catch(() => {});
     } catch {
       Alert.alert('Error', 'Could not load order details.');
       router.back();

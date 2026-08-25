@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-	Modal,
 	View,
 	Text,
 	TextInput,
@@ -13,7 +12,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
+import { CenteredKeyboardModal } from '@/components/ui/CenteredKeyboardModal';
 import api from '@/services/api';
 import MfaCodeModal from '@/components/MfaCodeModal';
 
@@ -84,10 +83,8 @@ export default function DeleteAccountModal({ visible, onClose }: Props) {
 
 	return (
 		<>
-			<Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-				<View style={styles.backdrop}>
-					<KeyboardAvoidingWrapper style={{ flex: undefined }}>
-						<View style={[styles.sheet, { backgroundColor: T.surface }]}>
+			<CenteredKeyboardModal visible={visible} onRequestClose={handleClose} cardStyle={{ backgroundColor: T.surface }}>
+						<View style={styles.sheet}>
 							<View style={styles.header}>
 								<View style={[styles.iconWrap, { backgroundColor: T.errorBg }]}>
 									<Ionicons name="trash-outline" size={22} color={T.error} />
@@ -136,9 +133,7 @@ export default function DeleteAccountModal({ visible, onClose }: Props) {
 								)}
 							</TouchableOpacity>
 						</View>
-					</KeyboardAvoidingWrapper>
-				</View>
-			</Modal>
+			</CenteredKeyboardModal>
 
 			<MfaCodeModal
 				visible={mfaModal}
@@ -153,16 +148,8 @@ export default function DeleteAccountModal({ visible, onClose }: Props) {
 }
 
 const styles = StyleSheet.create({
-	backdrop: {
-		flex: 1,
-		backgroundColor: 'rgba(0,0,0,0.5)',
-		justifyContent: 'flex-end',
-	},
 	sheet: {
-		borderTopLeftRadius: 20,
-		borderTopRightRadius: 20,
 		padding: 24,
-		paddingBottom: 44,
 		gap: 14,
 	},
 	header: {

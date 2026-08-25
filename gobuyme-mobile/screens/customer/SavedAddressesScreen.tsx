@@ -6,7 +6,6 @@ import {
 	ScrollView,
 	TouchableOpacity,
 	TextInput,
-	Modal,
 	Alert,
 	ActivityIndicator,
 } from 'react-native';
@@ -17,7 +16,7 @@ import { geocodeAddress, reverseGeocode } from '@/services/geocoding';
 import { router } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
+import { CenteredKeyboardModal } from '@/components/ui/CenteredKeyboardModal';
 import LocationPickerModal from '@/components/LocationPickerModal';
 
 const TYPE_ICONS: Record<AddressType, string> = {
@@ -359,10 +358,8 @@ export default function SavedAddressesScreen() {
 			</ScrollView>
 
 			{/* Add/Edit modal */}
-			<Modal visible={modalVisible} animationType="slide" transparent>
-				<View style={styles.modalBackdrop}>
-					<KeyboardAvoidingWrapper style={{ flex: undefined, maxHeight: '88%' }}>
-					<View style={[styles.modalSheet, { backgroundColor: T.surface }]}>
+			<CenteredKeyboardModal visible={modalVisible} cardStyle={{ backgroundColor: T.surface }}>
+					<View style={styles.modalSheet}>
 						<View style={styles.modalHeader}>
 							<Text style={[styles.modalTitle, { color: T.text }]}>
 								{editing ? 'Edit Address' : 'New Address'}
@@ -372,6 +369,7 @@ export default function SavedAddressesScreen() {
 							</TouchableOpacity>
 						</View>
 						<ScrollView
+							style={{ flexShrink: 1 }}
 							keyboardShouldPersistTaps="handled"
 							showsVerticalScrollIndicator={false}
 							contentContainerStyle={styles.modalScrollContent}
@@ -555,9 +553,7 @@ export default function SavedAddressesScreen() {
 						</TouchableOpacity>
 						</ScrollView>
 					</View>
-					</KeyboardAvoidingWrapper>
-				</View>
-			</Modal>
+			</CenteredKeyboardModal>
 
 			<LocationPickerModal
 				visible={pickerVisible}
@@ -634,16 +630,10 @@ const styles = StyleSheet.create({
 		borderStyle: 'dashed',
 	},
 	addRowText: { fontSize: 14, fontWeight: '600' },
-	modalBackdrop: {
-		flex: 1,
-		backgroundColor: 'rgba(0,0,0,0.5)',
-		justifyContent: 'flex-end',
-	},
 	modalSheet: {
-		borderTopLeftRadius: 16,
-		borderTopRightRadius: 16,
 		paddingHorizontal: 24,
 		paddingTop: 24,
+		flexShrink: 1,
 	},
 	modalScrollContent: {
 		gap: 12,

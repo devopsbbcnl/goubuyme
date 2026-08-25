@@ -1,8 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Image, ActivityIndicator, Modal, TextInput, Alert,
-  KeyboardAvoidingView, Platform, Pressable,
+  Image, ActivityIndicator, TextInput, Alert,
 } from 'react-native';
 import { pickImage as openImagePicker } from '@/utils/pickImage';
 import { useTheme } from '@/context/ThemeContext';
@@ -11,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { shadows } from '@/theme';
 import api from '@/services/api';
+import { CenteredKeyboardModal } from '@/components/ui/CenteredKeyboardModal';
 
 // Recommended dimensions for graphic designers — matches the customer homescreen
 // carousel card at ~1.86:1 aspect ratio.
@@ -331,11 +331,13 @@ export default function VendorPromotionsScreen() {
       </ScrollView>
 
       {/* Create promo modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <Pressable style={styles.modalBackdrop} onPress={() => !saving && setModalVisible(false)} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalWrap}>
-          <View style={[styles.modalSheet, { backgroundColor: T.surface }]}>
-            <View style={styles.modalHandle} />
+      <CenteredKeyboardModal
+        visible={modalVisible}
+        onBackdropPress={() => !saving && setModalVisible(false)}
+        cardStyle={{ backgroundColor: T.surface }}
+      >
+          <View style={styles.modalSheet}>
+            <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <Text style={[styles.modalTitle, { color: T.text }]}>New Promotion</Text>
 
             {/* Image picker */}
@@ -397,9 +399,9 @@ export default function VendorPromotionsScreen() {
                 <Text style={styles.submitBtnText}>Create Promotion</Text>
               )}
             </TouchableOpacity>
+            </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </CenteredKeyboardModal>
     </View>
   );
 }
@@ -438,10 +440,7 @@ const styles = StyleSheet.create({
   actionBtn:       { flex: 1, borderRadius: 4, borderWidth: 1, paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
   actionBtnText:   { fontSize: 12, fontWeight: '700' },
   // Modal
-  modalBackdrop:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
-  modalWrap:       { justifyContent: 'flex-end' },
-  modalSheet:      { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40, gap: 12 },
-  modalHandle:     { width: 40, height: 4, borderRadius: 2, backgroundColor: '#ccc', alignSelf: 'center', marginBottom: 6 },
+  modalSheet:      { padding: 20, flexShrink: 1 },
   modalTitle:      { fontSize: 17, fontWeight: '800' },
   imagePicker:     { borderRadius: 4, borderWidth: 1.5, borderStyle: 'dashed', overflow: 'hidden', marginBottom: 4 },
   imagePreview:    { width: '100%', height: 160 },
