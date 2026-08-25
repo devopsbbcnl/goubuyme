@@ -201,21 +201,46 @@ export default function CheckoutScreen() {
       const orderId: string = order.id;
       const orderNumber: string = order.orderNumber;
       const estimatedTime: number | null = order.estimatedTime ?? null;
-      const confirmedTotal: number = order.totalAmount;
       const confirmedDeliveryFee: number = order.deliveryFee;
+      const creditApplied: number = order.creditApplied ?? 0;
+      // amountToCharge is totalAmount minus any store credit the backend applied — this,
+      // not totalAmount, is what Paystack should actually collect.
+      const amountToCharge: number = order.amountToCharge ?? order.totalAmount;
 
       // Sync displayed fee to what the backend actually calculated
       setDeliveryFee(confirmedDeliveryFee);
+
+      const goToTracking = () => {
+        clearCart(vid);
+        setLoading(false);
+        router.replace({
+          pathname: '/tracking',
+          params: {
+            orderId,
+            orderNumber,
+            estimatedTime: estimatedTime != null ? String(estimatedTime) : '',
+          },
+        });
+      };
+
+      // Store credit fully covered the order — nothing left to charge, skip Paystack entirely.
+      if (amountToCharge <= 0) {
+        if (creditApplied > 0) {
+          Alert.alert('Order placed!', `₦${creditApplied.toLocaleString()} in store credit covered this order.`);
+        }
+        goToTracking();
+        return;
+      }
 
       // 3. Generate a unique reference locally — popup.checkout() initialises
       //    its own Paystack transaction; calling /payments/initialize first
       //    would create a duplicate reference and Paystack would reject it.
       const reference = `GBM-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-      // 4. Open Paystack popup — amount is always the backend-confirmed total
+      // 4. Open Paystack popup — amount is the backend-confirmed total minus any store credit
       popup.checkout({
         email: user?.email ?? 'customer@gobuyme.ng',
-        amount: confirmedTotal, // naira — library multiplies by 100 internally
+        amount: amountToCharge, // naira — library multiplies by 100 internally
         reference,
         onSuccess: async (paystackRes) => {
           const ref = paystackRes.reference ?? paystackRes.transaction ?? paystackRes.trans ?? reference;
@@ -226,16 +251,7 @@ export default function CheckoutScreen() {
           } catch {
             // network hiccup — backend webhook will reconcile
           }
-          clearCart(vid);
-          setLoading(false);
-          router.replace({
-            pathname: '/tracking',
-            params: {
-              orderId,
-              orderNumber,
-              estimatedTime: estimatedTime != null ? String(estimatedTime) : '',
-            },
-          });
+          goToTracking();
         },
         onCancel: () => {
           api.post(`/orders/${orderId}/cancel-payment`, { reason: 'Payment cancelled by customer' }).catch(() => {});

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, Alert, Image, Modal, Pressable,
+  TextInput, ActivityIndicator, Alert, Image,
 } from 'react-native';
 import { pickImage as openImagePicker } from '@/utils/pickImage';
 import { router, useFocusEffect } from 'expo-router';
@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import api from '@/services/api';
-import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
+import { CenteredKeyboardModal } from '@/components/ui/CenteredKeyboardModal';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -239,17 +239,13 @@ export default function VendorLicensesScreen() {
       </ScrollView>
 
       {/* Add License Modal */}
-      <Modal
+      <CenteredKeyboardModal
         visible={showAdd}
-        transparent
-        animationType="slide"
         onRequestClose={() => setShowAdd(false)}
+        onBackdropPress={() => setShowAdd(false)}
+        cardStyle={{ backgroundColor: T.bg }}
       >
-        <View style={styles.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAdd(false)} />
-          <KeyboardAvoidingWrapper style={{ flex: undefined, maxHeight: '88%' }}>
-          <View style={[styles.modalSheet, { backgroundColor: T.bg }]}>
-            <View style={[styles.handle, { backgroundColor: T.border }]} />
+          <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: T.text }]}>Add License</Text>
               <TouchableOpacity onPress={() => setShowAdd(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -258,7 +254,7 @@ export default function VendorLicensesScreen() {
             </View>
             <View style={[{ height: 1, backgroundColor: T.border, marginBottom: 20 }]} />
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {/* Type picker */}
               <Text style={[styles.label, { color: T.textSec }]}>License Type *</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
@@ -349,9 +345,7 @@ export default function VendorLicensesScreen() {
               <View style={{ height: 32 }} />
             </ScrollView>
           </View>
-          </KeyboardAvoidingWrapper>
-        </View>
-      </Modal>
+      </CenteredKeyboardModal>
     </View>
   );
 }
@@ -376,9 +370,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold' },
   reviewNote: { fontSize: 12, lineHeight: 18, fontFamily: 'PlusJakartaSans_400Regular' },
   // Modal
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  modalSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, maxHeight: '88%' },
-  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  modalSheet: { padding: 24, flexShrink: 1 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   modalTitle: { fontSize: 20, fontWeight: '800', fontFamily: 'PlusJakartaSans_800ExtraBold' },
   label: { fontSize: 12, fontWeight: '600', fontFamily: 'PlusJakartaSans_600SemiBold', marginBottom: 6 },

@@ -6,7 +6,6 @@ import {
 	ScrollView,
 	TouchableOpacity,
 	TextInput,
-	Modal,
 	Alert,
 	ActivityIndicator,
 	Switch,
@@ -19,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 import MfaCodeModal from '@/components/MfaCodeModal';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
-import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
+import { CenteredKeyboardModal } from '@/components/ui/CenteredKeyboardModal';
 
 export default function PrivacySecurityScreen() {
 	const { theme: T } = useTheme();
@@ -376,10 +375,8 @@ export default function PrivacySecurityScreen() {
 			</ScrollView>
 
 			{/* Change Password Modal */}
-			<Modal visible={pwModal} animationType="slide" transparent>
-				<View style={styles.modalBackdrop}>
-					<KeyboardAvoidingWrapper style={{ flex: undefined, maxHeight: '88%' }}>
-					<View style={[styles.modalSheet, { backgroundColor: T.surface }]}>
+			<CenteredKeyboardModal visible={pwModal} cardStyle={{ backgroundColor: T.surface }}>
+					<View style={styles.modalSheet}>
 						<View style={styles.modalHeader}>
 							<Text style={[styles.modalTitle, { color: T.text }]}>
 								Change Password
@@ -389,6 +386,7 @@ export default function PrivacySecurityScreen() {
 							</TouchableOpacity>
 						</View>
 						<ScrollView
+							style={{ flexShrink: 1 }}
 							keyboardShouldPersistTaps="handled"
 							showsVerticalScrollIndicator={false}
 							contentContainerStyle={styles.modalScrollContent}
@@ -456,9 +454,7 @@ export default function PrivacySecurityScreen() {
 						</TouchableOpacity>
 						</ScrollView>
 					</View>
-					</KeyboardAvoidingWrapper>
-				</View>
-			</Modal>
+			</CenteredKeyboardModal>
 
 			{/* MFA code prompt — password change */}
 			<MfaCodeModal
@@ -596,16 +592,10 @@ const styles = StyleSheet.create({
 		borderWidth: 1.5,
 	},
 	deleteBtnText: { fontSize: 14, fontWeight: '700' },
-	modalBackdrop: {
-		flex: 1,
-		backgroundColor: 'rgba(0,0,0,0.5)',
-		justifyContent: 'flex-end',
-	},
 	modalSheet: {
-		borderTopLeftRadius: 16,
-		borderTopRightRadius: 16,
 		paddingHorizontal: 24,
 		paddingTop: 24,
+		flexShrink: 1,
 	},
 	modalScrollContent: {
 		gap: 14,

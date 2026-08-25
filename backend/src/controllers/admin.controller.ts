@@ -1142,11 +1142,27 @@ export const getVendorDetail = catchAsync(async (req: Request, res: Response) =>
     _sum: { totalAmount: true },
   });
 
+  // Response-rate: confirmed orders vs. orders that timed out for no vendor response,
+  // over the trailing 30 days. Used to flag vendors for reduced algorithm priority.
+  const responseWindowStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [confirmedCount, incidentCount] = await Promise.all([
+    prisma.order.count({
+      where: { vendorId: id, createdAt: { gte: responseWindowStart }, status: { not: OrderStatus.CANCELLED } },
+    }),
+    prisma.vendorIncident.count({
+      where: { vendorId: id, createdAt: { gte: responseWindowStart } },
+    }),
+  ]);
+  const responseRateTotal = confirmedCount + incidentCount;
+  const responseRate = responseRateTotal > 0 ? confirmedCount / responseRateTotal : null;
+
   return apiResponse.success(res, 'Vendor detail fetched.', {
     ...vendor,
     totalOrders: vendor._count.orders,
     totalMenuItems: vendor._count.menuItems,
     totalRevenue: revenueAgg._sum.totalAmount ?? 0,
+    responseRate30d: responseRate,
+    noResponseIncidents30d: incidentCount,
   });
 });
 

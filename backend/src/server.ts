@@ -34,6 +34,7 @@ import { setupSockets } from './sockets';
 import { startPayoutJob } from './jobs/payoutJob';
 import { startStoreHoursJob } from './jobs/storeHoursJob';
 import { startStaleOrderJob } from './jobs/staleOrderJob';
+import { startEscalationJob } from './jobs/escalationJob';
 import { errorHandler } from './middleware/error.middleware';
 import { globalLimiter, publicSettingsLimiter } from './middleware/rateLimiter.middleware';
 import { maintenanceGuard } from './middleware/maintenance.middleware';
@@ -185,6 +186,7 @@ const start = async () => {
   startPayoutJob();
   startStoreHoursJob();
   startStaleOrderJob();
+  startEscalationJob();
   httpServer.listen(PORT, '0.0.0.0', () => logger.info(`GoBuyMe API running on port ${PORT}`));
 };
 

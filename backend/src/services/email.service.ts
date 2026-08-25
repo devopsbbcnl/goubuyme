@@ -98,6 +98,22 @@ export const sendOtpEmail = async (to: string, name: string, otp: string): Promi
   await sendEmail(to, 'Verify your GoBuyMe account', emailLayout(content));
 };
 
+// ─── Vendor new-order alert (async backup to push/SMS) ─────────────────────
+
+export const sendVendorNewOrderEmail = async (
+  to: string,
+  orderNumber: string,
+  totalAmount: number,
+): Promise<void> => {
+  const content = `
+    <p style="margin:0 0 8px;font-size:16px;color:#333333;">New order received 🔔</p>
+    <p style="margin:0 0 24px;font-size:15px;color:#555555;line-height:22px;">
+      Order <strong>#${orderNumber}</strong> (₦${totalAmount.toLocaleString()}) is waiting for you to accept.
+      Orders left unattended for too long are automatically cancelled and refunded to the customer.
+    </p>`;
+  await sendEmail(to, `New order #${orderNumber} — action needed`, emailLayout(content));
+};
+
 // ─── Password reset ────────────────────────────────────────────────────────
 
 export const sendPasswordResetEmail = async (to: string, resetToken: string): Promise<void> => {

@@ -8,38 +8,41 @@ datasource db {
 }
 
 model User {
-  id                     String     @id @default(uuid())
+  id                     String              @id @default(uuid())
   name                   String
-  email                  String     @unique
-  phone                  String?    @unique
+  email                  String              @unique
+  phone                  String?             @unique
   password               String?
-  googleId               String?    @unique
-  role                   Role       @default(CUSTOMER)
+  googleId               String?             @unique
+  role                   Role                @default(CUSTOMER)
   avatar                 String?
-  isEmailVerified        Boolean    @default(false)
-  isPhoneVerified        Boolean    @default(false)
-  isActive               Boolean    @default(true)
+  isEmailVerified        Boolean             @default(false)
+  isPhoneVerified        Boolean             @default(false)
+  isActive               Boolean             @default(true)
   deletedAt              DateTime?
   refreshToken           String?
   pushToken              String?
-  preferredLocale        String     @default("en")
-  referralCode           String     @unique
+  preferredLocale        String              @default("en")
+  referralCode           String              @unique
   referredById           String?
-  freeDeliveryCredits    Int        @default(0)
-  createdAt              DateTime   @default(now())
-  updatedAt              DateTime   @updatedAt
-  mfaEnabled             Boolean    @default(false)
+  freeDeliveryCredits    Int                 @default(0)
+  storeCreditBalance     Float               @default(0)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  mfaEnabled             Boolean             @default(false)
   mfaSecret              String?
   passwordResetExpiresAt DateTime?
   passwordResetToken     String?
   auditLogs              AuditLog[]
   customer               Customer?
   rider                  Rider?
-  referredBy             User?      @relation("Referrals", fields: [referredById], references: [id])
-  referrals              User[]     @relation("Referrals")
+  referredBy             User?               @relation("Referrals", fields: [referredById], references: [id])
+  referrals              User[]              @relation("Referrals")
   vendor                 Vendor?
   offerRedemptions       OfferRedemption[]
   onboardingEvents       OnboardingEvent[]
+  creditTransactions     CreditTransaction[]
+  pushSubscriptions      PushSubscription[]
 
   @@index([role])
   @@index([createdAt])
@@ -62,15 +65,15 @@ model OnboardingEvent {
 }
 
 model Customer {
-  id             String         @id @default(uuid())
-  userId         String         @unique
-  createdAt      DateTime       @default(now())
-  addresses      Address[]
-  carts          Cart[]
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  favorites      Favorite[]
-  orders         Order[]
-  conversations  Conversation[]
+  id            String         @id @default(uuid())
+  userId        String         @unique
+  createdAt     DateTime       @default(now())
+  addresses     Address[]
+  carts         Cart[]
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favorites     Favorite[]
+  orders        Order[]
+  conversations Conversation[]
 
   @@map("customers")
 }
@@ -120,6 +123,7 @@ model Vendor {
   vendorPromotions     VendorPromotion[]
   businessHours        VendorBusinessHours[]
   temporaryClosures    VendorTemporaryClosure[]
+  incidents            VendorIncident[]
   user                 User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([approvalStatus])
@@ -301,44 +305,52 @@ model Address {
 }
 
 model Order {
-  id                  String        @id @default(uuid())
-  orderNumber         String        @unique
+  id                  String           @id @default(uuid())
+  orderNumber         String           @unique
   customerId          String
   vendorId            String
   riderId             String?
-  status              OrderStatus   @default(PENDING)
+  status              OrderStatus      @default(PENDING)
   subtotal            Float
   deliveryFee         Float
   originalDeliveryFee Float
   platformFee         Float
   totalAmount         Float
-  freeDeliveryUsed    Boolean       @default(false)
+  freeDeliveryUsed    Boolean          @default(false)
   promoCode           String?
-  promoDiscount       Float         @default(0)
+  promoDiscount       Float            @default(0)
   deliveryAddress     String
   deliveryLatitude    Float?
   deliveryLongitude   Float?
   distanceKm          Float?
   paymentMethod       PaymentMethod
-  paymentStatus       PaymentStatus @default(PENDING)
+  paymentStatus       PaymentStatus    @default(PENDING)
   paystackRef         String?
-  paystackVerified    Boolean       @default(false)
+  paystackVerified    Boolean          @default(false)
+  creditApplied       Float            @default(0)
+  creditIssued        Float            @default(0)
+  vendorNotifiedAt    DateTime?
+  vendorViewedAt      DateTime?
+  reminderSentAt      DateTime?
+  urgentSentAt        DateTime?
+  autoCancelledAt     DateTime?
   note                String?
   estimatedTime       Int?
   deliveryPin         String?
   cancelReason        String?
   rating              Int?
   review              String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  stockReserved       Boolean       @default(false)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  stockReserved       Boolean          @default(false)
   items               OrderItem[]
-  customer            Customer      @relation(fields: [customerId], references: [id])
-  rider               Rider?        @relation(fields: [riderId], references: [id])
-  vendor              Vendor        @relation(fields: [vendorId], references: [id])
+  customer            Customer         @relation(fields: [customerId], references: [id])
+  rider               Rider?           @relation(fields: [riderId], references: [id])
+  vendor              Vendor           @relation(fields: [vendorId], references: [id])
   conversation        Conversation?
   earning             Earning?
   offerRedemption     OfferRedemption?
+  vendorIncidents     VendorIncident[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -461,18 +473,18 @@ model PayoutAccount {
 }
 
 model Offer {
-  id          String    @id @default(uuid())
+  id          String            @id @default(uuid())
   title       String
   description String?
   imageUrl    String?
-  code        String?   @unique
+  code        String?           @unique
   discount    Float
-  isPercent   Boolean   @default(true)
-  minOrder    Float     @default(0)
+  isPercent   Boolean           @default(true)
+  minOrder    Float             @default(0)
   vendorId    String?
   expiresAt   DateTime?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
   redemptions OfferRedemption[]
 
   @@map("offers")
@@ -595,6 +607,49 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model CreditTransaction {
+  id           String                @id @default(uuid())
+  userId       String
+  type         CreditTransactionType
+  amount       Float
+  balanceAfter Float
+  reason       String
+  orderId      String?
+  createdAt    DateTime              @default(now())
+  user         User                  @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([orderId])
+  @@map("credit_transactions")
+}
+
+model VendorIncident {
+  id           String   @id @default(uuid())
+  vendorId     String
+  orderId      String
+  incidentType String
+  createdAt    DateTime @default(now())
+  vendor       Vendor   @relation(fields: [vendorId], references: [id])
+  order        Order    @relation(fields: [orderId], references: [id])
+
+  @@index([vendorId])
+  @@index([orderId])
+  @@map("vendor_incidents")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
 model Notification {
   id        String   @id @default(uuid())
   userId    String
@@ -637,16 +692,16 @@ model ErrorLog {
 }
 
 model Conversation {
-  id          String    @id @default(uuid())
-  orderId     String    @unique
-  customerId  String
-  riderId     String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  messages    Message[]
-  customer    Customer  @relation(fields: [customerId], references: [id])
-  rider       Rider     @relation(fields: [riderId], references: [id])
-  order       Order     @relation(fields: [orderId], references: [id])
+  id         String    @id @default(uuid())
+  orderId    String    @unique
+  customerId String
+  riderId    String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  messages   Message[]
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  rider      Rider     @relation(fields: [riderId], references: [id])
+  order      Order     @relation(fields: [orderId], references: [id])
 
   @@index([customerId])
   @@index([riderId])
@@ -768,21 +823,21 @@ model PricingModifier {
 }
 
 model DeliveryZone {
-  id                 String          @id @default(uuid())
-  pricingProfileId   String
-  name               String
-  type               PricingZoneType @default(NORMAL)
-  zoneType           String          @default("CITY")
-  parentZoneId       String?
-  multiplier         Float           @default(1.0)
-  description        String?
-  polygonCoordinates Json?
-  landmarkKeywords   String[]
-  requiresManualCorrection Boolean      @default(false)
-  isActive           Boolean         @default(true)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  pricingProfile     PricingProfile  @relation(fields: [pricingProfileId], references: [id], onDelete: Cascade)
+  id                       String          @id @default(uuid())
+  pricingProfileId         String
+  name                     String
+  type                     PricingZoneType @default(NORMAL)
+  zoneType                 String          @default("CITY")
+  parentZoneId             String?
+  multiplier               Float           @default(1.0)
+  description              String?
+  polygonCoordinates       Json?
+  landmarkKeywords         String[]
+  requiresManualCorrection Boolean         @default(false)
+  isActive                 Boolean         @default(true)
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+  pricingProfile           PricingProfile  @relation(fields: [pricingProfileId], references: [id], onDelete: Cascade)
 
   @@index([pricingProfileId])
   @@index([type])
@@ -946,6 +1001,11 @@ enum PaymentMethod {
   BANK_TRANSFER
   PAYSTACK_USSD
   CASH_ON_DELIVERY
+}
+
+enum CreditTransactionType {
+  CREDIT
+  DEBIT
 }
 
 enum PayoutStatus {

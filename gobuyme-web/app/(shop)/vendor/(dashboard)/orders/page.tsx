@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
 import api from '@/services/api';
+
+const SOCKET_URL = (process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:5000').replace(/\/api\/v1\/?$/, '');
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -97,6 +100,9 @@ export default function VendorOrdersPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
 
+  const [newOrderAlert, setNewOrderAlert] = useState<{ orderNumber: string } | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+
   const load = useCallback(() => {
     setLoading(true);
     const qs = filter ? `?status=${filter}` : '';
@@ -107,6 +113,33 @@ export default function VendorOrdersPage() {
   }, [filter]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadRef = useRef(load);
+  useEffect(() => { loadRef.current = load; }, [load]);
+
+  // Live "new order" nudge: join this vendor's socket room and refresh + show a blocking
+  // banner the moment an order lands, instead of relying on the manual refresh button.
+  useEffect(() => {
+    let cancelled = false;
+    api.get('/vendors/me').then(r => {
+      const vendorId = r.data.data?.id;
+      if (cancelled || !vendorId) return;
+
+      const socket = io(`${SOCKET_URL}/orders`, { transports: ['websocket', 'polling'] });
+      socketRef.current = socket;
+      socket.emit('vendor:join', { vendorId });
+      socket.on('order:new', ({ order }: { order: { orderNumber: string } }) => {
+        setNewOrderAlert({ orderNumber: order.orderNumber });
+        loadRef.current();
+      });
+    }).catch(() => {});
+
+    return () => {
+      cancelled = true;
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+    };
+  }, []);
 
   // Open the modal immediately from list data, then enrich silently
   const openDetail = (order: OrderSummary) => {
@@ -121,6 +154,10 @@ export default function VendorOrdersPage() {
       })
       .catch(() => { /* silently ignore — modal already open with list data */ })
       .finally(() => setEnriching(false));
+
+    // Tell the backend this order was actually opened — stops the escalation cron from
+    // treating the vendor as unresponsive even before they accept/reject.
+    api.patch(`/vendors/me/orders/${order.id}/view`).catch(() => {});
   };
 
   const closeDetail = () => {
@@ -156,6 +193,17 @@ export default function VendorOrdersPage() {
 
   return (
     <div>
+      {newOrderAlert && (
+        <div
+          className="card card-pad"
+          style={{ marginBottom: 20, borderColor: 'var(--brand)', background: 'var(--brand-tint)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}
+        >
+          <span style={{ fontWeight: 700, fontSize: 14 }}>
+            🔔 New order #{newOrderAlert.orderNumber} just came in — accept it soon or it auto-cancels with a customer refund.
+          </span>
+          <button className="btn btn-primary btn-sm" onClick={() => setNewOrderAlert(null)}>Got it</button>
+        </div>
+      )}
       <div className="between" style={{ marginBottom: 24 }}>
         <h1 className="t-page">Orders</h1>
         <button className="btn btn-ghost btn-sm" onClick={load}>↻ Refresh</button>

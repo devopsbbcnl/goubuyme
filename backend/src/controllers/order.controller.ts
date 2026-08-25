@@ -6,10 +6,14 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { calculateDeliveryFee } from '../services/pricing.service';
 import { calcVendorFee } from '../services/commission.service';
 import { applyFreeDelivery } from '../services/referral.service';
+import { issueCredit, applyCredit } from '../services/storeCredit.service';
 import { evaluatePromo } from '../services/offer.service';
 import { getPlatformSettings } from '../services/settings.service';
 import { getIO } from '../config/socket';
 import { notifyUser } from '../services/notification.service';
+import { sendSms } from '../services/sms.service';
+import { sendWebPush } from '../services/webPush.service';
+import { sendVendorNewOrderEmail } from '../services/email.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { availabilityInclude, computeAvailability, AvailabilityInput } from '../services/availability.service';
 import { PaymentMethod, OrderStatus, PaymentStatus } from '@prisma/client';
@@ -182,7 +186,12 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
 
   const vendor = await prisma.vendor.findUnique({
     where: { id: cart.vendorId! },
-    select: { id: true, latitude: true, longitude: true, commissionTier: true, city: true, state: true, ...availabilityInclude },
+    select: {
+      id: true, latitude: true, longitude: true, commissionTier: true, city: true, state: true,
+      businessName: true,
+      user: { select: { id: true, phone: true, email: true } },
+      ...availabilityInclude,
+    },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
   // Single source of truth: compute live availability against server time so an
@@ -246,6 +255,10 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
   const totalAmount = subtotal + deliveryFee - subtotalDiscount;
   const estimatedTime = pricingResult.durationMinutes;
 
+  // Store credit is applied as a discount against what's actually charged; totalAmount stays
+  // the full order value for accounting (vendor earnings, commission, etc. are unaffected).
+  const { amountApplied: creditApplied, remainingTotal: amountToCharge } = await applyCredit(customer.userId, totalAmount);
+
   let order: any;
   try {
     order = await prisma.$transaction(async (tx) => {
@@ -263,18 +276,25 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
         }
       }
 
+      // Store credit fully covering the total means there's nothing left for Paystack to
+      // verify — treat it the same as a cash order that's already settled at creation time.
+      const fullyCoveredByCredit = paymentMethod !== PaymentMethod.CASH_ON_DELIVERY && amountToCharge <= 0;
+
       const newOrder = await tx.order.create({
         data: {
           orderNumber: generateOrderNumber(),
           deliveryPin: generateDeliveryPin(),
           customerId: customer.id,
           vendorId: vendor.id,
-          status: paymentMethod === PaymentMethod.CASH_ON_DELIVERY ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
+          status: paymentMethod === PaymentMethod.CASH_ON_DELIVERY || fullyCoveredByCredit ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
+          paymentStatus: fullyCoveredByCredit ? PaymentStatus.PAID : undefined,
           subtotal,
           deliveryFee,
           originalDeliveryFee,
           platformFee,
           totalAmount,
+          creditApplied,
+          vendorNotifiedAt: new Date(),
           freeDeliveryUsed: creditUsed,
           promoCode: promoApplied ? promo!.code : null,
           promoDiscount: promoApplied ? promoDiscount : 0,
@@ -339,16 +359,33 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
     data: { orderId: order.id },
   }).catch(() => {});
 
+  // Notify the vendor on every channel at once — mobile push, browser push, and SMS are all
+  // "now" channels; email is a slower async backup. None of these should block the response.
+  const vendorNotifyPayload = {
+    title: 'New order! 🔔',
+    body: `Order #${order.orderNumber} — ₦${totalAmount.toLocaleString()}. Tap to review and accept.`,
+    type: 'order',
+    data: { orderId: order.id },
+  };
+  notifyUser(vendor.user.id, vendorNotifyPayload).catch(() => {});
+  sendWebPush(vendor.user.id, { ...vendorNotifyPayload, requireInteraction: true }).catch(() => {});
+  if (vendor.user.phone) {
+    sendSms(vendor.user.phone, `GoBuyMe: New order #${order.orderNumber} (₦${totalAmount.toLocaleString()}). Open the app to accept.`).catch(() => {});
+  }
+  if (vendor.user.email) {
+    sendVendorNewOrderEmail(vendor.user.email, order.orderNumber, totalAmount).catch(() => {});
+  }
+
   // First order = customer activation (idempotent — only the first order counts).
   void recordOnboardingEvent(req.user!.userId, 'CUSTOMER', 'FIRST_ORDER');
 
-  return apiResponse.success(res, 'Order placed.', order, 201);
+  return apiResponse.success(res, 'Order placed.', { ...order, amountToCharge }, 201);
 });
 
 export const cancelOrder = catchAsync(async (req: AuthRequest, res: Response) => {
   const customer = await prisma.customer.findUnique({
     where: { userId: req.user!.userId },
-    select: { id: true },
+    select: { id: true, userId: true },
   });
   if (!customer) return apiResponse.error(res, 'Customer not found.', 404);
 
@@ -368,10 +405,16 @@ export const cancelOrder = catchAsync(async (req: AuthRequest, res: Response) =>
     return apiResponse.error(res, `Orders can only be cancelled within ${settings.cancellationWindowMinutes} minutes.`, 400);
   }
 
+  const wasPaid = order.paymentStatus === 'PAID';
+
   await prisma.$transaction(async (tx) => {
     await tx.order.update({
       where: { id: order.id },
-      data: { status: OrderStatus.CANCELLED, cancelReason: req.body.reason },
+      data: {
+        status: OrderStatus.CANCELLED,
+        cancelReason: req.body.reason,
+        ...(wasPaid ? { paymentStatus: PaymentStatus.REFUNDED, creditIssued: order.totalAmount } : {}),
+      },
     });
     if (order.stockReserved) {
       await Promise.all(order.items.map((item) =>
@@ -386,6 +429,10 @@ export const cancelOrder = catchAsync(async (req: AuthRequest, res: Response) =>
       });
     }
   });
+
+  if (wasPaid) {
+    issueCredit(customer.userId, order.totalAmount, 'CUSTOMER_CANCEL_REFUND', order.id).catch(() => {});
+  }
 
   return apiResponse.success(res, 'Order cancelled.');
 });
