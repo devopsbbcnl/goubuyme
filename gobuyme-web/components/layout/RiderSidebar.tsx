@@ -12,6 +12,7 @@ const NAV = [
   { href: '/rider/jobs', icon: '🏍️', label: 'Available Jobs' },
   { href: '/rider/active', icon: '📍', label: 'Active Delivery' },
   { href: '/rider/earnings', icon: '💰', label: 'Earnings' },
+  { href: '/rider/documents', icon: '📄', label: 'Documents' },
   { href: '/rider/profile', icon: '👤', label: 'Profile' },
 ];
 

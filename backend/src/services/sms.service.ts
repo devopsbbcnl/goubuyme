@@ -35,6 +35,10 @@ export const sendSms = async (to: string, body: string): Promise<void> => {
     }
     logger.info(`SMS sent to ${to}`);
   } catch (err) {
-    recordError('sms', 'sendSms failed', err, { to });
+    // Termii's error body (the actual validation reason — bad sender ID, no units, etc.)
+    // lives in err.response.data, not err.message, which axios reduces to a generic
+    // "Request failed with status code 422". Without this the recorded error is a dead end.
+    const providerResponse = axios.isAxiosError(err) ? err.response?.data : undefined;
+    recordError('sms', 'sendSms failed', err, { to, providerResponse });
   }
 };
