@@ -6,6 +6,7 @@ import {
 	TouchableOpacity,
 	StyleSheet,
 	ActivityIndicator,
+	ScrollView,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,7 +50,12 @@ export default function DeliveryPinModal({
 			}}
 			cardStyle={{ backgroundColor: T.surface }}
 		>
-				<View style={styles.sheet}>
+				<ScrollView
+					style={{ flexShrink: 1 }}
+					contentContainerStyle={styles.sheet}
+					keyboardShouldPersistTaps="handled"
+					showsVerticalScrollIndicator={false}
+				>
 					<View style={styles.header}>
 						<View style={[styles.iconWrap, { backgroundColor: T.primaryTint }]}>
 							<Ionicons name="lock-closed-outline" size={24} color={T.primary} />
@@ -110,7 +116,7 @@ export default function DeliveryPinModal({
 							<Text style={styles.confirmBtnText}>Confirm Delivery</Text>
 						)}
 					</TouchableOpacity>
-				</View>
+				</ScrollView>
 		</CenteredKeyboardModal>
 	);
 }

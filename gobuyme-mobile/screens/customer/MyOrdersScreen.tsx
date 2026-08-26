@@ -7,6 +7,7 @@ import {
 	TouchableOpacity,
 	ActivityIndicator,
 	RefreshControl,
+	Alert,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
@@ -14,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomNav } from '@/components/layout/BottomNav';
 import api from '@/services/api';
+import { useCart } from '@/context/CartContext';
 
 type OrderStatus =
 	| 'pending'
@@ -117,11 +119,37 @@ type Tab = (typeof TABS)[number];
 export default function MyOrdersScreen() {
 	const { theme: T } = useTheme();
 	const insets = useSafeAreaInsets();
+	const { replaceItem } = useCart();
 	const [activeTab, setActiveTab] = useState<Tab>('All');
 	const [orders, setOrders] = useState<Order[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [reorderingId, setReorderingId] = useState<string | null>(null);
+
+	const handleReorder = useCallback(async (orderId: string) => {
+		try {
+			setReorderingId(orderId);
+			const { data } = await api.get(`/orders/${orderId}`);
+			const full = data.data as {
+				vendorId: string;
+				vendor: { businessName: string; logo?: string | null };
+				items: { menuItemId: string; name: string; price: number; quantity: number; menuItem?: { image?: string | null } }[];
+			};
+			full.items.forEach((item) => {
+				replaceItem(
+					{ id: item.menuItemId, name: item.name, price: item.price, img: item.menuItem?.image ?? '' },
+					item.quantity,
+					{ id: full.vendorId, name: full.vendor.businessName, image: full.vendor.logo ?? undefined },
+				);
+			});
+			router.push('/cart');
+		} catch {
+			Alert.alert('Reorder failed', 'Could not reorder this order. Please try again.');
+		} finally {
+			setReorderingId(null);
+		}
+	}, [replaceItem]);
 
 	const fetchOrders = useCallback(async (silent = false) => {
 		if (!silent) setLoading(true);
@@ -290,10 +318,16 @@ export default function MyOrdersScreen() {
 										<TouchableOpacity
 											style={[styles.reorderBtn, { borderColor: T.primary }]}
 											activeOpacity={0.75}
+											disabled={reorderingId === order.id}
+											onPress={() => handleReorder(order.id)}
 										>
-											<Text style={[styles.reorderText, { color: T.primary }]}>
-												Reorder
-											</Text>
+											{reorderingId === order.id ? (
+												<ActivityIndicator size="small" color={T.primary} />
+											) : (
+												<Text style={[styles.reorderText, { color: T.primary }]}>
+													Reorder
+												</Text>
+											)}
 										</TouchableOpacity>
 									)}
 									{(ACTIVE_STATUSES as string[]).includes(order.status) && (

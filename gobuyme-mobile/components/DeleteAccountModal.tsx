@@ -7,6 +7,7 @@ import {
 	StyleSheet,
 	ActivityIndicator,
 	Alert,
+	ScrollView,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -84,7 +85,12 @@ export default function DeleteAccountModal({ visible, onClose }: Props) {
 	return (
 		<>
 			<CenteredKeyboardModal visible={visible} onRequestClose={handleClose} cardStyle={{ backgroundColor: T.surface }}>
-						<View style={styles.sheet}>
+					<ScrollView
+						style={{ flexShrink: 1 }}
+						contentContainerStyle={styles.sheet}
+						keyboardShouldPersistTaps="handled"
+						showsVerticalScrollIndicator={false}
+					>
 							<View style={styles.header}>
 								<View style={[styles.iconWrap, { backgroundColor: T.errorBg }]}>
 									<Ionicons name="trash-outline" size={22} color={T.error} />
@@ -132,7 +138,7 @@ export default function DeleteAccountModal({ visible, onClose }: Props) {
 									<Text style={styles.deleteBtnText}>Delete My Account</Text>
 								)}
 							</TouchableOpacity>
-						</View>
+					</ScrollView>
 			</CenteredKeyboardModal>
 
 			<MfaCodeModal

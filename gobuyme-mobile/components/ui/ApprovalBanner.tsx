@@ -14,9 +14,9 @@ export function ApprovalBanner({ role }: { role: 'vendor' | 'rider' }) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { backgroundColor: T.warningBg, borderBottomColor: T.warning, paddingTop: insets.top + 10 }]}>
-      <Ionicons name="alert-circle-outline" size={16} color={T.warning} />
-      <Text style={[styles.text, { color: T.text }]} numberOfLines={2}>
+    <View style={[styles.container, { backgroundColor: T.error, paddingTop: insets.top + 10 }]}>
+      <Ionicons name="alert-circle-outline" size={16} color="#FFFFFF" />
+      <Text style={[styles.text, { color: '#FFFFFF' }]} numberOfLines={2}>
         {COPY[role]}
       </Text>
     </View>
@@ -30,7 +30,6 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     paddingBottom: 10,
-    borderBottomWidth: 1,
   },
   text: {
     flex: 1,

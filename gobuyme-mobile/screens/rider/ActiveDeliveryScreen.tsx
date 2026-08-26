@@ -280,7 +280,7 @@ export default function ActiveDeliveryScreen() {
             <View style={styles.contactBtns}>
               <TouchableOpacity
                 style={[styles.contactBtn, { backgroundColor: T.surface2, borderColor: T.border }]}
-                onPress={() => router.push(`/(rider)/rider-chat?orderId=${orderId}` as any)}
+                onPress={() => router.push(`/chat?orderId=${orderId}` as any)}
               >
                 <Ionicons name="chatbubble-outline" size={15} color={T.text} />
               </TouchableOpacity>
