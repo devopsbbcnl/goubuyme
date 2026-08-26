@@ -14,11 +14,11 @@ const SUCCESS_MESSAGES: Record<RoleParam, { heading: string; body: string }> = {
   },
   vendor: {
     heading: 'Welcome aboard!',
-    body: 'You have registered successfully. Your account is currently being set up. Please check your email for further instructions.',
+    body: 'Welcome to GoBuyMe. Login and complete your store profile to post orders and be visible to users on the platform.',
   },
   rider: {
     heading: 'Let\'s ride!',
-    body: 'Your account is currently being set up. Please check your email for further instructions. Then zoom into your daily hustle.',
+    body: 'Welcome to GoBuyMe. Login and complete your rider profile to see available jobs and be visible to users.',
   },
 };
 

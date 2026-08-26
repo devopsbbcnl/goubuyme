@@ -5,7 +5,6 @@ import { getPrimaryClientUrl } from '../utils/clientUrl';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM ?? 'GoBuyMe <noreply@notifications.gobuyme.shop>';
-const DASHBOARD_URL = process.env.DASHBOARD_URL ?? 'https://dashboard.gobuyme.shop';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? 'support@gobuyme.shop';
 const LOGO_URL = process.env.LOGO_URL ?? '';
 
@@ -152,26 +151,25 @@ function welcomeCustomer(name: string): string {
 }
 
 function welcomeVendor(name: string, businessName: string, tier1Percent: number, tier2Percent: number): string {
-  const setupUrl = `${DASHBOARD_URL}/vendor/setup`;
+  const loginUrl = `${getPrimaryClientUrl()}/login`;
 
   return emailLayout(`
     <p style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111111;">Welcome to GoBuyMe, ${name}!</p>
     <p style="margin:8px 0 28px;font-size:15px;color:#555555;line-height:22px;">
-      <strong>${businessName}</strong> has been registered. Your account is now under review —
-      here's what to do next to get approved and go live faster.
+      <strong>${businessName}</strong> has been registered. Login and complete your store profile to post orders and be visible to users on the platform.
     </p>
 
     <table cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #F0F0F0;">
       ${step(1, 'Complete your business profile', 'Add your logo, cover photo, opening hours, and a short description so customers know what to expect.')}
-      ${step(2, 'Choose your commission plan', `Pick between the Growth Plan (${tier2Percent}% commission) and the Starter Plan (${tier1Percent}% commission). Both have no monthly fee — you can compare details on the setup page.`)}
+      ${step(2, 'Choose your commission plan', `Pick between the Growth Plan (${tier2Percent}% commission) and the Starter Plan (${tier1Percent}% commission). Both have no monthly fee — you can compare details after logging in.`)}
       ${step(3, 'Add your menu', 'Upload your items with names, prices, and photos. A well-stocked menu gets approved faster.')}
       ${step(4, 'Wait for approval', 'Our team reviews every vendor before going live — usually within 1–2 business days. You\'ll receive an email once approved.')}
     </table>
 
     <p style="margin:28px 0 16px;font-size:15px;color:#555555;line-height:22px;">
-      Head to the vendor dashboard to complete your setup:
+      Log in to complete your store profile:
     </p>
-    ${ctaButton(setupUrl, 'Complete Setup')}
+    ${ctaButton(loginUrl, 'Log In')}
 
     <p style="margin:32px 0 0;font-size:14px;color:#555555;line-height:22px;">
       Need help getting set up? Reply to this email or contact
@@ -180,25 +178,25 @@ function welcomeVendor(name: string, businessName: string, tier1Percent: number,
 }
 
 function welcomeRider(name: string): string {
-  const setupUrl = `${DASHBOARD_URL}/rider/setup`;
+  const loginUrl = `${getPrimaryClientUrl()}/login`;
 
   return emailLayout(`
     <p style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111111;">Welcome to GoBuyMe, ${name}!</p>
     <p style="margin:8px 0 28px;font-size:15px;color:#555555;line-height:22px;">
-      Your rider account is registered and under review. Complete your profile to get approved and start earning.
+      Login and complete your rider profile to see available jobs and be visible to users.
     </p>
 
     <table cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #F0F0F0;">
-      ${step(1, 'Complete your rider profile', 'Log in to the dashboard and fill in your personal details, emergency contact, and bank account for payouts.')}
+      ${step(1, 'Complete your rider profile', 'Log in and fill in your personal details, emergency contact, and bank account for payouts.')}
       ${step(2, 'Upload required documents', 'Submit a valid ID, your vehicle details, and a clear profile photo. This speeds up your verification.')}
       ${step(3, 'Await verification', 'Our team verifies every rider before activation — typically within 1–2 business days. You\'ll get an email once you\'re approved.')}
       ${step(4, 'Go online and earn', 'Once approved, open the app, toggle online, and start accepting delivery jobs near you.')}
     </table>
 
     <p style="margin:28px 0 16px;font-size:15px;color:#555555;line-height:22px;">
-      Complete your setup now to get approved sooner:
+      Log in to complete your rider profile:
     </p>
-    ${ctaButton(setupUrl, 'Complete Rider Profile')}
+    ${ctaButton(loginUrl, 'Log In')}
 
     <p style="margin:32px 0 0;font-size:14px;color:#555555;line-height:22px;">
       Questions? Reach us at

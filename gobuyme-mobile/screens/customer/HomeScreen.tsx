@@ -112,6 +112,15 @@ interface BrowseItem {
   vendor: { id: string; businessName: string; logo: string | null; city: string; isOpen: boolean };
 }
 
+type SortOption = 'default' | 'rating' | 'nearest' | 'fastest';
+
+const SORT_OPTIONS: { id: SortOption; label: string }[] = [
+  { id: 'default', label: 'Recommended' },
+  { id: 'rating',  label: 'Top rated' },
+  { id: 'nearest', label: 'Nearest' },
+  { id: 'fastest', label: 'Fastest delivery' },
+];
+
 function matchCat(vendorCat: string, selected: string): boolean {
   if (selected === 'all') return true;
   return vendorCat === selected;
@@ -164,6 +173,9 @@ export default function HomeScreen() {
   const [browseLoading,  setBrowseLoading]  = useState(false);
   const [addrModal,    setAddrModal]    = useState(false);
   const [cityModal,    setCityModal]    = useState(false);
+  const [filterModal,  setFilterModal]  = useState(false);
+  const [openNowOnly,  setOpenNowOnly]  = useState(false);
+  const [sortBy,       setSortBy]       = useState<SortOption>('default');
   const [vendors,      setVendors]      = useState<Vendor[]>([]);
   const [failedCovers, setFailedCovers] = useState<Set<string>>(new Set());
   const [loading,      setLoading]      = useState(true);
@@ -284,7 +296,24 @@ export default function HomeScreen() {
   }, [setSelectedCity]);
 
   const hasAddresses = addresses.length > 0;
-  const filtered = vendors.filter(v => matchCat(v.category, activeCat));
+  const catFiltered = vendors.filter(v => matchCat(v.category, activeCat));
+  const filtered = catFiltered
+    .filter(v => !openNowOnly || v.isOpen)
+    .sort((a, b) => {
+      if (sortBy === 'rating') return b.rating - a.rating;
+      if (sortBy === 'nearest') {
+        if (a.distanceKm == null) return b.distanceKm == null ? 0 : 1;
+        if (b.distanceKm == null) return -1;
+        return a.distanceKm - b.distanceKm;
+      }
+      if (sortBy === 'fastest') {
+        if (a.estimatedMinutes == null) return b.estimatedMinutes == null ? 0 : 1;
+        if (b.estimatedMinutes == null) return -1;
+        return a.estimatedMinutes - b.estimatedMinutes;
+      }
+      return 0;
+    });
+  const filtersActive = openNowOnly || sortBy !== 'default';
   const showingBrowse = activeCat === 'EMART' && activeEmartCat !== null;
 
   return (
@@ -341,8 +370,12 @@ export default function HomeScreen() {
             <Ionicons name="search-outline" size={18} color={T.textMuted} />
             <Text style={[styles.searchPlaceholder, { color: T.textMuted }]}>Search for food or restaurant...</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/search')} style={[styles.filterBtn, { backgroundColor: T.surface, borderColor: T.border }]}>
-            <Ionicons name="options-outline" size={20} color={T.text} />
+          <TouchableOpacity
+            onPress={() => setFilterModal(true)}
+            style={[styles.filterBtn, { backgroundColor: T.surface, borderColor: filtersActive ? T.primary : T.border }]}
+          >
+            <Ionicons name="options-outline" size={20} color={filtersActive ? T.primary : T.text} />
+            {filtersActive && <View style={[styles.filterDot, { backgroundColor: T.primary, borderColor: T.surface }]} />}
           </TouchableOpacity>
         </View>
 
@@ -524,9 +557,11 @@ export default function HomeScreen() {
           <View style={[styles.emptyState, { backgroundColor: T.surface, borderColor: T.border }]}>
             <Text style={{ fontSize: 32, marginBottom: 8 }}>🏙️</Text>
             <Text style={[styles.emptyText, { color: T.textSec }]}>
-              {selectedCity
-                ? `No vendors in ${selectedCity} yet — check back soon!`
-                : 'No vendors available yet'}
+              {catFiltered.length > 0
+                ? 'No vendors match these filters — try adjusting them.'
+                : selectedCity
+                  ? `No vendors in ${selectedCity} yet — check back soon!`
+                  : 'No vendors available yet'}
             </Text>
           </View>
         ) : (
@@ -689,6 +724,63 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Filter & sort modal */}
+      <Modal visible={filterModal} transparent animationType="slide">
+        <Pressable style={styles.modalBackdrop} onPress={() => setFilterModal(false)} />
+        <View style={[styles.modalSheet, { backgroundColor: T.surface }]}>
+          <View style={styles.modalHandle} />
+          <Text style={[styles.modalTitle, { color: T.text }]}>Filter &amp; Sort</Text>
+
+          <TouchableOpacity
+            onPress={() => setOpenNowOnly(o => !o)}
+            activeOpacity={0.75}
+            style={[styles.filterToggleRow, { borderColor: openNowOnly ? T.primary : T.border, backgroundColor: openNowOnly ? T.primaryTint : T.surface2 }]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.filterToggleLabel, { color: T.text }]}>Open now</Text>
+              <Text style={[styles.filterToggleSub, { color: T.textSec }]}>Only show vendors accepting orders right now</Text>
+            </View>
+            <View style={[styles.checkbox, { borderColor: openNowOnly ? T.primary : T.border, backgroundColor: openNowOnly ? T.primary : 'transparent' }]}>
+              {openNowOnly && <Ionicons name="checkmark" size={14} color="#fff" />}
+            </View>
+          </TouchableOpacity>
+
+          <Text style={[styles.filterSectionLabel, { color: T.textSec }]}>Sort by</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+            {SORT_OPTIONS.map(opt => {
+              const active = sortBy === opt.id;
+              return (
+                <TouchableOpacity
+                  key={opt.id}
+                  onPress={() => setSortBy(opt.id)}
+                  activeOpacity={0.75}
+                  style={[styles.sortChip, { backgroundColor: active ? T.primary : T.surface2, borderColor: active ? T.primary : T.border }]}
+                >
+                  <Text style={[styles.sortChipText, { color: active ? '#fff' : T.text }]}>{opt.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+            <TouchableOpacity
+              onPress={() => { setOpenNowOnly(false); setSortBy('default'); }}
+              style={[styles.filterResetBtn, { borderColor: T.border }]}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.filterResetText, { color: T.text }]}>Reset</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setFilterModal(false)}
+              style={[styles.filterApplyBtn, { backgroundColor: T.primary }]}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.filterApplyText}>Show results</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -704,7 +796,8 @@ const styles = StyleSheet.create({
   cartBadgeText:     { fontSize: 10, fontWeight: '700', color: '#fff' },
   searchRow:         { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
   searchBar:         { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 4, padding: 12 },
-  filterBtn:         { width: 46, height: 46, borderRadius: 4, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  filterBtn:         { width: 46, height: 46, borderRadius: 4, borderWidth: 1, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  filterDot:         { position: 'absolute', top: 7, right: 7, width: 8, height: 8, borderRadius: 4, borderWidth: 1.5 },
   searchPlaceholder: { fontSize: 14 },
   promoBanner:       { borderRadius: 4, height: 180, padding: 20, justifyContent: 'center' },
   promoTag:          { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 1, marginBottom: 4 },
@@ -752,4 +845,15 @@ const styles = StyleSheet.create({
   cityState:         { fontSize: 12, marginTop: 2 },
   browseCard:        { flexDirection: 'row', borderRadius: 4, overflow: 'hidden', borderWidth: 1, marginBottom: 12 },
   browseImg:         { width: 100, height: 100 },
+  filterToggleRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 4, borderWidth: 1.5, marginBottom: 18 },
+  filterToggleLabel: { fontSize: 14, fontWeight: '700' },
+  filterToggleSub:   { fontSize: 11.5, marginTop: 2 },
+  checkbox:          { width: 22, height: 22, borderRadius: 4, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  filterSectionLabel:{ fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 },
+  sortChip:          { paddingVertical: 9, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1 },
+  sortChipText:      { fontSize: 13, fontWeight: '600' },
+  filterResetBtn:    { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 4, borderWidth: 1.5 },
+  filterResetText:   { fontSize: 14, fontWeight: '700' },
+  filterApplyBtn:    { flex: 2, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 4 },
+  filterApplyText:   { fontSize: 14, fontWeight: '700', color: '#fff' },
 });

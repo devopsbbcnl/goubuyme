@@ -6,6 +6,7 @@ import {
 	TouchableOpacity,
 	StyleSheet,
 	ActivityIndicator,
+	ScrollView,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,7 +51,12 @@ export default function MfaCodeModal({
 			}}
 			cardStyle={{ backgroundColor: T.surface }}
 		>
-				<View style={styles.sheet}>
+				<ScrollView
+					style={{ flexShrink: 1 }}
+					contentContainerStyle={styles.sheet}
+					keyboardShouldPersistTaps="handled"
+					showsVerticalScrollIndicator={false}
+				>
 					<View style={styles.header}>
 						<View style={[styles.iconWrap, { backgroundColor: T.primaryTint }]}>
 							<Ionicons
@@ -109,7 +115,7 @@ export default function MfaCodeModal({
 							<Text style={styles.confirmBtnText}>Verify & Continue</Text>
 						)}
 					</TouchableOpacity>
-				</View>
+				</ScrollView>
 		</CenteredKeyboardModal>
 	);
 }
