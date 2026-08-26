@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import api from '@/services/api';
 import DeleteAccountModal from '@/components/ui/DeleteAccountModal';
+import ImageCropModal from '@/components/ui/ImageCropModal';
+import { uploadToCloudinary } from '@/services/cloudinary';
 
 interface RiderProfile {
   name: string; phone: string; vehicleType: string; plateNumber: string;
@@ -16,6 +18,54 @@ interface RiderProfile {
 const VEHICLE_LABELS: Record<string, string> = {
   MOTORCYCLE: 'Motorcycle', BICYCLE: 'Bicycle', CAR: 'Car', TRUCK: 'Truck',
 };
+
+function AvatarUpload({ avatar, initials, onUploaded }: { avatar?: string; initials: string; onUploaded: (url: string) => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const toast = useToast();
+
+  const handle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) setCropFile(file);
+  };
+
+  const uploadCropped = async (file: File) => {
+    setCropFile(null);
+    setBusy(true);
+    try {
+      const url = await uploadToCloudinary(file, 'rider-avatars');
+      onUploaded(url);
+      toast('Photo updated', 'success');
+    } catch (err: any) { toast(err?.message || 'Upload failed', 'error'); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => fileRef.current?.click()}
+      disabled={busy}
+      style={{ position: 'relative', flexShrink: 0, border: 'none', background: 'none', padding: 0, cursor: busy ? 'default' : 'pointer' }}
+      aria-label="Change profile photo"
+    >
+      <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handle} />
+      <ImageCropModal file={cropFile} aspect={1} onCancel={() => setCropFile(null)} onConfirm={uploadCropped} />
+
+      <div className="avatar" style={{ width: 72, height: 72, fontSize: 26, background: '#EAF2FF', color: 'var(--rider)' }}>
+        {avatar ? <Image src={avatar} alt="" width={72} height={72} style={{ objectFit: 'cover' }} /> : initials}
+      </div>
+      <div style={{
+        position: 'absolute', bottom: -2, right: -2, width: 26, height: 26, borderRadius: '50%',
+        background: busy ? 'var(--muted)' : 'var(--brand)', border: '2px solid var(--surface)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
+      }}>
+        {busy ? <span className="spin" style={{ width: 11, height: 11, borderColor: 'rgba(255,255,255,.4)', borderTopColor: '#fff' }} /> : '📷'}
+      </div>
+    </button>
+  );
+}
 
 export default function RiderProfilePage() {
   const { user, updateUser, logout } = useAuth();
@@ -77,6 +127,13 @@ export default function RiderProfilePage() {
   const initials = (name: string) =>
     name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
+  const uploadAvatar = async (url: string) => {
+    try {
+      await api.patch('/auth/profile', { photoUrl: url });
+      updateUser({ avatar: url });
+    } catch { toast('Could not save photo', 'error'); }
+  };
+
   if (loading) return (
     <div style={{ display: 'grid', gap: 16 }}>
       {[...Array(3)].map((_, i) => <div key={i} className="sk" style={{ height: 140 }} />)}
@@ -100,9 +157,7 @@ export default function RiderProfilePage() {
 
         {/* Header */}
         <div className="card card-pad" style={{ gridColumn: '1 / -1', display: 'flex', gap: 20, alignItems: 'center' }}>
-          <div className="avatar" style={{ width: 72, height: 72, fontSize: 26, background: '#EAF2FF', color: 'var(--rider)', flexShrink: 0 }}>
-            {user?.avatar ? <Image src={user.avatar} alt="" width={72} height={72} style={{ objectFit: 'cover' }} /> : initials(src?.name ?? 'R')}
-          </div>
+          <AvatarUpload avatar={user?.avatar} initials={initials(src?.name ?? 'R')} onUploaded={uploadAvatar} />
           <div>
             <div style={{ fontSize: 20, fontWeight: 800 }}>{src?.name}</div>
             <div className="muted">{user?.email}</div>
@@ -173,7 +228,7 @@ export default function RiderProfilePage() {
             </div>
           ) : (
             <p className="muted" style={{ fontSize: 13 }}>
-              No guarantor on file. Submit your KYC documents to add one.
+              No guarantor on file. <a href="/rider/documents" style={{ color: 'var(--brand)', fontWeight: 600 }}>Submit your KYC documents</a> to add one.
             </p>
           )}
         </div>
