@@ -4,6 +4,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 
 type Platform = 'MOBILE' | 'WEB' | 'ADMIN' | 'BACKEND';
+type ErrorCategory = 'USER_ERROR' | 'SERVER_ERROR' | 'ATTACK' | 'SYSTEM_RISK' | 'UNKNOWN';
+type ErrorSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 interface ErrorLogEntry {
   id: string;
@@ -22,6 +24,13 @@ interface ErrorLogEntry {
   resolvedAt: string | null;
   resolvedBy: string | null;
   createdAt: string;
+  category: ErrorCategory | null;
+  severity: ErrorSeverity | null;
+  aiSummary: string | null;
+  aiRecommendation: string | null;
+  analyzedBy: string | null;
+  analyzedAt: string | null;
+  escalatedAt: string | null;
 }
 
 interface Pagination {
@@ -34,6 +43,27 @@ interface Pagination {
 const PLATFORM_LABEL: Record<Platform, string> = {
   MOBILE: 'Mobile', WEB: 'Web', ADMIN: 'Admin', BACKEND: 'Backend',
 };
+
+const CATEGORY_LABEL: Record<ErrorCategory, string> = {
+  USER_ERROR: 'User error', SERVER_ERROR: 'Server error', ATTACK: 'Attack',
+  SYSTEM_RISK: 'System risk', UNKNOWN: 'Unknown',
+};
+
+const CATEGORY_OPTIONS: ErrorCategory[] = ['USER_ERROR', 'SERVER_ERROR', 'ATTACK', 'SYSTEM_RISK', 'UNKNOWN'];
+const SEVERITY_OPTIONS: ErrorSeverity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+
+function categoryColor(cat: ErrorCategory, T: Record<string, string>) {
+  if (cat === 'ATTACK' || cat === 'SYSTEM_RISK') return { color: T.error, bg: T.errorBg };
+  if (cat === 'SERVER_ERROR') return { color: T.warning, bg: T.warningBg };
+  if (cat === 'USER_ERROR') return { color: T.success, bg: T.successBg };
+  return { color: T.textSec, bg: T.surface3 };
+}
+
+function severityColor(sev: ErrorSeverity, T: Record<string, string>) {
+  if (sev === 'CRITICAL' || sev === 'HIGH') return { color: T.error, bg: T.errorBg };
+  if (sev === 'MEDIUM') return { color: T.warning, bg: T.warningBg };
+  return { color: T.textSec, bg: T.surface3 };
+}
 
 function resolvedColor(resolved: boolean, T: Record<string, string>) {
   return resolved ? { color: T.success, bg: T.successBg } : { color: T.error, bg: T.errorBg };
@@ -60,6 +90,11 @@ function formatLogForCopy(log: ErrorLogEntry) {
   if (log.userId) lines.push(`User ID: ${log.userId}`);
   if (log.appVersion) lines.push(`App version: ${log.appVersion}`);
   if (log.method || log.url) lines.push(`Request: ${[log.method, log.url].filter(Boolean).join(' ')}`);
+  if (log.category) lines.push(`Category: ${CATEGORY_LABEL[log.category]}`);
+  if (log.severity) lines.push(`Severity: ${log.severity}`);
+  if (log.aiSummary) lines.push(`AI summary: ${log.aiSummary}`);
+  if (log.aiRecommendation) lines.push(`AI recommendation: ${log.aiRecommendation}`);
+  if (log.escalatedAt) lines.push(`Escalated: ${new Date(log.escalatedAt).toLocaleString()}`);
   if (log.stack) lines.push(`\nStack:\n${log.stack}`);
   if (log.context) lines.push(`\nContext:\n${JSON.stringify(log.context, null, 2)}`);
   if (log.deviceInfo) lines.push(`\nDevice info:\n${JSON.stringify(log.deviceInfo, null, 2)}`);
@@ -70,6 +105,8 @@ export default function ErrorLogsPage() {
   const { theme: T } = useTheme();
   const [resolvedFilter, setResolvedFilter] = useState<'ALL' | 'UNRESOLVED' | 'RESOLVED'>('UNRESOLVED');
   const [platform, setPlatform] = useState<'ALL' | Platform>('ALL');
+  const [category, setCategory] = useState<'ALL' | ErrorCategory>('ALL');
+  const [severity, setSeverity] = useState<'ALL' | ErrorSeverity>('ALL');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
@@ -78,6 +115,7 @@ export default function ErrorLogsPage() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [reanalyzing, setReanalyzing] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
@@ -90,12 +128,14 @@ export default function ErrorLogsPage() {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (resolvedFilter !== 'ALL') params.set('resolved', String(resolvedFilter === 'RESOLVED'));
     if (platform !== 'ALL') params.set('platform', platform);
+    if (category !== 'ALL') params.set('category', category);
+    if (severity !== 'ALL') params.set('severity', severity);
     if (search) params.set('search', search);
     api.get<{ data: ErrorLogEntry[]; pagination: Pagination }>(`/admin/error-logs?${params}`)
       .then(res => { setLogs(res.data); setPagination(res.pagination); })
       .catch(() => { setLogs([]); setPagination(null); })
       .finally(() => setLoading(false));
-  }, [resolvedFilter, platform, search, page, limit]);
+  }, [resolvedFilter, platform, category, severity, search, page, limit]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
   // Selection is page-scoped — clear it whenever the underlying list changes so a stale
@@ -129,6 +169,8 @@ export default function ErrorLogsPage() {
           all: true,
           resolved,
           ...(platform !== 'ALL' ? { platform } : {}),
+          ...(category !== 'ALL' ? { category } : {}),
+          ...(severity !== 'ALL' ? { severity } : {}),
           ...(search ? { search } : {}),
           ...(resolvedFilter !== 'ALL' ? { filterResolved: resolvedFilter === 'RESOLVED' } : {}),
         });
@@ -165,6 +207,17 @@ export default function ErrorLogsPage() {
     }
   };
 
+  const reanalyze = async (e: MouseEvent, log: ErrorLogEntry) => {
+    e.stopPropagation();
+    setReanalyzing(log.id);
+    try {
+      await api.post(`/admin/error-logs/${log.id}/analyze`, {});
+      fetchLogs();
+    } finally {
+      setReanalyzing(null);
+    }
+  };
+
   const toggleResolved = async (log: ErrorLogEntry) => {
     setUpdating(log.id);
     try {
@@ -176,12 +229,17 @@ export default function ErrorLogsPage() {
     }
   };
 
+  const criticalOnPage = logs.filter(l => l.severity === 'CRITICAL' && !l.resolved).length;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Error Logs</div>
         <div style={{ fontSize: 13, color: T.textSec, marginTop: 2 }}>
           {pagination ? `${pagination.total} errors` : loading ? 'Loading…' : 'No errors'}
+          {criticalOnPage > 0 && (
+            <span style={{ color: T.error, fontWeight: 700 }}> · {criticalOnPage} critical on this page</span>
+          )}
         </div>
       </div>
 
@@ -210,6 +268,24 @@ export default function ErrorLogsPage() {
           <option value="WEB">Web</option>
           <option value="ADMIN">Admin</option>
           <option value="BACKEND">Backend</option>
+        </select>
+
+        <select
+          value={category}
+          onChange={e => { setCategory(e.target.value as 'ALL' | ErrorCategory); setPage(1); }}
+          style={{ background: T.surface, color: T.text, border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 10px', fontSize: 13 }}
+        >
+          <option value="ALL">All categories</option>
+          {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
+        </select>
+
+        <select
+          value={severity}
+          onChange={e => { setSeverity(e.target.value as 'ALL' | ErrorSeverity); setPage(1); }}
+          style={{ background: T.surface, color: T.text, border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 10px', fontSize: 13 }}
+        >
+          <option value="ALL">All severities</option>
+          {SEVERITY_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
         </select>
 
         <input
@@ -322,6 +398,32 @@ export default function ErrorLogsPage() {
                   borderRadius: 4, padding: '2px 8px', whiteSpace: 'nowrap', flexShrink: 0, marginTop: 1,
                 }}>{PLATFORM_LABEL[log.platform] ?? log.platform}</span>
 
+                {log.severity && (() => {
+                  const c = severityColor(log.severity, T);
+                  return (
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, color: c.color, background: c.bg,
+                      borderRadius: 4, padding: '2px 8px', whiteSpace: 'nowrap', flexShrink: 0, marginTop: 1,
+                    }}>{log.severity}</span>
+                  );
+                })()}
+
+                {log.category && (() => {
+                  const c = categoryColor(log.category, T);
+                  return (
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, color: c.color, background: c.bg,
+                      borderRadius: 4, padding: '2px 8px', whiteSpace: 'nowrap', flexShrink: 0, marginTop: 1,
+                    }}>{CATEGORY_LABEL[log.category]}</span>
+                  );
+                })()}
+
+                {log.escalatedAt && (
+                  <span title={`Escalated to Telegram ${new Date(log.escalatedAt).toLocaleString()}`} style={{
+                    fontSize: 11, fontWeight: 700, color: T.error, whiteSpace: 'nowrap', flexShrink: 0, marginTop: 1,
+                  }}>⚡ escalated</span>
+                )}
+
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     fontSize: 13, color: T.text, lineHeight: 1.4,
@@ -336,6 +438,43 @@ export default function ErrorLogsPage() {
                   </div>
                   {isOpen && (
                     <div style={{ marginTop: 10 }}>
+                      <div style={{
+                        background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
+                        padding: 12, marginBottom: 8,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: T.textSec, letterSpacing: 0.3 }}>ANALYSIS</span>
+                          <span style={{ fontSize: 11, color: T.textMuted }}>
+                            {log.analyzedAt
+                              ? `${log.analyzedBy === 'llm' ? 'Classified by AI' : log.analyzedBy === 'rules' ? 'Classified by rules' : 'Not classified'} · ${timeAgo(log.analyzedAt)}`
+                              : 'Analysis pending…'}
+                          </span>
+                          <div style={{ flex: 1 }} />
+                          <button
+                            onClick={(e) => reanalyze(e, log)}
+                            disabled={reanalyzing === log.id}
+                            style={{
+                              fontSize: 11, fontWeight: 700, color: T.textSec,
+                              background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4,
+                              padding: '4px 10px', cursor: reanalyzing === log.id ? 'default' : 'pointer',
+                              opacity: reanalyzing === log.id ? 0.5 : 1,
+                            }}
+                          >{reanalyzing === log.id ? 'Analyzing…' : 'Re-analyze'}</button>
+                        </div>
+                        {log.aiSummary
+                          ? <div style={{ fontSize: 12, color: T.text, lineHeight: 1.5 }}>{log.aiSummary}</div>
+                          : <div style={{ fontSize: 12, color: T.textMuted }}>No summary.</div>}
+                        {log.aiRecommendation && (
+                          <div style={{ fontSize: 12, color: T.textSec, lineHeight: 1.5, marginTop: 4 }}>
+                            <span style={{ fontWeight: 700 }}>Recommendation: </span>{log.aiRecommendation}
+                          </div>
+                        )}
+                        {log.escalatedAt && (
+                          <div style={{ fontSize: 11, color: T.error, fontWeight: 700, marginTop: 6 }}>
+                            ⚡ Escalated to Telegram · {new Date(log.escalatedAt).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
                         <button
                           onClick={(e) => copyLog(e, log)}

@@ -30,5 +30,11 @@ export const recordError = (
         context: context as Prisma.InputJsonValue | undefined,
       },
     })
+    .then((log) => {
+      // Fire-and-forget classification + Telegram escalation. Lazy import breaks
+      // the require cycle (errorAnalysis.service imports telegram.service, which
+      // imports this file).
+      void import('../services/errorAnalysis.service').then((m) => m.analyzeErrorLog(log.id));
+    })
     .catch((logErr) => logger.error('Failed to persist ErrorLog', { error: (logErr as Error).message, source }));
 };

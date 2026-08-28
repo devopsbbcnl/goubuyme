@@ -20,6 +20,7 @@
     "patch:images": "ts-node prisma/patch-images.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
     "@prisma/client": "^5.14.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "axios": "^1.7.0",

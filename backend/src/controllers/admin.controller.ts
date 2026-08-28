@@ -1167,13 +1167,23 @@ export const getVendorDetail = catchAsync(async (req: Request, res: Response) =>
 });
 
 // PATCH /admin/vendors/:id/document/status
+const VENDOR_DOCUMENT_ITEMS: Record<string, string> = {
+  ID_FRONT: 'ID document (front)',
+  ID_BACK: 'ID document (back)',
+  SELFIE: 'Selfie photo',
+  BVN: 'BVN',
+};
+
 export const updateVendorDocumentStatus = catchAsync(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { status, reviewNote } = req.body;
+  const { status, reviewNote, rejectedItem } = req.body;
 
   const validStatuses: string[] = ['VERIFIED', 'REJECTED'];
   if (!validStatuses.includes(status)) {
     return apiResponse.error(res, 'Invalid document status. Must be VERIFIED or REJECTED.', 400);
+  }
+  if (status === 'REJECTED' && rejectedItem && !VENDOR_DOCUMENT_ITEMS[rejectedItem]) {
+    return apiResponse.error(res, 'Invalid rejectedItem.', 400);
   }
 
   const vendor = await prisma.vendor.findUnique({
@@ -1183,13 +1193,16 @@ export const updateVendorDocumentStatus = catchAsync(async (req: AuthRequest, re
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
   if (!vendor.document) return apiResponse.error(res, 'Vendor has no document on file.', 404);
 
+  const appliedRejectedItem = status === 'REJECTED' ? (rejectedItem ?? null) : null;
+
   const updated = await prisma.vendorDocument.update({
     where: { vendorId: id },
     data: {
       status: status as DocumentStatus,
       reviewNote: reviewNote ?? null,
+      rejectedItem: appliedRejectedItem,
     },
-    select: { id: true, type: true, status: true, reviewNote: true, updatedAt: true },
+    select: { id: true, type: true, status: true, reviewNote: true, rejectedItem: true, updatedAt: true },
   });
 
   await prisma.auditLog.create({
@@ -1198,17 +1211,19 @@ export const updateVendorDocumentStatus = catchAsync(async (req: AuthRequest, re
       action: `DOCUMENT_${status}`,
       entity: 'VendorDocument',
       entityId: updated.id,
-      meta: { vendorId: id, reviewNote: reviewNote ?? null },
+      meta: { vendorId: id, reviewNote: reviewNote ?? null, rejectedItem: appliedRejectedItem },
     },
   });
 
+  const rejectedItemLabel = appliedRejectedItem ? VENDOR_DOCUMENT_ITEMS[appliedRejectedItem] : null;
+
   notifyUser(vendor.userId, {
-    title: status === 'VERIFIED' ? 'Document Verified ✅' : 'Document Rejected',
+    title: status === 'VERIFIED' ? 'Document Verified ✅' : `${rejectedItemLabel ?? 'Document'} Rejected`,
     body: status === 'VERIFIED'
       ? 'Your identity document has been verified by the GoBuyMe team.'
-      : `Your identity document was rejected. ${reviewNote ? `Reason: ${reviewNote}` : 'Please resubmit a clear photo.'}`,
+      : `Your ${rejectedItemLabel ? rejectedItemLabel.toLowerCase() : 'identity document'} was rejected. ${reviewNote ? `Reason: ${reviewNote}` : 'Please resubmit a clear photo.'}`,
     type: 'account',
-    data: { documentStatus: status },
+    data: { documentStatus: status, rejectedItem: appliedRejectedItem },
   }).catch(() => {});
 
   await updateVendorBadge(id);
@@ -1315,13 +1330,23 @@ export const updateVendorLicenseStatus = catchAsync(async (req: AuthRequest, res
 });
 
 // PATCH /admin/riders/:id/document/status
+const RIDER_DOCUMENT_ITEMS: Record<string, string> = {
+  NIN: 'NIN photo',
+  SELFIE: 'Selfie photo',
+  VEHICLE: 'Vehicle photo',
+  GUARANTOR: 'Guarantor information',
+};
+
 export const updateRiderDocumentStatus = catchAsync(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { status, reviewNote } = req.body;
+  const { status, reviewNote, rejectedItem } = req.body;
 
   const validStatuses: string[] = ['VERIFIED', 'REJECTED'];
   if (!validStatuses.includes(status)) {
     return apiResponse.error(res, 'Invalid status. Must be VERIFIED or REJECTED.', 400);
+  }
+  if (status === 'REJECTED' && rejectedItem && !RIDER_DOCUMENT_ITEMS[rejectedItem]) {
+    return apiResponse.error(res, 'Invalid rejectedItem.', 400);
   }
 
   const rider = await prisma.rider.findUnique({
@@ -1331,10 +1356,12 @@ export const updateRiderDocumentStatus = catchAsync(async (req: AuthRequest, res
   if (!rider) return apiResponse.error(res, 'Rider not found.', 404);
   if (!rider.document) return apiResponse.error(res, 'Rider has no document on file.', 404);
 
+  const appliedRejectedItem = status === 'REJECTED' ? (rejectedItem ?? null) : null;
+
   const updated = await prisma.riderDocument.update({
     where: { riderId: id },
-    data: { status: status as DocumentStatus, reviewNote: reviewNote ?? null },
-    select: { id: true, status: true, reviewNote: true, updatedAt: true },
+    data: { status: status as DocumentStatus, reviewNote: reviewNote ?? null, rejectedItem: appliedRejectedItem },
+    select: { id: true, status: true, reviewNote: true, rejectedItem: true, updatedAt: true },
   });
 
   await prisma.auditLog.create({
@@ -1343,17 +1370,19 @@ export const updateRiderDocumentStatus = catchAsync(async (req: AuthRequest, res
       action: `RIDER_DOCUMENT_${status}`,
       entity: 'RiderDocument',
       entityId: updated.id,
-      meta: { riderId: id, reviewNote: reviewNote ?? null },
+      meta: { riderId: id, reviewNote: reviewNote ?? null, rejectedItem: appliedRejectedItem },
     },
   });
 
+  const rejectedItemLabel = appliedRejectedItem ? RIDER_DOCUMENT_ITEMS[appliedRejectedItem] : null;
+
   notifyUser(rider.userId, {
-    title: status === 'VERIFIED' ? 'Documents Verified ✅' : 'Documents Rejected',
+    title: status === 'VERIFIED' ? 'Documents Verified ✅' : `${rejectedItemLabel ?? 'Documents'} Rejected`,
     body: status === 'VERIFIED'
       ? 'Your identity documents have been verified by the GoBuyMe team.'
-      : `Your documents were rejected. ${reviewNote ? `Reason: ${reviewNote}` : 'Please resubmit clear photos.'}`,
+      : `Your ${rejectedItemLabel ? rejectedItemLabel.toLowerCase() : 'documents'} ${rejectedItemLabel ? 'was' : 'were'} rejected. ${reviewNote ? `Reason: ${reviewNote}` : 'Please resubmit clear photos.'}`,
     type: 'account',
-    data: { documentStatus: status },
+    data: { documentStatus: status, rejectedItem: appliedRejectedItem },
   }).catch(() => {});
 
   return apiResponse.success(res, `Rider document ${status.toLowerCase()}.`, updated);

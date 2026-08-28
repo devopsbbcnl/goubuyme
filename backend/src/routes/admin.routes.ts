@@ -25,7 +25,7 @@ import {
   updateAdminRole,
   deactivateAdminUser,
 } from '../controllers/admin.controller';
-import { listErrorLogs, getErrorLogDetail, resolveErrorLog, bulkResolveErrorLogs } from '../controllers/errorLog.controller';
+import { listErrorLogs, getErrorLogDetail, resolveErrorLog, bulkResolveErrorLogs, reanalyzeErrorLog } from '../controllers/errorLog.controller';
 import { validate } from '../middleware/validate.middleware';
 import { bulkResolveErrorLogsSchema } from '../validators/errorLog.validator';
 import { getOnboardingFunnel, getStuckUsers, getOnboardingEventFunnel } from '../controllers/analytics.controller';
@@ -112,6 +112,7 @@ router.get('/logs',       ...superAdminAuth, getServerLogs);
 router.get('/error-logs',            ...readAuth, listErrorLogs);
 router.patch('/error-logs/bulk-resolve', ...readAuth, validate(bulkResolveErrorLogsSchema), bulkResolveErrorLogs);
 router.get('/error-logs/:id',        ...readAuth, getErrorLogDetail);
+router.post('/error-logs/:id/analyze', ...readAuth, reanalyzeErrorLog);
 router.patch('/error-logs/:id/resolve', ...readAuth, resolveErrorLog);
 
 // Payouts — super admin only
