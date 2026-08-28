@@ -39,6 +39,14 @@ const skipOutsideProduction = () => process.env.NODE_ENV !== 'production';
 // that to at most one persisted row per ip+path per window, across all PM2
 // workers when Redis is configured, per-process otherwise — the 429 response
 // itself is never throttled, only the DB write behind it.
+// The only URL prefixes this API actually route-serves (see server.ts). A 429 on
+// anything else is a vulnerability scanner walking a wordlist (/.env, /wp-login.php,
+// /.git/config, a `../` traversal probe) — traffic every public host gets nonstop.
+// It's already auto-rejected by the limiter; persisting an ErrorLog row + running
+// the analysis pipeline for each one just floods the admin Error Logs with noise
+// nobody acts on. Twin of SERVED_PATH in errorAnalysis.service.ts — keep in sync.
+const SERVED_PATH = /^\/(api\/|health|socket\.io|\.well-known\/|$)/i;
+
 const RATE_LIMIT_LOG_THROTTLE_MS = 60_000;
 const loggedRecently = new Map<string, number>();
 setInterval(() => {
@@ -70,7 +78,10 @@ const shouldPersistRateLimitLog = async (key: string): Promise<boolean> => {
 const rateLimitHandler = (message: string) => async (req: Request, res: Response) => {
   logger.warn('Rate limit exceeded', { path: req.originalUrl, ip: req.ip });
   try {
-    if (await shouldPersistRateLimitLog(`${req.ip}:${req.originalUrl}`)) {
+    // Scanner traffic against a path we don't serve: rate-limit it (the 429 below
+    // still fires) but don't persist a row or spin up analysis for it.
+    const servedPath = SERVED_PATH.test((req.path || req.originalUrl || '').toLowerCase());
+    if (servedPath && await shouldPersistRateLimitLog(`${req.ip}:${req.originalUrl}`)) {
       const created = await prisma.errorLog.create({
         data: {
           platform: 'BACKEND',

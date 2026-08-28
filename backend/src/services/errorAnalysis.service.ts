@@ -37,7 +37,7 @@ const SELF_SOURCES = ['telegram', 'error-analysis'];
 
 type ErrorLogRow = Prisma.ErrorLogGetPayload<Record<string, never>>;
 
-interface Classification {
+export interface Classification {
   category: ErrorCategory;
   severity: ErrorSeverity;
   summary?: string;
@@ -74,7 +74,15 @@ const has = (haystack: string, needles: (string | RegExp)[]): boolean =>
 const CLIENT_PLATFORMS = ['MOBILE', 'WEB', 'ADMIN'];
 const SENSITIVE_ROUTE = /\/(auth|login|admin|payments?|paystack|webhook)/i;
 
-function classifyByRules(log: ErrorLogRow): Classification | null {
+// The only URL prefixes this API actually route-serves (see server.ts). Any other
+// path that reaches the app can only ever 404 or trip the rate limiter — it never
+// hits a real handler. Traffic to those paths (/.env, /wp-login.php, /.git/config,
+// /vendor/phpunit/..., a `../` traversal probe) is a vulnerability scanner walking
+// a wordlist, which every public host receives continuously. Worth a row for the
+// record, never worth paging someone at 3am.
+const SERVED_PATH = /^\/(api\/|health|socket\.io|\.well-known\/|$)/i;
+
+export function classifyByRules(log: ErrorLogRow): Classification | null {
   const msg = (log.message || '').toLowerCase();
   const url = (log.url || '').toLowerCase();
   const stack = (log.stack || '').toLowerCase();
@@ -82,6 +90,26 @@ function classifyByRules(log: ErrorLogRow): Classification | null {
   const ctx = log.context ? JSON.stringify(log.context).toLowerCase() : '';
   const blob = `${msg} ${url} ${stack} ${ctx}`;
   const onSensitiveRoute = SENSITIVE_ROUTE.test(url) || SENSITIVE_ROUTE.test(source);
+
+  // 0. SCAN NOISE — an HTTP request to a path this API doesn't serve. This is
+  // untargeted internet background scanning: it was auto-rejected (404 / rate
+  // limit) and never reached application code, so there's nothing to act on.
+  // Still categorised ATTACK so it stays visible and filterable in the admin
+  // Error Logs, but pinned to LOW so it does not page the on-call chat. Scoped to
+  // backend-origin HTTP records — a client (MOBILE/WEB/ADMIN) may legitimately
+  // report an error whose `url` is a screen name or deep link. A scanner probe
+  // that DOES reach a real endpoint skips this and is caught by rule 1 below.
+  const isBackendHttp =
+    log.platform === 'BACKEND' && (source === 'express' || source === 'rate-limit');
+  if (isBackendHttp && log.url && !SERVED_PATH.test(url)) {
+    return {
+      category: ErrorCategory.ATTACK,
+      severity: ErrorSeverity.LOW,
+      summary: 'Untargeted background scan against a path this API does not serve — auto-rejected, never reached application code.',
+      recommendation: 'No action needed. Public hosts receive this traffic continuously. Investigate only if the same source IP also probes a real /api/ endpoint.',
+      analyzedBy: 'rules',
+    };
+  }
 
   // 1. ATTACK — injection / traversal / scanning signatures anywhere in the record.
   const attackSignatures: (string | RegExp)[] = [
@@ -373,12 +401,16 @@ function buildAlertHtml(log: ErrorLogRow, cls: Classification, recurred: number)
   return lines.join('\n');
 }
 
+// A finding pages the on-call Telegram chat when it's an *actionable* ATTACK or
+// any HIGH/CRITICAL of any category. A LOW-severity ATTACK is untargeted scan
+// noise (see rule 0 in classifyByRules) — recorded, filterable, but not paged.
+export const isEscalatable = (cls: Pick<Classification, 'category' | 'severity'>): boolean =>
+  (cls.category === ErrorCategory.ATTACK && cls.severity !== ErrorSeverity.LOW) ||
+  cls.severity === ErrorSeverity.HIGH ||
+  cls.severity === ErrorSeverity.CRITICAL;
+
 async function maybeEscalate(log: ErrorLogRow, cls: Classification): Promise<boolean> {
-  const shouldEscalate =
-    cls.category === ErrorCategory.ATTACK ||
-    cls.severity === ErrorSeverity.HIGH ||
-    cls.severity === ErrorSeverity.CRITICAL;
-  if (!shouldEscalate) return false;
+  if (!isEscalatable(cls)) return false;
 
   const fp = log.fingerprint || fingerprintError(log.source, log.message);
 
