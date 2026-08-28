@@ -16,7 +16,11 @@ export const errorHandler = (err: Error, req: Request, res: Response, _next: Nex
       url: req.originalUrl,
       method: req.method,
     },
-  }).catch((logErr) => logger.error('Failed to persist ErrorLog', { error: (logErr as Error).message }));
+  })
+    .then((log) => {
+      void import('../services/errorAnalysis.service').then((m) => m.analyzeErrorLog(log.id));
+    })
+    .catch((logErr) => logger.error('Failed to persist ErrorLog', { error: (logErr as Error).message }));
 
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === 'P2002') {

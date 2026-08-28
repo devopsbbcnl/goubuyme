@@ -12,6 +12,13 @@ import { api } from '@/lib/api';
 type RiderStatus = 'APPROVED' | 'PENDING' | 'SUSPENDED';
 type DocStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
 
+const RIDER_DOCUMENT_ITEMS: { value: string; label: string }[] = [
+  { value: 'NIN', label: 'NIN photo' },
+  { value: 'SELFIE', label: 'Selfie photo' },
+  { value: 'VEHICLE', label: 'Vehicle photo' },
+  { value: 'GUARANTOR', label: 'Guarantor information' },
+];
+
 interface Rider {
   id: string; name: string; phone: string | null; vehicleType: string;
   plateNumber: string | null; totalDeliveries: number; totalEarnings: number;
@@ -33,7 +40,7 @@ interface RiderDetail {
     id: string; ninNumber: string;
     ninImageUrl: string | null; selfieUrl: string | null; vehicleImageUrl: string | null;
     guarantorName: string | null; guarantorPhone: string | null; guarantorAddress: string | null;
-    status: DocStatus; reviewNote: string | null;
+    status: DocStatus; reviewNote: string | null; rejectedItem: string | null;
     createdAt: string; updatedAt: string;
   } | null;
 }
@@ -73,6 +80,7 @@ export default function RidersPage() {
   const [detail, setDetail] = useState<RiderDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [reviewNote, setReviewNote] = useState('');
+  const [rejectedItem, setRejectedItem] = useState('');
   const [docActing, setDocActing] = useState(false);
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -110,6 +118,7 @@ export default function RidersPage() {
     setDetailOpen(true);
     setDetail(null);
     setReviewNote('');
+    setRejectedItem('');
     setDetailLoading(true);
     try {
       const res = await api.get<{ data: RiderDetail }>(`/admin/riders/${id}`);
@@ -123,17 +132,21 @@ export default function RidersPage() {
 
   const reviewDocument = async (status: 'VERIFIED' | 'REJECTED') => {
     if (!detail) return;
+    if (status === 'REJECTED' && !rejectedItem) return;
     setDocActing(true);
     try {
+      const appliedRejectedItem = status === 'REJECTED' ? rejectedItem : null;
       await api.patch(`/admin/riders/${detail.id}/document/status`, {
         status,
         reviewNote: reviewNote.trim() || undefined,
+        rejectedItem: appliedRejectedItem || undefined,
       });
       setDetail(d => d ? {
         ...d,
-        document: d.document ? { ...d.document, status, reviewNote: reviewNote.trim() || null } : null,
+        document: d.document ? { ...d.document, status, reviewNote: reviewNote.trim() || null, rejectedItem: appliedRejectedItem } : null,
       } : d);
       setReviewNote('');
+      setRejectedItem('');
     } catch {
       // backend validated
     } finally {
@@ -405,6 +418,14 @@ export default function RidersPage() {
                     }}>
                       {detail.document.status}
                     </span>
+                    {detail.document.status === 'REJECTED' && detail.document.rejectedItem && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 10px',
+                        background: T.error + '22', color: T.error,
+                      }}>
+                        {RIDER_DOCUMENT_ITEMS.find(i => i.value === detail.document!.rejectedItem)?.label ?? detail.document.rejectedItem}
+                      </span>
+                    )}
                     {detail.document.reviewNote && (
                       <span style={{ fontSize: 12, color: T.textSec }}>— {detail.document.reviewNote}</span>
                     )}
@@ -425,6 +446,21 @@ export default function RidersPage() {
 
                   {/* Review actions */}
                   <div style={{ background: T.surface2, borderRadius: 4, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: T.textSec }}>If rejecting, which item is affected?</div>
+                    <select
+                      value={rejectedItem}
+                      onChange={e => setRejectedItem(e.target.value)}
+                      style={{
+                        background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4,
+                        padding: '8px 12px', color: T.text, fontSize: 13,
+                        outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
+                      }}
+                    >
+                      <option value="">Select an item…</option>
+                      {RIDER_DOCUMENT_ITEMS.map(item => (
+                        <option key={item.value} value={item.value}>{item.label}</option>
+                      ))}
+                    </select>
                     <div style={{ fontSize: 12, fontWeight: 700, color: T.textSec }}>Review Note (optional)</div>
                     <textarea
                       value={reviewNote}
@@ -453,14 +489,15 @@ export default function RidersPage() {
                         {docActing ? 'Saving…' : '✓ Verify Document'}
                       </button>
                       <button
-                        disabled={docActing || detail.document.status === 'REJECTED'}
+                        disabled={docActing || detail.document.status === 'REJECTED' || !rejectedItem}
                         onClick={() => reviewDocument('REJECTED')}
+                        title={!rejectedItem ? 'Select which item is affected first' : undefined}
                         style={{
                           padding: '8px 18px', borderRadius: 4,
                           border: `1px solid ${T.error}`, background: 'none',
-                          color: docActing || detail.document.status === 'REJECTED' ? T.textSec : T.error,
+                          color: docActing || detail.document.status === 'REJECTED' || !rejectedItem ? T.textSec : T.error,
                           fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
-                          cursor: docActing || detail.document.status === 'REJECTED' ? 'default' : 'pointer',
+                          cursor: docActing || detail.document.status === 'REJECTED' || !rejectedItem ? 'default' : 'pointer',
                         }}
                       >
                         ✕ Reject Document

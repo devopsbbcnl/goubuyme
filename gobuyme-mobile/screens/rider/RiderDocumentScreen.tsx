@@ -70,7 +70,15 @@ interface RiderDoc {
   guarantorAddress: string | null;
   status: 'PENDING' | 'VERIFIED' | 'REJECTED';
   reviewNote: string | null;
+  rejectedItem: string | null;
 }
+
+const REJECTED_ITEM_LABELS: Record<string, string> = {
+  NIN: 'NIN photo',
+  SELFIE: 'Selfie photo',
+  VEHICLE: 'Vehicle photo',
+  GUARANTOR: 'Guarantor information',
+};
 
 export default function RiderDocumentScreen() {
   const { theme: T } = useTheme();
@@ -240,7 +248,12 @@ export default function RiderDocumentScreen() {
               <View style={[styles.statusBanner, { backgroundColor: statusMeta.color + '18', borderColor: statusMeta.color + '40' }]}>
                 <Ionicons name={statusMeta.icon as any} size={18} color={statusMeta.color} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.statusLabel, { color: statusMeta.color }]}>{statusMeta.label}</Text>
+                  <Text style={[styles.statusLabel, { color: statusMeta.color }]}>
+                    {statusMeta.label}
+                    {existing?.status === 'REJECTED' && existing.rejectedItem
+                      ? ` — ${REJECTED_ITEM_LABELS[existing.rejectedItem] ?? existing.rejectedItem}`
+                      : ''}
+                  </Text>
                   {existing?.reviewNote && (
                     <Text style={[styles.reviewNote, { color: T.textSec }]}>{existing.reviewNote}</Text>
                   )}

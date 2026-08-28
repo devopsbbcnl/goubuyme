@@ -27,6 +27,8 @@ export const bulkResolveErrorLogsSchema = Joi.object({
   platform: Joi.string().valid('MOBILE', 'WEB', 'ADMIN', 'BACKEND'),
   source: Joi.string().max(50),
   role: Joi.string().max(50),
+  category: Joi.string().valid('USER_ERROR', 'SERVER_ERROR', 'ATTACK', 'SYSTEM_RISK', 'UNKNOWN'),
+  severity: Joi.string().valid('LOW', 'MEDIUM', 'HIGH', 'CRITICAL'),
   search: Joi.string().max(200).allow(''),
   from: Joi.string().isoDate(),
   to: Joi.string().isoDate(),

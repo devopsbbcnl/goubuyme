@@ -14,6 +14,13 @@ type DocStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
 type LicenseStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'EXPIRED';
 type LicenseType = 'NAFDAC' | 'PHARMACIST' | 'FOOD_HANDLER' | 'BUSINESS_PERMIT' | 'IMPORT_PERMIT';
 
+const VENDOR_DOCUMENT_ITEMS: { value: string; label: string }[] = [
+  { value: 'ID_FRONT', label: 'ID document (front)' },
+  { value: 'ID_BACK', label: 'ID document (back)' },
+  { value: 'SELFIE', label: 'Selfie photo' },
+  { value: 'BVN', label: 'BVN' },
+];
+
 interface Vendor {
   id: string; businessName: string; ownerName: string; category: string;
   city: string; totalOrders: number; totalRevenue: number;
@@ -38,7 +45,7 @@ interface VendorDetail {
   document: {
     id: string; type: string; number: string;
     imageUrl: string; imageUrlBack: string | null;
-    status: DocStatus; reviewNote: string | null;
+    status: DocStatus; reviewNote: string | null; rejectedItem: string | null;
     createdAt: string; updatedAt: string;
   } | null;
   licenses: License[];
@@ -111,6 +118,7 @@ export default function VendorsPage() {
   const [detail, setDetail] = useState<VendorDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [reviewNote, setReviewNote] = useState('');
+  const [rejectedItem, setRejectedItem] = useState('');
   const [docActing, setDocActing] = useState(false);
   const [catSaving, setCatSaving] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<string | null>(null);
@@ -193,6 +201,7 @@ export default function VendorsPage() {
     setDetailOpen(true);
     setDetail(null);
     setReviewNote('');
+    setRejectedItem('');
     setPendingCategory(null);
     setRegeocodeError(null);
     setDetailLoading(true);
@@ -208,17 +217,21 @@ export default function VendorsPage() {
 
   const reviewDocument = async (status: 'VERIFIED' | 'REJECTED') => {
     if (!detail) return;
+    if (status === 'REJECTED' && !rejectedItem) return;
     setDocActing(true);
     try {
+      const appliedRejectedItem = status === 'REJECTED' ? rejectedItem : null;
       await api.patch(`/admin/vendors/${detail.id}/document/status`, {
         status,
         reviewNote: reviewNote.trim() || undefined,
+        rejectedItem: appliedRejectedItem || undefined,
       });
       setDetail(d => d ? {
         ...d,
-        document: d.document ? { ...d.document, status, reviewNote: reviewNote.trim() || null } : null,
+        document: d.document ? { ...d.document, status, reviewNote: reviewNote.trim() || null, rejectedItem: appliedRejectedItem } : null,
       } : d);
       setReviewNote('');
+      setRejectedItem('');
     } catch {
       // show nothing — backend will have validated
     } finally {
@@ -598,6 +611,14 @@ export default function VendorsPage() {
                     }}>
                       {detail.document.status}
                     </span>
+                    {detail.document.status === 'REJECTED' && detail.document.rejectedItem && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 10px',
+                        background: T.error + '22', color: T.error,
+                      }}>
+                        {VENDOR_DOCUMENT_ITEMS.find(i => i.value === detail.document!.rejectedItem)?.label ?? detail.document.rejectedItem}
+                      </span>
+                    )}
                     {detail.document.reviewNote && (
                       <span style={{ fontSize: 12, color: T.textSec }}>— {detail.document.reviewNote}</span>
                     )}
@@ -620,6 +641,21 @@ export default function VendorsPage() {
                     background: T.surface2, borderRadius: 4,
                     padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
                   }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: T.textSec }}>If rejecting, which item is affected?</div>
+                    <select
+                      value={rejectedItem}
+                      onChange={e => setRejectedItem(e.target.value)}
+                      style={{
+                        background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4,
+                        padding: '8px 12px', color: T.text, fontSize: 13,
+                        outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
+                      }}
+                    >
+                      <option value="">Select an item…</option>
+                      {VENDOR_DOCUMENT_ITEMS.map(item => (
+                        <option key={item.value} value={item.value}>{item.label}</option>
+                      ))}
+                    </select>
                     <div style={{ fontSize: 12, fontWeight: 700, color: T.textSec }}>Review Note (optional)</div>
                     <textarea
                       value={reviewNote}
@@ -648,15 +684,16 @@ export default function VendorsPage() {
                         {docActing ? 'Saving…' : '✓ Verify Document'}
                       </button>
                       <button
-                        disabled={docActing || detail.document.status === 'REJECTED'}
+                        disabled={docActing || detail.document.status === 'REJECTED' || !rejectedItem}
                         onClick={() => reviewDocument('REJECTED')}
+                        title={!rejectedItem ? 'Select which item is affected first' : undefined}
                         style={{
                           padding: '8px 18px', borderRadius: 4,
                           border: `1px solid ${T.error}`,
                           background: 'none',
-                          color: docActing || detail.document.status === 'REJECTED' ? T.textSec : T.error,
+                          color: docActing || detail.document.status === 'REJECTED' || !rejectedItem ? T.textSec : T.error,
                           fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
-                          cursor: docActing || detail.document.status === 'REJECTED' ? 'default' : 'pointer',
+                          cursor: docActing || detail.document.status === 'REJECTED' || !rejectedItem ? 'default' : 'pointer',
                         }}
                       >
                         ✕ Reject Document

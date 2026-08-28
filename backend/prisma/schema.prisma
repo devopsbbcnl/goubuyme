@@ -516,6 +516,7 @@ model VendorDocument {
   imageUrlBack String?
   status       DocumentStatus @default(PENDING)
   reviewNote   String?
+  rejectedItem String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   bvn          String?
@@ -569,6 +570,7 @@ model RiderDocument {
   guarantorAddress String?
   status           DocumentStatus @default(PENDING)
   reviewNote       String?
+  rejectedItem     String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   rider            Rider          @relation(fields: [riderId], references: [id], onDelete: Cascade)
@@ -666,6 +668,21 @@ model Notification {
   @@map("notifications")
 }
 
+enum ErrorCategory {
+  USER_ERROR
+  SERVER_ERROR
+  ATTACK
+  SYSTEM_RISK
+  UNKNOWN
+}
+
+enum ErrorSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 model ErrorLog {
   id         String    @id @default(uuid())
   userId     String?
@@ -684,10 +701,24 @@ model ErrorLog {
   resolvedBy String?
   createdAt  DateTime  @default(now())
 
+  // Populated asynchronously by the error-analysis agent (errorAnalysis.service.ts)
+  // right after the row is created. All nullable — an unanalyzed row is valid.
+  category         ErrorCategory?
+  severity         ErrorSeverity?
+  aiSummary        String?
+  aiRecommendation String?
+  analyzedBy       String? // "rules" | "llm" | "llm-unavailable"
+  analyzedAt       DateTime?
+  fingerprint      String? // dedupe key for Telegram escalation throttling
+  escalatedAt      DateTime?
+
   @@index([createdAt])
   @@index([resolved])
   @@index([platform])
   @@index([userId])
+  @@index([category])
+  @@index([severity])
+  @@index([fingerprint])
   @@map("error_logs")
 }
 

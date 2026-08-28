@@ -5,6 +5,7 @@ import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
 import logger from '../utils/logger';
+import { analyzeErrorLog } from '../services/errorAnalysis.service';
 
 // Error reports can arrive before login (e.g. Google Sign-In failures), so the
 // ingest endpoint doesn't require a token — but if one is present, attaching the
@@ -34,6 +35,9 @@ export const reportError = catchAsync(async (req: Request, res: Response) => {
 
   logger.warn('Client error reported', { platform, source, message, userId });
 
+  // Fire-and-forget: classify + escalate without holding up the client's response.
+  void analyzeErrorLog(log.id);
+
   return apiResponse.success(res, 'Error report received.', { id: log.id }, 201);
 });
 
@@ -45,6 +49,8 @@ interface ErrorLogFilters {
   search?: string;
   from?: string;
   to?: string;
+  category?: string;
+  severity?: string;
 }
 
 // Shared between the list view and bulk-resolve's "all matching" mode so the
@@ -54,6 +60,8 @@ const buildErrorLogWhere = (f: ErrorLogFilters): Record<string, unknown> => {
   if (f.platform) where.platform = f.platform;
   if (f.source) where.source = f.source;
   if (f.role) where.role = f.role;
+  if (f.category) where.category = f.category;
+  if (f.severity) where.severity = f.severity;
   if (f.resolved !== undefined) where.resolved = f.resolved;
   if (f.search) where.message = { contains: f.search, mode: 'insensitive' };
   if (f.from || f.to) {
@@ -68,14 +76,14 @@ const buildErrorLogWhere = (f: ErrorLogFilters): Record<string, unknown> => {
 // GET /admin/error-logs
 export const listErrorLogs = catchAsync(async (req: Request, res: Response) => {
   const {
-    platform, source, role, resolved, search, from, to,
+    platform, source, role, resolved, search, from, to, category, severity,
     page = '1', limit = '20',
   } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, parseInt(limit));
 
   const where = buildErrorLogWhere({
-    platform, source, role, search, from, to,
+    platform, source, role, search, from, to, category, severity,
     resolved: resolved !== undefined ? resolved === 'true' : undefined,
   });
 
@@ -103,6 +111,18 @@ export const getErrorLogDetail = catchAsync(async (req: Request, res: Response) 
   return apiResponse.success(res, 'Error log fetched.', log);
 });
 
+// POST /admin/error-logs/:id/analyze — re-run the analysis agent on demand
+export const reanalyzeErrorLog = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const existing = await prisma.errorLog.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) return apiResponse.error(res, 'Error log not found.', 404);
+
+  await analyzeErrorLog(id, { force: true });
+
+  const log = await prisma.errorLog.findUnique({ where: { id } });
+  return apiResponse.success(res, 'Error log re-analyzed.', log);
+});
+
 // PATCH /admin/error-logs/:id/resolve
 export const resolveErrorLog = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -128,16 +148,17 @@ export const resolveErrorLog = catchAsync(async (req: Request, res: Response) =>
 export const bulkResolveErrorLogs = catchAsync(async (req: Request, res: Response) => {
   const {
     ids, all, resolved = true,
-    platform, source, role, search, from, to, filterResolved,
+    platform, source, role, category, severity, search, from, to, filterResolved,
   } = req.body as {
     ids?: string[]; all?: boolean; resolved?: boolean;
-    platform?: string; source?: string; role?: string; search?: string; from?: string; to?: string;
+    platform?: string; source?: string; role?: string; category?: string; severity?: string;
+    search?: string; from?: string; to?: string;
     filterResolved?: boolean;
   };
   const authReq = req as AuthRequest;
 
   const where = all
-    ? buildErrorLogWhere({ platform, source, role, search, from, to, resolved: filterResolved })
+    ? buildErrorLogWhere({ platform, source, role, category, severity, search, from, to, resolved: filterResolved })
     : { id: { in: ids! } };
 
   const { count } = await prisma.errorLog.updateMany({

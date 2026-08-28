@@ -71,7 +71,7 @@ const rateLimitHandler = (message: string) => async (req: Request, res: Response
   logger.warn('Rate limit exceeded', { path: req.originalUrl, ip: req.ip });
   try {
     if (await shouldPersistRateLimitLog(`${req.ip}:${req.originalUrl}`)) {
-      await prisma.errorLog.create({
+      const created = await prisma.errorLog.create({
         data: {
           platform: 'BACKEND',
           source: 'rate-limit',
@@ -85,6 +85,7 @@ const rateLimitHandler = (message: string) => async (req: Request, res: Response
           },
         },
       });
+      void import('../services/errorAnalysis.service').then((m) => m.analyzeErrorLog(created.id));
     }
   } catch (err) {
     logger.error('Failed to record rate-limit error log', { error: (err as Error).message });
