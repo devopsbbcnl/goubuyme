@@ -101,6 +101,25 @@ function formatLogForCopy(log: ErrorLogEntry) {
   return lines.join('\n');
 }
 
+// Just the AI analysis block — self-contained (leads with the message + request so
+// it makes sense pasted on its own) but without the stack/context/device dump that
+// `formatLogForCopy` carries.
+function formatAnalysisForCopy(log: ErrorLogEntry) {
+  const lines = [`Message: ${log.message}`];
+  if (log.method || log.url) lines.push(`Request: ${[log.method, log.url].filter(Boolean).join(' ')}`);
+  lines.push(`Category: ${log.category ? CATEGORY_LABEL[log.category] : 'Not classified'}`);
+  if (log.severity) lines.push(`Severity: ${log.severity}`);
+  lines.push(
+    log.analyzedAt
+      ? `Classified by ${log.analyzedBy === 'llm' ? 'AI' : log.analyzedBy === 'rules' ? 'rules' : '—'} · ${new Date(log.analyzedAt).toLocaleString()}`
+      : 'Analysis pending',
+  );
+  lines.push(`Summary: ${log.aiSummary ?? '—'}`);
+  if (log.aiRecommendation) lines.push(`Recommendation: ${log.aiRecommendation}`);
+  if (log.escalatedAt) lines.push(`Escalated to Telegram · ${new Date(log.escalatedAt).toLocaleString()}`);
+  return lines.join('\n');
+}
+
 export default function ErrorLogsPage() {
   const { theme: T } = useTheme();
   const [resolvedFilter, setResolvedFilter] = useState<'ALL' | 'UNRESOLVED' | 'RESOLVED'>('UNRESOLVED');
@@ -117,6 +136,7 @@ export default function ErrorLogsPage() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [reanalyzing, setReanalyzing] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedAnalysisId, setCopiedAnalysisId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
   // True once the user explicitly opts into "select all N matching errors" — as
@@ -202,6 +222,17 @@ export default function ErrorLogsPage() {
       await navigator.clipboard.writeText(formatLogForCopy(log));
       setCopiedId(log.id);
       setTimeout(() => setCopiedId(id => (id === log.id ? null : id)), 1500);
+    } catch {
+      // clipboard unavailable — ignore
+    }
+  };
+
+  const copyAnalysis = async (e: MouseEvent, log: ErrorLogEntry) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(formatAnalysisForCopy(log));
+      setCopiedAnalysisId(log.id);
+      setTimeout(() => setCopiedAnalysisId(id => (id === log.id ? null : id)), 1500);
     } catch {
       // clipboard unavailable — ignore
     }
@@ -450,6 +481,15 @@ export default function ErrorLogsPage() {
                               : 'Analysis pending…'}
                           </span>
                           <div style={{ flex: 1 }} />
+                          <button
+                            onClick={(e) => copyAnalysis(e, log)}
+                            style={{
+                              fontSize: 11, fontWeight: 700,
+                              color: copiedAnalysisId === log.id ? T.success : T.textSec,
+                              background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4,
+                              padding: '4px 10px', cursor: 'pointer',
+                            }}
+                          >{copiedAnalysisId === log.id ? 'Copied!' : 'Copy'}</button>
                           <button
                             onClick={(e) => reanalyze(e, log)}
                             disabled={reanalyzing === log.id}
