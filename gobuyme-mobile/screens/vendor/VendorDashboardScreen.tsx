@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, Animated, ActivityIndicator, RefreshControl,
-  Modal, TextInput, KeyboardAvoidingView, Platform,
+  Modal, TextInput, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
@@ -42,6 +42,39 @@ interface Earnings {
 }
 
 const WEEK_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+interface VendorProfileCheck {
+  description?: string | null;
+  address?: string | null;
+  city?: string | null;
+  openingTime?: string | null;
+  closingTime?: string | null;
+}
+
+interface VendorDoc {
+  number: string | null;
+  imageUrl: string | null;
+  selfieUrl: string | null;
+  status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectedItem: string | null;
+}
+
+const REJECTED_ITEM_LABELS: Record<string, string> = {
+  ID_FRONT: 'ID document (front)',
+  ID_BACK: 'ID document (back)',
+  SELFIE: 'selfie photo',
+  BVN: 'BVN',
+};
+
+/** Details a vendor must supply before the store can be reviewed. */
+function missingVendorFields(v: VendorProfileCheck | null, doc: VendorDoc | null): string[] {
+  const missing: string[] = [];
+  if (!v?.description?.trim()) missing.push('store description');
+  if (!v?.address?.trim() || !v?.city?.trim()) missing.push('store address');
+  if (!v?.openingTime?.trim() || !v?.closingTime?.trim()) missing.push('opening hours');
+  if (!doc || !doc.number || !doc.imageUrl) missing.push('identity document');
+  return missing;
+}
 
 const STATUS_META: Record<OrderStatus, { label: string; color: string; bg: string }> = {
   new:       { label: 'New Order', color: '#F5A623', bg: 'rgba(245,166,35,0.12)' },
@@ -164,8 +197,56 @@ export default function VendorDashboardScreen() {
     loadData();
   }, [loadData]);
 
+  const showApprovalGate = async () => {
+    let profile: VendorProfileCheck | null = null;
+    let doc: VendorDoc | null = null;
+    const [pRes, dRes] = await Promise.allSettled([
+      api.get('/vendors/me'),
+      api.get('/vendors/me/document'),
+    ]);
+    if (pRes.status === 'fulfilled') profile = pRes.value.data.data;
+    if (dRes.status === 'fulfilled') doc = dRes.value.data.data;
+
+    const missing = missingVendorFields(profile, doc);
+    const docRejected = doc?.status === 'REJECTED';
+    const profileIncomplete = missing.length > 0 || docRejected;
+
+    if (profileIncomplete) {
+      let body: string;
+      if (docRejected) {
+        const item = doc?.rejectedItem
+          ? REJECTED_ITEM_LABELS[doc.rejectedItem] ?? doc.rejectedItem
+          : null;
+        body = item
+          ? `Your ${item} was rejected. Update your profile to resubmit it for review.`
+          : 'Some of your documents were rejected. Update your profile to resubmit them for review.';
+      } else {
+        body = `Your profile is missing ${missing.join(', ')}. Add ${
+          missing.length > 1 ? 'these' : 'this'
+        } so we can review your store.`;
+      }
+
+      Alert.alert('Complete your profile', body, [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Complete profile', onPress: () => router.push('/vendor-complete-profile' as never) },
+      ]);
+      return;
+    }
+
+    Alert.alert(
+      'Account pending approval',
+      "Your store details have been submitted and are under review. We'll notify you as soon as your account is approved — no further action is needed for now.",
+    );
+  };
+
   const handleStoreToggle = async () => {
     const prev = storeOpen;
+
+    if (!prev && user?.approvalStatus !== 'APPROVED') {
+      showApprovalGate();
+      return;
+    }
+
     setStoreOpen(!prev);
     try {
       await api.patch('/vendors/me/status');

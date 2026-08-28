@@ -2,18 +2,53 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/Confirm';
 
 // Flat shape returned by GET /riders/me/stats (see rider.controller.ts getRiderDashboardStats)
 interface Stats { todayDeliveries: number; todayEarnings: number; weeklyEarnings: number[]; rating: number; isOnline: boolean; nearbyJobs: number; }
 // Flat shape returned by GET /riders/me/deliveries (see rider.controller.ts getRecentDeliveries)
 interface Delivery { id: string; vendor: string; amount: number; time: string; rating: number; }
 
+// Subset of GET /riders/me/document used to decide what the rider still owes us.
+interface RiderDoc {
+  ninNumber?: string;
+  ninImageUrl?: string;
+  selfieUrl?: string;
+  vehicleImageUrl?: string;
+  guarantorName?: string;
+  guarantorPhone?: string;
+  guarantorAddress?: string;
+  status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectedItem?: string | null;
+}
+
+const REJECTED_ITEM_LABELS: Record<string, string> = {
+  NIN: 'NIN photo',
+  SELFIE: 'selfie photo',
+  VEHICLE: 'vehicle photo',
+  GUARANTOR: 'guarantor information',
+};
+
+/** Fields a rider must supply before the account can be reviewed. */
+function missingDocFields(doc: RiderDoc): string[] {
+  const missing: string[] = [];
+  if (!doc.ninNumber) missing.push('NIN');
+  if (!doc.ninImageUrl) missing.push('NIN slip photo');
+  if (!doc.selfieUrl) missing.push('selfie photo');
+  if (!doc.vehicleImageUrl) missing.push('vehicle photo');
+  if (!doc.guarantorName || !doc.guarantorPhone || !doc.guarantorAddress) missing.push('guarantor details');
+  return missing;
+}
+
 export default function RiderDashboard() {
   const { user } = useAuth();
   const toast = useToast();
+  const confirmDialog = useConfirm();
+  const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,10 +64,48 @@ export default function RiderDashboard() {
     }).finally(() => setLoading(false));
   }, []);
 
+  const showApprovalGate = async () => {
+    let doc: RiderDoc | null = null;
+    try {
+      const res = await api.get('/riders/me/document');
+      doc = res.data.data;
+    } catch {
+      doc = null;
+    }
+
+    const missing = doc ? missingDocFields(doc) : [];
+    const profileIncomplete = !doc || doc.status === 'REJECTED' || missing.length > 0;
+
+    if (profileIncomplete) {
+      let body: string;
+      if (!doc) {
+        body = "You haven't submitted your identity documents yet. Complete your profile so we can review your account.";
+      } else if (doc.status === 'REJECTED') {
+        const item = doc.rejectedItem ? REJECTED_ITEM_LABELS[doc.rejectedItem] ?? doc.rejectedItem : null;
+        body = item
+          ? `Your ${item} was rejected. Update your profile to resubmit it for review.`
+          : 'Some of your documents were rejected. Update your profile to resubmit them for review.';
+      } else {
+        body = `Your profile is missing ${missing.join(', ')}. Add ${missing.length > 1 ? 'these' : 'this'} so we can review your account.`;
+      }
+
+      const go = await confirmDialog(body, {
+        title: 'Complete your profile',
+        confirmLabel: 'Complete profile',
+        cancelLabel: 'Not now',
+        danger: false,
+      });
+      if (go) router.push('/rider/documents');
+      return;
+    }
+
+    toast("Your documents have been submitted and are under review. We'll notify you as soon as your account is approved — no further action is needed for now.", 'info');
+  };
+
   const toggle = async () => {
     if (!stats) return;
     if (!stats.isOnline && user?.approvalStatus !== 'APPROVED') {
-      toast("You can't go online until your account has been approved.", 'error');
+      showApprovalGate();
       return;
     }
     setToggling(true);
