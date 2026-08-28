@@ -42,6 +42,38 @@ interface RecentDelivery {
 	rating: number;
 }
 
+interface RiderDoc {
+	ninNumber: string;
+	ninImageUrl: string | null;
+	selfieUrl: string | null;
+	vehicleImageUrl: string | null;
+	guarantorName: string | null;
+	guarantorPhone: string | null;
+	guarantorAddress: string | null;
+	status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+	rejectedItem: string | null;
+}
+
+const REJECTED_ITEM_LABELS: Record<string, string> = {
+	NIN: 'NIN photo',
+	SELFIE: 'selfie photo',
+	VEHICLE: 'vehicle photo',
+	GUARANTOR: 'guarantor information',
+};
+
+/** Fields a rider must supply before the account can be reviewed. */
+function missingDocFields(doc: RiderDoc): string[] {
+	const missing: string[] = [];
+	if (!doc.ninNumber) missing.push('NIN');
+	if (!doc.ninImageUrl) missing.push('NIN slip photo');
+	if (!doc.selfieUrl) missing.push('selfie photo');
+	if (!doc.vehicleImageUrl) missing.push('vehicle photo');
+	if (!doc.guarantorName || !doc.guarantorPhone || !doc.guarantorAddress) {
+		missing.push('guarantor details');
+	}
+	return missing;
+}
+
 export default function RiderDashboardScreen() {
 	const { theme: T } = useTheme();
 	const { user } = useAuth();
@@ -110,15 +142,55 @@ export default function RiderDashboardScreen() {
 		loadData();
 	}, [loadData]);
 
+	const showApprovalGate = async () => {
+		let doc: RiderDoc | null = null;
+		try {
+			const res = await api.get('/riders/me/document');
+			doc = res.data.data;
+		} catch {
+			doc = null;
+		}
+
+		const missing = doc ? missingDocFields(doc) : [];
+		const profileIncomplete = !doc || doc.status === 'REJECTED' || missing.length > 0;
+
+		if (profileIncomplete) {
+			let body: string;
+			if (!doc) {
+				body =
+					"You haven't submitted your identity documents yet. Complete your profile so we can review your account.";
+			} else if (doc.status === 'REJECTED') {
+				const item = doc.rejectedItem
+					? REJECTED_ITEM_LABELS[doc.rejectedItem] ?? doc.rejectedItem
+					: null;
+				body = item
+					? `Your ${item} was rejected. Update your profile to resubmit it for review.`
+					: 'Some of your documents were rejected. Update your profile to resubmit them for review.';
+			} else {
+				body = `Your profile is missing ${missing.join(', ')}. Add ${
+					missing.length > 1 ? 'these' : 'this'
+				} so we can review your account.`;
+			}
+
+			Alert.alert('Complete your profile', body, [
+				{ text: 'Not now', style: 'cancel' },
+				{ text: 'Complete profile', onPress: () => router.push('/(rider)/document') },
+			]);
+			return;
+		}
+
+		Alert.alert(
+			'Account pending approval',
+			"Your documents have been submitted and are under review. We'll notify you as soon as your account is approved — no further action is needed for now.",
+		);
+	};
+
 	const toggleOnline = async () => {
 		const prev = online;
 		const next = !prev;
 
 		if (next && user?.approvalStatus !== 'APPROVED') {
-			Alert.alert(
-				'Account pending approval',
-				"You can't go online until your account has been approved.",
-			);
+			showApprovalGate();
 			return;
 		}
 
