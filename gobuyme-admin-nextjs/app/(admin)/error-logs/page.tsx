@@ -142,6 +142,8 @@ export default function ErrorLogsPage() {
   // True once the user explicitly opts into "select all N matching errors" — as
   // opposed to `selected`, which only ever holds ids for the current page.
   const [selectAllMatching, setSelectAllMatching] = useState(false);
+  const [blockingIp, setBlockingIp] = useState<string | null>(null);
+  const [blockIpError, setBlockIpError] = useState<string | null>(null);
 
   const fetchLogs = useCallback(() => {
     setLoading(true);
@@ -260,10 +262,42 @@ export default function ErrorLogsPage() {
     }
   };
 
+  const blockIpFromLog = async (e: React.MouseEvent, log: ErrorLogEntry) => {
+    e.stopPropagation();
+    const ip = (log.context as any)?.ip;
+    if (!ip) {
+      setBlockIpError('No IP address found in this error log.');
+      setTimeout(() => setBlockIpError(null), 3000);
+      return;
+    }
+
+    setBlockingIp(ip);
+    setBlockIpError(null);
+    try {
+      await api.post('/admin/security/block-ip', {
+        ip,
+        reason: log.aiSummary || log.message || 'Blocked from error log',
+      });
+      fetchLogs();
+      setTimeout(() => setBlockingIp(null), 2000);
+    } catch (err: any) {
+      setBlockIpError(err?.message || 'Failed to block IP');
+      setBlockingIp(null);
+    }
+  };
+
   const criticalOnPage = logs.filter(l => l.severity === 'CRITICAL' && !l.resolved).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {blockIpError && (
+        <div style={{
+          background: '#fee', border: `1px solid ${T.error}`, borderRadius: 4,
+          padding: 12, color: T.error, fontSize: 13, fontWeight: 700,
+        }}>
+          ✗ {blockIpError}
+        </div>
+      )}
       <div>
         <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Error Logs</div>
         <div style={{ fontSize: 13, color: T.textSec, marginTop: 2 }}>
@@ -515,7 +549,7 @@ export default function ErrorLogsPage() {
                           </div>
                         )}
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 6 }}>
                         <button
                           onClick={(e) => copyLog(e, log)}
                           style={{
@@ -524,6 +558,19 @@ export default function ErrorLogsPage() {
                             padding: '4px 10px', cursor: 'pointer',
                           }}
                         >{copiedId === log.id ? 'Copied!' : 'Copy details'}</button>
+                        {log.category === 'ATTACK' && log.severity === 'CRITICAL' && (log.context as any)?.ip && (
+                          <button
+                            onClick={(e) => blockIpFromLog(e, log)}
+                            disabled={blockingIp === (log.context as any)?.ip}
+                            title={`Block IP ${(log.context as any)?.ip}`}
+                            style={{
+                              fontSize: 11, fontWeight: 700, color: blockingIp === (log.context as any)?.ip ? T.success : T.error,
+                              background: T.surface2, border: `1px solid ${T.error}`, borderRadius: 4,
+                              padding: '4px 10px', cursor: blockingIp === (log.context as any)?.ip ? 'default' : 'pointer',
+                              opacity: blockingIp === (log.context as any)?.ip ? 0.5 : 1,
+                            }}
+                          >🔒 {blockingIp === (log.context as any)?.ip ? 'Blocking…' : 'Block IP'}</button>
+                        )}
                       </div>
                       {(log.context || log.stack || log.deviceInfo) && (
                         <div style={{

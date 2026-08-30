@@ -27,6 +27,7 @@ const NAV: NavItem[] = [
   { href: '/pricing',    label: 'Pricing',       icon: '💰', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
   { href: '/payouts',    label: 'Payouts',       icon: '💳', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
   { href: '/error-logs', label: 'Error Logs',    icon: '🐞', pendingKey: 'errorLogs' },
+  { href: '/security',   label: 'Security',      icon: '🔒', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
   { href: '/audit',      label: 'Audit Logs',    icon: '📋', pendingKey: null },
   { href: '/server-logs', label: 'Server Logs',  icon: '📜', pendingKey: null, minRole: 'SUPER_ADMIN' },
   { href: '/admins',     label: 'Admin Users',   icon: '🔐', pendingKey: null, minRole: 'SUPER_ADMIN' },

@@ -1875,3 +1875,69 @@ export const regeocodeVendor = catchAsync(async (req: AuthRequest, res: Response
 
   return apiResponse.success(res, 'Vendor coordinates updated.', updated);
 });
+
+// GET /admin/security/blocked-ips
+export const listBlockedIps = catchAsync(async (_req: AuthRequest, res: Response) => {
+  const { getBlockedIps } = await import('../services/cloudflare-waf.service');
+  const blocked = await getBlockedIps();
+  return apiResponse.success(res, 'Blocked IPs retrieved.', blocked);
+});
+
+// POST /admin/security/block-ip
+export const blockIpManually = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { ip, reason } = req.body;
+
+  if (!ip || !/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+    return apiResponse.error(res, 'Invalid IP address.', 400);
+  }
+  if (!reason || typeof reason !== 'string' || reason.length < 5) {
+    return apiResponse.error(res, 'Reason must be at least 5 characters.', 400);
+  }
+
+  const { blockIpAddress } = await import('../services/cloudflare-waf.service');
+  const blocked = await blockIpAddress(ip, reason, 1440);
+
+  if (!blocked) {
+    return apiResponse.error(res, 'Failed to block IP. Check Cloudflare configuration.', 500);
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user!.userId,
+      action: 'IP_BLOCKED_MANUAL',
+      entity: 'SecurityIP',
+      entityId: ip,
+      meta: { reason },
+    },
+  });
+
+  return apiResponse.success(res, 'IP blocked successfully.', { ip, reason });
+});
+
+// DELETE /admin/security/unblock-ip/:ip
+export const unblockIpManually = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { ip } = req.params;
+
+  if (!ip || !/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+    return apiResponse.error(res, 'Invalid IP address.', 400);
+  }
+
+  const { unblockIpAddress } = await import('../services/cloudflare-waf.service');
+  const unblocked = await unblockIpAddress(ip);
+
+  if (!unblocked) {
+    return apiResponse.error(res, 'Failed to unblock IP. IP may not be in blocklist.', 500);
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user!.userId,
+      action: 'IP_UNBLOCKED_MANUAL',
+      entity: 'SecurityIP',
+      entityId: ip,
+      meta: {},
+    },
+  });
+
+  return apiResponse.success(res, 'IP unblocked successfully.', { ip });
+});
