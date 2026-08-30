@@ -52,6 +52,7 @@ import {
   deleteSurgeEvent,
   simulatePricing,
 } from '../controllers/pricing.controller';
+import { listBlockedIps, blockIpManually, unblockIpManually } from '../controllers/admin.controller';
 import { verifyToken } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 
@@ -156,5 +157,10 @@ router.patch('/pricing/surge-events/:id',          ...opsAuth,   updateSurgeEven
 router.delete('/pricing/surge-events/:id',         ...superAdminAuth, deleteSurgeEvent);
 
 router.post('/pricing/simulate',                   ...readAuth,  simulatePricing);
+
+// Security/IP Management — ops+ admin
+router.get('/security/blocked-ips',        ...readAuth,   listBlockedIps);
+router.post('/security/block-ip',          ...opsAuth,    blockIpManually);
+router.delete('/security/unblock-ip/:ip',  ...opsAuth,    unblockIpManually);
 
 export default router;

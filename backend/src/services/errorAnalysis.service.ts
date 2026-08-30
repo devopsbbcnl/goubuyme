@@ -5,6 +5,7 @@ import { ErrorCategory, ErrorSeverity, Prisma } from '@prisma/client';
 import prisma from '../config/db';
 import logger from '../utils/logger';
 import { sendTelegramAlert, escapeTelegramHtml } from './telegram.service';
+import { blockIpAddress } from './cloudflare-waf.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Error-analysis agent
@@ -421,6 +422,19 @@ async function maybeEscalate(log: ErrorLogRow, cls: Classification): Promise<boo
   if (!(await underHourlyCap())) {
     logger.warn('errorAnalysis: hourly Telegram alert cap reached — suppressing', { logId: log.id });
     return false;
+  }
+
+  // Auto-block IP for CRITICAL attacks from backend
+  if (
+    cls.severity === ErrorSeverity.CRITICAL &&
+    cls.category === ErrorCategory.ATTACK &&
+    log.platform === 'BACKEND'
+  ) {
+    const ip = (log.context as any)?.ip;
+    if (ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+      const reason = cls.summary || 'CRITICAL attack detected';
+      await blockIpAddress(ip, reason, 1440);
+    }
   }
 
   const recurred = await takeSuppressedCount(fp);
