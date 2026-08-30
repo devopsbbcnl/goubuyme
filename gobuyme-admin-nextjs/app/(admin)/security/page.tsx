@@ -71,7 +71,7 @@ export default function SecurityPage() {
   const handleUnblockIp = async (ip: string) => {
     setUnblocking(ip);
     try {
-      await api.delete(`/admin/security/unblock-ip/${ip}`);
+      await api.del(`/admin/security/unblock-ip/${ip}`);
       fetchBlockedIps();
     } finally {
       setUnblocking(null);
