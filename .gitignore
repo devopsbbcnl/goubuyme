@@ -6,6 +6,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.example
 
 # Claude Code local settings (may contain credentials)
 .claude/settings.local.json

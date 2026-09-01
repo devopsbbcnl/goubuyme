@@ -1,7 +1,7 @@
 import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import Redis from 'ioredis';
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import logger from '../utils/logger';
 import prisma from '../config/db';
 
@@ -162,3 +162,31 @@ export const publicSettingsLimiter = rateLimit({
   skip: skipOutsideProduction,
   handler: rateLimitHandler('Too many requests. Please try again later.'),
 });
+
+// Root endpoint `/` limiter — much stricter than globalLimiter since it's commonly
+// targeted in reconnaissance scans and DDoS attacks. Real traffic (browsers, API clients)
+// rarely hit this directly; most go to /api/v1/* routes instead.
+export const rootLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: sharedStore('rl:root:'),
+  skip: skipOutsideProduction,
+  handler: rateLimitHandler('Too many requests to root endpoint.'),
+});
+
+// IP blacklist middleware — blocks known malicious IPs instantly.
+// Populate via environment variable: BLOCKED_IPS=ip1,ip2,ip3 (comma-separated)
+const blockedIps = (process.env.BLOCKED_IPS || '')
+  .split(',')
+  .map(ip => ip.trim())
+  .filter(Boolean);
+
+export const ipBlocklistMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  if (blockedIps.includes(req.ip || '')) {
+    logger.warn('Blocked request from blacklisted IP', { ip: req.ip, path: req.originalUrl });
+    return res.status(403).json({ status: 'error', message: 'Access denied.' });
+  }
+  next();
+};
