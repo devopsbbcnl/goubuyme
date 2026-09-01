@@ -78,6 +78,13 @@ const shouldPersistRateLimitLog = async (key: string): Promise<boolean> => {
 const rateLimitHandler = (message: string) => async (req: Request, res: Response) => {
   logger.warn('Rate limit exceeded', { path: req.originalUrl, ip: req.ip });
   try {
+    // Auto-block IPs with repeated rate limit violations
+    const { trackSuspiciousActivity } = await import('../services/auto-blocker.service');
+    const isBlocked = await trackSuspiciousActivity(req.ip || '', 'rate_limit', {
+      path: req.originalUrl,
+      userAgent: req.headers['user-agent'],
+    });
+
     // Scanner traffic against a path we don't serve: rate-limit it (the 429 below
     // still fires) but don't persist a row or spin up analysis for it.
     const servedPath = SERVED_PATH.test((req.path || req.originalUrl || '').toLowerCase());
@@ -86,13 +93,14 @@ const rateLimitHandler = (message: string) => async (req: Request, res: Response
         data: {
           platform: 'BACKEND',
           source: 'rate-limit',
-          message,
+          message: isBlocked ? `${message} (IP auto-blocked due to repeated violations)` : message,
           url: req.originalUrl,
           method: req.method,
           context: {
             ip: req.ip,
             userAgent: req.headers['user-agent'],
             body: req.body?.email ? { email: req.body.email } : undefined,
+            autoBlocked: isBlocked,
           },
         },
       });

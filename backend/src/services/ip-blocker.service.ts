@@ -1,14 +1,14 @@
 import prisma from '../config/db';
 import logger from '../utils/logger';
 
-export async function blockIpAddress(ip: string, reason: string, blockedBy: string): Promise<boolean> {
+export async function blockIpAddress(ip: string, reason: string, blockedBy?: string): Promise<boolean> {
   try {
     await prisma.blockedIP.upsert({
       where: { ip },
-      update: { reason, blockedBy },
-      create: { ip, reason, blockedBy },
+      update: { reason, blockedBy: blockedBy || null },
+      create: { ip, reason, blockedBy: blockedBy || null },
     });
-    logger.info('IP blocked', { ip, reason });
+    logger.info('IP blocked', { ip, reason, auto: !blockedBy });
     return true;
   } catch (err) {
     logger.error('Failed to block IP', { ip, error: (err as Error).message });

@@ -932,14 +932,31 @@ model PricingHistory {
 }
 
 model BlockedIP {
-  id        String   @id @default(uuid())
-  ip        String   @unique
-  reason    String
-  blockedBy String
-  blockedAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  ip         String   @unique
+  reason     String
+  blockedBy  String?  // null if auto-blocked
+  isAuto     Boolean  @default(false)
+  blockedAt  DateTime @default(now())
 
   @@index([ip])
+  @@index([isAuto])
   @@map("blocked_ips")
+}
+
+model SuspiciousActivity {
+  id               String   @id @default(uuid())
+  ip               String
+  type             String   // "rate_limit" | "failed_login" | "scanner"
+  count            Int      @default(1)
+  lastOccurrence   DateTime @default(now())
+  windowStart      DateTime // start of current counting window
+  details          Json?
+
+  @@unique([ip, type])
+  @@index([ip])
+  @@index([type])
+  @@map("suspicious_activity")
 }
 
 enum Role {

@@ -181,6 +181,19 @@ app.get('/health', cors({ origin: '*' }), async (_req, res) => {
   }
 });
 
+// 404 handler with scanner detection
+app.use(async (req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  // Track scanner activity (hitting non-existent endpoints)
+  const { trackSuspiciousActivity } = await import('./services/auto-blocker.service');
+  await trackSuspiciousActivity(req.ip || '', 'scanner', {
+    path: req.path,
+    method: req.method,
+    userAgent: req.headers['user-agent'],
+  });
+
+  res.status(404).json({ status: 'error', message: 'Not found.' });
+});
+
 app.use(errorHandler);
 
 setupSockets(io);
