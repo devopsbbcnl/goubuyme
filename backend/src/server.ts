@@ -38,6 +38,7 @@ import { startEscalationJob } from './jobs/escalationJob';
 import { errorHandler } from './middleware/error.middleware';
 import { globalLimiter, publicSettingsLimiter } from './middleware/rateLimiter.middleware';
 import { maintenanceGuard } from './middleware/maintenance.middleware';
+import { rootLimiter, ipBlocklistMiddleware } from './middleware/rateLimiter.middleware';
 import authRoutes from './routes/auth.routes';
 import vendorRoutes from './routes/vendor.routes';
 import customerRoutes from './routes/customer.routes';
@@ -105,6 +106,7 @@ attachRedisAdapter(io);
 
 app.use(helmet());
 app.use(cors({ origin: allowedOrigins }));
+app.use(ipBlocklistMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -130,6 +132,10 @@ if (process.env.NODE_ENV === 'development') {
 // auth/payment routes — this is near-static public config hit by every unauthenticated
 // visitor (web login/register, mobile boot), often several real users behind one
 // shared carrier NAT IP. Cache-Control lets browsers/CDN skip re-fetching entirely.
+app.get('/', rootLimiter, (_req, res) => {
+  res.json({ status: 'ok', service: 'GoBuyMe API' });
+});
+
 app.get('/api/v1/settings/public', publicSettingsLimiter, async (_req, res) => {
   try {
     const settings = await (await import('./services/settings.service')).getPlatformSettings();
