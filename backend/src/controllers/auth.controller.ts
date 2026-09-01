@@ -215,11 +215,21 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !user.password) return apiResponse.error(res, 'No account found with this email address.', 404);
+  if (!user || !user.password) {
+    // Track failed login attempt
+    const { trackSuspiciousActivity } = await import('../services/auto-blocker.service');
+    await trackSuspiciousActivity(req.ip || '', 'failed_login', { email, reason: 'user_not_found' });
+    return apiResponse.error(res, 'No account found with this email address.', 404);
+  }
   if (!user.isActive) return apiResponse.error(res, 'Account suspended. Contact support.', 403);
 
   const valid = await bcrypt.compare(password, user.password);
-  if (!valid) return apiResponse.error(res, 'Incorrect password. Please try again.', 401);
+  if (!valid) {
+    // Track failed login attempt
+    const { trackSuspiciousActivity } = await import('../services/auto-blocker.service');
+    await trackSuspiciousActivity(req.ip || '', 'failed_login', { email, reason: 'invalid_password' });
+    return apiResponse.error(res, 'Incorrect password. Please try again.', 401);
+  }
 
   if (!user.isEmailVerified) {
     await createAndDispatchOtp(user.id, user.email, user.name);
