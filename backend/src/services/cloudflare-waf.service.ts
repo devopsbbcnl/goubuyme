@@ -22,13 +22,14 @@ interface CloudflareListResponse {
 
 const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 const ZONE_ID = process.env.CLOUDFLARE_ZONE_ID;
+const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const LIST_ID = process.env.CLOUDFLARE_IP_BLOCKLIST_ID || '';
 
 const BASE_URL = 'https://api.cloudflare.com/client/v4';
 
 async function cfApiCall(method: string, endpoint: string, body?: any): Promise<any> {
-  if (!API_TOKEN || !ZONE_ID) {
-    logger.warn('cloudflare-waf: Missing API token or zone ID — IP blocking disabled');
+  if (!API_TOKEN || !ZONE_ID || !ACCOUNT_ID) {
+    logger.warn('cloudflare-waf: Missing API token, zone ID, or account ID — IP blocking disabled');
     return null;
   }
 
@@ -68,7 +69,7 @@ async function cfApiCall(method: string, endpoint: string, body?: any): Promise<
 export async function ensureBlocklistExists(): Promise<string | null> {
   if (LIST_ID) return LIST_ID;
 
-  const res = await cfApiCall('GET', `/accounts/${API_TOKEN?.split('_')[2]?.slice(0, 32)}/lists?name=gobuyme-attack-blocklist`);
+  const res = await cfApiCall('GET', `/accounts/${ACCOUNT_ID}/lists?name=gobuyme-attack-blocklist`);
   if (!res?.success) return null;
 
   const lists = res.result as CloudflareListItem[];
@@ -78,7 +79,7 @@ export async function ensureBlocklistExists(): Promise<string | null> {
     return existing.id;
   }
 
-  const created = await cfApiCall('POST', `/accounts/${API_TOKEN?.split('_')[2]?.slice(0, 32)}/lists`, {
+  const created = await cfApiCall('POST', `/accounts/${ACCOUNT_ID}/lists`, {
     name: 'gobuyme-attack-blocklist',
     description: 'GoBuyMe automated attack IP blocklist',
     kind: 'ip',
@@ -98,7 +99,7 @@ export async function blockIpAddress(
   reason: string,
   durationMinutes: number = 1440,
 ): Promise<boolean> {
-  if (!API_TOKEN || !ZONE_ID) {
+  if (!API_TOKEN || !ZONE_ID || !ACCOUNT_ID) {
     logger.warn('cloudflare-waf: Skipping IP block — Cloudflare not configured', { ip });
     return false;
   }
@@ -114,7 +115,7 @@ export async function blockIpAddress(
 
   const res = await cfApiCall(
     'POST',
-    `/accounts/${API_TOKEN?.split('_')[2]?.slice(0, 32)}/lists/${listId}/items`,
+    `/accounts/${ACCOUNT_ID}/lists/${listId}/items`,
     {
       items: [
         {
@@ -135,12 +136,12 @@ export async function blockIpAddress(
 }
 
 export async function unblockIpAddress(ip: string): Promise<boolean> {
-  if (!API_TOKEN || !ZONE_ID) return false;
+  if (!API_TOKEN || !ZONE_ID || !ACCOUNT_ID) return false;
 
   const listId = LIST_ID || (await ensureBlocklistExists());
   if (!listId) return false;
 
-  const res = await cfApiCall('GET', `/accounts/${API_TOKEN?.split('_')[2]?.slice(0, 32)}/lists/${listId}/items`);
+  const res = await cfApiCall('GET', `/accounts/${ACCOUNT_ID}/lists/${listId}/items`);
   if (!res?.success) return false;
 
   const items = res.result as CloudflareListItem[];
@@ -149,7 +150,7 @@ export async function unblockIpAddress(ip: string): Promise<boolean> {
 
   const deleteRes = await cfApiCall(
     'DELETE',
-    `/accounts/${API_TOKEN?.split('_')[2]?.slice(0, 32)}/lists/${listId}/items/${item.id}`,
+    `/accounts/${ACCOUNT_ID}/lists/${listId}/items/${item.id}`,
   );
 
   if (deleteRes?.success) {
@@ -161,12 +162,12 @@ export async function unblockIpAddress(ip: string): Promise<boolean> {
 }
 
 export async function getBlockedIps(): Promise<{ ip: string; reason: string; blockedAt: string }[]> {
-  if (!API_TOKEN || !ZONE_ID) return [];
+  if (!API_TOKEN || !ZONE_ID || !ACCOUNT_ID) return [];
 
   const listId = LIST_ID || (await ensureBlocklistExists());
   if (!listId) return [];
 
-  const res = await cfApiCall('GET', `/accounts/${API_TOKEN?.split('_')[2]?.slice(0, 32)}/lists/${listId}/items?limit=100`);
+  const res = await cfApiCall('GET', `/accounts/${ACCOUNT_ID}/lists/${listId}/items?limit=100`);
   if (!res?.success) return [];
 
   const items = res.result as CloudflareListItem[];
