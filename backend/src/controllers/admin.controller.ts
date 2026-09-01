@@ -1878,7 +1878,7 @@ export const regeocodeVendor = catchAsync(async (req: AuthRequest, res: Response
 
 // GET /admin/security/blocked-ips
 export const listBlockedIps = catchAsync(async (_req: AuthRequest, res: Response) => {
-  const { getBlockedIps } = await import('../services/cloudflare-waf.service');
+  const { getBlockedIps } = await import('../services/ip-blocker.service');
   const blocked = await getBlockedIps();
   return apiResponse.success(res, 'Blocked IPs retrieved.', blocked);
 });
@@ -1894,11 +1894,11 @@ export const blockIpManually = catchAsync(async (req: AuthRequest, res: Response
     return apiResponse.error(res, 'Reason must be at least 5 characters.', 400);
   }
 
-  const { blockIpAddress } = await import('../services/cloudflare-waf.service');
-  const blocked = await blockIpAddress(ip, reason, 1440);
+  const { blockIpAddress } = await import('../services/ip-blocker.service');
+  const blocked = await blockIpAddress(ip, reason, req.user!.userId);
 
   if (!blocked) {
-    return apiResponse.error(res, 'Failed to block IP. Check Cloudflare configuration.', 500);
+    return apiResponse.error(res, 'Failed to block IP.', 500);
   }
 
   await prisma.auditLog.create({
@@ -1922,7 +1922,7 @@ export const unblockIpManually = catchAsync(async (req: AuthRequest, res: Respon
     return apiResponse.error(res, 'Invalid IP address.', 400);
   }
 
-  const { unblockIpAddress } = await import('../services/cloudflare-waf.service');
+  const { unblockIpAddress } = await import('../services/ip-blocker.service');
   const unblocked = await unblockIpAddress(ip);
 
   if (!unblocked) {

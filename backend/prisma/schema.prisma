@@ -931,6 +931,17 @@ model PricingHistory {
   @@map("pricing_history")
 }
 
+model BlockedIP {
+  id        String   @id @default(uuid())
+  ip        String   @unique
+  reason    String
+  blockedBy String
+  blockedAt DateTime @default(now())
+
+  @@index([ip])
+  @@map("blocked_ips")
+}
+
 enum Role {
   CUSTOMER
   VENDOR
