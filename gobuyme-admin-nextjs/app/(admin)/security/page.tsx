@@ -146,7 +146,7 @@ export default function SecurityPage() {
             Blocked IP Addresses ({blockedIps.length})
           </div>
           <div style={{ fontSize: 12, color: T.textSec, marginTop: 4 }}>
-            IPs are auto-blocked when CRITICAL attacks are detected. Auto-blocks expire after 24 hours.
+            IPs are auto-blocked when CRITICAL attacks are detected. Blocks stay in place until an admin removes them here.
           </div>
         </div>
 
@@ -221,7 +221,7 @@ export default function SecurityPage() {
           <ul style={{ margin: 0, paddingLeft: 20 }}>
             <li>When an attack is classified as <strong>CRITICAL</strong>, the source IP is automatically added to Cloudflare's blocklist</li>
             <li>Blocked IPs are filtered at the edge (Cloudflare WAF) before reaching your backend</li>
-            <li>Auto-blocks expire after 24 hours unless renewed</li>
+            <li>Auto-blocks are permanent — they stay blocked until an admin removes them manually</li>
             <li>You can manually block/unblock IPs for immediate protection or recovery</li>
             <li>All IP blocking actions are logged in the Audit Logs</li>
           </ul>

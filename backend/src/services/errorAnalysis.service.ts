@@ -433,7 +433,7 @@ async function maybeEscalate(log: ErrorLogRow, cls: Classification): Promise<boo
     const ip = (log.context as any)?.ip;
     if (ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
       const reason = cls.summary || 'CRITICAL attack detected';
-      await blockIpAddress(ip, reason, 1440);
+      await blockIpAddress(ip, reason);
     }
   }
 

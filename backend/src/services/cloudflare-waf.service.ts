@@ -94,10 +94,13 @@ export async function ensureBlocklistExists(): Promise<string | null> {
   return null;
 }
 
+// Blocks are permanent: the IP stays on the Cloudflare list until an admin
+// removes it via the Security page (DELETE /admin/security/unblock-ip/:ip).
+// There is deliberately no expiry — Cloudflare list items don't self-expire,
+// and we don't run a job to release them.
 export async function blockIpAddress(
   ip: string,
   reason: string,
-  durationMinutes: number = 1440,
 ): Promise<boolean> {
   if (!API_TOKEN || !ZONE_ID || !ACCOUNT_ID) {
     logger.warn('cloudflare-waf: Skipping IP block — Cloudflare not configured', { ip });
@@ -111,7 +114,6 @@ export async function blockIpAddress(
   }
 
   const timestamp = new Date().toISOString();
-  const expiryTime = new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
 
   const res = await cfApiCall(
     'POST',
@@ -120,14 +122,14 @@ export async function blockIpAddress(
       items: [
         {
           ip,
-          comment: `Auto-blocked: ${reason} (expires ${expiryTime}) — ${timestamp}`,
+          comment: `Auto-blocked: ${reason} — ${timestamp}`,
         },
       ],
     },
   );
 
   if (res?.success) {
-    logger.info('cloudflare-waf: IP blocked', { ip, reason, duration: durationMinutes });
+    logger.info('cloudflare-waf: IP blocked', { ip, reason });
     return true;
   }
 
@@ -173,7 +175,7 @@ export async function getBlockedIps(): Promise<{ ip: string; reason: string; blo
   const items = res.result as CloudflareListItem[];
   return items.map((item) => ({
     ip: item.ip,
-    reason: item.comment?.split('Auto-blocked: ')[1]?.split(' (expires')[0] || 'Unknown',
+    reason: item.comment?.split('Auto-blocked: ')[1]?.split(' — ')[0] || 'Unknown',
     blockedAt: item.created_on || new Date().toISOString(),
   }));
 }
