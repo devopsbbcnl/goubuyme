@@ -1818,6 +1818,62 @@ export const deleteRider = catchAsync(async (req: AuthRequest, res: Response) =>
   return apiResponse.success(res, 'Rider deleted successfully.', { id, name: rider.user.name });
 });
 
+// DELETE /admin/orders/:id
+export const deleteAdminOrder = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+
+  const order = await prisma.order.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      earning: { select: { payoutStatus: true } },
+    },
+  });
+
+  if (!order) return apiResponse.error(res, 'Order not found.', 404);
+
+  if (!TERMINAL_ORDER_STATUSES.includes(order.status)) {
+    return apiResponse.error(res, 'Only delivered or cancelled orders can be deleted.', 409);
+  }
+
+  const vendorPayout = await prisma.vendorPayout.findUnique({
+    where: { orderId: id },
+    select: { payoutStatus: true },
+  });
+
+  const SETTLED: PayoutStatus[] = ['PROCESSING', 'COMPLETED'];
+  if (
+    (order.earning && SETTLED.includes(order.earning.payoutStatus)) ||
+    (vendorPayout && SETTLED.includes(vendorPayout.payoutStatus))
+  ) {
+    return apiResponse.error(res, 'This order has already been paid out and cannot be deleted.', 409);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // These reference the order without a cascade rule, so clear them first.
+    await tx.vendorIncident.deleteMany({ where: { orderId: id } });
+    await tx.earning.deleteMany({ where: { orderId: id } });
+    await tx.vendorPayout.deleteMany({ where: { orderId: id } });
+
+    // OrderItem, Conversation (+ Message) and OfferRedemption cascade on delete.
+    await tx.order.delete({ where: { id } });
+
+    await tx.auditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'ORDER_ADMIN_DELETED',
+        entity: 'Order',
+        entityId: id,
+        meta: { orderNumber: order.orderNumber, status: order.status },
+      },
+    });
+  });
+
+  return apiResponse.success(res, 'Order deleted successfully.', { id, orderNumber: order.orderNumber });
+});
+
 // PATCH /admin/vendors/:id/feature
 export const featureVendor = catchAsync(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
