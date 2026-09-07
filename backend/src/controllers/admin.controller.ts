@@ -1824,38 +1824,20 @@ export const deleteAdminOrder = catchAsync(async (req: AuthRequest, res: Respons
 
   const order = await prisma.order.findUnique({
     where: { id },
-    select: {
-      id: true,
-      orderNumber: true,
-      status: true,
-      earning: { select: { payoutStatus: true } },
-    },
+    select: { id: true, orderNumber: true, status: true },
   });
 
   if (!order) return apiResponse.error(res, 'Order not found.', 404);
 
-  if (!TERMINAL_ORDER_STATUSES.includes(order.status)) {
-    return apiResponse.error(res, 'Only delivered or cancelled orders can be deleted.', 409);
-  }
-
-  const vendorPayout = await prisma.vendorPayout.findUnique({
-    where: { orderId: id },
-    select: { payoutStatus: true },
-  });
-
-  const SETTLED: PayoutStatus[] = ['PROCESSING', 'COMPLETED'];
-  if (
-    (order.earning && SETTLED.includes(order.earning.payoutStatus)) ||
-    (vendorPayout && SETTLED.includes(vendorPayout.payoutStatus))
-  ) {
-    return apiResponse.error(res, 'This order has already been paid out and cannot be deleted.', 409);
-  }
-
+  // Admin can hard-delete an order in any status. Related financial and
+  // messaging records are removed alongside it so nothing is left orphaned.
   await prisma.$transaction(async (tx) => {
     // These reference the order without a cascade rule, so clear them first.
     await tx.vendorIncident.deleteMany({ where: { orderId: id } });
     await tx.earning.deleteMany({ where: { orderId: id } });
     await tx.vendorPayout.deleteMany({ where: { orderId: id } });
+    // CreditTransaction rows are an immutable ledger — leave them, their
+    // orderId reference is unconstrained and harmless once the order is gone.
 
     // OrderItem, Conversation (+ Message) and OfferRedemption cascade on delete.
     await tx.order.delete({ where: { id } });
