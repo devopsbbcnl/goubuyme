@@ -167,6 +167,7 @@ export default function OrdersPage() {
   const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
   const [deleteOrderNumber, setDeleteOrderNumber] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => { setPage(1); setDebouncedSearch(search); }, 400);
@@ -209,21 +210,24 @@ export default function OrdersPage() {
   const openDeleteModal = (id: string, orderNumber: string) => {
     setDeleteOrderId(id);
     setDeleteOrderNumber(orderNumber);
+    setDeleteError(null);
     setDeleteModalOpen(true);
   };
 
   const deleteOrderHandler = async () => {
     if (!deleteOrderId) return;
+    const targetId = deleteOrderId;
     setDeleteLoading(true);
+    setDeleteError(null);
     try {
-      await api.del(`/admin/orders/${deleteOrderId}`);
-      setOrders(os => os.filter(o => o.id !== deleteOrderId));
+      await api.del(`/admin/orders/${targetId}`);
+      setOrders(os => os.filter(o => o.id !== targetId));
       setTotal(t => Math.max(0, t - 1));
-      if (detail?.id === deleteOrderId) setDetailOpen(false);
+      if (detail?.id === targetId) setDetailOpen(false);
       setDeleteOrderId(null);
       setDeleteOrderNumber('');
-    } catch {
-      // failure is surfaced by the api layer's error reporting
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Failed to delete order.');
     } finally {
       setDeleteLoading(false);
     }
@@ -243,6 +247,13 @@ export default function OrdersPage() {
             </div>
           </div>
         </div>
+
+        {deleteError && (
+          <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: `1px solid ${T.error}`, borderRadius: 4, padding: '10px 14px', fontSize: 13, color: T.error, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <span>{deleteError}</span>
+            <button onClick={() => setDeleteError(null)} style={{ background: 'none', border: 'none', color: T.error, fontSize: 16, fontWeight: 700, cursor: 'pointer', lineHeight: 1, fontFamily: 'inherit' }}>×</button>
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 10 }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -535,7 +546,7 @@ export default function OrdersPage() {
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         title="Delete Order"
-        message="This permanently removes the order and its items. Only delivered or cancelled orders can be deleted, and orders that have already been paid out are blocked."
+        message="This permanently removes the order along with its items, earnings, payouts and chat history. This cannot be undone."
         itemName={deleteOrderNumber}
         onConfirm={deleteOrderHandler}
         isLoading={deleteLoading}
