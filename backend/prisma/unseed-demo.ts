@@ -1,9 +1,3 @@
-/**
- * Removes all demo data seeded by seed-demo.ts.
- * Matches any email containing '@demo.gobuyme.' so it works regardless
- * of which TLD was active when the seed ran (.test, .ng, etc).
- * Run: npm run demo:unseed
- */
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -80,6 +74,10 @@ async function unseedDemo() {
     await prisma.vendorLicense.deleteMany({ where: { vendorId: { in: vendorIds } } });
     await prisma.vendorBusinessVerification.deleteMany({ where: { vendorId: { in: vendorIds } } });
     await prisma.vendorDocument.deleteMany({ where: { vendorId: { in: vendorIds } } });
+    await prisma.vendorPlanChange.deleteMany({ where: { vendorId: { in: vendorIds } } });
+    // A non-demo shopper may have a demo vendor's item sitting in their cart — those
+    // cart_items FK to MenuItem with no cascade, so clear them by vendor, not by cart owner.
+    await prisma.cartItem.deleteMany({ where: { menuItem: { vendorId: { in: vendorIds } } } });
     await prisma.menuItem.deleteMany({ where: { vendorId: { in: vendorIds } } });
     await prisma.payoutAccount.deleteMany({ where: { vendorId: { in: vendorIds } } });
     console.log(`✓ Deleted menus, verifications, and payout accounts for ${vendorIds.length} vendor(s)`);
@@ -96,6 +94,9 @@ async function unseedDemo() {
   if (userIds.length) {
     await prisma.notification.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.auditLog.deleteMany({ where: { userId: { in: userIds } } });
+    // CreditTransaction / OfferRedemption FK to User with no cascade.
+    await prisma.creditTransaction.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.offerRedemption.deleteMany({ where: { userId: { in: userIds } } });
   }
 
   // 6. Platform offers seeded by demo
