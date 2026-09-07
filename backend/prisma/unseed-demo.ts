@@ -47,10 +47,12 @@ async function unseedDemo() {
     await prisma.orderItem.deleteMany({ where: { orderId: { in: uniqueOrderIds } } });
     await prisma.earning.deleteMany({ where: { orderId: { in: uniqueOrderIds } } });
     await prisma.vendorPayout.deleteMany({ where: { orderId: { in: uniqueOrderIds } } });
+    // VendorIncident references orders (no cascade) — must go before the orders themselves.
+    await prisma.vendorIncident.deleteMany({ where: { orderId: { in: uniqueOrderIds } } });
     // Conversations reference orders (no cascade); their messages cascade from the conversation.
     await prisma.conversation.deleteMany({ where: { orderId: { in: uniqueOrderIds } } });
     await prisma.order.deleteMany({ where: { id: { in: uniqueOrderIds } } });
-    console.log(`✓ Deleted ${uniqueOrderIds.length} orders and their items/earnings/payouts/conversations`);
+    console.log(`✓ Deleted ${uniqueOrderIds.length} orders and their items/earnings/payouts/incidents/conversations`);
   }
 
   // 1b. Any remaining conversations tied to demo customers/riders (safety net)
@@ -71,6 +73,9 @@ async function unseedDemo() {
 
   // 3. Vendor data
   if (vendorIds.length) {
+    // VendorIncident also FKs to Vendor with no cascade — clear any left on non-demo
+    // orders so the user→vendor cascade delete below doesn't hit the constraint.
+    await prisma.vendorIncident.deleteMany({ where: { vendorId: { in: vendorIds } } });
     await prisma.vendorPromotion.deleteMany({ where: { vendorId: { in: vendorIds } } });
     await prisma.vendorLicense.deleteMany({ where: { vendorId: { in: vendorIds } } });
     await prisma.vendorBusinessVerification.deleteMany({ where: { vendorId: { in: vendorIds } } });
