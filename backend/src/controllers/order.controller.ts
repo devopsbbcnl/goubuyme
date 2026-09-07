@@ -395,14 +395,17 @@ export const cancelOrder = catchAsync(async (req: AuthRequest, res: Response) =>
   });
   if (!order) return apiResponse.error(res, 'Order not found.', 404);
 
+  // Once the vendor accepts, the order moves to PREPARING — cancellation is no longer
+  // the customer's to make. PENDING/CONFIRMED means the vendor hasn't accepted yet.
   if (!['PENDING', 'CONFIRMED'].includes(order.status)) {
-    return apiResponse.error(res, 'Order cannot be cancelled at this stage.', 400);
+    return apiResponse.error(res, 'This order has already been accepted by the vendor and can no longer be cancelled.', 400);
   }
 
   const settings = await getPlatformSettings();
-  const cancelUntil = order.createdAt.getTime() + settings.cancellationWindowMinutes * 60_000;
+  const windowMinutes = settings.customerCancellationWindowMinutes;
+  const cancelUntil = order.createdAt.getTime() + windowMinutes * 60_000;
   if (Date.now() > cancelUntil) {
-    return apiResponse.error(res, `Orders can only be cancelled within ${settings.cancellationWindowMinutes} minutes.`, 400);
+    return apiResponse.error(res, `Orders can only be cancelled within ${windowMinutes} minute${windowMinutes === 1 ? '' : 's'} of placing them.`, 400);
   }
 
   const wasPaid = order.paymentStatus === 'PAID';

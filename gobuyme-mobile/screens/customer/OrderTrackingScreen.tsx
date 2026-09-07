@@ -1,22 +1,29 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
 	View,
 	Text,
 	StyleSheet,
 	ScrollView,
 	TouchableOpacity,
+	ActivityIndicator,
 	Linking,
 	Alert,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import TrackingMap from '@/components/maps/TrackingMap';
 import { useOrderTracking, OrderStatus } from '@/hooks/useOrderTracking';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import api from '@/services/api';
 
-const DEFAULT_COORD: [number, number] = [7.0348, 5.4836];
+function formatCountdown(ms: number): string {
+	const total = Math.max(0, Math.floor(ms / 1000));
+	const m = Math.floor(total / 60);
+	const s = total % 60;
+	return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 const STEPS: OrderStatus[] = [
 	'PENDING',
@@ -58,15 +65,77 @@ export default function OrderTrackingScreen() {
 		? parseInt(params.estimatedTime, 10)
 		: null;
 
-	const { status, riderLocation, rider, deliveryPin, items } = useOrderTracking(orderId);
+	const {
+		status,
+		riderLocation,
+		vendorLocation,
+		customerLocation,
+		rider,
+		deliveryPin,
+		items,
+		cancellableUntil,
+		isCancellable,
+		refresh,
+	} = useOrderTracking(orderId);
 	const step = statusToStep(status);
 	const done = status === 'DELIVERED';
 	const cancelled = status === 'CANCELLED';
+
+	const [cancelling, setCancelling] = useState(false);
+	const [now, setNow] = useState(Date.now());
+
+	// Tick once a second while a live cancellation window is open so the countdown
+	// stays accurate and the button disappears the moment it lapses.
+	const windowMs = cancellableUntil ? new Date(cancellableUntil).getTime() - now : 0;
+	const showCancel = isCancellable && windowMs > 0 && !cancelling;
+
+	useEffect(() => {
+		if (!isCancellable || !cancellableUntil) return;
+		setNow(Date.now());
+		const id = setInterval(() => setNow(Date.now()), 1000);
+		return () => clearInterval(id);
+	}, [isCancellable, cancellableUntil]);
+
+	const handleCancelOrder = () => {
+		if (!orderId) return;
+		Alert.alert(
+			'Cancel this order?',
+			"You can cancel free of charge while the vendor hasn't accepted it yet. Any payment made is refunded to your GoBuyMe store credit.",
+			[
+				{ text: 'Keep order', style: 'cancel' },
+				{
+					text: 'Cancel order',
+					style: 'destructive',
+					onPress: async () => {
+						try {
+							setCancelling(true);
+							await api.post(`/orders/${orderId}/cancel`, {
+								reason: 'Cancelled by customer',
+							});
+							await refresh();
+							Alert.alert(
+								'Order cancelled',
+								'Your order has been cancelled. Any payment has been refunded to your store credit.',
+							);
+						} catch (e: any) {
+							Alert.alert(
+								'Could not cancel',
+								e?.response?.data?.message ??
+									'This order can no longer be cancelled. Please contact support if you need help.',
+							);
+							refresh();
+						} finally {
+							setCancelling(false);
+						}
+					},
+				},
+			],
+		);
+	};
 	// Show the PIN once the order is live and until it's delivered — the customer reads
 	// it to the rider at handover to confirm delivery.
 	const showPin = !!deliveryPin && !done && !cancelled;
 	const inTransit = status === 'PICKED_UP' || status === 'IN_TRANSIT';
-	const cameraRef = useRef<any>(null);
 
 	const handleCall = () => {
 		if (!rider?.phone) return;
@@ -79,21 +148,6 @@ export default function OrderTrackingScreen() {
 		if (!orderId) return;
 		router.push(`/chat?orderId=${orderId}`);
 	};
-
-	useEffect(() => {
-		if (riderLocation && cameraRef.current?.setCamera) {
-			cameraRef.current.setCamera({
-				centerCoordinate: [riderLocation.lng, riderLocation.lat],
-				zoomLevel: 15,
-				animationDuration: 800,
-				animationMode: 'easeTo',
-			});
-		}
-	}, [riderLocation?.lat, riderLocation?.lng]);
-
-	const riderCoord: [number, number] = riderLocation
-		? [riderLocation.lng, riderLocation.lat]
-		: DEFAULT_COORD;
 
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
@@ -116,9 +170,9 @@ export default function OrderTrackingScreen() {
 			>
 				<View style={styles.mapContainer}>
 					<TrackingMap
-						cameraRef={cameraRef}
-						riderCoord={riderCoord}
-						primaryColor={T.primary}
+						vendor={vendorLocation}
+						customer={customerLocation}
+						riderPosition={riderLocation}
 					/>
 
 					{inTransit && etaMinutes !== null && (
@@ -195,6 +249,38 @@ export default function OrderTrackingScreen() {
 						))}
 					</View>
 				</View>
+
+				{(showCancel || cancelling) && (
+					<View
+						style={[
+							styles.card,
+							{ backgroundColor: T.surface, borderColor: T.border },
+						]}
+					>
+						<Text style={[styles.sectionLabel, { color: T.textSec }]}>
+							Changed your mind?
+						</Text>
+						<Text style={[styles.cancelHint, { color: T.textSec }]}>
+							{cancelling
+								? 'Cancelling your order…'
+								: `You can cancel this order for the next ${formatCountdown(windowMs)}, until the vendor accepts it.`}
+						</Text>
+						<TouchableOpacity
+							style={[styles.cancelBtn, { borderColor: T.error }]}
+							activeOpacity={0.75}
+							disabled={cancelling}
+							onPress={handleCancelOrder}
+						>
+							{cancelling ? (
+								<ActivityIndicator size="small" color={T.error} />
+							) : (
+								<Text style={[styles.cancelBtnText, { color: T.error }]}>
+									Cancel Order
+								</Text>
+							)}
+						</TouchableOpacity>
+					</View>
+				)}
 
 				{items.length > 0 && (
 					<View
@@ -355,35 +441,6 @@ export default function OrderTrackingScreen() {
 	);
 }
 
-function TrackingMap({
-	cameraRef,
-	riderCoord,
-	primaryColor,
-}: {
-	cameraRef: React.RefObject<any>;
-	riderCoord: [number, number];
-	primaryColor: string;
-}) {
-	return (
-		<MapView
-			provider={PROVIDER_GOOGLE}
-			style={StyleSheet.absoluteFillObject}
-			initialRegion={{
-				latitude: riderCoord[1],
-				longitude: riderCoord[0],
-				latitudeDelta: 0.01,
-				longitudeDelta: 0.01,
-			}}
-		>
-			<Marker coordinate={{ latitude: riderCoord[1], longitude: riderCoord[0] }}>
-				<View style={[styles.riderPin, { backgroundColor: primaryColor }]}>
-					<Ionicons name="bicycle" size={14} color="#fff" />
-				</View>
-			</Marker>
-		</MapView>
-	);
-}
-
 const styles = StyleSheet.create({
 	header: {
 		flexDirection: 'row',
@@ -400,13 +457,6 @@ const styles = StyleSheet.create({
 		height: 220,
 		overflow: 'hidden',
 		position: 'relative',
-	},
-	riderPin: {
-		width: 30,
-		height: 30,
-		borderRadius: 15,
-		alignItems: 'center',
-		justifyContent: 'center',
 	},
 	etaChip: {
 		position: 'absolute',
@@ -462,6 +512,15 @@ const styles = StyleSheet.create({
 	statusLabel: { fontSize: 17, fontWeight: '700' },
 	orderId: { fontSize: 12, marginTop: 2 },
 	sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 },
+	cancelHint: { fontSize: 13, lineHeight: 18, marginBottom: 14 },
+	cancelBtn: {
+		height: 44,
+		borderRadius: 4,
+		borderWidth: 1.5,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	cancelBtnText: { fontSize: 14, fontWeight: '700' },
 	itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
 	itemLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
 	qtyBadge: { borderRadius: 4, paddingHorizontal: 7, paddingVertical: 3 },

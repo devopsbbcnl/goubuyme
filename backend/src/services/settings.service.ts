@@ -11,6 +11,7 @@ export const DEFAULT_PLATFORM_SETTINGS = {
   deliveryMaxFee: parseFloat(process.env.DELIVERY_MAX_FEE || '999999'),
   maxDeliveryRadiusKm: parseFloat(process.env.MAX_DELIVERY_RADIUS_KM || '25'),
   cancellationWindowMinutes: parseInt(process.env.CANCELLATION_WINDOW_MINUTES || '10', 10),
+  customerCancellationWindowMinutes: parseInt(process.env.CUSTOMER_CANCELLATION_WINDOW_MINUTES || '2', 10),
   maintenanceMode: false,
   tier1CommissionPercent: parseFloat(process.env.COMMISSION_TIER_1_RATE || '0.03') * 100,
   tier2CommissionPercent: parseFloat(process.env.COMMISSION_TIER_2_RATE || '0.075') * 100,
@@ -31,6 +32,7 @@ export type PlatformSettingsPatch = Partial<{
   deliveryMaxFee: number;
   maxDeliveryRadiusKm: number;
   cancellationWindowMinutes: number;
+  customerCancellationWindowMinutes: number;
   maintenanceMode: boolean;
   tier1CommissionPercent: number;
   tier2CommissionPercent: number;

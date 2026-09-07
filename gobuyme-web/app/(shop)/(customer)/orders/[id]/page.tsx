@@ -1,14 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/Confirm';
 import api from '@/services/api';
 
 interface OrderDetail {
   id: string; orderNumber: string; status: string; totalAmount: number; deliveryFee: number;
   note?: string; createdAt: string; paymentMethod: string; paymentStatus: string;
   deliveryPin?: string;
+  isCancellable?: boolean;
+  cancellableUntil?: string | null;
   vendor: { businessName: string; address: string; logoUrl?: string };
   deliveryAddress: string;
   customer?: { user: { phone?: string } };
@@ -33,8 +37,12 @@ export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const toast = useToast();
+  const confirmDialog = useConfirm();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -47,6 +55,43 @@ export default function OrderDetailPage() {
       return () => clearInterval(poll);
     }
   }, [user, id]);
+
+  const cancelWindowMs = order?.cancellableUntil ? new Date(order.cancellableUntil).getTime() - now : 0;
+  const canCancel = Boolean(order?.isCancellable) && cancelWindowMs > 0;
+
+  // Tick every second while the cancellation window is open so the countdown stays
+  // live and the button hides the instant it lapses.
+  useEffect(() => {
+    if (!order?.isCancellable || !order?.cancellableUntil) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [order?.isCancellable, order?.cancellableUntil]);
+
+  const handleCancel = useCallback(async () => {
+    const ok = await confirmDialog(
+      "You can cancel free of charge while the vendor hasn't accepted your order. Any payment made is refunded to your GoBuyMe store credit.",
+      { title: 'Cancel this order?', confirmLabel: 'Cancel Order', cancelLabel: 'Keep order' },
+    );
+    if (!ok) return;
+    setCancelling(true);
+    try {
+      await api.post(`/orders/${id}/cancel`, { reason: 'Cancelled by customer' });
+      const r = await api.get(`/orders/${id}`);
+      setOrder(r.data.data);
+      toast('Order cancelled — any payment was refunded to your store credit', 'success');
+    } catch (err: any) {
+      toast(err?.response?.data?.message ?? 'This order can no longer be cancelled', 'error');
+      api.get(`/orders/${id}`).then(r => setOrder(r.data.data)).catch(() => {});
+    } finally {
+      setCancelling(false);
+    }
+  }, [confirmDialog, id, toast]);
+
+  const cancelCountdown = (() => {
+    const total = Math.max(0, Math.floor(cancelWindowMs / 1000));
+    return `${Math.floor(total / 60)}:${(total % 60).toString().padStart(2, '0')}`;
+  })();
 
   if (authLoading || !user || loading) return <div className="page-body"><div className="inner"><div className="sk" style={{ height: 400 }} /></div></div>;
   if (!order) return <div className="page-body"><div className="inner"><div className="empty"><div className="emoji">📦</div><h3>Order not found</h3></div></div></div>;
@@ -80,6 +125,21 @@ export default function OrderDetailPage() {
                 </p>
               )}
             </div>
+
+            {/* Cancel window */}
+            {(canCancel || cancelling) && (
+              <div className="card card-pad">
+                <h3 style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>Changed your mind?</h3>
+                <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
+                  {cancelling
+                    ? 'Cancelling your order…'
+                    : `You can cancel this order for the next ${cancelCountdown}, until the vendor accepts it. Any payment is refunded to your store credit.`}
+                </p>
+                <button className="btn btn-danger" disabled={cancelling} onClick={handleCancel}>
+                  {cancelling ? <span className="spin" /> : 'Cancel Order'}
+                </button>
+              </div>
+            )}
 
             {/* Delivery PIN */}
             {order.deliveryPin && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (

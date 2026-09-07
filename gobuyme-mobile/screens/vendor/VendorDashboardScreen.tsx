@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, Animated, ActivityIndicator, RefreshControl,
-  Modal, TextInput, KeyboardAvoidingView, Platform, Alert,
+  TextInput, Alert,
 } from 'react-native';
+import { CenteredKeyboardModal } from '@/components/ui/CenteredKeyboardModal';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -534,57 +535,56 @@ export default function VendorDashboardScreen() {
       </ScrollView>
 
       {/* Reject reason modal */}
-      <Modal
+      <CenteredKeyboardModal
         visible={!!rejectTarget}
-        transparent
-        animationType="fade"
         onRequestClose={() => !rejectSubmitting && (setRejectTarget(null), setRejectReason(''))}
+        cardStyle={{ backgroundColor: T.surface }}
       >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <ScrollView
+          style={{ flexShrink: 1 }}
+          contentContainerStyle={styles.modalBox}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <View style={[styles.modalBox, { backgroundColor: T.surface, borderColor: T.border }]}>
-            <Text style={[styles.modalTitle, { color: T.text }]}>Reject Order</Text>
-            <Text style={[styles.modalSub, { color: T.textSec }]}>
-              {rejectTarget?.id} · Why are you rejecting this order?
-            </Text>
-            <TextInput
-              style={[
-                styles.modalInput,
-                { color: T.text, borderColor: T.border, backgroundColor: T.bg },
-              ]}
-              placeholder="e.g. Out of stock, closing early…"
-              placeholderTextColor={T.textMuted}
-              value={rejectReason}
-              onChangeText={setRejectReason}
-              multiline
-              maxLength={200}
-              editable={!rejectSubmitting}
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                onPress={() => { setRejectTarget(null); setRejectReason(''); }}
-                disabled={rejectSubmitting}
-                style={[styles.modalCancelBtn, { backgroundColor: T.surface2, borderColor: T.border }]}
-              >
-                <Text style={[styles.modalBtnText, { color: T.textSec }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={submitReject}
-                disabled={rejectSubmitting}
-                style={[styles.modalRejectBtn, { opacity: rejectSubmitting ? 0.6 : 1 }]}
-              >
-                {rejectSubmitting ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={[styles.modalBtnText, { color: '#fff' }]}>Reject Order</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+          <Text style={[styles.modalTitle, { color: T.text }]}>Reject Order</Text>
+          <Text style={[styles.modalSub, { color: T.textSec }]}>
+            {rejectTarget?.id} · Why are you rejecting this order?
+          </Text>
+          <TextInput
+            style={[
+              styles.modalInput,
+              { color: T.text, borderColor: T.border, backgroundColor: T.bg },
+            ]}
+            placeholder="e.g. Out of stock, closing early…"
+            placeholderTextColor={T.textMuted}
+            value={rejectReason}
+            onChangeText={setRejectReason}
+            multiline
+            maxLength={200}
+            editable={!rejectSubmitting}
+          />
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              onPress={() => { setRejectTarget(null); setRejectReason(''); }}
+              disabled={rejectSubmitting}
+              style={[styles.modalCancelBtn, { backgroundColor: T.surface2, borderColor: T.border }]}
+            >
+              <Text style={[styles.modalBtnText, { color: T.textSec }]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={submitReject}
+              disabled={rejectSubmitting}
+              style={[styles.modalRejectBtn, { opacity: rejectSubmitting ? 0.6 : 1 }]}
+            >
+              {rejectSubmitting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={[styles.modalBtnText, { color: '#fff' }]}>Reject Order</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        </ScrollView>
+      </CenteredKeyboardModal>
     </View>
   );
 }
@@ -640,8 +640,7 @@ const styles = StyleSheet.create({
   earningsValue:      { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
   earningsSub:        { fontSize: 11, marginTop: 3 },
   earningsIcon:       { width: 48, height: 48, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
-  modalOverlay:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalBox:           { width: '100%', borderRadius: 4, borderWidth: 1, padding: 20, gap: 14 },
+  modalBox:           { padding: 20, gap: 14 },
   modalTitle:         { fontSize: 16, fontWeight: '800' },
   modalSub:           { fontSize: 12, marginTop: -6 },
   modalInput:         { borderWidth: 1, borderRadius: 4, padding: 12, fontSize: 13, minHeight: 80, textAlignVertical: 'top' },

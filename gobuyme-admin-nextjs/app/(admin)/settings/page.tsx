@@ -10,6 +10,7 @@ interface SettingsApi {
   deliveryMaxFee: number;
   maxDeliveryRadiusKm: number;
   cancellationWindowMinutes: number;
+  customerCancellationWindowMinutes: number;
   maintenanceMode: boolean;
   tier1CommissionPercent: number;
   tier2CommissionPercent: number;
@@ -21,6 +22,7 @@ interface SettingsState {
   deliveryMaxFee: string;
   maxDeliveryRadiusKm: string;
   cancellationWindowMinutes: string;
+  customerCancellationWindowMinutes: string;
   maintenanceMode: boolean;
   tier1CommissionPercent: string;
   tier2CommissionPercent: string;
@@ -32,6 +34,7 @@ const EMPTY: SettingsState = {
   deliveryMaxFee: '',
   maxDeliveryRadiusKm: '',
   cancellationWindowMinutes: '',
+  customerCancellationWindowMinutes: '',
   maintenanceMode: false,
   tier1CommissionPercent: '',
   tier2CommissionPercent: '',
@@ -47,6 +50,7 @@ const toState = (s: SettingsApi | undefined): SettingsState => {
     deliveryMaxFee: String(s.deliveryMaxFee ?? ''),
     maxDeliveryRadiusKm: String(s.maxDeliveryRadiusKm ?? ''),
     cancellationWindowMinutes: String(s.cancellationWindowMinutes ?? ''),
+    customerCancellationWindowMinutes: String(s.customerCancellationWindowMinutes ?? ''),
     maintenanceMode: Boolean(s.maintenanceMode),
     tier1CommissionPercent: String(s.tier1CommissionPercent ?? ''),
     tier2CommissionPercent: String(s.tier2CommissionPercent ?? ''),
@@ -95,7 +99,7 @@ export default function SettingsPage() {
       const payload: Record<string, number | boolean> = { maintenanceMode: cfg.maintenanceMode };
       const numericKeys = [
         'deliveryBaseFee', 'deliveryPerKmRate', 'deliveryMaxFee',
-        'maxDeliveryRadiusKm', 'cancellationWindowMinutes',
+        'maxDeliveryRadiusKm', 'cancellationWindowMinutes', 'customerCancellationWindowMinutes',
         'tier1CommissionPercent', 'tier2CommissionPercent',
       ] as const;
       for (const key of numericKeys) {
@@ -103,7 +107,10 @@ export default function SettingsPage() {
         if (raw === '') continue;
         const n = Number(raw);
         if (!Number.isFinite(n)) continue;
-        payload[key] = key === 'cancellationWindowMinutes' ? Math.round(n) : n;
+        payload[key] =
+          key === 'cancellationWindowMinutes' || key === 'customerCancellationWindowMinutes'
+            ? Math.round(n)
+            : n;
       }
       const res = await api.patch<{ data: SettingsApi }>('/admin/settings', payload);
       setCfg(toState(res.data));
@@ -273,6 +280,21 @@ export default function SettingsPage() {
         <div style={sectionHeader}>Order Policy</div>
         <div style={sectionBody}>
           <div>
+            <label style={labelStyle}>Customer Cancellation Window (minutes)</label>
+            <input
+              style={inputStyle}
+              type="number"
+              min="0"
+              max="240"
+              value={cfg.customerCancellationWindowMinutes}
+              onChange={e => set('customerCancellationWindowMinutes', e.target.value)}
+            />
+            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 5 }}>
+              How long after placing an order a customer may cancel it themselves — allowed only
+              until the vendor accepts. Set to 0 to disable customer self-cancellation.
+            </div>
+          </div>
+          <div>
             <label style={labelStyle}>Cancellation Window (minutes)</label>
             <input
               style={inputStyle}
@@ -282,6 +304,10 @@ export default function SettingsPage() {
               value={cfg.cancellationWindowMinutes}
               onChange={e => set('cancellationWindowMinutes', e.target.value)}
             />
+            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 5 }}>
+              General cancellation grace period. Vendor no-response auto-cancel is handled
+              separately by the escalation service.
+            </div>
           </div>
         </div>
       </div>

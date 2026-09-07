@@ -43,6 +43,7 @@ model User {
   onboardingEvents       OnboardingEvent[]
   creditTransactions     CreditTransaction[]
   pushSubscriptions      PushSubscription[]
+  vendorPlanChanges      VendorPlanChange[]
 
   @@index([role])
   @@index([createdAt])
@@ -124,6 +125,7 @@ model Vendor {
   businessHours        VendorBusinessHours[]
   temporaryClosures    VendorTemporaryClosure[]
   incidents            VendorIncident[]
+  planChanges          VendorPlanChange[]
   user                 User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([approvalStatus])
@@ -609,6 +611,25 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+/// One commission-tier switch for a vendor. Written on every tier change,
+/// whether the vendor initiated it themselves (PATCH /vendors/me/tier) or an
+/// admin did (PATCH /admin/vendors/:id/tier). `actor` is the user who made the
+/// change — the vendor's own user for self-switches, the admin's user otherwise.
+model VendorPlanChange {
+  id          String               @id @default(uuid())
+  vendorId    String
+  fromTier    CommissionTier
+  toTier      CommissionTier
+  initiatedBy PlanChangeInitiator
+  actorUserId String
+  createdAt   DateTime             @default(now())
+  vendor      Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  actor       User                 @relation(fields: [actorUserId], references: [id])
+
+  @@index([vendorId, createdAt])
+  @@map("vendor_plan_changes")
+}
+
 model CreditTransaction {
   id           String                @id @default(uuid())
   userId       String
@@ -773,6 +794,7 @@ model PlatformSetting {
   deliveryMaxFee            Float    @default(3000)
   maxDeliveryRadiusKm       Float    @default(25)
   cancellationWindowMinutes Int      @default(10)
+  customerCancellationWindowMinutes Int @default(2)
   maintenanceMode           Boolean  @default(false)
   updatedAt                 DateTime @updatedAt
   createdAt                 DateTime @default(now())
@@ -993,6 +1015,12 @@ enum VendorCategory {
 enum CommissionTier {
   TIER_1
   TIER_2
+}
+
+/// Who initiated a vendor commission-tier change.
+enum PlanChangeInitiator {
+  VENDOR
+  ADMIN
 }
 
 /// Manual availability override for a vendor store.

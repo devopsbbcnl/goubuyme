@@ -1,20 +1,17 @@
 import React, { useRef, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import { Map, Camera, type CameraRef } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { reverseGeocode } from '@/services/geocoding';
+import { MAP_STYLE_URL } from '@/components/maps/TrackingMap';
 
-// Falls back to a central-Nigeria region (near Owerri, matching OrderTrackingScreen's
-// DEFAULT_COORD) when there's no existing address and GPS isn't available/granted yet.
-const DEFAULT_REGION: Region = {
-	latitude: 5.4836,
-	longitude: 7.0348,
-	latitudeDelta: 0.05,
-	longitudeDelta: 0.05,
-};
+// Falls back to a central-Nigeria point (near Owerri, matching OrderTrackingScreen's
+// old default) when there's no existing address and GPS isn't available/granted yet.
+// Stored as [lng, lat] to match MapLibre's coordinate order.
+const DEFAULT_CENTER: [number, number] = [7.0348, 5.4836];
 
 interface Props {
 	visible: boolean;
@@ -27,16 +24,16 @@ interface Props {
 // landmark-style addresses with no house number) and the user isn't physically at the
 // location to use GPS — the pin stays fixed at screen-center and the map moves underneath
 // it, then the confirmed coordinate is reverse-geocoded just to sanity-check on return.
+// Mirrors gobuyme-web/components/ui/LocationPickerModal.tsx.
 export default function LocationPickerModal({ visible, initial, onCancel, onConfirm }: Props) {
 	const { theme: T } = useTheme();
 	const insets = useSafeAreaInsets();
-	const mapRef = useRef<MapView>(null);
-	const [region, setRegion] = useState<Region>({
-		latitude: initial?.lat ?? DEFAULT_REGION.latitude,
-		longitude: initial?.lng ?? DEFAULT_REGION.longitude,
-		latitudeDelta: 0.02,
-		longitudeDelta: 0.02,
-	});
+	const cameraRef = useRef<CameraRef>(null);
+	// [lng, lat] — whatever the map is centered on when the user confirms.
+	const [center, setCenter] = useState<[number, number]>([
+		initial?.lng ?? DEFAULT_CENTER[0],
+		initial?.lat ?? DEFAULT_CENTER[1],
+	]);
 	const [locating, setLocating] = useState(false);
 	const [confirming, setConfirming] = useState(false);
 
@@ -46,14 +43,9 @@ export default function LocationPickerModal({ visible, initial, onCancel, onConf
 			const { status } = await Location.requestForegroundPermissionsAsync();
 			if (status !== 'granted') return;
 			const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-			const next: Region = {
-				latitude: loc.coords.latitude,
-				longitude: loc.coords.longitude,
-				latitudeDelta: 0.02,
-				longitudeDelta: 0.02,
-			};
-			setRegion(next);
-			mapRef.current?.animateToRegion(next, 500);
+			const next: [number, number] = [loc.coords.longitude, loc.coords.latitude];
+			setCenter(next);
+			cameraRef.current?.flyTo({ center: next, zoom: 16 });
 		} catch {
 			// GPS unavailable — user can still drop the pin manually
 		} finally {
@@ -66,8 +58,8 @@ export default function LocationPickerModal({ visible, initial, onCancel, onConf
 		try {
 			// Reverse-geocode is best-effort context only — the pin's raw lat/lng is what
 			// gets saved regardless of whether this resolves.
-			await reverseGeocode(region.latitude, region.longitude);
-			onConfirm({ lat: region.latitude, lng: region.longitude });
+			await reverseGeocode(center[1], center[0]);
+			onConfirm({ lat: center[1], lng: center[0] });
 		} finally {
 			setConfirming(false);
 		}
@@ -76,13 +68,19 @@ export default function LocationPickerModal({ visible, initial, onCancel, onConf
 	return (
 		<Modal visible={visible} animationType="slide" onRequestClose={onCancel}>
 			<View style={{ flex: 1, backgroundColor: T.bg }}>
-				<MapView
-					ref={mapRef}
-					provider={PROVIDER_GOOGLE}
+				<Map
 					style={StyleSheet.absoluteFillObject}
-					initialRegion={region}
-					onRegionChangeComplete={setRegion}
-				/>
+					mapStyle={MAP_STYLE_URL}
+					logo={false}
+					attribution={false}
+					compass={false}
+					onRegionDidChange={(e) => {
+						const c = e.nativeEvent?.center;
+						if (c) setCenter([c[0], c[1]]);
+					}}
+				>
+					<Camera ref={cameraRef} initialViewState={{ center, zoom: 15 }} />
+				</Map>
 
 				{/* Fixed center pin — map moves beneath it */}
 				<View pointerEvents="none" style={styles.pinWrap}>
