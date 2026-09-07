@@ -2,8 +2,10 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
 
@@ -146,6 +148,8 @@ const STATUS_TABS: Array<'ALL' | OrderStatus> = ['ALL', 'IN_TRANSIT', 'PREPARING
 
 export default function OrdersPage() {
   const { theme: T } = useTheme();
+  const { user } = useAuth();
+  const canDelete = user?.role === 'SUPER_ADMIN';
   const searchParams = useSearchParams();
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -159,6 +163,10 @@ export default function OrdersPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
+  const [deleteOrderNumber, setDeleteOrderNumber] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => { setPage(1); setDebouncedSearch(search); }, 400);
@@ -195,6 +203,29 @@ export default function OrdersPage() {
       setDetailOpen(false);
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const openDeleteModal = (id: string, orderNumber: string) => {
+    setDeleteOrderId(id);
+    setDeleteOrderNumber(orderNumber);
+    setDeleteModalOpen(true);
+  };
+
+  const deleteOrderHandler = async () => {
+    if (!deleteOrderId) return;
+    setDeleteLoading(true);
+    try {
+      await api.del(`/admin/orders/${deleteOrderId}`);
+      setOrders(os => os.filter(o => o.id !== deleteOrderId));
+      setTotal(t => Math.max(0, t - 1));
+      if (detail?.id === deleteOrderId) setDetailOpen(false);
+      setDeleteOrderId(null);
+      setDeleteOrderNumber('');
+    } catch {
+      // failure is surfaced by the api layer's error reporting
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -239,7 +270,7 @@ export default function OrdersPage() {
           <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: T.surface2 }}>
-                {['Order ID', 'Customer', 'Vendor', 'Rider', 'Amount', 'Status', 'Time'].map(h => (
+                {[...['Order ID', 'Customer', 'Vendor', 'Rider', 'Amount', 'Status', 'Time'], ...(canDelete ? ['Actions'] : [])].map(h => (
                   <th key={h} style={{ padding: '11px 16px', fontSize: 11, fontWeight: 700, color: T.textSec, textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -247,13 +278,13 @@ export default function OrdersPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
+                  <td colSpan={canDelete ? 8 : 7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
                     Loading orders...
                   </td>
                 </tr>
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
+                  <td colSpan={canDelete ? 8 : 7} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
                     No orders match the current filter.
                   </td>
                 </tr>
@@ -272,6 +303,16 @@ export default function OrdersPage() {
                   <td style={{ padding: '13px 16px', fontSize: 13, fontWeight: 700, color: T.text }}>{fmtCurrency(o.totalAmount)}</td>
                   <td style={{ padding: '13px 16px' }}><Badge status={o.status} /></td>
                   <td style={{ padding: '13px 16px', fontSize: 12, color: T.textMuted }}>{timeAgo(o.createdAt)}</td>
+                  {canDelete && (
+                    <td style={{ padding: '13px 16px' }} onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => openDeleteModal(o.id, o.orderNumber)}
+                        style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -306,9 +347,19 @@ export default function OrdersPage() {
                   Placed {fmtDateTime(detail.createdAt)}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <Badge status={detail.status} />
-                <Badge status={detail.paymentStatus} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <Badge status={detail.status} />
+                  <Badge status={detail.paymentStatus} />
+                </div>
+                {canDelete && (
+                  <button
+                    onClick={() => openDeleteModal(detail.id, detail.orderNumber)}
+                    style={{ padding: '6px 12px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}
+                  >
+                    Delete Order
+                  </button>
+                )}
               </div>
             </div>
 
@@ -479,6 +530,17 @@ export default function OrdersPage() {
           </div>
         )}
       </Modal>
+
+      <ConfirmDeleteModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Order"
+        message="This permanently removes the order and its items. Only delivered or cancelled orders can be deleted, and orders that have already been paid out are blocked."
+        itemName={deleteOrderNumber}
+        onConfirm={deleteOrderHandler}
+        isLoading={deleteLoading}
+        isDangerous
+      />
     </>
   );
 }

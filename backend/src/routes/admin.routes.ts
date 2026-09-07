@@ -14,6 +14,7 @@ import {
   deleteCustomer,
   getAdminOrders,
   getAdminOrderDetail,
+  deleteAdminOrder,
   getAuditLogs,
   getLogFiles,
   getServerLogs,
@@ -101,6 +102,7 @@ router.get('/customers/:id/addresses', ...readAuth, getCustomerAddresses);
 router.delete('/customers/:id', ...superAdminAuth, deleteCustomer);
 router.get('/orders',    ...readAuth, getAdminOrders);
 router.get('/orders/:id', ...readAuth, getAdminOrderDetail);
+router.delete('/orders/:id', ...superAdminAuth, deleteAdminOrder);
 
 // Audit logs
 router.get('/audit', ...readAuth, getAuditLogs);
