@@ -102,6 +102,7 @@ export const updateAdminSettings = catchAsync(async (req: AuthRequest, res: Resp
     | 'deliveryMaxFee'
     | 'maxDeliveryRadiusKm'
     | 'cancellationWindowMinutes'
+    | 'customerCancellationWindowMinutes'
     | 'tier1CommissionPercent'
     | 'tier2CommissionPercent';
 
@@ -111,6 +112,7 @@ export const updateAdminSettings = catchAsync(async (req: AuthRequest, res: Resp
     ['deliveryMaxFee', 'Delivery max fee', 0, 1_000_000],
     ['maxDeliveryRadiusKm', 'Max delivery radius', 1, 500],
     ['cancellationWindowMinutes', 'Cancellation window', 0, 240],
+    ['customerCancellationWindowMinutes', 'Customer cancellation window', 0, 240],
     ['tier1CommissionPercent', 'Tier 1 commission percent', 0, 50],
     ['tier2CommissionPercent', 'Tier 2 commission percent', 0, 50],
   ];
@@ -121,7 +123,7 @@ export const updateAdminSettings = catchAsync(async (req: AuthRequest, res: Resp
     if (value === null || value < min || value > max) {
       return apiResponse.error(res, `${label} must be between ${min} and ${max}.`, 400);
     }
-    if (key === 'cancellationWindowMinutes') {
+    if (key === 'cancellationWindowMinutes' || key === 'customerCancellationWindowMinutes') {
       patch[key] = Math.round(value);
     } else {
       patch[key] = value;
@@ -149,13 +151,14 @@ export const updateAdminSettings = catchAsync(async (req: AuthRequest, res: Resp
 
 // GET /admin/vendors
 export const getAdminVendors = catchAsync(async (req: Request, res: Response) => {
-  const { status, search, category, page = '1', limit = '20' } = req.query as Record<string, string>;
+  const { status, search, category, tier, page = '1', limit = '20' } = req.query as Record<string, string>;
   const pageNum = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, parseInt(limit));
 
   const where: Record<string, unknown> = { user: { deletedAt: null } };
   if (status && status !== 'ALL') where.approvalStatus = status as ApprovalStatus;
   if (category && category !== '') where.category = category as VendorCategory;
+  if (tier && (tier === 'TIER_1' || tier === 'TIER_2')) where.commissionTier = tier as CommissionTier;
   if (search) where.businessName = { contains: search, mode: 'insensitive' };
 
   const [vendors, total] = await Promise.all([
@@ -163,7 +166,8 @@ export const getAdminVendors = catchAsync(async (req: Request, res: Response) =>
       where,
       select: {
         id: true, businessName: true, category: true, city: true,
-        rating: true, approvalStatus: true, verificationBadge: true, createdAt: true,
+        rating: true, approvalStatus: true, verificationBadge: true,
+        commissionTier: true, createdAt: true,
         user: { select: { name: true } },
         _count: { select: { orders: true } },
       },
@@ -193,6 +197,7 @@ export const getAdminVendors = catchAsync(async (req: Request, res: Response) =>
     rating: v.rating,
     approvalStatus: v.approvalStatus,
     verificationBadge: v.verificationBadge,
+    commissionTier: v.commissionTier,
     createdAt: v.createdAt,
     totalOrders: v._count.orders,
     totalRevenue: revenueMap.get(v.id) ?? 0,
@@ -1009,21 +1014,31 @@ export const updateVendorTier = catchAsync(async (req: AuthRequest, res: Respons
 
   const previousTier = vendor.commissionTier;
 
-  const updated = await prisma.vendor.update({
-    where: { id },
-    data: { commissionTier: tier as CommissionTier, tierChangedAt: new Date() },
-    select: { id: true, businessName: true, commissionTier: true, tierChangedAt: true },
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      userId: req.user!.userId,
-      action: 'VENDOR_TIER_CHANGED',
-      entity: 'Vendor',
-      entityId: id,
-      meta: { from: previousTier, to: tier },
-    },
-  });
+  const [updated] = await prisma.$transaction([
+    prisma.vendor.update({
+      where: { id },
+      data: { commissionTier: tier as CommissionTier, tierChangedAt: new Date() },
+      select: { id: true, businessName: true, commissionTier: true, tierChangedAt: true },
+    }),
+    prisma.vendorPlanChange.create({
+      data: {
+        vendorId: id,
+        fromTier: previousTier,
+        toTier: tier as CommissionTier,
+        initiatedBy: 'ADMIN',
+        actorUserId: req.user!.userId,
+      },
+    }),
+    prisma.auditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'VENDOR_TIER_CHANGED',
+        entity: 'Vendor',
+        entityId: id,
+        meta: { from: previousTier, to: tier },
+      },
+    }),
+  ]);
 
   const rateLabel = await tierRateLabel(tier as CommissionTier);
   notifyUser(vendor.userId, {
@@ -1130,6 +1145,14 @@ export const getVendorDetail = catchAsync(async (req: Request, res: Response) =>
           status: true, reviewNote: true, createdAt: true, updatedAt: true,
         },
         orderBy: { createdAt: 'desc' as const },
+      },
+      planChanges: {
+        select: {
+          id: true, fromTier: true, toTier: true, initiatedBy: true, createdAt: true,
+          actor: { select: { name: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' as const },
+        take: 50,
       },
       _count: { select: { orders: true, menuItems: true } },
     },

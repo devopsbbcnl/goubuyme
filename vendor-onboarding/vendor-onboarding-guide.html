@@ -1,0 +1,632 @@
+<title>Vendor Onboarding Guide</title>
+<style>
+  :root {
+    --bg: #F7F5F3;
+    --surface: #FFFFFF;
+    --surface-alt: #F2F0EE;
+    --border: #E8E5E2;
+    --ink: #0E0E0E;
+    --ink-soft: #4A4642;
+    --muted: #6B6763;
+    --accent: #FF521B;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #FDE6DC;
+    --accent-soft-border: #F8C7B2;
+    --dark-surface: #0E0E0E;
+    --dark-ink: #F7F5F3;
+    --dark-ink-soft: #C9C5C0;
+    --shadow: 0 1px 2px rgba(14,14,14,0.04), 0 2px 8px rgba(14,14,14,0.04);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E0E0E;
+      --surface: #1A1A1A;
+      --surface-alt: #222222;
+      --border: #2A2A2A;
+      --ink: #F7F5F3;
+      --ink-soft: #C9C5C0;
+      --muted: #8B8782;
+      --accent: #FF6B3D;
+      --accent-ink: #17100C;
+      --accent-soft: rgba(255,107,61,0.14);
+      --accent-soft-border: rgba(255,107,61,0.3);
+      --dark-surface: #F7F5F3;
+      --dark-ink: #0E0E0E;
+      --dark-ink-soft: #4A4642;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.3);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0E0E0E;
+    --surface: #1A1A1A;
+    --surface-alt: #222222;
+    --border: #2A2A2A;
+    --ink: #F7F5F3;
+    --ink-soft: #C9C5C0;
+    --muted: #8B8782;
+    --accent: #FF6B3D;
+    --accent-ink: #17100C;
+    --accent-soft: rgba(255,107,61,0.14);
+    --accent-soft-border: rgba(255,107,61,0.3);
+    --dark-surface: #F7F5F3;
+    --dark-ink: #0E0E0E;
+    --dark-ink-soft: #4A4642;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.3);
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  a { color: var(--accent); }
+  a:hover { color: var(--accent); opacity: 0.8; }
+
+  code, .mono {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ---- header ---- */
+  .masthead {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .masthead-inner {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 22px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .wordmark {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+  }
+  .masthead-meta {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .hero {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 56px 32px 40px;
+  }
+  .hero h1 {
+    font-size: clamp(32px, 4vw, 44px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.08;
+    margin: 14px 0 16px;
+    text-wrap: balance;
+    max-width: 18ch;
+  }
+  .hero p {
+    font-size: 17px;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0;
+  }
+
+  /* ---- layout ---- */
+  .layout {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 0 32px 96px;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 56px;
+    align-items: start;
+  }
+
+  nav.toc {
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 8px;
+  }
+  nav.toc a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 7px 10px;
+    border-radius: 4px;
+    border-left: 2px solid transparent;
+  }
+  nav.toc a:hover {
+    color: var(--ink);
+    opacity: 1;
+    background: var(--surface-alt);
+  }
+  nav.toc .toc-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 10px 8px;
+  }
+
+  main { min-width: 0; }
+
+  section.doc-section {
+    padding: 40px 0;
+    border-top: 1px solid var(--border);
+    scroll-margin-top: 24px;
+  }
+  section.doc-section:first-child { border-top: none; padding-top: 0; }
+
+  .section-num {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+
+  h2 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 0 0 8px;
+  }
+
+  .lede {
+    font-size: 16px;
+    color: var(--ink-soft);
+    max-width: 66ch;
+    margin: 0 0 24px;
+  }
+
+  p { max-width: 66ch; }
+  p.body-copy { color: var(--ink-soft); }
+
+  /* ---- step list ---- */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .step {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 16px;
+    padding: 20px 20px;
+  }
+  .step + .step { border-top: 1px solid var(--border); }
+  .step-num {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-soft-border);
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step h3 { margin-bottom: 4px; }
+  .step p { margin: 0; color: var(--ink-soft); font-size: 14.5px; }
+
+  /* ---- requirement list ---- */
+  .req-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .req-item {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 4px;
+    padding: 16px 18px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .req-item svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
+  .req-item .req-title { font-weight: 700; font-size: 14.5px; margin-bottom: 2px; }
+  .req-item .req-sub { font-size: 13.5px; color: var(--muted); }
+
+  /* ---- tier cards ---- */
+  .tier-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .tier-card {
+    border-radius: 4px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid var(--border);
+  }
+  .tier-card.light { background: var(--surface); }
+  .tier-card.dark {
+    background: var(--dark-surface);
+    color: var(--dark-ink);
+    border-color: var(--dark-surface);
+  }
+  .tier-card .tier-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  .tier-card.dark .tier-label { color: var(--accent); }
+  .tier-card.light .tier-label { color: var(--accent); }
+  .tier-rate {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .tier-rate span { font-size: 14px; font-weight: 500; font-family: 'Plus Jakarta Sans', sans-serif; }
+  .tier-card.light .tier-rate span, .tier-card.light ul { color: var(--muted); }
+  .tier-card.dark .tier-rate span, .tier-card.dark ul { color: var(--dark-ink-soft); }
+  .tier-card ul { margin: 4px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.6; }
+  .tier-card li { margin-bottom: 2px; }
+
+  .callout {
+    border: 1px solid var(--accent-soft-border);
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 14px 18px;
+    font-size: 14.5px;
+    color: var(--ink);
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+    max-width: 66ch;
+  }
+  .callout strong { font-weight: 700; }
+  .callout svg { flex-shrink: 0; margin-top: 3px; color: var(--accent); }
+
+  /* ---- fee table ---- */
+  .fee-table {
+    width: 100%;
+    max-width: 520px;
+    border-collapse: collapse;
+    font-size: 14.5px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .fee-table th, .fee-table td { text-align: left; padding: 12px 16px; }
+  .fee-table thead th {
+    background: var(--surface-alt);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .fee-table tbody tr + tr { border-top: 1px solid var(--border); }
+  .fee-table tbody td:last-child { font-family: 'IBM Plex Mono', ui-monospace, monospace; text-align: right; }
+  .fee-table { background: var(--surface); }
+
+  /* ---- promo spec ---- */
+  .spec-card {
+    display: flex;
+    gap: 24px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 4px;
+    padding: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .spec-visual {
+    width: 186px;
+    height: 100px;
+    border-radius: 4px;
+    background: repeating-linear-gradient(45deg, var(--surface-alt), var(--surface-alt) 8px, var(--surface) 8px, var(--surface) 16px);
+    border: 1px dashed var(--accent-soft-border);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .spec-visual::after {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    border: 1px dashed var(--muted);
+    border-radius: 2px;
+    opacity: 0.5;
+  }
+  .spec-list { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+  .spec-list .spec-k { color: var(--muted); font-weight: 600; }
+  .spec-list .spec-v { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+
+  /* ---- support card ---- */
+  .support-card {
+    background: var(--dark-surface);
+    color: var(--dark-ink);
+    border-radius: 4px;
+    padding: 32px;
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .support-card h2 { color: var(--dark-ink); }
+  .support-card p { color: var(--dark-ink-soft); }
+  .support-list { display: flex; flex-direction: column; gap: 10px; }
+  .support-row { display: flex; gap: 10px; font-size: 15px; align-items: baseline; }
+  .support-row .k { color: var(--dark-ink-soft); min-width: 84px; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .support-row .v { font-family: 'IBM Plex Mono', ui-monospace, monospace; color: var(--accent); font-weight: 500; }
+
+  footer {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 28px 32px 48px;
+    color: var(--muted);
+    font-size: 13px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ---- responsive ---- */
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; gap: 0; }
+    nav.toc {
+      position: static;
+      flex-direction: row;
+      overflow-x: auto;
+      gap: 6px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+    nav.toc .toc-label { display: none; }
+    nav.toc a { flex-shrink: 0; background: var(--surface-alt); }
+    .tier-grid { grid-template-columns: 1fr; }
+    .step { grid-template-columns: 40px 1fr; }
+  }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="wordmark">GoBuyMe</div>
+    <div class="masthead-meta">Vendor Onboarding Guide</div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="eyebrow">For new vendors</div>
+  <h1>Get your business selling on GoBuyMe</h1>
+  <p>This guide walks through everything from signing up to receiving your first payout — what to prepare, how approval works, and how commission, promotions and delivery fees fit together.</p>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <div class="toc-label">Contents</div>
+    <a href="#getting-started">Getting started</a>
+    <a href="#requirements">What you'll need</a>
+    <a href="#approval">Approval &amp; verification</a>
+    <a href="#tiers">Commission tiers</a>
+    <a href="#menu">Menu &amp; photos</a>
+    <a href="#promotions">Promotions</a>
+    <a href="#orders">Orders &amp; delivery</a>
+    <a href="#payouts">Payouts</a>
+    <a href="#support">Support</a>
+  </nav>
+
+  <main>
+
+    <section class="doc-section" id="getting-started">
+      <div class="section-num">01</div>
+      <h2>Getting started</h2>
+      <p class="lede">Four steps from sign-up to your first order. Most vendors are fully set up in under a day.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div>
+            <h3>Create your vendor account</h3>
+            <p>Download the GoBuyMe Vendor app or sign up at <a href="#">[SIGNUP URL]</a>. You'll verify your phone number with a one-time code.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div>
+            <h3>Complete your business profile</h3>
+            <p>Add your business name, category, opening hours, cover photo and logo, then choose your commission tier and build your starting menu.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div>
+            <h3>Submit verification documents</h3>
+            <p>Upload the ID and business documents listed under <a href="#requirements">What you'll need</a> for our team to review.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div>
+            <h3>Go live</h3>
+            <p>Your dashboard is open right away, so you can finish your menu while verification is in progress — a status banner shows your approval progress. Once approved, toggle your store open and orders start coming in.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc-section" id="requirements">
+      <div class="section-num">02</div>
+      <h2>What you'll need</h2>
+      <p class="lede">Have these ready before you start — it makes the profile step much faster.</p>
+      <div class="req-grid">
+        <div class="req-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2"/><path d="M15 10h3M15 14h3"/></svg>
+          <div>
+            <div class="req-title">Valid ID</div>
+            <div class="req-sub">National ID, driver's licence, voter's card or international passport</div>
+          </div>
+        </div>
+        <div class="req-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l8-4 8 4v10l-8 4-8-4z"/><path d="M12 22V12M4 7l8 5 8-5"/></svg>
+          <div>
+            <div class="req-title">Business documents</div>
+            <div class="req-sub">CAC registration or relevant trade licence, where applicable</div>
+          </div>
+        </div>
+        <div class="req-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="4"/><path d="M5 11v9h14v-9M9 15h6"/></svg>
+          <div>
+            <div class="req-title">Bank account details</div>
+            <div class="req-sub">Account name, number and bank — this is where payouts are sent</div>
+          </div>
+        </div>
+        <div class="req-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5-9 9"/></svg>
+          <div>
+            <div class="req-title">Photos</div>
+            <div class="req-sub">A storefront/cover photo, a logo, and clear photos of your menu items</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc-section" id="approval">
+      <div class="section-num">03</div>
+      <h2>Approval &amp; verification</h2>
+      <p class="lede body-copy">Once your documents are submitted, our operations team reviews them for approval. You don't need to wait idle — your dashboard and menu builder are usable immediately, so you can get everything ready while review is underway.</p>
+      <p class="body-copy">A banner on your dashboard shows where you are: <strong>Pending review</strong>, <strong>Changes needed</strong>, or <strong>Approved</strong>. You can start accepting live orders only once your status reaches Approved.</p>
+      <div class="callout">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        <div><strong>Tip:</strong> Clear, well-lit photos of your ID and documents are the most common reason approval is delayed. Avoid glare and cropped edges.</div>
+      </div>
+    </section>
+
+    <section class="doc-section" id="tiers">
+      <div class="section-num">04</div>
+      <h2>Choose your commission tier</h2>
+      <p class="lede">You pick a tier when you set up your profile, and can switch later from your dashboard settings.</p>
+      <div class="tier-grid">
+        <div class="tier-card light">
+          <div class="tier-label">Tier 1</div>
+          <div class="tier-rate">3<span>% commission</span></div>
+          <p style="margin:0; font-size:14px; color:var(--muted);">The lowest-cost way to get started. Your store appears in normal search and category browsing.</p>
+          <ul>
+            <li>No promotion card placement</li>
+            <li>Standard listing visibility</li>
+          </ul>
+        </div>
+        <div class="tier-card dark">
+          <div class="tier-label">Tier 2</div>
+          <div class="tier-rate">7.5<span>% commission</span></div>
+          <p style="margin:0; font-size:14px; color:var(--dark-ink-soft);">A higher commission unlocks promoted placement to help new and repeat customers find you first.</p>
+          <ul>
+            <li>Promotion cards on the customer home screen</li>
+            <li>One active promotion at a time</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        <div>Switching from Tier 2 down to Tier 1 automatically deactivates any active promotion cards.</div>
+      </div>
+    </section>
+
+    <section class="doc-section" id="menu">
+      <div class="section-num">05</div>
+      <h2>Menu &amp; photos</h2>
+      <p class="lede body-copy">Add items with a name, description, price and photo from the Menu tab. You can update prices, mark items sold out, or remove items any time — changes reflect for customers immediately.</p>
+      <p class="body-copy">Listings with real photos of the actual dish or product consistently get more orders than listings using placeholder or stock images.</p>
+    </section>
+
+    <section class="doc-section" id="promotions">
+      <div class="section-num">06</div>
+      <h2>Promotions <span style="font-weight:500; color:var(--muted); font-size:15px;">— Tier 2</span></h2>
+      <p class="lede body-copy">Tier 2 vendors can create a promotion card that appears in the customer app's carousel. Only one promotion can be active at a time, so make it count.</p>
+      <div class="spec-card">
+        <div class="spec-visual"></div>
+        <div class="spec-list">
+          <div><span class="spec-k">Image size</span> — <span class="spec-v">1080 × 580 px</span></div>
+          <div><span class="spec-k">Aspect ratio</span> — <span class="spec-v">1.86 : 1</span></div>
+          <div><span class="spec-k">Safe zone</span> — <span class="spec-v">60 px margin</span> for text/logo</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc-section" id="orders">
+      <div class="section-num">07</div>
+      <h2>Orders &amp; delivery</h2>
+      <p class="lede body-copy">New orders arrive on your dashboard in real time. Accept or reject within the order window, then mark ready when it's time for a rider to collect.</p>
+      <p class="body-copy">Delivery is handled entirely by GoBuyMe riders — you're never asked to arrange your own delivery. The fee shown to the customer is calculated by distance from your store:</p>
+      <table class="fee-table">
+        <thead>
+          <tr><th>Component</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Base fee</td><td>₦500</td></tr>
+          <tr><td>Per kilometre</td><td>₦100</td></tr>
+          <tr><td>Maximum fee</td><td>₦3,000</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="doc-section" id="payouts">
+      <div class="section-num">08</div>
+      <h2>Payouts</h2>
+      <p class="lede body-copy">Your earnings from completed orders, minus commission, are settled to the bank account on file automatically — there's no invoicing and nothing to request.</p>
+      <p class="body-copy">Payouts run in a daily batch each morning. You can track individual earnings and past payouts from the Earnings tab on your dashboard at any time.</p>
+    </section>
+
+    <section class="doc-section" id="support" style="border-top: none; padding-top: 8px;">
+      <div class="support-card">
+        <div style="max-width:340px;">
+          <h2 style="margin-bottom:8px;">Need a hand?</h2>
+          <p style="margin:0;">Our vendor support team can help with sign-up, documents, or anything on your dashboard.</p>
+        </div>
+        <div class="support-list">
+          <div class="support-row"><span class="k">Call / WhatsApp</span><span class="v">[SUPPORT PHONE]</span></div>
+          <div class="support-row"><span class="k">Email</span><span class="v">[SUPPORT EMAIL]</span></div>
+          <div class="support-row"><span class="k">Sign up</span><span class="v">[SIGNUP URL]</span></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  GoBuyMe Vendor Onboarding Guide — for vendor use during sign-up and setup.
+</footer>

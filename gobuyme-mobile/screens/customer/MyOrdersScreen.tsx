@@ -33,6 +33,8 @@ type Order = {
 	createdAt: string;
 	vendor: { businessName: string };
 	items: { name: string; quantity: number }[];
+	isCancellable: boolean;
+	cancellableUntil: string | null;
 };
 
 type RawOrder = {
@@ -43,6 +45,8 @@ type RawOrder = {
 	createdAt: string;
 	vendor: { businessName: string };
 	items: { name: string; quantity: number }[];
+	isCancellable?: boolean;
+	cancellableUntil?: string | null;
 };
 
 const STATUS_CONFIG: Record<
@@ -126,6 +130,7 @@ export default function MyOrdersScreen() {
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [reorderingId, setReorderingId] = useState<string | null>(null);
+	const [cancellingId, setCancellingId] = useState<string | null>(null);
 
 	const handleReorder = useCallback(async (orderId: string) => {
 		try {
@@ -157,7 +162,14 @@ export default function MyOrdersScreen() {
 		try {
 			const { data } = await api.get('/orders?limit=50');
 			const raw: RawOrder[] = data.data ?? [];
-			setOrders(raw.map((o) => ({ ...o, status: toUiStatus(o.status) })));
+			setOrders(
+				raw.map((o) => ({
+					...o,
+					status: toUiStatus(o.status),
+					isCancellable: Boolean(o.isCancellable),
+					cancellableUntil: o.cancellableUntil ?? null,
+				})),
+			);
 		} catch {
 			setError('Could not load orders. Pull down to retry.');
 		} finally {
@@ -165,6 +177,45 @@ export default function MyOrdersScreen() {
 			setRefreshing(false);
 		}
 	}, []);
+
+	const handleCancel = useCallback(
+		(orderId: string) => {
+			Alert.alert(
+				'Cancel this order?',
+				"You can cancel free of charge while the vendor hasn't accepted it yet. Any payment made is refunded to your GoBuyMe store credit.",
+				[
+					{ text: 'Keep order', style: 'cancel' },
+					{
+						text: 'Cancel order',
+						style: 'destructive',
+						onPress: async () => {
+							try {
+								setCancellingId(orderId);
+								await api.post(`/orders/${orderId}/cancel`, {
+									reason: 'Cancelled by customer',
+								});
+								await fetchOrders(true);
+								Alert.alert(
+									'Order cancelled',
+									'Any payment has been refunded to your store credit.',
+								);
+							} catch (e: any) {
+								Alert.alert(
+									'Could not cancel',
+									e?.response?.data?.message ??
+										'This order can no longer be cancelled.',
+								);
+								fetchOrders(true);
+							} finally {
+								setCancellingId(null);
+							}
+						},
+					},
+				],
+			);
+		},
+		[fetchOrders],
+	);
 
 	useEffect(() => {
 		fetchOrders();
@@ -326,6 +377,22 @@ export default function MyOrdersScreen() {
 											) : (
 												<Text style={[styles.reorderText, { color: T.primary }]}>
 													Reorder
+												</Text>
+											)}
+										</TouchableOpacity>
+									)}
+									{order.isCancellable && (
+										<TouchableOpacity
+											style={[styles.reorderBtn, { borderColor: T.error }]}
+											activeOpacity={0.75}
+											disabled={cancellingId === order.id}
+											onPress={() => handleCancel(order.id)}
+										>
+											{cancellingId === order.id ? (
+												<ActivityIndicator size="small" color={T.error} />
+											) : (
+												<Text style={[styles.reorderText, { color: T.error }]}>
+													Cancel Order
 												</Text>
 											)}
 										</TouchableOpacity>

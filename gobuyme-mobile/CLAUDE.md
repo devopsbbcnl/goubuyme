@@ -200,8 +200,11 @@ Metro bundler in Expo Go. `metro.config.js` auto-detects the situation:
 - **`android/` dir exists** → real MapLibre is used (native dev client).
 - **Force mock** → set `EXPO_GO=1` before starting.
 
-Map screens (`OrderTrackingScreen`, `ActiveDeliveryScreen`) render a dark `🗺️`
-placeholder in Expo Go; real interactive maps in native builds.
+Map screens (`OrderTrackingScreen`, `ActiveDeliveryScreen`, `LocationPickerModal`)
+render a dark `🗺️` placeholder in Expo Go; real interactive maps in native builds.
+All three share `components/maps/TrackingMap.tsx` — a port of the web app's
+`DeliveryMap` (keyless OpenFreeMap `liberty` style, vendor/customer/rider markers,
+dashed route line). Tapping a tracking map opens the device's default maps app.
 
 ## Running locally
 

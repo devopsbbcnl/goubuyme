@@ -15,6 +15,7 @@
     "plugins": [
       "expo-router",
       "expo-font",
+      "@maplibre/maplibre-react-native",
       [
         "expo-notifications",
         {
@@ -50,7 +51,7 @@
             "buildToolsVersion": "36.0.0",
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "extraProguardRules": "-keep class com.google.android.gms.auth.api.signin.** { *; }\n-keep class com.google.android.gms.common.api.** { *; }\n-keep class com.google.android.gms.maps.** { *; }\n-keep interface com.google.android.gms.maps.** { *; }\n-keep class com.google.firebase.messaging.** { *; }\n-keep class * extends com.google.firebase.messaging.FirebaseMessagingService { *; }"
+            "extraProguardRules": "-keep class com.google.android.gms.auth.api.signin.** { *; }\n-keep class com.google.android.gms.common.api.** { *; }\n-keep class com.google.firebase.messaging.** { *; }\n-keep class * extends com.google.firebase.messaging.FirebaseMessagingService { *; }"
           }
         }
       ]
@@ -62,9 +63,6 @@
         "NSLocationWhenInUseUsageDescription": "GoBuyMe needs your location to show nearby vendors and track deliveries.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "GoBuyMe needs your location to track your deliveries."
       },
-      "config": {
-        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
-      },
       "runtimeVersion": "1.1.0",
       "associatedDomains": [
         "applinks:gobuyme.shop"
@@ -72,11 +70,6 @@
     },
     "android": {
       "package": "dev.bubblebarrel.gobuyme",
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyCF6Vz_ZG1p8IlKVlE36MTNXCfhjAK789A"
-        }
-      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FF521B"

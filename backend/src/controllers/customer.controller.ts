@@ -4,10 +4,29 @@ import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
+import { getPlatformSettings } from '../services/settings.service';
 
 const getCustomerId = async (userId: string) => {
   const c = await prisma.customer.findUnique({ where: { userId }, select: { id: true } });
   return c?.id;
+};
+
+// A customer may cancel their own order only before the vendor accepts it
+// (status still PENDING/CONFIRMED) and only within the admin-configured window
+// measured from when the order was placed. Both clients read these fields to
+// decide whether to show the "Cancel order" affordance and its countdown.
+const CUSTOMER_CANCELLABLE_STATUSES = ['PENDING', 'CONFIRMED'];
+const withCancelWindow = <T extends { status: string; createdAt: Date }>(
+  order: T,
+  windowMinutes: number,
+): T & { cancellableUntil: string; isCancellable: boolean } => {
+  const until = new Date(order.createdAt.getTime() + windowMinutes * 60_000);
+  return {
+    ...order,
+    cancellableUntil: until.toISOString(),
+    isCancellable:
+      CUSTOMER_CANCELLABLE_STATUSES.includes(order.status) && Date.now() < until.getTime(),
+  };
 };
 
 // ─── Cart ─────────────────────────────────────────────────────────────────────
@@ -234,23 +253,29 @@ export const getOrders = catchAsync(async (req: AuthRequest, res: Response) => {
   const pageNum = parseInt(page);
   const limitNum = parseInt(limit);
 
-  const [orders, total] = await prisma.$transaction([
-    prisma.order.findMany({
-      where: { customerId },
-      select: {
-        id: true, orderNumber: true, status: true, totalAmount: true,
-        paymentMethod: true, createdAt: true,
-        vendor: { select: { businessName: true, logo: true } },
-        items: { select: { name: true, quantity: true }, take: 2 },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: (pageNum - 1) * limitNum,
-      take: limitNum,
-    }),
-    prisma.order.count({ where: { customerId } }),
+  const [[orders, total], settings] = await Promise.all([
+    prisma.$transaction([
+      prisma.order.findMany({
+        where: { customerId },
+        select: {
+          id: true, orderNumber: true, status: true, totalAmount: true,
+          paymentMethod: true, createdAt: true,
+          vendor: { select: { businessName: true, logo: true } },
+          items: { select: { name: true, quantity: true }, take: 2 },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+      prisma.order.count({ where: { customerId } }),
+    ]),
+    getPlatformSettings(),
   ]);
 
-  return apiResponse.paginated(res, 'Orders fetched.', orders, {
+  const windowMinutes = settings.customerCancellationWindowMinutes;
+  const withWindow = orders.map((o) => withCancelWindow(o, windowMinutes));
+
+  return apiResponse.paginated(res, 'Orders fetched.', withWindow, {
     page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum),
   });
 });
@@ -263,13 +288,19 @@ export const getOrderById = catchAsync(async (req: AuthRequest, res: Response) =
     where: { id: req.params.id, customerId },
     include: {
       items: { include: { menuItem: { select: { image: true } } } },
-      vendor: { select: { businessName: true, logo: true, address: true } },
+      vendor: { select: { businessName: true, logo: true, address: true, latitude: true, longitude: true } },
       rider: { include: { user: { select: { name: true, avatar: true, phone: true } } } },
       customer: { include: { user: { select: { phone: true } } } },
     },
   });
   if (!order) return apiResponse.error(res, 'Order not found.', 404);
-  return apiResponse.success(res, 'Order fetched.', order);
+
+  const settings = await getPlatformSettings();
+  return apiResponse.success(
+    res,
+    'Order fetched.',
+    withCancelWindow(order, settings.customerCancellationWindowMinutes),
+  );
 });
 
 // ─── Favourites ───────────────────────────────────────────────────────────────

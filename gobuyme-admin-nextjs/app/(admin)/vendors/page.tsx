@@ -10,6 +10,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
 
 type Status = 'APPROVED' | 'PENDING' | 'REJECTED' | 'SUSPENDED';
+type Tier = 'TIER_1' | 'TIER_2';
 type DocStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
 type LicenseStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'EXPIRED';
 type LicenseType = 'NAFDAC' | 'PHARMACIST' | 'FOOD_HANDLER' | 'BUSINESS_PERMIT' | 'IMPORT_PERMIT';
@@ -24,7 +25,16 @@ const VENDOR_DOCUMENT_ITEMS: { value: string; label: string }[] = [
 interface Vendor {
   id: string; businessName: string; ownerName: string; category: string;
   city: string; totalOrders: number; totalRevenue: number;
-  rating: number; approvalStatus: Status; createdAt: string;
+  rating: number; approvalStatus: Status; commissionTier: Tier; createdAt: string;
+}
+
+interface PlanChange {
+  id: string;
+  fromTier: Tier;
+  toTier: Tier;
+  initiatedBy: 'VENDOR' | 'ADMIN';
+  createdAt: string;
+  actor: { name: string; email: string } | null;
 }
 
 interface VendorDetail {
@@ -49,6 +59,7 @@ interface VendorDetail {
     createdAt: string; updatedAt: string;
   } | null;
   licenses: License[];
+  planChanges: PlanChange[];
 }
 
 interface License {
@@ -72,6 +83,12 @@ const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 const capFirst = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
+const tierLabel = (t: Tier) => (t === 'TIER_2' ? 'Growth' : 'Starter');
+
+const fmtDateTime = (iso: string) =>
+  new Date(iso).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
 const CATEGORY_OPTIONS = ['RESTAURANT', 'EMART', 'PHARMACY', 'BAKERY', 'DRINKS', 'BUTCHER', 'GAS'] as const;
 
 const DOC_STATUS_COLORS: Record<DocStatus, { bg: string; text: string }> = {
@@ -104,6 +121,7 @@ export default function VendorsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | Status>('ALL');
   const [catFilter, setCatFilter] = useState<'' | 'RESTAURANT' | 'EMART' | 'PHARMACY' | 'BAKERY' | 'DRINKS' | 'BUTCHER' | 'GAS'>('');
+  const [tierFilter, setTierFilter] = useState<'' | Tier>('');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -149,12 +167,13 @@ export default function VendorsPage() {
     const params = new URLSearchParams({ page: String(page), limit: String(perPage) });
     if (filter !== 'ALL') params.set('status', filter);
     if (catFilter) params.set('category', catFilter);
+    if (tierFilter) params.set('tier', tierFilter);
     if (debouncedSearch) params.set('search', debouncedSearch);
     api.get<{ data: Vendor[]; pagination: { total: number } }>(`/admin/vendors?${params}`)
       .then(res => { setVendors(res.data); setTotal(res.pagination.total); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [page, perPage, filter, catFilter, debouncedSearch, refreshKey]);
+  }, [page, perPage, filter, catFilter, tierFilter, debouncedSearch, refreshKey]);
 
   const setStatus = async (id: string, status: Status) => {
     setVendors(vs => vs.map(v => v.id === id ? { ...v, approvalStatus: status } : v));
@@ -351,6 +370,18 @@ export default function VendorsPage() {
               <option value="BUTCHER">Butcher</option>
               <option value="GAS">Gas</option>
             </select>
+            <select
+              value={tierFilter}
+              onChange={e => { setTierFilter(e.target.value as '' | Tier); setPage(1); }}
+              style={{
+                background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
+                padding: '8px 12px', color: T.text, fontSize: 13, outline: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <option value="">All Plans</option>
+              <option value="TIER_1">Starter (Tier 1)</option>
+              <option value="TIER_2">Growth (Tier 2)</option>
+            </select>
             <input
               value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search vendors…"
@@ -368,7 +399,7 @@ export default function VendorsPage() {
           <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: T.surface2 }}>
-                {['Vendor', 'Owner', 'Category', 'City', 'Orders', 'Revenue', 'Rating', 'Status', 'Actions'].map(h => (
+                {['Vendor', 'Owner', 'Category', 'Plan', 'City', 'Orders', 'Revenue', 'Rating', 'Status', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '11px 16px', fontSize: 11, fontWeight: 700, color: T.textSec, textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -376,13 +407,13 @@ export default function VendorsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
+                  <td colSpan={10} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
                     Loading vendors…
                   </td>
                 </tr>
               ) : vendors.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
+                  <td colSpan={10} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.textSec }}>
                     No vendors match the current filter.
                   </td>
                 </tr>
@@ -400,6 +431,7 @@ export default function VendorsPage() {
                   </td>
                   <td style={{ padding: '13px 16px', fontSize: 13, color: T.textSec }}>{v.ownerName}</td>
                   <td style={{ padding: '13px 16px', fontSize: 13, color: T.textSec }}>{capFirst(v.category)}</td>
+                  <td style={{ padding: '13px 16px' }}><TierPill tier={v.commissionTier} T={T} /></td>
                   <td style={{ padding: '13px 16px', fontSize: 13, color: T.textSec }}>{v.city}</td>
                   <td style={{ padding: '13px 16px', fontSize: 13, fontWeight: 600, color: T.text }}>{v.totalOrders}</td>
                   <td style={{ padding: '13px 16px', fontSize: 13, fontWeight: 700, color: T.success }}>{fmtCurrency(v.totalRevenue)}</td>
@@ -795,6 +827,53 @@ export default function VendorsPage() {
               )}
             </div>
 
+            {/* Plan change history */}
+            <div>
+              <SectionHead label="Plan Change History" T={T} />
+              {!detail.planChanges || detail.planChanges.length === 0 ? (
+                <p style={{ fontSize: 13, color: T.textSec, margin: 0 }}>No plan changes yet.</p>
+              ) : (
+                <div style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 4 }}>
+                  <table style={{ width: '100%', minWidth: 460, borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: T.surface2 }}>
+                        {['When', 'Change', 'Initiated by'].map(h => (
+                          <th key={h} style={{ padding: '9px 14px', fontSize: 11, fontWeight: 700, color: T.textSec, textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detail.planChanges.map(pc => {
+                        const upgrade = pc.fromTier === 'TIER_1' && pc.toTier === 'TIER_2';
+                        return (
+                          <tr key={pc.id} style={{ borderTop: `1px solid ${T.border}` }}>
+                            <td style={{ padding: '10px 14px', fontSize: 12, color: T.textSec, whiteSpace: 'nowrap' }}>{fmtDateTime(pc.createdAt)}</td>
+                            <td style={{ padding: '10px 14px', fontSize: 12, color: T.text, whiteSpace: 'nowrap' }}>
+                              <span style={{ fontWeight: 600 }}>{tierLabel(pc.fromTier)}</span>
+                              <span style={{ color: upgrade ? T.success : T.warning, fontWeight: 700 }}> → </span>
+                              <span style={{ fontWeight: 600 }}>{tierLabel(pc.toTier)}</span>
+                            </td>
+                            <td style={{ padding: '10px 14px', fontSize: 12, color: T.textSec }}>
+                              <span style={{
+                                fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '2px 8px',
+                                background: pc.initiatedBy === 'ADMIN' ? T.primaryTint : T.surface2,
+                                color: pc.initiatedBy === 'ADMIN' ? T.primary : T.textSec,
+                              }}>
+                                {pc.initiatedBy === 'ADMIN' ? 'Admin' : 'Vendor'}
+                              </span>
+                              {pc.actor?.name && (
+                                <span style={{ marginLeft: 6 }}>{pc.actor.name}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
             {/* Account status actions */}
             <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 16 }}>
               <SectionHead label="Account Status" T={T} />
@@ -830,6 +909,20 @@ export default function VendorsPage() {
         )}
       </Modal>
     </>
+  );
+}
+
+function TierPill({ tier, T }: { tier: Tier; T: Record<string, string> }) {
+  const growth = tier === 'TIER_2';
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+      borderRadius: 999, padding: '3px 9px',
+      background: growth ? T.primaryTint : T.surface3,
+      color: growth ? T.primary : T.textSec,
+    }}>
+      {growth ? 'Growth' : 'Starter'}
+    </span>
   );
 }
 

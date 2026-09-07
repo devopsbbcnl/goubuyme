@@ -1,8 +1,7 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Alert, Linking, ScrollView,
 } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,8 +9,9 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useTheme } from '@/context/ThemeContext';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useAuth } from '@/context/AuthContext';
-import { useRiderLocation, RiderPosition } from '@/hooks/useRiderLocation';
+import { useRiderLocation } from '@/hooks/useRiderLocation';
 import { connectSockets } from '@/services/socketService';
+import TrackingMap, { type TrackingMapHandle } from '@/components/maps/TrackingMap';
 import DeliveryPinModal from '@/components/DeliveryPinModal';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,7 +33,7 @@ export default function ActiveDeliveryScreen() {
   const { theme: T } = useTheme();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<TrackingMapHandle>(null);
 
   const params = useLocalSearchParams<{
     orderId?: string;
@@ -110,11 +110,8 @@ export default function ActiveDeliveryScreen() {
         );
       }
     } else {
-      // In-app: animate the map to the destination
-      mapRef.current?.animateToRegion(
-        { latitude: destLat, longitude: destLng, latitudeDelta: 0.006, longitudeDelta: 0.006 },
-        800,
-      );
+      // In-app: recenter the map on the destination
+      mapRef.current?.flyTo({ lat: destLat, lng: destLng });
     }
   };
 
@@ -193,11 +190,6 @@ export default function ActiveDeliveryScreen() {
     outputRange: ['0%', '100%'],
   });
 
-  const midCoord: [number, number] = [
-    (vendorCoord[0] + customerCoord[0]) / 2,
-    (vendorCoord[1] + customerCoord[1]) / 2,
-  ];
-
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -215,14 +207,15 @@ export default function ActiveDeliveryScreen() {
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         <View style={styles.mapContainer}>
-          <DeliveryMap
-            mapRef={mapRef}
-            midCoord={midCoord}
-            vendorCoord={vendorCoord}
-            customerCoord={customerCoord}
-            riderPosition={riderPosition}
-            primaryColor={T.primary}
-            stepIdx={stepIdx}
+          <TrackingMap
+            ref={mapRef}
+            vendor={{ lat: vendorCoord[1], lng: vendorCoord[0], name: 'Vendor' }}
+            customer={{ lat: customerCoord[1], lng: customerCoord[0], name: customerAddress || 'Customer' }}
+            riderPosition={
+              riderPosition
+                ? { lat: riderPosition.latitude, lng: riderPosition.longitude }
+                : null
+            }
           />
 
           <View style={[styles.liveBadge, { backgroundColor: T.primary }]}>
@@ -329,76 +322,12 @@ export default function ActiveDeliveryScreen() {
   );
 }
 
-function DeliveryMap({
-  mapRef,
-  midCoord,
-  vendorCoord,
-  customerCoord,
-  riderPosition,
-  primaryColor,
-  stepIdx,
-}: {
-  mapRef: React.RefObject<MapView | null>;
-  midCoord: [number, number];
-  vendorCoord: [number, number];
-  customerCoord: [number, number];
-  riderPosition: RiderPosition | null;
-  primaryColor: string;
-  stepIdx: number;
-}) {
-  return (
-    <MapView
-      ref={mapRef}
-      provider={PROVIDER_GOOGLE}
-      style={StyleSheet.absoluteFillObject}
-      initialRegion={{
-        latitude: midCoord[1],
-        longitude: midCoord[0],
-        latitudeDelta: 0.025,
-        longitudeDelta: 0.025,
-      }}
-    >
-      <Polyline
-        coordinates={[
-          { latitude: vendorCoord[1], longitude: vendorCoord[0] },
-          { latitude: customerCoord[1], longitude: customerCoord[0] },
-        ]}
-        strokeColor={primaryColor}
-        strokeWidth={2}
-        lineDashPattern={[8, 5]}
-      />
-
-      <Marker coordinate={{ latitude: vendorCoord[1], longitude: vendorCoord[0] }}>
-        <View style={[styles.mapPin, { backgroundColor: primaryColor }]}>
-          <Ionicons name="storefront" size={12} color="#fff" />
-        </View>
-      </Marker>
-
-      <Marker coordinate={{ latitude: customerCoord[1], longitude: customerCoord[0] }}>
-        <View style={[styles.mapPin, { backgroundColor: '#1A9E5F' }]}>
-          <Ionicons name="person" size={12} color="#fff" />
-        </View>
-      </Marker>
-
-      {riderPosition && (
-        <Marker coordinate={riderPosition} anchor={{ x: 0.5, y: 0.5 }}>
-          <View style={[styles.riderPin, { backgroundColor: primaryColor }]}>
-            <Ionicons name="navigate" size={13} color="#fff" />
-          </View>
-        </Marker>
-      )}
-    </MapView>
-  );
-}
-
 const styles = StyleSheet.create({
   header:         { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 12 },
   headerTitle:    { fontSize: 20, fontWeight: '800', flex: 1 },
   jobIdBadge:     { borderRadius: 4, paddingVertical: 5, paddingHorizontal: 12 },
   jobIdText:      { fontSize: 12, fontWeight: '700' },
   mapContainer:   { marginHorizontal: 20, borderRadius: 4, height: 210, overflow: 'hidden', position: 'relative' },
-  mapPin:         { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  riderPin:       { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
   liveBadge:      { position: 'absolute', top: 12, left: 12, borderRadius: 4, paddingVertical: 4, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 5 },
   liveDot:        { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' },
   liveText:       { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 1 },

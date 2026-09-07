@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-	Modal, KeyboardAvoidingView, Keyboard, View, Pressable,
+	Modal, Keyboard, View, Pressable,
 	StyleSheet, Platform, StyleProp, ViewStyle, useWindowDimensions,
 } from 'react-native';
 
@@ -14,27 +14,26 @@ interface Props {
 	maxHeight?: number | `${number}%`;
 }
 
-// Backdrop padding (top+bottom) plus a small buffer so the last field/button in the
-// card clears the keyboard by a visible margin instead of sitting flush against it.
-const VERTICAL_CHROME = 40 + 16;
+// Backdrop padding (top+bottom) plus a buffer so the last field/button in the card
+// clears the keyboard by a visible margin instead of sitting flush against it.
+const VERTICAL_CHROME = 40 + 28;
 
 function resolveMaxHeight(value: number | `${number}%`, base: number): number {
 	if (typeof value === 'number') return value;
 	return (parseFloat(value) / 100) * base;
 }
 
-// Centered dialog that stays clear of the keyboard by living inside a flex:1
-// KeyboardAvoidingView at the screen root — the previous bottom-sheet pattern nested
-// KeyboardAvoidingView with `flex: undefined` inside a flex-end-justified backdrop,
-// which produced inconsistent padding/offset behavior across devices. Centering the
-// card removes the need for that trick entirely: the keyboard shrinks the available
-// space and the card's content scrolls within it.
+// Centered dialog that stays clear of the keyboard by reserving the tracked keyboard
+// height as real bottom padding on the backdrop, on every platform. The backdrop is a
+// plain flex:1 / justify-center View, so that padding shrinks the centering region to
+// the space *above* the keyboard and the card floats up into it — rather than relying
+// on KeyboardAvoidingView, which does nothing on Android (Modal renders in its own
+// native window that doesn't inherit the Activity's windowSoftInputMode="adjustResize")
+// and only partly compensates on iOS.
 //
-// The card's own maxHeight is additionally capped from tracked keyboard height rather
-// than relying solely on native keyboard-avoidance: Modal renders in its own native
-// window on Android, which doesn't reliably inherit the host Activity's
-// windowSoftInputMode="adjustResize" behavior, so without this the card can extend
-// behind the keyboard with no way to scroll the last field/button into view.
+// The card's own maxHeight is additionally capped from the tracked keyboard height so
+// that, once the card is as tall as the available space, its inner ScrollView takes
+// over and every field/button can still be scrolled into view.
 export function CenteredKeyboardModal({
 	visible,
 	onRequestClose,
@@ -64,13 +63,10 @@ export function CenteredKeyboardModal({
 
 	return (
 		<Modal visible={visible} animationType="fade" transparent onRequestClose={onRequestClose} onShow={onShow}>
-			<KeyboardAvoidingView
-				style={styles.backdrop}
-				behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-			>
+			<View style={[styles.backdrop, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
 				{onBackdropPress && <Pressable style={StyleSheet.absoluteFill} onPress={onBackdropPress} />}
 				<View style={[styles.card, { maxHeight: resolvedMaxHeight }, cardStyle]}>{children}</View>
-			</KeyboardAvoidingView>
+			</View>
 		</Modal>
 	);
 }

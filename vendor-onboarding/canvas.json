@@ -1,0 +1,15 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",  "x": 0,    "y": 0,    "w": 794, "h": 1123, "print": "fixed", "title": "Cover" },
+    { "file": "Step1.dc.html", "x": 874,  "y": 0,    "w": 794, "h": 1123, "print": "fixed", "title": "Step 1 — Choose Vendor" },
+    { "file": "Step2.dc.html", "x": 1748, "y": 0,    "w": 794, "h": 1123, "print": "fixed", "title": "Step 2 — Register" },
+    { "file": "Step3.dc.html", "x": 2622, "y": 0,    "w": 794, "h": 1123, "print": "fixed", "title": "Step 3 — Verify code" },
+    { "file": "Step4.dc.html", "x": 0,    "y": 1263, "w": 794, "h": 1123, "print": "fixed", "title": "Step 4 — Photos & hours" },
+    { "file": "Step5.dc.html", "x": 874,  "y": 1263, "w": 794, "h": 1123, "print": "fixed", "title": "Step 5 — Commission tier" },
+    { "file": "Step6.dc.html", "x": 1748, "y": 1263, "w": 794, "h": 1123, "print": "fixed", "title": "Step 6 — Upload ID" },
+    { "file": "Step7.dc.html", "x": 2622, "y": 1263, "w": 794, "h": 1123, "print": "fixed", "title": "Step 7 — First menu item" },
+    { "file": "Step8.dc.html", "x": 0,    "y": 2526, "w": 794, "h": 1123, "print": "fixed", "title": "Step 8 — Dashboard" },
+    { "file": "Help.dc.html",  "x": 874,  "y": 2526, "w": 794, "h": 1123, "print": "fixed", "title": "Need help?" }
+  ],
+  "launch": { "view": "focused", "file": "Main.dc.html" }
+}

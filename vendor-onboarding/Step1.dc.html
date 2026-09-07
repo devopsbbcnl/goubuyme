@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  </style>
+</helmet>
+
+<div style="width:794px; height:1123px; background:#F7F5F3; color:#0E0E0E; display:flex; flex-direction:column;">
+
+  <div style="padding:56px 64px 0 64px; display:flex; flex-direction:column;">
+    <div style="width:52px; height:52px; border-radius:9999px; background:#FF521B; color:#FFFFFF; font-size:22px; font-weight:800; display:flex; align-items:center; justify-content:center;">1</div>
+    <div style="font-size:32px; font-weight:800; letter-spacing:-0.5px; margin-top:20px; line-height:1.15;">Tap "Sell on GoBuyMe"</div>
+    <div style="font-size:15.5px; font-weight:500; color:#4a4642; margin-top:10px; max-width:52ch; line-height:1.6;">On the very first screen, GoBuyMe asks who you are. Choose <strong>Vendor</strong> — this tells the app you want to sell food or goods, not order them.</div>
+  </div>
+
+  <div style="flex-grow:1; display:flex; align-items:center; justify-content:center; position:relative; padding-top:10px;">
+
+    <!-- phone frame -->
+    <div style="width:320px; height:620px; background:#0E0E0E; border-radius:36px; padding:12px; box-shadow:0 24px 60px rgba(14,14,14,0.18);">
+      <div style="width:100%; height:100%; background:#FFFFFF; border-radius:26px; overflow:hidden; display:flex; flex-direction:column; padding:32px 20px 20px;">
+
+        <div style="font-size:20px; font-weight:800; color:#0E0E0E; text-align:center;">I want to...</div>
+        <div style="font-size:12.5px; font-weight:500; color:#8b8782; text-align:center; margin-top:4px;">Choose how you'll use GoBuyMe</div>
+
+        <div style="display:flex; flex-direction:column; gap:12px; margin-top:26px;">
+          <div style="border:1.5px solid #E8E5E2; border-radius:4px; padding:16px; display:flex; flex-direction:row; align-items:center; gap:14px;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8b8782" stroke-width="1.8"><path d="M6 2l1.5 6h9L18 2M4 9h16l-1.2 10.5A2 2 0 0 1 16.8 21H7.2a2 2 0 0 1-2-1.5L4 9z"/></svg>
+            <div style="font-size:14.5px; font-weight:700; color:#4a4642;">Order food &amp; goods</div>
+          </div>
+
+          <div style="border:2.5px solid #FF521B; border-radius:4px; padding:16px; display:flex; flex-direction:row; align-items:center; gap:14px; background:#FDE6DC; position:relative;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FF521B" stroke-width="1.8"><path d="M3 9l1.5-5h15L21 9M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M4 9h16M9 21v-6h6v6"/></svg>
+            <div style="font-size:14.5px; font-weight:800; color:#0E0E0E;">Sell on GoBuyMe</div>
+            <div style="position:absolute; right:14px; top:50%; transform:translateY(-50%); width:22px; height:22px; border-radius:9999px; background:#FF521B; display:flex; align-items:center; justify-content:center;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+          </div>
+
+          <div style="border:1.5px solid #E8E5E2; border-radius:4px; padding:16px; display:flex; flex-direction:row; align-items:center; gap:14px;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8b8782" stroke-width="1.8"><circle cx="6" cy="18" r="2.5"/><circle cx="17" cy="18" r="2.5"/><path d="M6 18l3-9h4l3 5M9.5 9H14"/></svg>
+            <div style="font-size:14.5px; font-weight:700; color:#4a4642;">Deliver as a rider</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- callout -->
+    <div style="position:absolute; right:118px; top:236px; display:flex; flex-direction:row; align-items:center; gap:10px;">
+      <svg width="70" height="46" viewBox="0 0 70 46" fill="none">
+        <path d="M66 6 C 40 6, 20 16, 8 34" stroke="#FF521B" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M8 34 L18 30 M8 34 L14 42" stroke="#FF521B" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div style="background:#0E0E0E; color:#FFFFFF; font-size:12px; font-weight:700; padding:8px 12px; border-radius:4px; white-space:nowrap;">Tap this card</div>
+    </div>
+
+  </div>
+
+  <div style="background:#FFFFFF; border-top:1px solid #E8E5E2; padding:20px 64px; display:flex; flex-direction:row; align-items:center; justify-content:space-between;">
+    <div style="display:flex; flex-direction:row; gap:7px;">
+      <div style="width:8px; height:8px; border-radius:9999px; background:#FF521B;"></div>
+      <div style="width:8px; height:8px; border-radius:9999px; background:#E8E5E2;"></div>
+      <div style="width:8px; height:8px; border-radius:9999px; background:#E8E5E2;"></div>
+      <div style="width:8px; height:8px; border-radius:9999px; background:#E8E5E2;"></div>
+      <div style="width:8px; height:8px; border-radius:9999px; background:#E8E5E2;"></div>
+      <div style="width:8px; height:8px; border-radius:9999px; background:#E8E5E2;"></div>
+      <div style="width:8px; height:8px; border-radius:9999px; background:#E8E5E2;"></div>
+      <div style="width:8px; height:8px; border-radius:9999px; background:#E8E5E2;"></div>
+    </div>
+    <div style="font-size:12.5px; font-weight:600; color:#8b8782;">Step 1 of 8</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

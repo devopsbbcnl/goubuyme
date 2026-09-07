@@ -1151,29 +1151,38 @@ export const switchMyTier = catchAsync(async (req: AuthRequest, res: Response) =
 
   const previousTier = vendor.commissionTier;
 
-  const updated = await prisma.vendor.update({
-    where: { id: vendor.id },
-    data: { commissionTier: tier as CommissionTier, tierChangedAt: new Date() },
-    select: { id: true, commissionTier: true, tierChangedAt: true },
-  });
-
-  // Deactivate all promotions when downgrading to TIER_1
-  if (tier === CommissionTier.TIER_1) {
-    await prisma.vendorPromotion.updateMany({
-      where: { vendorId: vendor.id, isActive: true },
-      data: { isActive: false },
-    });
-  }
-
-  await prisma.auditLog.create({
-    data: {
-      userId: req.user!.userId,
-      action: 'VENDOR_TIER_SELF_SWITCH',
-      entity: 'Vendor',
-      entityId: vendor.id,
-      meta: { from: previousTier, to: tier },
-    },
-  });
+  const [updated] = await prisma.$transaction([
+    prisma.vendor.update({
+      where: { id: vendor.id },
+      data: { commissionTier: tier as CommissionTier, tierChangedAt: new Date() },
+      select: { id: true, commissionTier: true, tierChangedAt: true },
+    }),
+    prisma.vendorPlanChange.create({
+      data: {
+        vendorId: vendor.id,
+        fromTier: previousTier,
+        toTier: tier as CommissionTier,
+        initiatedBy: 'VENDOR',
+        actorUserId: req.user!.userId,
+      },
+    }),
+    // Deactivate all promotions when downgrading to TIER_1
+    ...(tier === CommissionTier.TIER_1
+      ? [prisma.vendorPromotion.updateMany({
+          where: { vendorId: vendor.id, isActive: true },
+          data: { isActive: false },
+        })]
+      : []),
+    prisma.auditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'VENDOR_TIER_SELF_SWITCH',
+        entity: 'Vendor',
+        entityId: vendor.id,
+        meta: { from: previousTier, to: tier },
+      },
+    }),
+  ]);
 
   return apiResponse.success(res, 'Commission tier updated.', updated);
 });
