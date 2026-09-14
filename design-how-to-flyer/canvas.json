@@ -1,0 +1,8 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 794, "h": 1123, "title": "Customer", "print": "fixed" },
+    { "file": "Vendor.dc.html", "x": 914, "y": 0, "w": 794, "h": 1123, "title": "Vendor", "print": "fixed" },
+    { "file": "Rider.dc.html", "x": 1828, "y": 0, "w": 794, "h": 1123, "title": "Rider", "print": "fixed" }
+  ],
+  "launch": { "view": "canvas" }
+}
