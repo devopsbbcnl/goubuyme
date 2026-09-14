@@ -7,7 +7,7 @@ const playstoreIcon = "/marketing/playstore-svgrepo-com.svg";
 
 /** Swap for live App Store and Play listing URLs when published */
 const APP_STORE_URL = "#";
-const PLAY_STORE_URL = "#";
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=dev.bubblebarrel.gobuyme";
 
 const AppStoreBadge = ({ className = "" }: { className?: string }) => (
   <a
@@ -27,6 +27,8 @@ const AppStoreBadge = ({ className = "" }: { className?: string }) => (
 const PlayStoreBadge = ({ className = "" }: { className?: string }) => (
   <a
     href={PLAY_STORE_URL}
+    target="_blank"
+    rel="noopener noreferrer"
     className={`inline-flex items-center gap-3 rounded-full border-2 border-ink bg-background px-7 py-4 text-foreground shadow-[8px_8px_0_hsl(var(--foreground))] transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-none ${className}`}
   >
     <img src={playstoreIcon} className="h-7 w-7 shrink-0" alt="" aria-hidden />

@@ -46,7 +46,7 @@ export const DownloadCTA = () => (
             <div className="font-display text-lg">App Store</div>
           </div>
         </a>
-        <a href="#" className="inline-flex items-center gap-3 rounded-full border-2 border-background bg-background px-7 py-4 text-foreground shadow-[8px_8px_0_hsl(var(--foreground))] transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-none">
+        <a href="https://play.google.com/store/apps/details?id=dev.bubblebarrel.gobuyme" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 rounded-full border-2 border-background bg-background px-7 py-4 text-foreground shadow-[8px_8px_0_hsl(var(--foreground))] transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-none">
           <img src={playstoreIcon} className="h-6 w-6" alt="" aria-hidden />
           <div className="text-left leading-tight">
             <div className="font-mono-pop text-[10px] uppercase tracking-widest opacity-75">Get it on</div>
