@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -10,7 +11,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
 
 interface Customer {
-  id: string; name: string; email: string; phone: string | null;
+  id: string; userId: string; name: string; email: string; phone: string | null;
   isActive: boolean; totalOrders: number; totalSpent: number; createdAt: string;
 }
 
@@ -366,9 +367,12 @@ export default function CustomersPage() {
                   </span>
                 </td>
                 <td style={{ padding: '13px 16px' }} onClick={e => e.stopPropagation()}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                  <Link href={`/crm/profiles/${c.userId}`} style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.border}`, background: T.surface2, color: T.text, fontSize: 11, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>CRM</Link>
                   {canDelete && (
                     <button onClick={() => openDeleteModal(c.id, c.name)} style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Delete</button>
                   )}
+                  </div>
                 </td>
               </tr>
             ))}

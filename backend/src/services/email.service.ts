@@ -21,7 +21,7 @@ export const sendEmail = async (to: string, subject: string, html: string): Prom
 
 // ─── Shared layout wrapper ──────────────────────────────────────────────────
 
-function emailLayout(content: string): string {
+export function emailLayout(content: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>

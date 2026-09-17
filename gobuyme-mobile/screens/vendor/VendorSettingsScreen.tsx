@@ -124,10 +124,10 @@ export default function VendorSettingsScreen() {
         },
         {
           icon: 'chatbubble-ellipses-outline',
-          label: 'Contact Support',
-          sub: 'Chat, email, or call',
+          label: 'Help & Support',
+          sub: 'FAQs and your support requests',
           control: <Ionicons name="chevron-forward" size={14} color={T.textMuted} />,
-          onPress: () => router.push('/contact-support' as any),
+          onPress: () => router.push('/help' as any),
         },
         {
           icon: 'globe-outline',

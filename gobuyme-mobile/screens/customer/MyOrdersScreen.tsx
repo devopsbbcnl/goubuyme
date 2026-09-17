@@ -381,6 +381,15 @@ export default function MyOrdersScreen() {
 											)}
 										</TouchableOpacity>
 									)}
+									{!(ACTIVE_STATUSES as string[]).includes(order.status) && (
+										<TouchableOpacity
+											style={[styles.reorderBtn, { borderColor: T.border }]}
+											activeOpacity={0.75}
+											onPress={() => router.push({ pathname: '/help/new', params: { orderId: order.id, orderNumber: order.orderNumber } })}
+										>
+											<Text style={[styles.reorderText, { color: T.textSec }]}>Get help</Text>
+										</TouchableOpacity>
+									)}
 									{order.isCancellable && (
 										<TouchableOpacity
 											style={[styles.reorderBtn, { borderColor: T.error }]}

@@ -12,6 +12,7 @@ import { generateReferralCode } from '../utils/generateToken';
 import { getPlatformSettings, updatePlatformSettings, PlatformSettingsPatch } from '../services/settings.service';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
+import { linkLeadForUser } from '../services/crm/lead.service';
 import { recordError } from '../utils/recordError';
 import fs from 'fs';
 import path from 'path';
@@ -165,7 +166,7 @@ export const getAdminVendors = catchAsync(async (req: Request, res: Response) =>
     prisma.vendor.findMany({
       where,
       select: {
-        id: true, businessName: true, category: true, city: true,
+        id: true, userId: true, businessName: true, category: true, city: true,
         rating: true, approvalStatus: true, verificationBadge: true,
         commissionTier: true, createdAt: true,
         user: { select: { name: true } },
@@ -190,6 +191,7 @@ export const getAdminVendors = catchAsync(async (req: Request, res: Response) =>
 
   const data = vendors.map(v => ({
     id: v.id,
+    userId: v.userId,
     businessName: v.businessName,
     ownerName: v.user.name,
     category: v.category,
@@ -264,7 +266,7 @@ export const getAdminRiders = catchAsync(async (req: Request, res: Response) => 
     prisma.rider.findMany({
       where,
       select: {
-        id: true, vehicleType: true, plateNumber: true,
+        id: true, userId: true, vehicleType: true, plateNumber: true,
         isOnline: true, approvalStatus: true, rating: true, createdAt: true,
         user: { select: { name: true, phone: true } },
         _count: { select: { deliveries: true } },
@@ -288,6 +290,7 @@ export const getAdminRiders = catchAsync(async (req: Request, res: Response) => 
 
   const data = riders.map(r => ({
     id: r.id,
+    userId: r.userId,
     name: r.user.name,
     phone: r.user.phone,
     vehicleType: r.vehicleType,
@@ -411,7 +414,7 @@ export const getAdminCustomers = catchAsync(async (req: Request, res: Response) 
     prisma.customer.findMany({
       where,
       select: {
-        id: true, createdAt: true,
+        id: true, userId: true, createdAt: true,
         user: { select: { name: true, email: true, phone: true, isActive: true } },
         _count: { select: { orders: true } },
       },
@@ -434,6 +437,7 @@ export const getAdminCustomers = catchAsync(async (req: Request, res: Response) 
 
   const data = customers.map(c => ({
     id: c.id,
+    userId: c.userId,
     name: c.user.name,
     email: c.user.email,
     phone: c.user.phone,
@@ -1500,9 +1504,11 @@ export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Respon
       },
     });
 
-    return { vendorId: newVendor.id, businessName: newVendor.businessName };
+    return { vendorId: newVendor.id, userId: newUser.id, businessName: newVendor.businessName };
   });
 
+  // Admin-created accounts skip self sign-up, so link any matching pipeline lead here.
+  void linkLeadForUser(result.userId);
   return apiResponse.success(res, 'Vendor account created successfully.', result, 201);
 });
 
@@ -1689,9 +1695,10 @@ export const adminCreateRider = catchAsync(async (req: AuthRequest, res: Respons
       },
     });
 
-    return { riderId: newRider.id, name: newUser.name };
+    return { riderId: newRider.id, userId: newUser.id, name: newUser.name };
   });
 
+  void linkLeadForUser(result.userId);
   return apiResponse.success(res, 'Rider account created successfully.', result, 201);
 });
 

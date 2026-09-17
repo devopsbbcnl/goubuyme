@@ -12,6 +12,14 @@ const PAGE_TITLES: Record<string, string> = {
   '/riders':    'Rider Management',
   '/orders':    'Order Management',
   '/customers': 'Customers',
+  '/crm': 'CRM Overview',
+  '/crm/inbox': 'Support Inbox',
+  '/crm/tasks': 'Tasks',
+  '/crm/pipeline': 'Growth Pipeline',
+  '/crm/profiles': 'CRM Profiles',
+  '/crm/campaigns': 'Marketing · Campaigns',
+  '/crm/segments': 'Marketing · Segments',
+  '/crm/automations': 'Marketing · Automations',
   '/payouts':   'Payouts & Commissions',
   '/error-logs': 'Error Logs',
   '/audit':     'Audit Logs',
@@ -61,7 +69,9 @@ export function TopBar({ pathname, onMenuClick }: { pathname: string; onMenuClic
   const { theme: T } = useTheme();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const title = PAGE_TITLES[pathname] ?? 'Dashboard';
+  const title = PAGE_TITLES[pathname]
+    ?? Object.entries(PAGE_TITLES).find(([path]) => pathname.startsWith(path + '/'))?.[1]
+    ?? 'Dashboard';
   const today = new Date().toLocaleDateString('en-NG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   const [open, setOpen] = useState(false);

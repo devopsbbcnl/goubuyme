@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
 	View,
 	Text,
@@ -11,6 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import api from '@/services/api';
 
 interface NotifSetting {
 	id: string;
@@ -57,28 +58,6 @@ const INITIAL_SETTINGS: NotifSetting[] = [
 		sub: 'If your order is cancelled',
 		enabled: true,
 	},
-	// Promos
-	{
-		id: 'promo_deals',
-		section: 'Promotions',
-		label: 'Deals & Discounts',
-		sub: 'Flash sales and limited offers',
-		enabled: true,
-	},
-	{
-		id: 'promo_new',
-		section: 'Promotions',
-		label: 'New on GoBuyMe',
-		sub: 'New vendors and features',
-		enabled: false,
-	},
-	{
-		id: 'promo_loyalty',
-		section: 'Promotions',
-		label: 'Loyalty Rewards',
-		sub: 'Points updates and reward milestones',
-		enabled: true,
-	},
 	// Account
 	{
 		id: 'acct_security',
@@ -100,6 +79,27 @@ export default function NotificationsScreen() {
 	const { theme: T } = useTheme();
 	const insets = useSafeAreaInsets();
 	const [settings, setSettings] = useState<NotifSetting[]>(INITIAL_SETTINGS);
+	// null until loaded from the server, so the switch never shows a guessed value.
+	const [marketingOptIn, setMarketingOptIn] = useState<boolean | null>(null);
+	const [marketingError, setMarketingError] = useState(false);
+
+	useEffect(() => {
+		api.get('/notifications/preferences')
+			.then(({ data }) => setMarketingOptIn(Boolean(data.data?.marketingOptIn)))
+			.catch(() => setMarketingError(true));
+	}, []);
+
+	const toggleMarketing = async (next: boolean) => {
+		const previous = marketingOptIn;
+		setMarketingOptIn(next);
+		setMarketingError(false);
+		try {
+			await api.patch('/notifications/preferences', { marketingOptIn: next });
+		} catch {
+			setMarketingOptIn(previous);
+			setMarketingError(true);
+		}
+	};
 
 	const toggle = (id: string) => {
 		setSettings((prev) =>
@@ -136,6 +136,29 @@ export default function NotificationsScreen() {
 					<Text style={[styles.infoText, { color: T.primary }]}>
 						Push notifications are enabled for this device
 					</Text>
+				</View>
+
+				<View style={{ marginBottom: 4 }}>
+					<Text style={[styles.sectionTitle, { color: T.textMuted }]}>PROMOTIONS</Text>
+					<View style={[styles.sectionCard, { backgroundColor: T.surface, borderColor: T.border }]}>
+						<View style={styles.row}>
+							<View style={{ flex: 1, paddingRight: 12 }}>
+								<Text style={[styles.rowLabel, { color: T.text }]}>Deals & Offers</Text>
+								<Text style={[styles.rowSub, { color: marketingError ? T.error : T.textSec }]}>
+									{marketingError
+										? "Couldn't update. Check your connection and try again."
+										: 'Discounts, free delivery and new vendors by push, email and SMS'}
+								</Text>
+							</View>
+							<Switch
+								value={marketingOptIn ?? false}
+								disabled={marketingOptIn === null}
+								onValueChange={toggleMarketing}
+								trackColor={{ false: T.surface3, true: T.primary }}
+								thumbColor="#fff"
+							/>
+						</View>
+					</View>
 				</View>
 
 				{sections.map((section) => (

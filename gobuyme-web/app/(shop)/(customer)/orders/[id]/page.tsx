@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
@@ -203,6 +204,17 @@ export default function OrderDetailPage() {
               </div>
               <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>💳 {order.paymentMethod.replace(/_/g, ' ')}</div>
               <div className="muted" style={{ fontSize: 13 }}>🕐 {new Date(order.createdAt).toLocaleString()}</div>
+            </div>
+
+            <div className="card card-pad">
+              <h3 style={{ fontWeight: 800, fontSize: 15, marginBottom: 6 }}>Problem with this order?</h3>
+              <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>Missing items, delays or payment issues. We&apos;ll sort it out.</p>
+              <Link
+                href={`/help/new?orderId=${order.id}&orderNumber=${encodeURIComponent(order.orderNumber)}`}
+                className="btn btn-ghost btn-block"
+              >
+                Get help with this order
+              </Link>
             </div>
           </div>
         </div>
