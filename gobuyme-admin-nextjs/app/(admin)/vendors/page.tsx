@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/Badge';
@@ -23,7 +24,7 @@ const VENDOR_DOCUMENT_ITEMS: { value: string; label: string }[] = [
 ];
 
 interface Vendor {
-  id: string; businessName: string; ownerName: string; category: string;
+  id: string; userId: string; businessName: string; ownerName: string; category: string;
   city: string; totalOrders: number; totalRevenue: number;
   rating: number; approvalStatus: Status; commissionTier: Tier; createdAt: string;
 }
@@ -441,6 +442,7 @@ export default function VendorsPage() {
                   <td style={{ padding: '13px 16px' }}><Badge status={v.approvalStatus} /></td>
                   <td style={{ padding: '13px 16px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 6 }}>
+                      <Link href={`/crm/profiles/${v.userId}`} style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.border}`, background: T.surface2, color: T.text, fontSize: 11, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>CRM</Link>
                       {v.approvalStatus === 'PENDING' && <>
                         <button onClick={() => setStatus(v.id, 'APPROVED')} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: T.success, color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Approve</button>
                         <button onClick={() => setStatus(v.id, 'REJECTED')} style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.error}`, background: 'none', color: T.error, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Reject</button>

@@ -13,8 +13,12 @@ type NavItem = {
   href: string;
   label: string;
   icon: string;
-  pendingKey: null | 'vendors' | 'riders' | 'errorLogs';
+  pendingKey: null | 'vendors' | 'riders' | 'errorLogs' | 'tickets' | 'tasks';
   minRole?: 'OPERATIONS_ADMIN' | 'SUPER_ADMIN';
+  /** Extra path prefixes that should highlight this item. */
+  activePrefixes?: string[];
+  /** Highlight only on this exact path (for parents like /crm). */
+  exact?: boolean;
 };
 
 const NAV: NavItem[] = [
@@ -24,6 +28,12 @@ const NAV: NavItem[] = [
   { href: '/riders',     label: 'Riders',        icon: '🏍️', pendingKey: 'riders' },
   { href: '/orders',     label: 'Orders',        icon: '📦', pendingKey: null },
   { href: '/customers',  label: 'Customers',     icon: '👥', pendingKey: null },
+  { href: '/crm',        label: 'CRM Overview',  icon: '🧩', pendingKey: null, exact: true },
+  { href: '/crm/inbox',  label: 'Support Inbox', icon: '🎧', pendingKey: 'tickets' },
+  { href: '/crm/tasks',  label: 'Tasks',         icon: '✅', pendingKey: 'tasks' },
+  { href: '/crm/profiles', label: 'CRM Profiles', icon: '🧭', pendingKey: null },
+  { href: '/crm/pipeline', label: 'Pipeline',   icon: '🤝', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
+  { href: '/crm/campaigns', label: 'Marketing', icon: '📣', pendingKey: null, minRole: 'OPERATIONS_ADMIN', activePrefixes: ['/crm/segments', '/crm/automations'] },
   { href: '/pricing',    label: 'Pricing',       icon: '💰', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
   { href: '/payouts',    label: 'Payouts',       icon: '💳', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
   { href: '/error-logs', label: 'Error Logs',    icon: '🐞', pendingKey: 'errorLogs' },
@@ -50,7 +60,7 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
   const { theme: T, isDark, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
-  const [pending, setPending] = useState<{ vendors: number; riders: number; errorLogs: number }>({ vendors: 0, riders: 0, errorLogs: 0 });
+  const [pending, setPending] = useState<{ vendors: number; riders: number; errorLogs: number; tickets: number; tasks: number }>({ vendors: 0, riders: 0, errorLogs: 0, tickets: 0, tasks: 0 });
 
   useEffect(() => {
     const loadPendingCounts = () => {
@@ -58,7 +68,9 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
         api.get<{ data: Array<{ approvalStatus: string }> }>('/admin/vendors?status=PENDING&limit=200'),
         api.get<{ data: Array<{ approvalStatus: string }> }>('/admin/riders?status=PENDING&limit=200'),
         api.get<{ pagination: { total: number } }>('/admin/error-logs?resolved=false&limit=1'),
-      ]).then(([vRes, rRes, eRes]) => {
+        api.get<{ data: { unassigned: number; mine: number } }>('/admin/crm/tickets/summary'),
+        api.get<{ data: { counts: { mineOverdue: number } } }>('/admin/crm/tasks?view=mine'),
+      ]).then(([vRes, rRes, eRes, tRes, kRes]) => {
         setPending({
           vendors: vRes.status === 'fulfilled'
             ? vRes.value.data.filter(v => v.approvalStatus === 'PENDING').length
@@ -67,15 +79,23 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
             ? rRes.value.data.filter(r => r.approvalStatus === 'PENDING').length
             : 0,
           errorLogs: eRes.status === 'fulfilled' ? eRes.value.pagination.total : 0,
+          // Work waiting for this admin: their own open tickets plus the unclaimed queue.
+          tickets: tRes.status === 'fulfilled' ? tRes.value.data.unassigned + tRes.value.data.mine : 0,
+          // Only overdue work, so the badge means "act now" rather than "you have a list".
+          tasks: kRes.status === 'fulfilled' ? kRes.value.data.counts.mineOverdue : 0,
         });
       });
     };
 
     loadPendingCounts();
+    const poll = setInterval(loadPendingCounts, 60_000);
     // Pages that mutate one of these counts (e.g. resolving an error log) dispatch
     // this instead of forcing a full page reload just to refresh the sidebar badge.
     window.addEventListener('gbm:pending-counts-updated', loadPendingCounts);
-    return () => window.removeEventListener('gbm:pending-counts-updated', loadPendingCounts);
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener('gbm:pending-counts-updated', loadPendingCounts);
+    };
   }, []);
 
   const userRole = user?.role ?? 'SUPPORT_ADMIN';
@@ -130,7 +150,9 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
       {/* Nav */}
       <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto' }}>
         {NAV.filter(item => canSeeItem(userRole, item.minRole)).map(item => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+          const isActive = item.exact
+            ? pathname === item.href
+            : [item.href, ...(item.activePrefixes ?? [])].some(p => pathname === p || pathname.startsWith(p + '/'));
           const badge = item.pendingKey ? pending[item.pendingKey] : 0;
           return (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }} onClick={() => { if (isMobile) onClose?.(); }}>

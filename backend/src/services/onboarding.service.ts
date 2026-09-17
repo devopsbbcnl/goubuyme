@@ -1,6 +1,7 @@
 import prisma from '../config/db';
 import { OnboardingEventType, Role, Prisma } from '@prisma/client';
 import { recordError } from '../utils/recordError';
+import { linkLeadForUser, markLeadLiveForUser } from './crm/lead.service';
 
 /**
  * Records an onboarding transition for a user. First occurrence wins — the
@@ -27,6 +28,9 @@ export async function recordOnboardingEvent(
       },
       update: {}, // keep the original timestamp of the first occurrence
     });
+    // Keep the acquisition pipeline in step with real sign-ups and approvals.
+    if (event === 'SIGNED_UP' && (role === 'VENDOR' || role === 'RIDER')) void linkLeadForUser(userId);
+    if (event === 'APPROVED') void markLeadLiveForUser(userId);
   } catch (err) {
     recordError('onboarding', 'Failed to record onboarding event', err, { userId, role, event });
   }

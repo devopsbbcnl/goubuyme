@@ -44,6 +44,28 @@ model User {
   creditTransactions     CreditTransaction[]
   pushSubscriptions      PushSubscription[]
   vendorPlanChanges      VendorPlanChange[]
+  crmNotesAbout          CrmNote[]           @relation("CrmNoteSubject")
+  crmNotesAuthored       CrmNote[]           @relation("CrmNoteAuthor")
+  crmTags                CrmUserTag[]        @relation("CrmUserTagSubject")
+  crmTagsAdded           CrmUserTag[]        @relation("CrmUserTagAddedBy")
+  crmActivities          CrmActivity[]       @relation("CrmActivitySubject")
+  crmActivitiesActed     CrmActivity[]       @relation("CrmActivityActor")
+  ticketsRequested       Ticket[]            @relation("TicketRequester")
+  ticketsAssigned        Ticket[]            @relation("TicketAssignee")
+  ticketMessages         TicketMessage[]
+  cannedReplies          CannedReply[]
+  /// Consent to promotional campaigns (NDPR). Transactional messages ignore this.
+  marketingOptIn         Boolean             @default(true)
+  segmentsCreated        Segment[]
+  campaignsCreated       Campaign[]
+  campaignRecipients     CampaignRecipient[]
+  automationsCreated     CrmAutomation[]
+  leadsOwned             Lead[]              @relation("LeadOwner")
+  leadConvertedFrom      Lead?               @relation("LeadConvertedUser")
+  leadActivities         LeadActivity[]
+  tasksAssigned          CrmTask[]           @relation("TaskAssignee")
+  tasksCreated           CrmTask[]           @relation("TaskCreator")
+  tasksAbout             CrmTask[]           @relation("TaskRelatedUser")
 
   @@index([role])
   @@index([createdAt])
@@ -353,6 +375,7 @@ model Order {
   earning             Earning?
   offerRedemption     OfferRedemption?
   vendorIncidents     VendorIncident[]
+  tickets             Ticket[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -616,15 +639,15 @@ model AuditLog {
 /// admin did (PATCH /admin/vendors/:id/tier). `actor` is the user who made the
 /// change — the vendor's own user for self-switches, the admin's user otherwise.
 model VendorPlanChange {
-  id          String               @id @default(uuid())
+  id          String              @id @default(uuid())
   vendorId    String
   fromTier    CommissionTier
   toTier      CommissionTier
   initiatedBy PlanChangeInitiator
   actorUserId String
-  createdAt   DateTime             @default(now())
-  vendor      Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  actor       User                 @relation(fields: [actorUserId], references: [id])
+  createdAt   DateTime            @default(now())
+  vendor      Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  actor       User                @relation(fields: [actorUserId], references: [id])
 
   @@index([vendorId, createdAt])
   @@map("vendor_plan_changes")
@@ -786,21 +809,21 @@ model EmailOtp {
 }
 
 model PlatformSetting {
-  id                        String   @id @default("default")
-  platformName              String   @default("GoBuyMe")
-  supportEmail              String   @default("support@gobuyme.shop")
-  deliveryBaseFee           Float    @default(500)
-  deliveryPerKmRate         Float    @default(100)
-  deliveryMaxFee            Float    @default(3000)
-  maxDeliveryRadiusKm       Float    @default(25)
-  cancellationWindowMinutes Int      @default(10)
-  customerCancellationWindowMinutes Int @default(2)
-  maintenanceMode           Boolean  @default(false)
-  updatedAt                 DateTime @updatedAt
-  createdAt                 DateTime @default(now())
-  riderPayoutPercentage     Float    @default(85)
-  tier1CommissionPercent    Float    @default(3)
-  tier2CommissionPercent    Float    @default(7.5)
+  id                                String   @id @default("default")
+  platformName                      String   @default("GoBuyMe")
+  supportEmail                      String   @default("support@gobuyme.shop")
+  deliveryBaseFee                   Float    @default(500)
+  deliveryPerKmRate                 Float    @default(100)
+  deliveryMaxFee                    Float    @default(3000)
+  maxDeliveryRadiusKm               Float    @default(25)
+  cancellationWindowMinutes         Int      @default(10)
+  customerCancellationWindowMinutes Int      @default(2)
+  maintenanceMode                   Boolean  @default(false)
+  updatedAt                         DateTime @updatedAt
+  createdAt                         DateTime @default(now())
+  riderPayoutPercentage             Float    @default(85)
+  tier1CommissionPercent            Float    @default(3)
+  tier2CommissionPercent            Float    @default(7.5)
 
   @@map("platform_settings")
 }
@@ -954,12 +977,12 @@ model PricingHistory {
 }
 
 model BlockedIP {
-  id         String   @id @default(uuid())
-  ip         String   @unique
-  reason     String
-  blockedBy  String?  // null if auto-blocked
-  isAuto     Boolean  @default(false)
-  blockedAt  DateTime @default(now())
+  id        String   @id @default(uuid())
+  ip        String   @unique
+  reason    String
+  blockedBy String? // null if auto-blocked
+  isAuto    Boolean  @default(false)
+  blockedAt DateTime @default(now())
 
   @@index([ip])
   @@index([isAuto])
@@ -967,13 +990,13 @@ model BlockedIP {
 }
 
 model SuspiciousActivity {
-  id               String   @id @default(uuid())
-  ip               String
-  type             String   // "rate_limit" | "failed_login" | "scanner"
-  count            Int      @default(1)
-  lastOccurrence   DateTime @default(now())
-  windowStart      DateTime // start of current counting window
-  details          Json?
+  id             String   @id @default(uuid())
+  ip             String
+  type           String // "rate_limit" | "failed_login" | "scanner"
+  count          Int      @default(1)
+  lastOccurrence DateTime @default(now())
+  windowStart    DateTime // start of current counting window
+  details        Json?
 
   @@unique([ip, type])
   @@index([ip])
@@ -1134,4 +1157,422 @@ enum LicenseStatus {
   VERIFIED
   REJECTED
   EXPIRED
+}
+
+// ─── CRM ──────────────────────────────────────────────────────────────────────
+
+/// Internal staff note about a customer, vendor or rider. Never shown to the subject.
+model CrmNote {
+  id            String   @id @default(uuid())
+  subjectUserId String
+  authorId      String
+  body          String
+  pinned        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  subject       User     @relation("CrmNoteSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  author        User     @relation("CrmNoteAuthor", fields: [authorId], references: [id])
+
+  @@index([subjectUserId, createdAt])
+  @@map("crm_notes")
+}
+
+model CrmTag {
+  id        String       @id @default(uuid())
+  name      String       @unique
+  color     String       @default("#FF521B")
+  createdAt DateTime     @default(now())
+  users     CrmUserTag[]
+
+  @@map("crm_tags")
+}
+
+model CrmUserTag {
+  userId    String
+  tagId     String
+  addedById String
+  createdAt DateTime @default(now())
+  user      User     @relation("CrmUserTagSubject", fields: [userId], references: [id], onDelete: Cascade)
+  tag       CrmTag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  addedBy   User     @relation("CrmUserTagAddedBy", fields: [addedById], references: [id])
+
+  @@id([userId, tagId])
+  @@index([tagId])
+  @@map("crm_user_tags")
+}
+
+/// Unified CRM timeline entry (note added, tag changed, credit issued, suspended, ...).
+model CrmActivity {
+  id            String   @id @default(uuid())
+  subjectUserId String
+  actorId       String?
+  type          String
+  title         String
+  meta          Json?
+  createdAt     DateTime @default(now())
+  subject       User     @relation("CrmActivitySubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  actor         User?    @relation("CrmActivityActor", fields: [actorId], references: [id])
+
+  @@index([subjectUserId, createdAt])
+  @@map("crm_activities")
+}
+
+enum TicketCategory {
+  ORDER_ISSUE
+  MISSING_ITEM
+  LATE_DELIVERY
+  PAYMENT
+  REFUND
+  ACCOUNT
+  RIDER_CONDUCT
+  VENDOR_ISSUE
+  APP_BUG
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_REQUESTER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketChannel {
+  APP
+  WEB
+  EMAIL
+  PHONE
+  ADMIN
+}
+
+/// Support request from a customer, vendor or rider, optionally about one order.
+model Ticket {
+  id              String          @id @default(uuid())
+  number          Int             @unique @default(autoincrement())
+  requesterId     String
+  requesterRole   Role
+  orderId         String?
+  subject         String
+  category        TicketCategory
+  priority        TicketPriority  @default(NORMAL)
+  status          TicketStatus    @default(OPEN)
+  channel         TicketChannel   @default(APP)
+  assigneeId      String?
+  /// Next SLA deadline: first response until an agent replies, then resolution.
+  slaDueAt        DateTime
+  slaBreachedAt   DateTime?
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  csatScore       Int?
+  csatComment     String?
+  /// True when staff replied and the requester has not opened the ticket since.
+  requesterUnread Boolean         @default(false)
+  lastMessageAt   DateTime        @default(now())
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  requester       User            @relation("TicketRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  assignee        User?           @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  order           Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  messages        TicketMessage[]
+  tasks           CrmTask[]
+
+  @@index([status, lastMessageAt])
+  @@index([assigneeId, status])
+  @@index([requesterId, createdAt])
+  @@index([slaDueAt])
+  @@index([orderId])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id          String   @id @default(uuid())
+  ticketId    String
+  authorId    String
+  body        String
+  /// Staff-only note — never returned to the requester.
+  isInternal  Boolean  @default(false)
+  attachments Json?
+  createdAt   DateTime @default(now())
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author      User     @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_messages")
+}
+
+model CannedReply {
+  id          String          @id @default(uuid())
+  title       String
+  body        String
+  category    TicketCategory?
+  createdById String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  createdBy   User            @relation(fields: [createdById], references: [id])
+
+  @@map("canned_replies")
+}
+
+enum CampaignChannel {
+  PUSH
+  EMAIL
+  SMS
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+}
+
+enum RecipientStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum AutomationTrigger {
+  WIN_BACK
+  FIRST_ORDER_NUDGE
+  VENDOR_INACTIVE
+}
+
+/// Saved audience: a role plus whitelisted rules, evaluated at send time.
+model Segment {
+  id             String     @id @default(uuid())
+  name           String
+  description    String?
+  role           Role
+  rules          Json
+  cachedCount    Int?
+  lastComputedAt DateTime?
+  createdById    String
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  createdBy      User       @relation(fields: [createdById], references: [id])
+  campaigns      Campaign[]
+
+  @@map("segments")
+}
+
+model Campaign {
+  id           String              @id @default(uuid())
+  name         String
+  segmentId    String?
+  automationId String?
+  channels     CampaignChannel[]
+  title        String
+  body         String
+  emailSubject String?
+  ctaUrl       String?
+  status       CampaignStatus      @default(DRAFT)
+  scheduledAt  DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  audienceSize Int?
+  createdById  String
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  segment      Segment?            @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  automation   CrmAutomation?      @relation(fields: [automationId], references: [id], onDelete: SetNull)
+  createdBy    User                @relation(fields: [createdById], references: [id])
+  recipients   CampaignRecipient[]
+
+  @@index([status, scheduledAt])
+  @@index([automationId])
+  @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id         String          @id @default(uuid())
+  campaignId String
+  userId     String
+  channel    CampaignChannel
+  status     RecipientStatus @default(PENDING)
+  error      String?
+  sentAt     DateTime?
+  createdAt  DateTime        @default(now())
+  /// Bumped on every status change; used to detect sends interrupted mid-flight.
+  updatedAt  DateTime        @updatedAt
+  campaign   Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, userId, channel])
+  @@index([campaignId, status])
+  @@index([userId, sentAt])
+  @@map("campaign_recipients")
+}
+
+/// Recurring rule that sends a message to users who newly match a trigger.
+model CrmAutomation {
+  id           String            @id @default(uuid())
+  name         String
+  trigger      AutomationTrigger
+  /// Trigger threshold in days (e.g. 30 for "no order in 30 days").
+  days         Int
+  /// Minimum days before the same user can get this automation again.
+  cooldownDays Int               @default(30)
+  channels     CampaignChannel[]
+  title        String
+  body         String
+  emailSubject String?
+  ctaUrl       String?
+  enabled      Boolean           @default(false)
+  lastRunAt    DateTime?
+  createdById  String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  createdBy    User              @relation(fields: [createdById], references: [id])
+  campaigns    Campaign[]
+
+  @@map("crm_automations")
+}
+
+enum LeadType {
+  VENDOR
+  RIDER
+}
+
+enum LeadStage {
+  NEW
+  CONTACTED
+  INTERESTED
+  ONBOARDING
+  LIVE
+  LOST
+}
+
+enum LeadSource {
+  FIELD
+  REFERRAL
+  INBOUND_WEB
+  SOCIAL
+  IMPORT
+  OTHER
+}
+
+enum LeadActivityType {
+  NOTE
+  CALL
+  VISIT
+  EMAIL
+  WHATSAPP
+  STAGE_CHANGE
+  CONVERTED
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+/// A prospective vendor or rider being signed up by the ops/sales team.
+model Lead {
+  id                  String          @id @default(uuid())
+  type                LeadType
+  /// Business name for vendors, person's name for riders.
+  name                String
+  contactName         String?
+  phone               String?
+  /// Last 10 digits of the phone, used to match leads to accounts that sign up later.
+  phoneKey            String?
+  email               String?
+  city                String?
+  area                String?
+  category            VendorCategory?
+  source              LeadSource      @default(OTHER)
+  stage               LeadStage       @default(NEW)
+  lostReason          String?
+  estimatedMonthlyGmv Float?
+  ownerId             String?
+  convertedUserId     String?         @unique
+  stageChangedAt      DateTime        @default(now())
+  liveAt              DateTime?
+  lostAt              DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  owner               User?           @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  convertedUser       User?           @relation("LeadConvertedUser", fields: [convertedUserId], references: [id], onDelete: SetNull)
+  activities          LeadActivity[]
+  tasks               CrmTask[]
+
+  @@index([type, stage])
+  @@index([ownerId, stage])
+  @@index([phoneKey])
+  @@index([email])
+  @@map("leads")
+}
+
+model LeadActivity {
+  id        String           @id @default(uuid())
+  leadId    String
+  authorId  String?
+  type      LeadActivityType
+  body      String
+  meta      Json?
+  createdAt DateTime         @default(now())
+  lead      Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  author    User?            @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([leadId, createdAt])
+  @@map("lead_activities")
+}
+
+/// Follow-up work for staff, optionally about a person, lead or ticket. No assignee = team queue.
+model CrmTask {
+  id             String       @id @default(uuid())
+  title          String
+  description    String?
+  dueAt          DateTime?
+  priority       TaskPriority @default(NORMAL)
+  status         TaskStatus   @default(OPEN)
+  assigneeId     String?
+  createdById    String?
+  relatedUserId  String?
+  leadId         String?
+  ticketId       String?
+  completedAt    DateTime?
+  reminderSentAt DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  assignee       User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy      User?        @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  relatedUser    User?        @relation("TaskRelatedUser", fields: [relatedUserId], references: [id], onDelete: Cascade)
+  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  ticket         Ticket?      @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([assigneeId, status, dueAt])
+  @@index([status, dueAt])
+  @@index([relatedUserId])
+  @@index([leadId])
+  @@index([ticketId])
+  @@map("crm_tasks")
+}
+
+/// Once-per-period claim for scheduled jobs, so cluster workers don't each run the same daily job.
+model JobLock {
+  key       String   @id
+  claimedAt DateTime @default(now())
+
+  @@map("job_locks")
 }

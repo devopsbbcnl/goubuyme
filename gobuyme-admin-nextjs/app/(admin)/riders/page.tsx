@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/Badge';
@@ -20,7 +21,7 @@ const RIDER_DOCUMENT_ITEMS: { value: string; label: string }[] = [
 ];
 
 interface Rider {
-  id: string; name: string; phone: string | null; vehicleType: string;
+  id: string; userId: string; name: string; phone: string | null; vehicleType: string;
   plateNumber: string | null; totalDeliveries: number; totalEarnings: number;
   rating: number; approvalStatus: RiderStatus; isOnline: boolean; createdAt: string;
 }
@@ -282,6 +283,7 @@ export default function RidersPage() {
                   </td>
                   <td style={{ padding: '13px 16px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 6 }}>
+                      <Link href={`/crm/profiles/${r.userId}`} style={{ padding: '5px 10px', borderRadius: 4, border: `1px solid ${T.border}`, background: T.surface2, color: T.text, fontSize: 11, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>CRM</Link>
                       {r.approvalStatus === 'PENDING' && (
                         <button onClick={() => setStatus(r.id, 'APPROVED')} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: T.success, color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Approve</button>
                       )}

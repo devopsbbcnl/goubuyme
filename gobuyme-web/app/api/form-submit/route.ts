@@ -38,6 +38,41 @@ function isRateLimited(ip: string): boolean {
   return entry.count > MAX_PER_WINDOW;
 }
 
+// Partner enquiries also become leads in the admin CRM pipeline. Best-effort: the email above
+// already reached the team, so a pipeline failure is logged and never fails the submission.
+const LEAD_FORMS: Record<string, 'VENDOR' | 'RIDER'> = {
+  'book-a-call': 'VENDOR',
+  'vendors-apply': 'VENDOR',
+  'riders-signup': 'RIDER',
+};
+
+async function forwardToPipeline(formId: string, fields: Record<string, string>) {
+  const type = LEAD_FORMS[formId];
+  const secret = process.env.LEADS_INBOUND_SECRET?.trim();
+  const backend = (process.env.BACKEND_API_URL ?? process.env.NEXT_PUBLIC_API_URL)?.trim();
+  if (!type || !secret || !backend) return;
+  try {
+    const res = await fetch(`${backend}/leads/inbound`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-leads-secret': secret },
+      body: JSON.stringify({
+        type,
+        form: formId,
+        name: fields.businessName || fields.name,
+        contactName: fields.businessName ? fields.name : undefined,
+        phone: fields.phone,
+        email: fields.email,
+        city: fields.city,
+        message: fields.message,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) console.error('form-submit: pipeline forward failed', res.status);
+  } catch (e) {
+    console.error('form-submit: pipeline forward error', e);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim()
     ?? req.headers.get('x-real-ip')
@@ -113,6 +148,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to send message' }, { status: 502 });
     }
 
+    await forwardToPipeline(formId, flat);
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('form-submit:', e);

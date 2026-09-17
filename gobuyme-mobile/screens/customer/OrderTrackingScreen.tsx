@@ -282,6 +282,18 @@ export default function OrderTrackingScreen() {
 					</View>
 				)}
 
+				{orderId && (
+					<TouchableOpacity
+						activeOpacity={0.8}
+						onPress={() => router.push({ pathname: '/help/new', params: { orderId, orderNumber } })}
+						style={[styles.card, styles.helpRow, { backgroundColor: T.surface, borderColor: T.border }]}
+					>
+						<Ionicons name="help-buoy-outline" size={20} color={T.primary} />
+						<Text style={[styles.helpText, { color: T.text }]}>Get help with this order</Text>
+						<Ionicons name="chevron-forward" size={16} color={T.textMuted} />
+					</TouchableOpacity>
+				)}
+
 				{items.length > 0 && (
 					<View
 						style={[
@@ -513,6 +525,8 @@ const styles = StyleSheet.create({
 	orderId: { fontSize: 12, marginTop: 2 },
 	sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 },
 	cancelHint: { fontSize: 13, lineHeight: 18, marginBottom: 14 },
+	helpRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+	helpText: { flex: 1, fontSize: 14, fontWeight: '700' },
 	cancelBtn: {
 		height: 44,
 		borderRadius: 4,

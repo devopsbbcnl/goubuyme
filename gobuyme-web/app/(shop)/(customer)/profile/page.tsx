@@ -150,6 +150,26 @@ export default function ProfilePage() {
     api.get('/addresses').then(r => setAddresses(r.data.data ?? [])).catch(() => {}).finally(() => setLoadingAddresses(false));
   }, [user]);
 
+  // null until loaded, so the switch never shows a guessed value.
+  const [marketingOptIn, setMarketingOptIn] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    api.get('/notifications/preferences').then(r => setMarketingOptIn(Boolean(r.data.data?.marketingOptIn))).catch(() => {});
+  }, [user]);
+
+  const toggleMarketing = async () => {
+    if (marketingOptIn === null) return;
+    const next = !marketingOptIn;
+    setMarketingOptIn(next);
+    try {
+      await api.patch('/notifications/preferences', { marketingOptIn: next });
+      toast(next ? 'You\'ll get deals and offers' : 'You won\'t get promotional messages', 'success');
+    } catch {
+      setMarketingOptIn(!next);
+      toast('Couldn\'t update your preference', 'error');
+    }
+  };
+
   const toggleTheme = () => {
     const next = !isDark;
     setIsDark(next);
@@ -491,6 +511,22 @@ export default function ProfilePage() {
                   <span className="track" />
                 </label>
               </div>
+              <div className="between" style={{ marginTop: 16 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Deals & Offers</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Discounts and free delivery by push, email and SMS</div>
+                </div>
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    aria-label="Receive deals and offers"
+                    checked={marketingOptIn ?? false}
+                    disabled={marketingOptIn === null}
+                    onChange={toggleMarketing}
+                  />
+                  <span className="track" />
+                </label>
+              </div>
             </div>
 
             {/* Quick links */}
@@ -505,6 +541,11 @@ export default function ProfilePage() {
                 <Link href="/profile/addresses" className="v-nav-item">
                   <IconPin />
                   <span style={{ flex: 1 }}>Saved Addresses</span>
+                  <IconChevronRight />
+                </Link>
+                <Link href="/help" className="v-nav-item">
+                  <span aria-hidden style={{ width: 18, textAlign: 'center' }}>🎧</span>
+                  <span style={{ flex: 1 }}>Help & Support</span>
                   <IconChevronRight />
                 </Link>
               </div>
