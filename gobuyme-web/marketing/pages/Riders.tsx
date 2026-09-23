@@ -40,7 +40,7 @@ const Riders = () => {
               <span className="text-primary">Repeat.</span>
             </h1>
             <p className="mt-6 max-w-md text-lg text-background/80">
-              Become a GoBuyMe Captain. Flexible hours, weekly cash-outs and the busiest order book in Nigeria.
+              Become a GoBuyMe Captain in Owerri. Flexible hours, weekly cash-outs and a growing order book.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <button
@@ -80,9 +80,8 @@ const Riders = () => {
 
       <Marquee
         items={[
-          "12,000+ active captains",
-          "Avg payout ₦38,500/week",
-          "98% on-time delivery",
+          "Now live in Owerri",
+          "Weekly payouts",
           "Free insurance included",
           "Cash-out daily",
         ]}
@@ -142,7 +141,7 @@ const Riders = () => {
             ))}
           </div>
           <p className="mt-6 font-mono-pop text-xs uppercase tracking-widest opacity-80">
-            * Based on Lagos rider averages (Jan–Mar 2026). Bonuses not included.
+            * Projected averages for Owerri riders. Bonuses not included.
           </p>
         </div>
       </section>

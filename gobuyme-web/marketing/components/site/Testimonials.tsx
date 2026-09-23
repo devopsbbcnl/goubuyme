@@ -2,10 +2,10 @@
 import { motion } from "framer-motion";
 
 const quotes = [
-  { q: "Ordered jollof at 11pm. Arrived hot at 11:24pm. GoBuyMe is now my therapist.", n: "Tola A.", c: "Lagos", color: "bg-primary text-primary-foreground" },
-  { q: "Listed my buka on a Tuesday. By Friday I had 80 new orders. This app is unfair.", n: "Mama Nkechi", c: "Abuja", color: "bg-accent text-accent-foreground" },
-  { q: "I ride part-time after work and pulled ₦62k last week alone. No be small thing.", n: "Emeka O.", c: "Port Harcourt", color: "bg-leaf text-leaf-foreground" },
-  { q: "The tracking actually works. My rider sent me a meme while waiting at the gate.", n: "Adaeze U.", c: "Lagos", color: "bg-hot text-hot-foreground" },
+  { q: "Ordered jollof at 11pm. Arrived hot at 11:24pm. GoBuyMe is now my therapist.", n: "Tola A.", c: "Owerri", color: "bg-primary text-primary-foreground" },
+  { q: "Listed my buka on a Tuesday. By Friday I had 80 new orders. This app is unfair.", n: "Mama Nkechi", c: "Owerri", color: "bg-accent text-accent-foreground" },
+  { q: "I ride part-time after work and pulled ₦62k last week alone. No be small thing.", n: "Emeka O.", c: "Owerri", color: "bg-leaf text-leaf-foreground" },
+  { q: "The tracking actually works. My rider sent me a meme while waiting at the gate.", n: "Adaeze U.", c: "Owerri", color: "bg-hot text-hot-foreground" },
 ];
 
 export const Testimonials = () => (

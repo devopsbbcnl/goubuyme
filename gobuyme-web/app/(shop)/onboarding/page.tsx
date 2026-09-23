@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 const SLIDES = [
   { icon: '🍔', title: 'Order Anything', sub: 'Food, groceries, pharmacy, and more — all in one app.' },
   { icon: '⚡', title: '25-Min Delivery', sub: 'Lightning-fast riders deliver to your door, guaranteed.' },
-  { icon: '🏪', title: '500+ Vendors', sub: 'The best restaurants and shops across Nigeria.' },
+  { icon: '🏪', title: 'Local Vendors', sub: 'The best restaurants and shops in Owerri.' },
 ];
 
 export default function OnboardingPage() {

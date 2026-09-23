@@ -59,7 +59,7 @@ const Food = () => (
         <div>
           <h2 className="font-display text-4xl text-accent-foreground md:text-6xl">Hungry now?</h2>
           <p className="mt-4 max-w-md text-accent-foreground/80">
-            Open the app, pick your spice level, watch the rider come through. Average time door-to-door: 25 minutes in Lagos.
+            Open the app, pick your spice level, watch the rider come through. Average time door-to-door: 25 minutes in Owerri.
           </p>
           <Link
             href="/downloads"

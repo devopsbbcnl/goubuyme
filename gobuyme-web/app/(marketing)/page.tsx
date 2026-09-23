@@ -3,14 +3,14 @@ import Index from '@/marketing/pages/Index';
 import { SITE_URL, SITE_NAME, SEO_CITIES, MARKETING_FAQ, faqJsonLd } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'GoBuyMe — Food Delivery in Nigeria | Jollof, Groceries & More in 25 Mins',
+  title: 'GoBuyMe — Food Delivery in Owerri | Jollof, Groceries & More in 25 Mins',
   description:
-    'GoBuyMe delivers food, groceries, pharmacy and errands across Lagos, Abuja, Port Harcourt and more Nigerian cities. Order in three taps. Track live. Eat happy.',
+    'GoBuyMe delivers food, groceries, pharmacy and errands across Owerri. Order in three taps. Track live. Eat happy. Expanding to more Nigerian cities soon.',
   alternates: { canonical: '/' },
   keywords: [
-    'food delivery Nigeria', 'food delivery Lagos', 'food delivery Abuja',
-    'order food online Nigeria', 'grocery delivery Nigeria',
-    'pharmacy delivery Nigeria', 'errand services Nigeria',
+    'food delivery Nigeria', 'food delivery Owerri',
+    'order food online Nigeria', 'grocery delivery Owerri',
+    'pharmacy delivery Owerri', 'errand services Nigeria',
     'jollof rice delivery', 'best food delivery app Nigeria', 'GoBuyMe',
   ],
   openGraph: { url: '/' },
@@ -26,7 +26,7 @@ const jsonLd = {
       legalName: 'Bubble Barrel Commerce Limited',
       url: SITE_URL,
       logo: `${SITE_URL}/marketing/logo.png`,
-      description: "Nigeria's fastest on-demand delivery platform. Food, groceries, and more in 25 minutes or less.",
+      description: "Owerri's on-demand delivery platform. Food, groceries, and more in 25 minutes or less. Expanding across Nigeria.",
       areaServed: SEO_CITIES.map(city => ({ '@type': 'City', name: city })),
       contactPoint: { '@type': 'ContactPoint', contactType: 'customer support', email: 'support@gobuyme.shop', availableLanguage: 'en' },
     },

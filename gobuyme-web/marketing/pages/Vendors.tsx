@@ -74,7 +74,7 @@ const Vendors = () => {
               <span className="bg-accent px-3 text-accent-foreground">Sell out.</span>
             </h1>
             <p className="mt-6 max-w-md text-lg opacity-90">
-              Join 1,200+ Nigerian kitchens, supermarkets and pharmacies turning GoBuyMe orders into a second storefront.
+              Join Owerri kitchens, supermarkets and pharmacies turning GoBuyMe orders into a second storefront — as we roll out to more Nigerian cities.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <button
@@ -120,9 +120,8 @@ const Vendors = () => {
       <Marquee
         items={[
           "Our Dream",
-          "₦8.4B paid to vendors",
-          "1,200+ active partners",
-          "Avg 38% revenue lift",
+          "Now live in Owerri",
+          "Nigeria-wide rollout coming",
           "Onboard in 48 hrs",
           "Daily payouts",
         ]}

@@ -32,7 +32,7 @@ const Groceries = () => (
     <section className="container py-20">
       <div className="mb-10">
         <h2 className="font-display text-4xl md:text-5xl">Every aisle, in your pocket</h2>
-        <p className="mt-3 max-w-2xl text-muted-foreground">Over 8,000 items from local markets, supermarkets and specialty stores across Lagos, Abuja and Port Harcourt.</p>
+        <p className="mt-3 max-w-2xl text-muted-foreground">Fresh produce, pantry staples and household essentials from local markets, supermarkets and specialty stores across Owerri.</p>
       </div>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {aisles.map((a, i) => (
