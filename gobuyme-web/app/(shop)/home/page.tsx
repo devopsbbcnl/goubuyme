@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { CustomerNav } from '@/components/layout/CustomerNav';
 import { CustomerFooter } from '@/components/layout/CustomerFooter';
 import { HomeClient } from '@/components/home/HomeClient';
-import { SITE_URL, SEO_CITIES, HOME_FAQ } from '@/lib/seo';
+import { SITE_URL, SEO_CITIES, HOME_FAQ, faqJsonLd } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'Order Food Online — Browse 500+ Restaurants & Stores',
@@ -41,16 +41,7 @@ const POPULAR_SEARCHES = [
 
 // FAQPage schema matching the visible FAQ below. Organization/WebSite schema
 // lives on the marketing landing page at /.
-const jsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  '@id': `${SITE_URL}/home#faq`,
-  mainEntity: HOME_FAQ.map(({ q, a }) => ({
-    '@type': 'Question',
-    name: q,
-    acceptedAnswer: { '@type': 'Answer', text: a },
-  })),
-};
+const jsonLd = faqJsonLd(HOME_FAQ, `${SITE_URL}/home#faq`);
 
 export default function ShopHomePage() {
   return (

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Index from '@/marketing/pages/Index';
-import { SITE_URL, SITE_NAME, SEO_CITIES } from '@/lib/seo';
+import { SITE_URL, SITE_NAME, SEO_CITIES, MARKETING_FAQ, faqJsonLd } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'GoBuyMe — Food Delivery in Nigeria | Jollof, Groceries & More in 25 Mins',
@@ -54,10 +54,13 @@ const jsonLd = {
   ],
 };
 
+const faqLd = faqJsonLd(MARKETING_FAQ, `${SITE_URL}/#faq`);
+
 export default function LandingPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       <Index />
     </>
   );

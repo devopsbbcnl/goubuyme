@@ -7,7 +7,7 @@ import { emailLayout, sendEmail } from '../email.service';
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-const adminUrl = () => (process.env.ADMIN_URL ?? '').split(',')[0].trim() || 'https://admin.gobuyme.shop';
+const adminUrl = () => (process.env.ADMIN_URL ?? '').split(',')[0].trim() || 'https://munakay.gobuyme.shop';
 
 /** Emails each assignee once when their task passes its due time. Claimed per task (cluster-safe). */
 export const sendOverdueReminders = async (now = new Date()) => {

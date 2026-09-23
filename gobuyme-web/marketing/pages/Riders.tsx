@@ -5,6 +5,8 @@ import { PageNav } from "@/marketing/components/site/PageNav";
 import { Footer } from "@/marketing/components/site/Footer";
 import { Marquee } from "@/marketing/components/site/Marquee";
 import { RegistrationModal } from "@/marketing/components/site/RegistrationModal";
+import { PageFAQ } from "@/marketing/components/site/PageFAQ";
+import { RIDER_FAQ } from "@/lib/seo";
 const rider = "/marketing/sticker-rider.png";
 
 const perks = [
@@ -220,6 +222,12 @@ const Riders = () => {
           </div>
         </div>
       </section>
+
+      <PageFAQ
+        eyebrow="Rider FAQ"
+        heading={<>Deciding which app<br />to ride for?</>}
+        faqs={RIDER_FAQ}
+      />
 
       <RegistrationModal
         open={modalOpen}

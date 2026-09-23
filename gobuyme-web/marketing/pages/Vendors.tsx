@@ -6,6 +6,8 @@ import { Footer } from "@/marketing/components/site/Footer";
 import { Marquee } from "@/marketing/components/site/Marquee";
 import { RegistrationModal, useTierRates } from "@/marketing/components/site/RegistrationModal";
 import { BookCallModal } from "@/marketing/components/site/BookCallModal";
+import { PageFAQ } from "@/marketing/components/site/PageFAQ";
+import { VENDOR_FAQ } from "@/lib/seo";
 const jollof = "/marketing/sticker-jollof.png";
 const grocery = "/marketing/sticker-grocery.png";
 const burger = "/marketing/sticker-burger.png";
@@ -254,6 +256,12 @@ const Vendors = () => {
           </div>
         </div>
       </section>
+
+      <PageFAQ
+        eyebrow="Vendor FAQ"
+        heading={<>Thinking about<br />which marketplace to join?</>}
+        faqs={VENDOR_FAQ}
+      />
 
       <RegistrationModal
         open={modalOpen}
