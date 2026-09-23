@@ -2,10 +2,10 @@
 import { motion } from "framer-motion";
 
 const stats = [
-  { k: "500+", v: "Restaurants" },
-  { k: "50+", v: "Cities live" },
+  { k: "Owerri", v: "Now live" },
   { k: "25min", v: "Avg delivery" },
-  { k: "4.9★", v: "App rating" },
+  { k: "3%", v: "Commission from" },
+  { k: "Nigeria", v: "Expanding across" },
 ];
 
 export const Stats = () => (

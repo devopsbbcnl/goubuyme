@@ -8,7 +8,7 @@ import { SITE_URL, SITE_NAME } from '@/lib/seo';
 
 const MARKETING_TITLE = 'GoBuyMe — Jollof, Groceries & Anything Else, Delivered in 25 Mins';
 const MARKETING_DESCRIPTION =
-  'GoBuyMe delivers food, groceries, pharmacy and errands across Lagos, Abuja, Port Harcourt and more Nigerian cities. Order in three taps. Track live. Eat happy.';
+  'GoBuyMe delivers food, groceries, pharmacy and errands across Owerri. Order in three taps. Track live. Eat happy. Expanding to more Nigerian cities soon.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

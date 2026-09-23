@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
           <Image src="/images/logo.png" alt="GoBuyMe" width={140} height={46} style={{ objectFit: 'contain', display: 'block' }} />
         </div>
         <h1>Hungry?<br />GoBuyMe.</h1>
-        <p style={{ marginTop: 16 }}>Order food, groceries, and more from 500+ vendors across Nigeria — delivered to your door in 25 minutes or less.</p>
+        <p style={{ marginTop: 16 }}>Order food, groceries, and more from local Owerri vendors — delivered to your door in 25 minutes or less.</p>
       </div>
 
       <div className="auth-right">

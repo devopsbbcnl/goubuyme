@@ -7,20 +7,20 @@ import { HomeClient } from '@/components/home/HomeClient';
 import { SITE_URL, SEO_CITIES, HOME_FAQ, faqJsonLd } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Order Food Online — Browse 500+ Restaurants & Stores',
+  title: 'Order Food Online in Owerri — Browse Restaurants & Stores',
   description:
-    'Order food online from 500+ restaurants & stores in Lagos, Abuja, Port Harcourt & across Nigeria. Jollof, suya, groceries & medicine delivered in 25 minutes.',
+    'Order food online from restaurants & stores in Owerri. Jollof, suya, groceries & medicine delivered in 25 minutes.',
   alternates: { canonical: '/home' },
   keywords: [
-    'order food online Nigeria', 'food delivery Lagos', 'food delivery Abuja',
-    'food delivery Port Harcourt', 'grocery delivery Nigeria',
-    'pharmacy delivery Nigeria', 'jollof rice delivery', 'suya near me',
+    'order food online Nigeria', 'food delivery Owerri',
+    'grocery delivery Owerri', 'pharmacy delivery Owerri',
+    'jollof rice delivery', 'suya near me',
     'shawarma delivery', 'restaurants near me', 'GoBuyMe',
   ],
   openGraph: {
     title: 'GoBuyMe — Order Food, Groceries & More in 25 Minutes',
     description:
-      'Order food, groceries & medicine from 500+ vendors across Nigeria. Free delivery on your first app order.',
+      'Order food, groceries & medicine from local Owerri vendors. Free delivery on your first app order.',
     url: '/home',
     type: 'website',
   },
@@ -74,8 +74,8 @@ export default function ShopHomePage() {
           <div className="section">
             <div className="section-head"><h2 className="section-title">Food delivery in your city</h2></div>
             <p className="muted" style={{ fontSize: 14, lineHeight: 1.7, maxWidth: 720, marginBottom: 16 }}>
-              GoBuyMe delivers hot meals, fresh groceries and pharmacy essentials across Nigeria&apos;s biggest cities.
-              Pick your city to see restaurants and stores that deliver to you in 25 minutes or less.
+              GoBuyMe delivers hot meals, fresh groceries and pharmacy essentials across Owerri, with more Nigerian
+              cities on the way. Pick your city to see restaurants and stores that deliver to you in 25 minutes or less.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               {SEO_CITIES.map(city => (
@@ -101,11 +101,11 @@ export default function ShopHomePage() {
 
           {/* Keyword-rich closing copy */}
           <div className="section">
-            <h2 className="section-title" style={{ marginBottom: 12 }}>Nigeria&apos;s super-app for food, groceries & more</h2>
+            <h2 className="section-title" style={{ marginBottom: 12 }}>Owerri&apos;s app for food, groceries & more</h2>
             <p className="muted" style={{ fontSize: 14, lineHeight: 1.8, maxWidth: 820 }}>
-              GoBuyMe is the fastest way to <strong>order food online in Nigeria</strong>. Whether you&apos;re craving
+              GoBuyMe is the fastest way to <strong>order food online in Owerri</strong>. Whether you&apos;re craving
               smoky party jollof, fresh suya, amala and ewedu, or a late-night shawarma, our riders bring it hot from
-              500+ local restaurants in about 25 minutes. Need more than food? Shop <Link href="/vendors?category=EMART">EMART grocery delivery</Link> for
+              local restaurants in about 25 minutes. Need more than food? Shop <Link href="/vendors?category=EMART">EMART grocery delivery</Link> for
               everyday essentials, or get medicine delivered from trusted <Link href="/vendors?category=PHARMACY">pharmacies near you</Link>.
               Track your rider live on the map, pay securely with Paystack, and enjoy free delivery on your first order
               when you <a href="/downloads">download the GoBuyMe app</a>.

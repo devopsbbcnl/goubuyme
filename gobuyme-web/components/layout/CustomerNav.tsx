@@ -104,7 +104,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
   const PROMOS = [
     promoText ?? '🎉 Free delivery on your first order! Use code FIRST',
     '⚡ Order in 25 minutes or less — Guaranteed!',
-    '🛒 500+ vendors across Nigeria — Fresh, Fast, Affordable',
+    '🛒 Local vendors in Owerri — Fresh, Fast, Affordable',
   ];
 
   useEffect(() => {

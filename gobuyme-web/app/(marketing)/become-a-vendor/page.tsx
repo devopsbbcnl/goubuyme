@@ -3,9 +3,9 @@ import Vendors from '@/marketing/pages/Vendors';
 import { SITE_URL, VENDOR_FAQ, faqJsonLd } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Sell on GoBuyMe — Delivery Marketplace for Nigerian Restaurants, Stores & Pharmacies',
+  title: 'Sell on GoBuyMe — Delivery Marketplace for Owerri Restaurants, Stores & Pharmacies',
   description:
-    'Join 1,200+ restaurants, grocery stores and pharmacies selling on GoBuyMe. 0% setup fee, daily payouts, commissions from 3%, multi-branch support and real-time order tracking.',
+    'List your restaurant, grocery store or pharmacy on GoBuyMe. 0% setup fee, daily payouts, commissions from 3%, multi-branch support and real-time order tracking. Now onboarding in Owerri.',
   alternates: { canonical: '/become-a-vendor' },
   keywords: [
     'online delivery marketplace Nigeria', 'sell food online Nigeria',

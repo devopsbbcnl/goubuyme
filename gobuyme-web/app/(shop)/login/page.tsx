@@ -83,9 +83,9 @@ function LoginContent() {
           <Image src="/images/logo.png" alt="GoBuyMe" width={140} height={46} style={{ objectFit: 'contain', display: 'block' }} />
         </div>
         <h1>Hungry?<br />GoBuyMe.</h1>
-        <p style={{ marginTop: 16 }}>Order food, groceries, and more from 500+ vendors across Nigeria — delivered to your door in 25 minutes or less.</p>
+        <p style={{ marginTop: 16 }}>Order food, groceries, and more from local Owerri vendors — delivered to your door in 25 minutes or less.</p>
         <div style={{ marginTop: 48, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {['⚡ 25-minute guaranteed delivery', '🛒 500+ vendors across Nigeria', '🔒 Secure payments via Paystack'].map(t => (
+          {['⚡ 25-minute guaranteed delivery', '🛒 Local vendors in Owerri', '🔒 Secure payments via Paystack'].map(t => (
             <div key={t} style={{ fontSize: 14, opacity: .85 }}>{t}</div>
           ))}
         </div>

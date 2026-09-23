@@ -1,32 +1,32 @@
 # GoBuyMe
 
-> GoBuyMe is a Nigerian on-demand delivery marketplace connecting customers with restaurants, grocery stores and pharmacies, delivered by independent riders. It operates in Lagos, Abuja, Port Harcourt and 50+ Nigerian cities, with food delivered in an average of 25 minutes and live GPS order tracking.
+> GoBuyMe is a Nigerian on-demand delivery marketplace connecting customers with restaurants, grocery stores and pharmacies, delivered by independent riders. It is currently live in Owerri, Nigeria, with plans to expand to more Nigerian cities and eventually West Africa. Food is delivered in an average of 25 minutes, with live GPS order tracking.
 
 GoBuyMe is a three-sided marketplace: customers who order food, groceries and medicine; vendors (restaurants, grocery stores, pharmacies) who sell on the platform; and riders who deliver orders.
 
 ## For customers
-- [Order food, groceries & pharmacy](https://gobuyme.shop/food): Browse and order from 500+ restaurants, stores and pharmacies. Average delivery time 25 minutes for food.
+- [Order food, groceries & pharmacy](https://gobuyme.shop/food): Browse and order from restaurants, stores and pharmacies in Owerri. Average delivery time 25 minutes for food.
 - [Groceries](https://gobuyme.shop/groceries): Grocery and household essentials delivery under the EMART category.
 - [Pharmacy](https://gobuyme.shop/pharmacy): Licensed pharmacy partners for medicine and health product delivery.
-- [Errands](https://gobuyme.shop/errands): On-demand errand and package delivery.
+- [Errands](https://gobuyme.shop/errands): On-demand errand and package delivery within Owerri.
 - Payment: card, bank transfer and USSD via Paystack; cash on delivery in select cities.
 - Delivery fee: from ₦500, distance-based, capped at ₦3,000.
 
 ## For vendors (restaurants, grocery stores, pharmacies)
-- [Become a vendor](https://gobuyme.shop/become-a-vendor): List a business on GoBuyMe.
+- [Become a vendor](https://gobuyme.shop/become-a-vendor): List a business on GoBuyMe. Currently onboarding in Owerri ahead of a wider Nigeria rollout.
 - Commission tiers: Starter (3% per order, no monthly fee) and Growth (7.5% per order, unlocks in-app promotions and boosted placement). No setup fee.
 - Multi-branch chains and retail groups get a dedicated multi-branch console and account lead (Empire tier).
 - Vendors get a live order dashboard, daily payouts and real-time order status tracking.
 - Approval typically completes within 24 hours; first order within ~48 hours of signup.
 
 ## For riders
-- [Become a rider](https://gobuyme.shop/riders): Sign up to deliver for GoBuyMe.
+- [Become a rider](https://gobuyme.shop/riders): Sign up to deliver for GoBuyMe in Owerri.
 - Flexible hours, no shifts. Weekly payouts (Fridays) or instant cash-out for a ₦50 fee.
 - Free accident and bike insurance on every active trip. Bike lease-to-own financing available from ₦4,500/day.
-- Typical earnings: ₦88,000–₦256,000+/month depending on trip volume.
 
 ## Company
 - [About / Press](https://gobuyme.shop/press)
 - [Contact](https://gobuyme.shop/contact)
 - [Download the app](https://gobuyme.shop/downloads): iOS and Android apps.
 - Legal entity: Bubble Barrel Commerce Limited.
+- Current footprint: Owerri, Nigeria. Roadmap: expand to more Nigerian cities, then West Africa.

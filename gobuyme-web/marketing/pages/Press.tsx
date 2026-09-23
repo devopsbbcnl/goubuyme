@@ -3,17 +3,10 @@ import { motion } from "framer-motion";
 import { SimplePage } from "@/marketing/components/site/SimplePage";
 
 const stats = [
-  { n: "500K+", l: "Active users" },
-  { n: "12,000", l: "Vendors" },
-  { n: "8,500", l: "Riders" },
-  { n: "₦3.2B", l: "Paid to partners" },
-];
-
-const press = [
-  { src: "TechCabal", quote: "GoBuyMe is reshaping last-mile delivery in West Africa.", date: "Mar 2025" },
-  { src: "BusinessDay", quote: "The hyperlocal app Lagos didn't know it needed.", date: "Feb 2025" },
-  { src: "Techpoint", quote: "From jollof to pharmacy in under 30 minutes.", date: "Jan 2025" },
-  { src: "Disrupt Africa", quote: "One of the most exciting logistics plays on the continent.", date: "Dec 2024" },
+  { n: "Owerri", l: "Now live" },
+  { n: "25min", l: "Avg delivery" },
+  { n: "3%", l: "Commission from" },
+  { n: "Nigeria", l: "Expanding across" },
 ];
 
 const Press = () => (
@@ -42,21 +35,10 @@ const Press = () => (
 
     <section className="container py-20">
       <h2 className="mb-10 font-display text-4xl md:text-5xl">In the news</h2>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {press.map((p, i) => (
-          <motion.article
-            key={p.src}
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.05 }}
-            className="rounded-3xl border-2 border-ink bg-background p-8 shadow-pop-sm"
-          >
-            <div className="font-mono-pop text-xs uppercase tracking-widest text-primary">{p.src} · {p.date}</div>
-            <p className="mt-4 font-display text-2xl leading-snug">"{p.quote}"</p>
-          </motion.article>
-        ))}
-      </div>
+      <p className="max-w-xl text-muted-foreground">
+        We're just getting started in Owerri — press coverage will show up here as it happens.
+        In the meantime, reach out to press@gobuyme.shop for interviews, founder access or the media kit below.
+      </p>
     </section>
 
     <section className="border-y-2 border-ink bg-foreground text-background">

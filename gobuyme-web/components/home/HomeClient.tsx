@@ -20,7 +20,7 @@ interface Promo { id: string; title: string; description?: string; imageUrl?: st
 
 const HERO_SLIDES = [
   { bg: 'linear-gradient(135deg, #FF521B 0%, #FF7A4D 100%)', title: 'Food Delivery in 25 Minutes', sub: 'Hungry? GoBuyMe. Order jollof rice, suya, shawarma, pizza & more from the best restaurants near you — delivered hot to your door.', cta: 'Order Food Now', href: '/vendors' },
-  { bg: 'linear-gradient(135deg, #1A6EFF 0%, #0077FF 100%)', title: 'Shop Anything, Anytime', sub: '500+ restaurants, stores and pharmacies across Nigeria ready to deliver to your door.', cta: 'Browse Vendors', href: '/vendors' },
+  { bg: 'linear-gradient(135deg, #1A6EFF 0%, #0077FF 100%)', title: 'Shop Anything, Anytime', sub: 'Restaurants, stores and pharmacies in Owerri ready to deliver to your door.', cta: 'Browse Vendors', href: '/vendors' },
   { bg: 'linear-gradient(135deg, #1A9E5F 0%, #22C77A 100%)', title: 'Groceries Delivered Same-Day', sub: 'Shop EMART for groceries, household essentials and more — delivered fast, anywhere in your city.', cta: 'Shop EMART', href: '/vendors?category=EMART' },
 ];
 
@@ -217,7 +217,7 @@ export function HomeClient() {
         {/* ── TRUST ── */}
         <div className="section">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-            {[['⚡', '25-Min Delivery', 'Lightning-fast delivery guaranteed'], ['🔒', 'Secure Payments', 'Paystack-powered, 100% safe'], ['⭐', '500+ Vendors', 'Quality stores across Nigeria'], ['📞', '24/7 Support', 'Always here when you need us']].map(([icon, title, sub]) => (
+            {[['⚡', '25-Min Delivery', 'Lightning-fast delivery guaranteed'], ['🔒', 'Secure Payments', 'Paystack-powered, 100% safe'], ['⭐', 'Local Vendors', 'Quality stores in Owerri'], ['📞', '24/7 Support', 'Always here when you need us']].map(([icon, title, sub]) => (
               <div key={title} className="card card-pad" style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 36, marginBottom: 10 }}>{icon}</div>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{title}</div>

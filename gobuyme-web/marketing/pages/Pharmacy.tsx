@@ -55,7 +55,7 @@ const Pharmacy = () => (
     <section className="border-y-2 border-ink bg-leaf">
       <div className="container py-20 text-center text-leaf-foreground">
         <h2 className="font-display text-4xl md:text-6xl">Need it now?</h2>
-        <p className="mx-auto mt-4 max-w-xl opacity-90">Tap the SOS button in the app for 60-minute emergency delivery in Lagos and Abuja. Available 24/7.</p>
+        <p className="mx-auto mt-4 max-w-xl opacity-90">Tap the SOS button in the app for 60-minute emergency delivery in Owerri. Available 24/7.</p>
         <Link href="/" className="mt-8 inline-flex items-center gap-2 rounded-full border-2 border-ink bg-foreground px-6 py-3 font-mono-pop text-xs uppercase tracking-widest text-background shadow-pop-sm">
           Order meds →
         </Link>

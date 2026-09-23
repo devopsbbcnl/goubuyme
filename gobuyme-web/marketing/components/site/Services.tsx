@@ -5,7 +5,7 @@ const grocery = "/marketing/sticker-grocery.png";
 const burger = "/marketing/sticker-burger.png";
 
 const services = [
-  { tag: "01", title: "Food", desc: "From buka classics to fine dining. Order from 500+ partner restaurants near you.", img: jollof, bg: "bg-primary", textColor: "text-primary-foreground", price: "from ₦1,500" },
+  { tag: "01", title: "Food", desc: "From buka classics to fine dining. Order from partner restaurants near you in Owerri.", img: jollof, bg: "bg-primary", textColor: "text-primary-foreground", price: "from ₦1,500" },
   { tag: "02", title: "Groceries", desc: "Fresh produce, household essentials & market runs delivered same-day.", img: grocery, bg: "bg-leaf", textColor: "text-leaf-foreground", price: "same-day" },
   { tag: "03", title: "Anything", desc: "Pharmacy. Documents. Surprise gifts. If you can buy it, we can get it.", img: burger, bg: "bg-accent", textColor: "text-accent-foreground", price: "errand mode" },
 ];

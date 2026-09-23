@@ -9,7 +9,7 @@ const tasks = [
   { emoji: "📦", name: "Send a package", note: "Documents, gifts, anything that fits on a bike" },
   { emoji: "🏦", name: "Bank runs", note: "Pay cash deposits, pick up cards, drop documents" },
   { emoji: "🛒", name: "Custom shopping", note: "We buy whatever you need from wherever you say" },
-  { emoji: "🚗", name: "Inter-city dispatch", note: "Lagos ↔ Ibadan, Lagos ↔ Abeokuta, same-day" },
+  { emoji: "🚗", name: "Cross-town dispatch", note: "Anywhere within Owerri, same-day" },
   { emoji: "🎁", name: "Surprise drops", note: "Anonymous gifts, flowers, birthday surprises" },
   { emoji: "🔁", name: "Returns & swaps", note: "Take that wrong-size dress back to the seller" },
 ];

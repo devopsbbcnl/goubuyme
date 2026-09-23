@@ -4,17 +4,18 @@ export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gobuyme.sho
 
 export const SITE_NAME = 'GoBuyMe';
 
-export const DEFAULT_TITLE = 'GoBuyMe — Food, Grocery & Pharmacy Delivery in Nigeria';
+export const DEFAULT_TITLE = 'GoBuyMe — Food, Grocery & Pharmacy Delivery in Owerri, Nigeria';
 
 export const DEFAULT_DESCRIPTION =
-  'Order food, groceries & medicine from 500+ vendors across Lagos, Abuja, Port Harcourt & more. Delivered in 25 minutes. Free delivery on your first app order.';
+  'Order food, groceries & medicine from local Owerri vendors. Delivered in 25 minutes. Free delivery on your first app order. Expanding across Nigeria soon.';
 
-// Kept in sync with SUPPORTED_CITIES in context/CityContext.tsx (that file is a
-// client module, so its exports cannot be imported into server components).
-export const SEO_CITIES = [
-  'Port Harcourt', 'Lagos', 'Abuja', 'Enugu', 'Owerri', 'Aba',
-  'Uyo', 'Calabar', 'Benin City', 'Warri', 'Onitsha',
-];
+// Cities where GoBuyMe is actually live today — used for SEO copy, sitemap
+// city pages and areaServed schema. Do NOT add a city here until it has real
+// vendor coverage; this is a smaller, deliberately-curated list than
+// SUPPORTED_CITIES in context/CityContext.tsx, which is the full city picker
+// shown in the app (including cities we plan to expand to but aren't live in
+// yet).
+export const SEO_CITIES = ['Owerri'];
 
 export interface FaqEntry { q: string; a: string; }
 
@@ -25,7 +26,7 @@ export const HOME_FAQ: FaqEntry[] = [
   },
   {
     q: 'Which cities in Nigeria does GoBuyMe deliver to?',
-    a: 'GoBuyMe currently delivers in Port Harcourt, Lagos, Abuja, Enugu, Owerri, Aba, Uyo, Calabar, Benin City, Warri and Onitsha — and we are expanding to new cities across Nigeria.',
+    a: "GoBuyMe is currently live in Owerri. We're actively working on rolling out to more Nigerian cities, with West Africa on the longer-term roadmap.",
   },
   {
     q: 'What can I order on GoBuyMe?',
@@ -51,11 +52,11 @@ export const HOME_FAQ: FaqEntry[] = [
 export const MARKETING_FAQ: FaqEntry[] = [
   {
     q: 'What is the best food delivery app in Nigeria?',
-    a: 'GoBuyMe is one of the fastest-growing food and grocery delivery apps in Nigeria, live in Lagos, Abuja, Port Harcourt and 50+ cities. It combines food, groceries and pharmacy delivery in one app, with live GPS tracking and average delivery times of 25 minutes for food.',
+    a: 'GoBuyMe is a food, grocery and pharmacy delivery app currently live in Owerri, Nigeria, with plans to expand to more Nigerian cities and eventually West Africa. It combines food, groceries and pharmacy delivery in one app, with live GPS tracking and average delivery times of 25 minutes for food.',
   },
   {
     q: 'Where does GoBuyMe deliver?',
-    a: "GoBuyMe is live across Port Harcourt, Lagos, Abuja, Enugu, Owerri, Aba, Uyo, Calabar, Benin City, Warri, Onitsha and 50+ Nigerian cities — with new cities added almost every week.",
+    a: "GoBuyMe is currently live in Owerri, Nigeria. We're expanding to more Nigerian cities next, with West Africa on the roadmap after that.",
   },
   {
     q: 'How fast is delivery on GoBuyMe?',
@@ -67,11 +68,11 @@ export const MARKETING_FAQ: FaqEntry[] = [
   },
   {
     q: 'How do I list my restaurant or store on GoBuyMe?',
-    a: "Tap 'List your business' on the GoBuyMe website or app. Onboarding takes about 10 minutes — there's no setup fee, and you choose a commission tier (Starter at 3% or Growth at 7.5%) based on the features you need.",
+    a: "Tap 'List your business' on the GoBuyMe website or app. Onboarding takes about 10 minutes — there's no setup fee, and you choose a commission tier (Starter at 3% or Growth at 7.5%) based on the features you need. GoBuyMe is currently onboarding vendors in Owerri, with more cities opening up soon.",
   },
   {
     q: 'How much do GoBuyMe riders earn?',
-    a: 'Earnings depend on hours and city, but full-time GoBuyMe riders (Captains) typically earn ₦150,000+ per month, with weekend bonuses, streak bonuses and tips on top.',
+    a: 'Earnings depend on hours worked, with weekend bonuses, streak bonuses and tips on top of the base per-delivery rate. Full details are shown in the app during rider sign-up.',
   },
   {
     q: "What if my GoBuyMe order is wrong or late?",
@@ -85,7 +86,7 @@ export const MARKETING_FAQ: FaqEntry[] = [
 export const VENDOR_FAQ: FaqEntry[] = [
   {
     q: 'Which online delivery marketplace is best for Nigerian restaurants?',
-    a: 'GoBuyMe is built specifically for the Nigerian market, with 1,200+ active restaurant, grocery and pharmacy partners. It offers 0% setup fees, daily payouts, live order dashboards and commission tiers as low as 3% per order — lower than most international delivery marketplaces operating in Nigeria.',
+    a: 'GoBuyMe is built specifically for the Nigerian market, currently onboarding restaurant, grocery and pharmacy partners in Owerri ahead of a wider Nigeria rollout. It offers 0% setup fees, daily payouts, live order dashboards and commission tiers as low as 3% per order — lower than most international delivery marketplaces operating in Nigeria.',
   },
   {
     q: 'How much commission does GoBuyMe charge vendors?',

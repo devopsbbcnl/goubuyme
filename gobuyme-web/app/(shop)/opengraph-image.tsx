@@ -27,7 +27,7 @@ export default function OpengraphImage() {
           Hungry? GoBuyMe. Anything.
         </div>
         <div style={{ fontSize: 34, marginTop: 28, opacity: 0.92, maxWidth: 900 }}>
-          Food, groceries & pharmacy delivered across Nigeria in 25 minutes.
+          Food, groceries & pharmacy delivered across Owerri in 25 minutes.
         </div>
         <div
           style={{
@@ -43,7 +43,7 @@ export default function OpengraphImage() {
             alignSelf: 'flex-start',
           }}
         >
-          🇳🇬 500+ vendors · Lagos · Abuja · Port Harcourt & more
+          🇳🇬 Now live in Owerri
         </div>
       </div>
     ),

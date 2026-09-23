@@ -185,7 +185,7 @@ function RegisterContent() {
         <div style={{ fontSize: 56, marginBottom: 24 }}>{ROLE_ICONS[role] ?? '🛒'}</div>
         <h1>Join as a<br />{ROLE_LABELS[role] ?? 'User'}</h1>
         <p style={{ marginTop: 16 }}>
-          {role === 'customer' && 'Order from 500+ vendors and get delivered to your door in minutes.'}
+          {role === 'customer' && 'Order from local Owerri vendors and get delivered to your door in minutes.'}
           {role === 'vendor' && 'Reach thousands of customers and grow your business with GoBuyMe.'}
           {role === 'rider' && 'Set your own schedule and earn great money delivering in your city.'}
         </p>
