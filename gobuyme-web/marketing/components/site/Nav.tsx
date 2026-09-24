@@ -1,6 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useState } from "react";
 import { Button } from "@/marketing/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/marketing/components/ui/sheet";
 import { Menu, X } from "lucide-react";
@@ -16,6 +17,7 @@ const links = [
 ];
 
 export const Nav = () => {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   return (
     <motion.header
       initial={{ y: -40, opacity: 0 }}
@@ -49,7 +51,7 @@ export const Nav = () => {
         
         {/* Mobile Navigation */}
         <div className="md:hidden">
-          <Sheet>
+          <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon">
                 <Menu className="h-5 w-5" />
@@ -63,10 +65,10 @@ export const Nav = () => {
                     key={l.href}
                     href={l.href.startsWith('#') ? l.href : undefined}
                     onClick={(e) => {
+                      setMobileNavOpen(false);
                       if (!l.href.startsWith('#')) {
                         e.preventDefault();
                         window.location.href = l.href;
-                        window.close();
                       }
                     }}
                     className="font-mono-pop text-xs uppercase tracking-widest hover:text-primary transition-colors py-2"
