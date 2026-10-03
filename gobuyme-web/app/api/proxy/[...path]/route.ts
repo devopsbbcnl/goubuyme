@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 // already in use at gobuyme-admin-nextjs/app/api/proxy/[...path]/route.ts.
 // Every authenticated call from services/api.ts goes through here; the access
 // and refresh tokens live only in httpOnly cookies this route sets and reads.
-const BACKEND = process.env.BACKEND_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
+// Trimmed so a stray space or trailing slash in the env var can't produce `//` paths.
+const BACKEND = (process.env.BACKEND_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1').trim().replace(/\/+$/, '');
 const ACCESS_TTL = 15 * 60; // 15 minutes — matches JWT_ACCESS_EXPIRES_IN
 const REFRESH_TTL = 30 * 24 * 60 * 60;
 
@@ -23,6 +24,10 @@ async function callBackend(path: string, method: string, search: string, body: s
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     ...(body !== undefined ? { body } : {}),
+    // Never auto-follow redirects: fetch rewrites a redirected POST into a bodyless
+    // GET, which turns a misconfigured backend URL (e.g. http:// instead of https://)
+    // into a confusing 404 from the wrong route. Surface the 3xx instead.
+    redirect: 'manual',
   });
 }
 
@@ -44,6 +49,7 @@ function refreshTokens(refresh: string) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken: refresh }),
+        redirect: 'manual',
       });
       if (!r.ok) return null;
       const refreshed = await r.json() as { data: { accessToken: string; refreshToken: string } };
@@ -80,6 +86,10 @@ async function proxyRequest(req: NextRequest, pathSegments: string[]) {
         upstream = await callBackend(path, req.method, search, body, refreshedAccess);
       }
     }
+  }
+
+  if (upstream.status >= 300 && upstream.status < 400) {
+    console.error(`[proxy] backend redirected ${req.method} /${path} -> ${upstream.status} ${upstream.headers.get('location')}; check BACKEND_API_URL (scheme/host)`);
   }
 
   const text = await upstream.text();

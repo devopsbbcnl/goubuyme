@@ -26,7 +26,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://accounts.google.com`,
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
   "img-src 'self' data: https://res.cloudinary.com https://images.pexels.com https://ui-avatars.com https://picsum.photos",
   "font-src 'self' data: https://fonts.gstatic.com",
   `connect-src 'self' ${apiOrigin} ${apiWsOrigin} https://accounts.google.com https://api.cloudinary.com https://www.google-analytics.com https://tiles.openfreemap.org`,
