@@ -10,7 +10,6 @@ import { useTheme } from '@/context/ThemeContext';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useAuth } from '@/context/AuthContext';
 import { useRiderLocation } from '@/hooks/useRiderLocation';
-import { connectSockets } from '@/services/socketService';
 import TrackingMap, { type TrackingMapHandle } from '@/components/maps/TrackingMap';
 import DeliveryPinModal from '@/components/DeliveryPinModal';
 import api from '@/services/api';
@@ -140,11 +139,7 @@ export default function ActiveDeliveryScreen() {
       setAdvancing(false);
     }
 
-    try {
-      const { ordersSocket } = connectSockets(user?.token ?? undefined);
-      ordersSocket.emit('order:updateStatus', { orderId, status: newStatus });
-    } catch { /* socket optional */ }
-
+    // The PATCH above broadcasts the new status to the order room server-side.
     bumpStep();
     return { ok: true };
   };

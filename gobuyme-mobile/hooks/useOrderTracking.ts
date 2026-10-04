@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { connectSockets } from '@/services/socketService';
+import { useEffect, useState, useCallback } from 'react';
+import { connectSockets, joinOrderRoom, leaveOrderRoom } from '@/services/socketService';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 
@@ -37,7 +37,6 @@ export function useOrderTracking(orderId: string | null) {
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [cancellableUntil, setCancellableUntil] = useState<string | null>(null);
   const [isCancellable, setIsCancellable] = useState(false);
-  const joined = useRef(false);
 
   const fetchOrder = useCallback(async () => {
     if (!orderId) return;
@@ -91,11 +90,7 @@ export function useOrderTracking(orderId: string | null) {
     if (!orderId) return;
 
     const { ordersSocket } = connectSockets(user?.token ?? undefined);
-
-    if (!joined.current) {
-      ordersSocket.emit('order:join', { orderId });
-      joined.current = true;
-    }
+    joinOrderRoom(orderId);
 
     const onStatus = ({ status: s }: { status: OrderStatus }) => {
       setStatus(s);
@@ -114,6 +109,7 @@ export function useOrderTracking(orderId: string | null) {
     return () => {
       ordersSocket.off('order:status', onStatus);
       ordersSocket.off('rider:location', onLocation);
+      leaveOrderRoom(orderId);
     };
   }, [orderId, user?.token, fetchOrder]);
 

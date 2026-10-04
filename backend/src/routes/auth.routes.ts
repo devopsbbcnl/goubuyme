@@ -3,6 +3,7 @@ import {
   register, login, refresh, logout, googleAuth,
   getMe, updateProfile, forgotPassword, resetPassword, changePassword,
   verifyOtp, resendOtp, activationStatus, requestPasswordOtp, deleteAccount,
+  socketTicket, sendPhoneVerificationCode, verifyPhoneCode,
 } from '../controllers/auth.controller';
 import { validate } from '../middleware/validate.middleware';
 import { verifyToken } from '../middleware/auth.middleware';
@@ -11,7 +12,7 @@ import { authLimiter } from '../middleware/rateLimiter.middleware';
 import {
   registerSchema, loginSchema, googleAuthSchema, forgotPasswordSchema,
   resetPasswordSchema, refreshTokenSchema, verifyOtpSchema, resendOtpSchema,
-  changePasswordSchema, deleteAccountSchema,
+  changePasswordSchema, deleteAccountSchema, sendPhoneOtpSchema, verifyPhoneOtpSchema,
 } from '../validators/auth.validator';
 import mfaRoutes from './mfa.routes';
 
@@ -27,6 +28,9 @@ router.post('/google', authLimiter, validate(googleAuthSchema), googleAuth);
 router.post('/refresh', validate(refreshTokenSchema), refresh);
 router.post('/logout', verifyToken, logout);
 router.get('/me', verifyToken, getMe);
+router.post('/socket-ticket', verifyToken, socketTicket);
+router.post('/phone/send-otp', verifyToken, authLimiter, validate(sendPhoneOtpSchema), sendPhoneVerificationCode);
+router.post('/phone/verify', verifyToken, validate(verifyPhoneOtpSchema), verifyPhoneCode);
 router.get('/activation-status', verifyToken, activationStatus);
 router.patch('/profile', verifyToken, updateProfile);
 router.post('/request-password-otp', verifyToken, requestPasswordOtp);

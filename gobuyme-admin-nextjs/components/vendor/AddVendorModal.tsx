@@ -7,7 +7,8 @@ import { useTheme } from '@/context/ThemeContext';
 const CLOUD_NAME    = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME    ?? '';
 const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
-type DocType = 'NIN' | 'DRIVERS_LICENSE' | 'PASSPORT';
+// NIN/BVN are deliberately not collected from vendors (NDPA data minimisation).
+type DocType = 'DRIVERS_LICENSE' | 'PASSPORT';
 type Tier    = 'TIER_1' | 'TIER_2';
 type Step    = 1 | 2 | 3;
 
@@ -22,7 +23,6 @@ const CATEGORIES = [
 ];
 
 const DOC_META: Record<DocType, { label: string; numberLabel: string; placeholder: string; backRequired: boolean }> = {
-  NIN:             { label: 'NIN',              numberLabel: 'NIN',             placeholder: '11-digit NIN',  backRequired: false },
   DRIVERS_LICENSE: { label: "Driver's License", numberLabel: 'License Number',  placeholder: 'e.g. ABC123XY', backRequired: true  },
   PASSPORT:        { label: 'Passport',          numberLabel: 'Passport Number', placeholder: 'e.g. A12345678', backRequired: false },
 };
@@ -72,7 +72,6 @@ export function AddVendorModal({ open, onClose, onCreated }: Props) {
   const [docFrontPreview, setDocFrontPreview] = useState('');
   const [docBackUrl,      setDocBackUrl]      = useState('');
   const [docBackPreview,  setDocBackPreview]  = useState('');
-  const [bvn,             setBvn]             = useState('');
   const [selfieUrl,       setSelfieUrl]       = useState('');
   const [selfiePreview,   setSelfiePreview]   = useState('');
   const [uploadingFront,  setUploadingFront]  = useState(false);
@@ -96,7 +95,7 @@ export function AddVendorModal({ open, onClose, onCreated }: Props) {
     setLogoUrl(''); setLogoPreview(''); setCoverUrl(''); setCoverPreview('');
     setDocType(null); setDocNumber('');
     setDocFrontUrl(''); setDocFrontPreview(''); setDocBackUrl(''); setDocBackPreview('');
-    setBvn(''); setSelfieUrl(''); setSelfiePreview('');
+    setSelfieUrl(''); setSelfiePreview('');
     setError(''); setSaving(false);
   }
 
@@ -181,7 +180,6 @@ export function AddVendorModal({ open, onClose, onCreated }: Props) {
           docNumber: docNumber.trim(),
           docImageUrl: docFrontUrl,
           ...(docBackUrl  ? { docImageUrlBack: docBackUrl } : {}),
-          ...(bvn.trim()  ? { bvn: bvn.trim() }             : {}),
           ...(selfieUrl   ? { selfieUrl }                    : {}),
         } : {}),
       });
@@ -396,9 +394,6 @@ export function AddVendorModal({ open, onClose, onCreated }: Props) {
                   )}
                 </div>
                 <Row>
-                  <Field label="BVN (optional)" T={T}>
-                    <FInput value={bvn} onChange={v => setBvn(v.replace(/\D/g, '').slice(0, 11))} placeholder="11-digit BVN" T={T} />
-                  </Field>
                   <Field label="Selfie (optional)" T={T}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <ImgBox preview={selfiePreview} uploading={uploadingSelfie}

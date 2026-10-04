@@ -49,14 +49,14 @@ interface BizVerif {
   cacNumber: string | null;
   cacImageUrl: string | null;
   tin: string | null;
-  directorNin: string | null;
   status: 'PENDING' | 'VERIFIED' | 'REJECTED';
   reviewNote: string | null;
 }
 
-type Director = { name: string; phone: string; nin: string };
+// Director NINs are deliberately not collected (NDPA data minimisation).
+type Director = { name: string; phone: string };
 
-const BLANK_DIRECTOR: Director = { name: '', phone: '', nin: '' };
+const BLANK_DIRECTOR: Director = { name: '', phone: '' };
 
 export default function VendorBusinessVerificationScreen() {
   const { theme: T } = useTheme();
@@ -83,8 +83,6 @@ export default function VendorBusinessVerificationScreen() {
         setCacNumber(data.cacNumber ?? '');
         setCacImageUrl(data.cacImageUrl ?? '');
         setTin(data.tin ?? '');
-        // Seed first director's NIN from legacy field; name/phone start blank
-        setDirectors([{ name: '', phone: '', nin: data.directorNin ?? '' }]);
       }
     } catch {
       // no existing record is fine
@@ -128,18 +126,16 @@ export default function VendorBusinessVerificationScreen() {
       Alert.alert('Required', 'Please enter your CAC number or upload your CAC certificate.');
       return;
     }
-    const filledDirectors = directors.filter(d => d.name.trim() || d.phone.trim() || d.nin.trim());
+    const filledDirectors = directors.filter(d => d.name.trim() || d.phone.trim());
     try {
       setSaving(true);
       await api.post('/vendors/me/business-verification', {
         cacNumber: cacNumber.trim() || null,
         cacImageUrl: cacImageUrl || null,
         tin: tin.trim() || null,
-        directorNin: filledDirectors[0]?.nin.trim() || null,
         directors: filledDirectors.map(d => ({
           name: d.name.trim() || null,
           phone: d.phone.trim() || null,
-          nin: d.nin.trim() || null,
         })),
       });
       setExisting(prev => prev ? { ...prev, status: 'PENDING', reviewNote: null } : prev);
@@ -162,7 +158,6 @@ export default function VendorBusinessVerificationScreen() {
       cacNumber.trim() !== (existing.cacNumber ?? '') ||
       cacImageUri !== '' ||
       tin.trim() !== (existing.tin ?? '') ||
-      directors[0]?.nin.trim() !== (existing.directorNin ?? '') ||
       hasDirectorChange ||
       directors.length > 1
     );
@@ -308,18 +303,6 @@ export default function VendorBusinessVerificationScreen() {
                   placeholderTextColor={T.textMuted}
                   keyboardType="phone-pad"
                   maxLength={14}
-                  style={[styles.input, { backgroundColor: T.bg, borderColor: T.border, color: T.text }]}
-                />
-
-                {/* NIN */}
-                <Text style={[styles.label, { color: T.textSec, marginTop: 12 }]}>NIN — Optional</Text>
-                <TextInput
-                  value={director.nin}
-                  onChangeText={v => updateDirector(index, 'nin', v)}
-                  placeholder="11-digit NIN"
-                  placeholderTextColor={T.textMuted}
-                  keyboardType="numeric"
-                  maxLength={11}
                   style={[styles.input, { backgroundColor: T.bg, borderColor: T.border, color: T.text }]}
                 />
               </View>

@@ -33,10 +33,10 @@ type OptionGroup = {
   options: OptionItem[];
 };
 
-type DocType = 'NIN' | 'DRIVERS_LICENSE' | 'PASSPORT';
+// NIN/BVN are deliberately not collected from vendors (NDPA data minimisation).
+type DocType = 'DRIVERS_LICENSE' | 'PASSPORT';
 
 const DOC_META: Record<DocType, { label: string; numberLabel: string; placeholder: string; backRequired: boolean }> = {
-  NIN: { label: 'NIN', numberLabel: 'NIN', placeholder: '11-digit NIN (e.g. 12345678901)', backRequired: false },
   DRIVERS_LICENSE: { label: "Driver's License", numberLabel: 'License Number', placeholder: 'e.g. ABC123456XY', backRequired: true },
   PASSPORT: { label: 'Passport', numberLabel: 'Passport Number', placeholder: 'e.g. A12345678', backRequired: false },
 };
@@ -169,7 +169,6 @@ export default function VendorCompleteProfileScreen() {
   const [docBackUrl, setDocBackUrl] = useState('');
   const [uploadingDocFront, setUploadingDocFront] = useState(false);
   const [uploadingDocBack, setUploadingDocBack] = useState(false);
-  const [bvn, setBvn] = useState('');
   const [selfieUri, setSelfieUri] = useState('');
   const [selfieUrl, setSelfieUrl] = useState('');
   const [uploadingSelfie, setUploadingSelfie] = useState(false);
@@ -317,7 +316,6 @@ export default function VendorCompleteProfileScreen() {
         number: docNumber.trim(),
         imageUrl: docFrontUrl,
         imageUrlBack: docBackUrl || null,
-        bvn: bvn.trim() || null,
         selfieUrl: selfieUrl || null,
       });
       const validItems = menuItems.filter(
@@ -615,20 +613,6 @@ export default function VendorCompleteProfileScreen() {
                 </TouchableOpacity>
               )}
             </View>
-
-            {/* BVN */}
-            <Text style={[styles.fieldLabel, { color: T.textSec, marginTop: 16, marginBottom: 6 }]}>
-              BVN (Bank Verification Number) — Optional
-            </Text>
-            <TextInput
-              value={bvn}
-              onChangeText={setBvn}
-              placeholder="11-digit BVN"
-              placeholderTextColor={T.textMuted}
-              keyboardType="numeric"
-              maxLength={11}
-              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text }]}
-            />
 
             {/* Selfie */}
             <Text style={[styles.fieldLabel, { color: T.textSec, marginTop: 16, marginBottom: 8 }]}>

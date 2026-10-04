@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PhoneVerifyBanner } from '@/components/ui/PhoneVerifyBanner';
 
 const WEEK_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -266,6 +267,10 @@ export default function RiderDashboardScreen() {
 					/>
 				}
 			>
+				<View style={{ paddingHorizontal: 20 }}>
+					<PhoneVerifyBanner role="rider" />
+				</View>
+
 				{/* Header */}
 				<View style={styles.header}>
 					<View>

@@ -324,7 +324,7 @@ export const getAdminRiderDetail = catchAsync(async (req: Request, res: Response
       user: {
         select: {
           name: true, email: true, phone: true, avatar: true,
-          isEmailVerified: true, isActive: true, createdAt: true,
+          isEmailVerified: true, isPhoneVerified: true, isActive: true, createdAt: true,
         },
       },
       document: {
@@ -1126,20 +1126,20 @@ export const getVendorDetail = catchAsync(async (req: Request, res: Response) =>
       user: {
         select: {
           name: true, email: true, phone: true,
-          isEmailVerified: true, isActive: true, createdAt: true,
+          isEmailVerified: true, isPhoneVerified: true, isActive: true, createdAt: true,
         },
       },
       document: {
         select: {
           id: true, type: true, number: true,
-          imageUrl: true, imageUrlBack: true, selfieUrl: true, bvn: true,
+          imageUrl: true, imageUrlBack: true, selfieUrl: true,
           status: true, reviewNote: true,
           createdAt: true, updatedAt: true,
         },
       },
       businessVerification: {
         select: {
-          id: true, cacNumber: true, cacImageUrl: true, tin: true, directorNin: true,
+          id: true, cacNumber: true, cacImageUrl: true, tin: true,
           status: true, reviewNote: true, createdAt: true, updatedAt: true,
         },
       },
@@ -1198,7 +1198,6 @@ const VENDOR_DOCUMENT_ITEMS: Record<string, string> = {
   ID_FRONT: 'ID document (front)',
   ID_BACK: 'ID document (back)',
   SELFIE: 'Selfie photo',
-  BVN: 'BVN',
 };
 
 export const updateVendorDocumentStatus = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -1421,11 +1420,15 @@ export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Respon
     name, email, phone, password,
     businessName, category, address, city, state,
     description, logo, coverImage, openingTime, closingTime, tier,
-    docType, docNumber, docImageUrl, docImageUrlBack, bvn, selfieUrl,
+    docType, docNumber, docImageUrl, docImageUrlBack, selfieUrl,
   } = req.body;
 
   if (!name?.trim() || !email?.trim() || !password || !businessName?.trim() || !category || !address?.trim() || !city?.trim()) {
     return apiResponse.error(res, 'Name, email, password, business name, category, address, and city are required.', 400);
+  }
+  // Vendors are not asked for NIN/BVN (data minimisation) — see vendor.controller VALID_DOC_TYPES.
+  if (docType && !['DRIVERS_LICENSE', 'PASSPORT'].includes(docType)) {
+    return apiResponse.error(res, 'Document type must be DRIVERS_LICENSE or PASSPORT.', 400);
   }
   if (!['RESTAURANT', 'EMART', 'PHARMACY', 'BAKERY', 'DRINKS', 'BUTCHER', 'GAS'].includes(category)) {
     return apiResponse.error(res, 'Category must be RESTAURANT, EMART, PHARMACY, BAKERY, DRINKS, BUTCHER, or GAS.', 400);
@@ -1488,7 +1491,6 @@ export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Respon
           number: docNumber.trim(),
           imageUrl: docImageUrl,
           ...(docImageUrlBack ? { imageUrlBack: docImageUrlBack } : {}),
-          ...(bvn?.trim() ? { bvn: bvn.trim() } : {}),
           ...(selfieUrl ? { selfieUrl } : {}),
         },
       });

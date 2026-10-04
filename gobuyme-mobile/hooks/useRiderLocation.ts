@@ -30,9 +30,9 @@ export function useRiderLocation(riderId: string | null, active: boolean) {
         ({ coords }) => {
           setPosition({ latitude: coords.latitude, longitude: coords.longitude });
           const socket = getRidersSocket();
-          if (!socket || !riderId) return;
+          if (!socket) return;
+          // The server takes the rider from the authenticated socket, not the payload.
           socket.emit('rider:updateLocation', {
-            riderId,
             latitude: coords.latitude,
             longitude: coords.longitude,
           });

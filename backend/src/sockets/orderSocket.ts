@@ -1,32 +1,41 @@
-import { Socket, Namespace } from 'socket.io';
+import { Socket } from 'socket.io';
+import prisma from '../config/db';
 import logger from '../utils/logger';
+import { getIdentity } from './auth';
 
-export const setupOrderSocket = (socket: Socket, _ns: Namespace): void => {
-  socket.on('order:join', ({ orderId }: { orderId: string }) => {
-    socket.join(`order:${orderId}`);
-    logger.info(`Socket ${socket.id} joined order:${orderId}`);
-  });
+/**
+ * Clients may only *listen* on /orders. Every state change (status updates, chat
+ * messages, new orders) is emitted by the REST controllers after they validate and
+ * persist it, so there are deliberately no client→server relay events here: those
+ * used to let any connected socket fake order statuses or chat senders.
+ *
+ * Personal rooms (user:, vendor:) are joined automatically at connection time from
+ * the verified identity — see sockets/index.ts.
+ */
+export const setupOrderSocket = (socket: Socket): void => {
+  socket.on('order:join', async ({ orderId }: { orderId: string }) => {
+    const identity = getIdentity(socket);
+    if (!identity || typeof orderId !== 'string') return;
 
-  socket.on('order:updateStatus', ({ orderId, status }: { orderId: string; status: string }) => {
-    socket.to(`order:${orderId}`).emit('order:status', { orderId, status });
-  });
+    try {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { customerId: true, vendorId: true, riderId: true },
+      });
+      if (!order) return;
 
-  socket.on('vendor:join', ({ vendorId }: { vendorId: string }) => {
-    socket.join(`vendor:${vendorId}`);
-  });
+      const isParty =
+        (identity.customerId && order.customerId === identity.customerId) ||
+        (identity.vendorId && order.vendorId === identity.vendorId) ||
+        (identity.riderId && order.riderId === identity.riderId);
+      if (!isParty) {
+        logger.warn(`Socket ${socket.id} (user ${identity.userId}) denied join for order:${orderId}`);
+        return;
+      }
 
-  socket.on('user:join', ({ userId }: { userId: string }) => {
-    socket.join(`user:${userId}`);
-    logger.info(`Socket ${socket.id} joined user:${userId}`);
-  });
-
-  socket.on('message:send', ({ conversationId, content }: { conversationId: string; content: string }) => {
-    socket.to(`conversation:${conversationId}`).emit('message:receive', { conversationId, content, senderId: socket.handshake.auth.userId });
-    logger.info(`Message sent in conversation:${conversationId}`);
-  });
-
-  socket.on('message:read', ({ conversationId }: { conversationId: string }) => {
-    socket.to(`conversation:${conversationId}`).emit('message:read', { conversationId });
-    logger.info(`Messages marked as read in conversation:${conversationId}`);
+      socket.join(`order:${orderId}`);
+    } catch (err) {
+      logger.error(`order:join failed for ${orderId}: ${(err as Error).message}`);
+    }
   });
 };

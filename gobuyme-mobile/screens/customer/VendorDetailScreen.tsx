@@ -10,6 +10,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { shadows } from '@/theme';
 import api from '@/services/api';
+import { PhoneVerifiedBadge } from '@/components/ui/PhoneVerifiedBadge';
 
 type VerificationBadge = 'UNVERIFIED' | 'ID_VERIFIED' | 'BUSINESS_VERIFIED' | 'PREMIUM_VERIFIED';
 
@@ -29,6 +30,7 @@ interface VendorDetail {
   closingTime: string | null;
   avgDeliveryTime: number | null;
   verificationBadge: VerificationBadge;
+  phoneVerified?: boolean;
 }
 
 const BADGE_META: Record<string, { label: string; color: string; icon: string }> = {
@@ -241,6 +243,11 @@ export default function VendorDetailScreen() {
                   </View>
                 );
               })()}
+              {vendor.phoneVerified && (
+                <View style={{ marginTop: 4 }}>
+                  <PhoneVerifiedBadge />
+                </View>
+              )}
             </View>
             <View style={[styles.openBadge, { backgroundColor: vendor.isOpen ? 'rgba(26,158,95,0.15)' : 'rgba(226,59,59,0.15)' }]}>
               <Text style={[styles.openText, { color: vendor.isOpen ? T.success : T.error }]}>

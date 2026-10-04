@@ -7,6 +7,7 @@ import { haversineDistance, estimateDeliveryMinutes } from '../services/distance
 import { calcRiderEarning } from '../services/payout.service';
 import { OrderStatus } from '@prisma/client';
 import { getIO } from '../config/socket';
+import { isValidCoordinate, publishRiderLocation } from '../sockets/riderLocation';
 import { notifyUser } from '../services/notification.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 
@@ -28,7 +29,7 @@ export const getMyRiderProfile = catchAsync(async (req: AuthRequest, res: Respon
   const rider = await prisma.rider.findUnique({
     where: { userId: req.user!.userId },
     include: {
-      user: { select: { name: true, email: true, phone: true, avatar: true } },
+      user: { select: { name: true, email: true, phone: true, avatar: true, isPhoneVerified: true } },
       payoutAccount: { select: { bankName: true, accountNumber: true, accountName: true } },
       document: { select: { guarantorName: true, guarantorPhone: true, guarantorAddress: true, status: true } },
     },
@@ -455,24 +456,16 @@ export const getRiderEarnings = catchAsync(async (req: AuthRequest, res: Respons
 
 // PATCH /riders/me/location
 export const updateLocation = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { latitude, longitude } = req.body;
-  if (latitude == null || longitude == null) {
-    return apiResponse.error(res, 'latitude and longitude are required.', 400);
+  const latitude = parseFloat(req.body?.latitude);
+  const longitude = parseFloat(req.body?.longitude);
+  if (!isValidCoordinate(latitude, longitude)) {
+    return apiResponse.error(res, 'Valid latitude and longitude are required.', 400);
   }
 
   const rider = await resolveRider(req.user!.userId);
   if (!rider) return apiResponse.error(res, 'Rider not found.', 404);
 
-  await prisma.rider.update({
-    where: { id: rider.id },
-    data: { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
-  });
-
-  try {
-    getIO().of('/riders').to(`rider:${rider.id}`).emit('rider:location', {
-      riderId: rider.id, lat: latitude, lng: longitude,
-    });
-  } catch { /* socket may not be connected */ }
+  await publishRiderLocation(rider.id, latitude, longitude);
 
   return apiResponse.success(res, 'Location updated.');
 });

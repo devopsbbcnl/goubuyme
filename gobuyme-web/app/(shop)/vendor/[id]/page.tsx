@@ -6,6 +6,7 @@ import { useCart } from '@/context/CartContext';
 import { useToast } from '@/components/ui/Toast';
 import Image from 'next/image';
 import api from '@/services/api';
+import { PhoneVerifiedBadge } from '@/components/ui/PhoneVerification';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ interface VendorDetail {
   closingTime?: string;
   avgDeliveryTime?: number;
   verificationBadge?: string;
+  phoneVerified?: boolean;
   commissionTier?: string;
   availability?: Availability;
 }
@@ -304,11 +306,12 @@ export default function VendorDetailPage() {
             <div className="between" style={{ marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <h1 style={{ fontSize: 22, fontWeight: 800 }}>{vendor.businessName}</h1>
-                {vendor.verificationBadge && vendor.verificationBadge !== 'NONE' && (
+                {vendor.verificationBadge && vendor.verificationBadge !== 'UNVERIFIED' && (
                   <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--brand-tint)', color: 'var(--brand)', padding: '2px 8px', borderRadius: 'var(--r-pill)', letterSpacing: '.3px', flexShrink: 0 }}>
                     ✓ {vendor.verificationBadge.replace(/_/g, ' ')}
                   </span>
                 )}
+                {vendor.phoneVerified && <PhoneVerifiedBadge />}
               </div>
               <span className={`badge-open${vendor.isOpen ? '' : ' badge-closed'}`} style={{ flexShrink: 0 }}>
                 {vendor.isOpen ? '● Open' : '● Closed'}

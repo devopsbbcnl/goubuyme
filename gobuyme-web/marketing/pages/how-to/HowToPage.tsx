@@ -367,8 +367,7 @@ function GettingStartedContent({ role, T }: { role: Role; T: Record<string, stri
             'Upload NIN (front and back)',
             'Upload selfie photo',
             'Upload vehicle photo',
-            'Provide guarantor details (name, phone, address)',
-            'Optional: BVN for faster payouts'
+            'Provide guarantor details (name, phone, address)'
           ]
         },
         {

@@ -20,7 +20,6 @@ const VENDOR_DOCUMENT_ITEMS: { value: string; label: string }[] = [
   { value: 'ID_FRONT', label: 'ID document (front)' },
   { value: 'ID_BACK', label: 'ID document (back)' },
   { value: 'SELFIE', label: 'Selfie photo' },
-  { value: 'BVN', label: 'BVN' },
 ];
 
 interface Vendor {
@@ -51,7 +50,7 @@ interface VendorDetail {
   responseRate30d: number | null; noResponseIncidents30d: number;
   user: {
     name: string; email: string; phone: string | null;
-    isEmailVerified: boolean; isActive: boolean; createdAt: string;
+    isEmailVerified: boolean; isPhoneVerified?: boolean; isActive: boolean; createdAt: string;
   };
   document: {
     id: string; type: string; number: string;
@@ -606,6 +605,7 @@ export default function VendorsPage() {
                   ['Email', detail.user.email],
                   ['Phone', detail.user.phone ?? '—'],
                   ['Email verified', detail.user.isEmailVerified ? 'Yes' : 'No'],
+                  ['Phone verified (SMS)', detail.user.isPhoneVerified ? 'Yes' : 'No'],
                   ['Account active', detail.user.isActive ? 'Yes' : 'No'],
                   ['Registered', fmtDate(detail.user.createdAt)],
                 ]} T={T} />

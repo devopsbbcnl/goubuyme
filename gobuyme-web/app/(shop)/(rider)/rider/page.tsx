@@ -7,6 +7,7 @@ import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
+import { PhoneVerifyBanner } from '@/components/ui/PhoneVerification';
 
 // Flat shape returned by GET /riders/me/stats (see rider.controller.ts getRiderDashboardStats)
 interface Stats { todayDeliveries: number; todayEarnings: number; weeklyEarnings: number[]; rating: number; isOnline: boolean; nearbyJobs: number; }
@@ -120,6 +121,7 @@ export default function RiderDashboard() {
 
   return (
     <div>
+      <PhoneVerifyBanner role="rider" />
       <div className="between" style={{ marginBottom: 28 }}>
         <div>
           <h1 className="t-page">Dashboard</h1>
