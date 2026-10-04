@@ -62,6 +62,12 @@ const MENU_ROWS: MenuRow[] = [
 		route: '/(vendor)/promotions',
 	},
 	{
+		icon: '🪪',
+		label: 'Identity Document',
+		sub: "Driver's license or passport",
+		route: '/(vendor)/identity-document',
+	},
+	{
 		icon: '🏢',
 		label: 'Business Verification',
 		sub: 'CAC, TIN & director ID',

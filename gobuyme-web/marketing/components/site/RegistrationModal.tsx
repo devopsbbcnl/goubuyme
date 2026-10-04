@@ -56,7 +56,6 @@ export function useTierRates() {
 const VENDOR_STEP_FIELDS: Record<number, string[]> = {
   1: ["name", "email", "phone", "password", "confirmPassword", "terms"],
   2: ["businessName", "category", "address", "city", "state", "commissionTier"],
-  3: [],
 };
 
 const RIDER_STEP_FIELDS: Record<number, string[]> = {
@@ -106,10 +105,6 @@ const vendorSchema = z
     commissionTier: z.enum(["TIER_1", "TIER_2"], {
       required_error: "Select a commission plan",
     }),
-    // Step 3 — identity (not sent to API, all optional since step is skippable)
-    // NIN/BVN are deliberately not collected from vendors (NDPA data minimisation).
-    docType: z.enum(["DRIVERS_LICENCE", "PASSPORT"]).optional(),
-    docNumber: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.password !== data.confirmPassword) {
@@ -118,22 +113,6 @@ const vendorSchema = z
         message: "Passwords don't match",
         path: ["confirmPassword"],
       });
-    }
-    if (data.docType && data.docNumber) {
-      if (data.docType === "DRIVERS_LICENCE" && !/^[A-Za-z0-9]+$/.test(data.docNumber)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Alphanumeric only (e.g. ABC123456XY)",
-          path: ["docNumber"],
-        });
-      }
-      if (data.docType === "PASSPORT" && !/^[A-Za-z]\d{8}$/.test(data.docNumber)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Format: one letter + 8 digits (e.g. A12345678)",
-          path: ["docNumber"],
-        });
-      }
     }
   });
 
@@ -177,9 +156,10 @@ async function registerUser(payload: object): Promise<void> {
     throw new Error("Cannot reach the server. Check your connection.");
   }
   if (res.ok) return;
-  if (res.status === 409) throw new Error("An account with this email already exists.");
   if (res.status === 429) throw new Error("Too many attempts. Please wait a moment.");
+  // 409 can mean email, phone or store name is taken — the server says which.
   const body = await res.json().catch(() => null);
+  if (res.status === 409) throw new Error(body?.message || "An account with these details already exists.");
   throw new Error(body?.message || "Something went wrong. Please try again.");
 }
 
@@ -404,12 +384,8 @@ function VendorForm({ onSuccess }: { onSuccess: () => void }) {
       city: "",
       state: "",
       commissionTier: undefined,
-      docType: undefined,
-      docNumber: "",
     },
   });
-
-  const docType = form.watch("docType");
 
   const advance = async () => {
     const fields = VENDOR_STEP_FIELDS[step] as (keyof VendorValues)[];
@@ -444,19 +420,15 @@ function VendorForm({ onSuccess }: { onSuccess: () => void }) {
     }
   };
 
-  const handleStep3Submit = async () => {
-    const v = form.getValues();
-    if (v.docType || v.docNumber) {
-      const valid = await form.trigger(["docType", "docNumber"]);
-      if (!valid) return;
-    }
-    await submitForm();
+  const handleFinalSubmit = async () => {
+    const valid = await form.trigger(VENDOR_STEP_FIELDS[2] as (keyof VendorValues)[]);
+    if (valid) await submitForm();
   };
 
   return (
     <Form {...form}>
       <form>
-        <StepIndicator current={step} total={3} />
+        <StepIndicator current={step} total={2} />
 
         {/* ── Step 1: Account Details ── */}
         {step === 1 && (
@@ -608,106 +580,20 @@ function VendorForm({ onSuccess }: { onSuccess: () => void }) {
                 )}
               />
             </div>
+            {apiError && <div className="mt-4"><ApiError message={apiError} /></div>}
             <div className="mt-5 flex gap-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setStep(1)}
+                disabled={submitting}
                 className="flex-1 rounded-full border-2 border-ink font-mono-pop text-xs uppercase tracking-widest h-11"
               >
                 ← Back
               </Button>
               <Button
                 type="button"
-                onClick={advance}
-                className="flex-1 rounded-full border-2 border-ink bg-primary text-primary-foreground shadow-pop-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none font-mono-pop text-xs uppercase tracking-widest h-11"
-              >
-                Next →
-              </Button>
-            </div>
-          </>
-        )}
-
-        {/* ── Step 3: Identity Verification ── */}
-        {step === 3 && (
-          <>
-            <p className="mb-4 font-mono-pop text-[10px] uppercase tracking-widest text-muted-foreground">
-              Step 3 — Identity Verification
-            </p>
-            <div className="space-y-4">
-              <div className="rounded-2xl border-2 border-dashed border-ink/40 bg-muted/40 px-4 py-3 text-sm text-muted-foreground leading-relaxed">
-                We'll verify your identity before approving your account. You can also complete
-                this step after logging in to the app.
-              </div>
-              <FormField
-                control={form.control}
-                name="docType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-mono-pop text-xs uppercase tracking-widest">Document Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="border-2 border-ink">
-                          <SelectValue placeholder="Select document type…" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="DRIVERS_LICENCE">Driver's Licence</SelectItem>
-                        <SelectItem value="PASSPORT">International Passport</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="docNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-mono-pop text-xs uppercase tracking-widest">Document Number</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        disabled={!docType}
-                        placeholder={
-                          docType === "DRIVERS_LICENCE"
-                            ? "ABC123456XY"
-                            : docType === "PASSPORT"
-                            ? "A12345678"
-                            : "Select a document type first"
-                        }
-                        className="border-2 border-ink"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {apiError && <ApiError message={apiError} />}
-            </div>
-            <div className="mt-5 flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStep(2)}
-                disabled={submitting}
-                className="rounded-full border-2 border-ink font-mono-pop text-xs uppercase tracking-widest h-11 px-4"
-              >
-                ← Back
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={submitForm}
-                disabled={submitting}
-                className="flex-1 rounded-full border-2 border-ink font-mono-pop text-xs uppercase tracking-widest h-11"
-              >
-                {submitting ? "Submitting…" : "Skip for now"}
-              </Button>
-              <Button
-                type="button"
-                onClick={handleStep3Submit}
+                onClick={handleFinalSubmit}
                 disabled={submitting}
                 className="flex-1 rounded-full border-2 border-ink bg-primary text-primary-foreground shadow-pop-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none font-mono-pop text-xs uppercase tracking-widest h-11"
               >

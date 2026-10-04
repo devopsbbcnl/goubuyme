@@ -7,15 +7,8 @@ const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
-// NIN/BVN are deliberately not collected from vendors (NDPA data minimisation).
-type DocType = 'DRIVERS_LICENSE' | 'PASSPORT';
 type Tier = 'TIER_1' | 'TIER_2';
 type Step = 'login' | 'form' | 'done';
-
-const DOC_META: Record<DocType, { label: string; numberLabel: string; placeholder: string; backRequired: boolean }> = {
-  DRIVERS_LICENSE: { label: "Driver's License",  numberLabel: 'License Number',  placeholder: 'e.g. ABC123456XY',               backRequired: true  },
-  PASSPORT:        { label: 'Passport',           numberLabel: 'Passport Number', placeholder: 'e.g. A12345678',                 backRequired: false },
-};
 
 type TierRates = Record<Tier, number>;
 const DEFAULT_TIER_RATES: TierRates = { TIER_1: 3, TIER_2: 7.5 };
@@ -115,19 +108,6 @@ export default function VendorSetupPage() {
   const [closingTime, setClosingTime] = useState('');
   const [tier, setTier] = useState<Tier>('TIER_2');
 
-  // Identity document
-  const [docType, setDocType] = useState<DocType | null>(null);
-  const [docNumber, setDocNumber] = useState('');
-  const [docFrontUrl, setDocFrontUrl] = useState('');
-  const [docFrontPreview, setDocFrontPreview] = useState('');
-  const [docBackUrl, setDocBackUrl] = useState('');
-  const [docBackPreview, setDocBackPreview] = useState('');
-  const [selfieUrl, setSelfieUrl] = useState('');
-  const [selfiePreview, setSelfiePreview] = useState('');
-  const [uploadingDocFront, setUploadingDocFront] = useState(false);
-  const [uploadingDocBack, setUploadingDocBack] = useState(false);
-  const [uploadingSelfie, setUploadingSelfie] = useState(false);
-
   // Menu
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
 
@@ -141,9 +121,6 @@ export default function VendorSetupPage() {
   // File input refs
   const logoRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef<HTMLInputElement>(null);
-  const docFrontRef = useRef<HTMLInputElement>(null);
-  const docBackRef = useRef<HTMLInputElement>(null);
-  const selfieRef = useRef<HTMLInputElement>(null);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -191,9 +168,6 @@ export default function VendorSetupPage() {
   const handleSave = async () => {
     if (!description.trim()) { setSaveError('Please add a description for your store.'); return; }
     if (!openingTime.trim() || !closingTime.trim()) { setSaveError('Please enter opening and closing times.'); return; }
-    if (!docType) { setSaveError('Please select an identity document type.'); return; }
-    if (!docNumber.trim()) { setSaveError(`Please enter your ${DOC_META[docType].numberLabel}.`); return; }
-    if (!docFrontUrl) { setSaveError('Please upload your document image.'); return; }
     setSaveError('');
     setSaving(true);
     try {
@@ -207,13 +181,6 @@ export default function VendorSetupPage() {
       if (tier === 'TIER_1') {
         await apiCall('/vendors/me/tier', 'PATCH', token, { tier: 'TIER_1' });
       }
-      await apiCall('/vendors/me/document', 'POST', token, {
-        type: docType,
-        number: docNumber.trim(),
-        imageUrl: docFrontUrl,
-        imageUrlBack: docBackUrl || null,
-        selfieUrl: selfieUrl || null,
-      });
       const validItems = menuItems.filter(i => i.name.trim() && i.price.trim() && !isNaN(parseFloat(i.price)));
       await Promise.all(
         validItems.map(i =>
@@ -238,14 +205,7 @@ export default function VendorSetupPage() {
     setMenuItems(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i));
   const removeItem = (id: string) => setMenuItems(prev => prev.filter(i => i.id !== id));
 
-  const resetDocType = (dt: DocType) => {
-    setDocType(dt);
-    setDocNumber('');
-    setDocFrontUrl(''); setDocFrontPreview('');
-    setDocBackUrl('');  setDocBackPreview('');
-  };
-
-  const anyUploading = uploadingLogo || uploadingCover || uploadingDocFront || uploadingDocBack || uploadingSelfie;
+  const anyUploading = uploadingLogo || uploadingCover;
 
   // ── LOGIN ──────────────────────────────────────────────────────────────────
   if (step === 'login') {
@@ -426,52 +386,7 @@ export default function VendorSetupPage() {
           })}
         </div>
 
-        {/* ── IDENTITY VERIFICATION ── */}
-        <SectionLabel label="IDENTITY VERIFICATION *" T={T} />
-        <div style={{ fontSize: 13, color: '#444', marginBottom: 14 }}>
-          Select a government-issued ID to verify your identity. Required for account activation.
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-          {(Object.keys(DOC_META) as DocType[]).map(dt => (
-            <button key={dt} onClick={() => resetDocType(dt)}
-              style={{ padding: '8px 14px', borderRadius: 4, fontFamily: 'inherit', border: `1px solid ${docType === dt ? '#FF521B' : T.border}`, background: docType === dt ? '#FF521B' : '#fff', color: docType === dt ? '#fff' : '#444', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              {DOC_META[dt].label}
-            </button>
-          ))}
-        </div>
-
-        {docType && (
-          <>
-            <label style={labelStyle(T)}>{DOC_META[docType].numberLabel} *</label>
-            <Input value={docNumber} onChange={e => setDocNumber(e.target.value.toUpperCase())} placeholder={DOC_META[docType].placeholder} style={{ marginBottom: 18 }} T={T} />
-
-            <label style={labelStyle(T)}>{DOC_META[docType].backRequired ? 'Document Images (Front & Back) *' : 'Document Image *'}</label>
-            <div style={{ display: 'grid', gridTemplateColumns: DOC_META[docType].backRequired ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 18, marginTop: 8 }}>
-              <ImgBox label={DOC_META[docType].backRequired ? 'Front' : undefined} preview={docFrontPreview} uploading={uploadingDocFront} hint="Click to upload" onClick={() => docFrontRef.current?.click()} T={T} />
-              {DOC_META[docType].backRequired && (
-                <ImgBox label="Back" preview={docBackPreview} uploading={uploadingDocBack} hint="Click to upload" onClick={() => docBackRef.current?.click()} T={T} />
-              )}
-            </div>
-            <input ref={docFrontRef} type="file" accept="image/*" style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setDocFrontPreview, setDocFrontUrl, setUploadingDocFront); e.target.value = ''; }} />
-            <input ref={docBackRef} type="file" accept="image/*" style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setDocBackPreview, setDocBackUrl, setUploadingDocBack); e.target.value = ''; }} />
-
-            <label style={labelStyle(T)}>Selfie / Liveness Photo — Optional</label>
-            <ImgBox preview={selfiePreview} uploading={uploadingSelfie} hint="Click to upload a clear selfie" onClick={() => selfieRef.current?.click()} T={T} />
-            <input ref={selfieRef} type="file" accept="image/*" style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setSelfiePreview, setSelfieUrl, setUploadingSelfie); e.target.value = ''; }} />
-
-            <div style={{ display: 'flex', gap: 8, background: '#f0ede6', borderRadius: 4, padding: 12, marginTop: 12, marginBottom: 28 }}>
-              <span style={{ color: '#888', flexShrink: 0 }}>&#128274;</span>
-              <span style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>
-                Your document is encrypted and used only for identity verification. It will never be shared with third parties.
-              </span>
-            </div>
-          </>
-        )}
-
-        {!docType && <div style={{ marginBottom: 28 }} />}
+<div style={{ marginBottom: 28 }} />
 
         {/* ── MENU ITEMS ── */}
         <SectionLabel label="MENU ITEMS" T={T} />

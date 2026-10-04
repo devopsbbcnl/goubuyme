@@ -102,6 +102,7 @@ export default function VendorLayout() {
       <Tabs.Screen name="settings" options={{ href: null }} />
       <Tabs.Screen name="promotions" options={{ href: null }} />
       <Tabs.Screen name="business-verification" options={{ href: null }} />
+      <Tabs.Screen name="identity-document" options={{ href: null }} />
       <Tabs.Screen name="licenses" options={{ href: null }} />
       </Tabs>
     </>

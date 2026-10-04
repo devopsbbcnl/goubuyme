@@ -40,7 +40,6 @@ function missingVendorFields(v: VendorProfileCheck | null, doc: VendorDoc | null
   if (!v?.description?.trim()) missing.push('store description');
   if (!v?.address?.trim() || !v?.city?.trim()) missing.push('store address');
   if (!v?.openingTime?.trim() || !v?.closingTime?.trim()) missing.push('opening hours');
-  if (!doc || !doc.number || !doc.imageUrl) missing.push('identity document');
   return missing;
 }
 
@@ -82,19 +81,19 @@ export default function VendorDashboard() {
       if (docRejected) {
         const item = doc?.rejectedItem ? REJECTED_ITEM_LABELS[doc.rejectedItem] ?? doc.rejectedItem : null;
         body = item
-          ? `Your ${item} was rejected. Update your profile to resubmit it for review.`
-          : 'Some of your documents were rejected. Update your profile to resubmit them for review.';
+          ? `Your ${item} was rejected. Upload a new one to resubmit it for review.`
+          : 'Some of your documents were rejected. Upload new ones to resubmit them for review.';
       } else {
         body = `Your profile is missing ${missing.join(', ')}. Add ${missing.length > 1 ? 'these' : 'this'} so we can review your store.`;
       }
 
       const go = await confirmDialog(body, {
-        title: 'Complete your profile',
-        confirmLabel: 'Complete profile',
+        title: docRejected ? 'Document rejected' : 'Complete your profile',
+        confirmLabel: docRejected ? 'Upload document' : 'Complete profile',
         cancelLabel: 'Not now',
         danger: false,
       });
-      if (go) router.push('/vendor-complete-profile');
+      if (go) router.push(docRejected ? '/vendor/documents' : '/vendor-complete-profile');
       return;
     }
 

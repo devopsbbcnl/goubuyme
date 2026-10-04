@@ -1288,7 +1288,12 @@ export const submitDocument = catchAsync(async (req: AuthRequest, res: Response)
     },
   });
 
-  await prisma.vendor.update({ where: { id: vendor.id }, data: { approvalStatus: 'PENDING' } });
+  // The ID is optional (it only earns the ID-verified badge), so uploading one
+  // must not pull a live store off the app, or lift an admin suspension.
+  await prisma.vendor.updateMany({
+    where: { id: vendor.id, approvalStatus: { notIn: ['APPROVED', 'SUSPENDED'] } },
+    data: { approvalStatus: 'PENDING' },
+  });
 
   void recordOnboardingEvent(req.user!.userId, 'VENDOR', 'DOCUMENTS_SUBMITTED');
 

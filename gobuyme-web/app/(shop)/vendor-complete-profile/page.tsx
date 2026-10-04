@@ -12,13 +12,6 @@ import { uploadToCloudinary } from '@/services/cloudinary';
 import { useCommissionRates, CommissionRates } from '@/hooks/useCommissionRates';
 
 type Tier = 'TIER_1' | 'TIER_2';
-// NIN/BVN are deliberately not collected from vendors (NDPA data minimisation).
-type DocType = 'DRIVERS_LICENSE' | 'PASSPORT';
-
-const DOC_META: Record<DocType, { label: string; numberLabel: string; placeholder: string; backRequired: boolean }> = {
-  DRIVERS_LICENSE: { label: "Driver's License", numberLabel: 'License Number', placeholder: 'e.g. ABC123456XY', backRequired: true },
-  PASSPORT: { label: 'Passport', numberLabel: 'Passport Number', placeholder: 'e.g. A12345678', backRequired: false },
-};
 
 const naira = (n: number) => `₦${Math.round(n).toLocaleString()}`;
 const exampleLine = (platformPercent: number) =>
@@ -161,12 +154,6 @@ export default function VendorCompleteProfilePage() {
   const [closingTime, setClosingTime] = useState('');
   const [tier, setTier] = useState<Tier>('TIER_2');
 
-  const [docType, setDocType] = useState<DocType>('DRIVERS_LICENSE');
-  const [docNumber, setDocNumber] = useState('');
-  const [docFrontUrl, setDocFrontUrl] = useState('');
-  const [docBackUrl, setDocBackUrl] = useState('');
-  const [selfieUrl, setSelfieUrl] = useState('');
-
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'vendor')) {
       router.replace('/login');
@@ -197,9 +184,6 @@ export default function VendorCompleteProfilePage() {
     if (!description.trim()) return toast('Please add a short description of your store.', 'error');
     if (!address.trim() || !city.trim()) return toast('Please enter your store address and city.', 'error');
     if (!openingTime.trim() || !closingTime.trim()) return toast('Please enter your opening and closing times.', 'error');
-    if (!docNumber.trim()) return toast(`Please enter your ${DOC_META[docType].numberLabel}.`, 'error');
-    if (!docFrontUrl) return toast('Please upload an image of your identity document.', 'error');
-    if (DOC_META[docType].backRequired && !docBackUrl) return toast("Please upload the back of your driver's license.", 'error');
 
     setSaving(true);
     try {
@@ -217,14 +201,6 @@ export default function VendorCompleteProfilePage() {
       if (tier !== initialTier.current) {
         await api.patch('/vendors/me/tier', { tier });
       }
-
-      await api.post('/vendors/me/document', {
-        type: docType,
-        number: docNumber.trim(),
-        imageUrl: docFrontUrl,
-        imageUrlBack: docBackUrl || null,
-        selfieUrl: selfieUrl || null,
-      });
 
       const { data } = await api.get('/auth/activation-status');
       const { approvalStatus } = data.data;
@@ -298,46 +274,6 @@ export default function VendorCompleteProfilePage() {
             <TierCard tier="TIER_2" selected={tier === 'TIER_2'} onSelect={() => setTier('TIER_2')} onDetails={() => setModalTier('TIER_2')} />
             <TierCard tier="TIER_1" selected={tier === 'TIER_1'} onSelect={() => setTier('TIER_1')} onDetails={() => setModalTier('TIER_1')} />
           </div>
-        </div>
-
-        {/* Identity verification */}
-        <div className="card card-pad" style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>Identity Verification *</h2>
-          <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
-            Select a government-issued ID to verify your identity. This is required for account activation.
-          </p>
-
-          <div className="doc-type-row" style={{ marginBottom: 16 }}>
-            {(Object.keys(DOC_META) as DocType[]).map(dt => (
-              <button
-                key={dt}
-                type="button"
-                className={`doc-type-chip${docType === dt ? ' active' : ''}`}
-                onClick={() => { setDocType(dt); setDocNumber(''); setDocFrontUrl(''); setDocBackUrl(''); }}
-              >
-                {DOC_META[dt].label}
-              </button>
-            ))}
-          </div>
-
-          <div className="form-group">
-            <label className="label">{DOC_META[docType].numberLabel} *</label>
-            <input className="input" value={docNumber} onChange={e => setDocNumber(e.target.value)} placeholder={DOC_META[docType].placeholder} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: DOC_META[docType].backRequired ? '1fr 1fr' : '1fr', gap: 16, marginBottom: 16 }}>
-            <ImageUploadBox label={`${DOC_META[docType].backRequired ? 'Front of Document' : 'Document Image'} *`} value={docFrontUrl} onChange={setDocFrontUrl} height={110} folder="vendor-onboarding/id" />
-            {DOC_META[docType].backRequired && (
-              <ImageUploadBox label="Back of Document *" value={docBackUrl} onChange={setDocBackUrl} height={110} folder="vendor-onboarding/id" />
-            )}
-          </div>
-
-
-          <ImageUploadBox label="Selfie / Liveness Photo — Optional" value={selfieUrl} onChange={setSelfieUrl} height={110} folder="vendor-onboarding/id" />
-
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 12, lineHeight: 1.5 }}>
-            🔒 Your document is encrypted and used only for identity verification. It will never be shared with third parties.
-          </p>
         </div>
       </div>
 

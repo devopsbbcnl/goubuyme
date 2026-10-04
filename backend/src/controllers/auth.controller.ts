@@ -18,6 +18,7 @@ import { Role, CommissionTier, VendorCategory, OrderStatus } from '@prisma/clien
 import { recordError } from '../utils/recordError';
 import { sendPhoneOtp, verifyPhoneOtp, PhoneVerificationError } from '../services/phoneVerification.service';
 import { issueEmailOtp, issueEmailOtpIfAllowed, checkEmailOtp, EmailOtpError } from '../services/emailOtp.service';
+import { deletedVendorName } from '../utils/deletedVendorName';
 
 const SALT_ROUNDS = 12;
 
@@ -64,6 +65,11 @@ export const register = catchAsync(async (req: Request, res: Response) => {
       }, 200);
     }
     return apiResponse.error(res, 'Email already registered.', 409);
+  }
+
+  if (phone?.trim()) {
+    const phoneTaken = await prisma.user.findUnique({ where: { phone: phone.trim() }, select: { id: true } });
+    if (phoneTaken) return apiResponse.error(res, 'This phone number is already linked to another account.', 409);
   }
 
   if (role === 'VENDOR' && businessName) {
@@ -542,13 +548,14 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
   let domainId: string | undefined;
   let orderWhere: Record<string, string> | undefined;
   let entity: 'Customer' | 'Vendor' | 'Rider' | undefined;
+  let businessName: string | undefined;
 
   if (role === 'CUSTOMER') {
     const customer = await prisma.customer.findUnique({ where: { userId }, select: { id: true } });
     if (customer) { domainId = customer.id; orderWhere = { customerId: customer.id }; entity = 'Customer'; }
   } else if (role === 'VENDOR') {
-    const vendor = await prisma.vendor.findUnique({ where: { userId }, select: { id: true } });
-    if (vendor) { domainId = vendor.id; orderWhere = { vendorId: vendor.id }; entity = 'Vendor'; }
+    const vendor = await prisma.vendor.findUnique({ where: { userId }, select: { id: true, businessName: true } });
+    if (vendor) { domainId = vendor.id; orderWhere = { vendorId: vendor.id }; entity = 'Vendor'; businessName = vendor.businessName; }
   } else if (role === 'RIDER') {
     const rider = await prisma.rider.findUnique({ where: { userId }, select: { id: true } });
     if (rider) { domainId = rider.id; orderWhere = { riderId: rider.id }; entity = 'Rider'; }
@@ -580,7 +587,10 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
     // so suspending here removes them from customer-facing discovery without
     // touching every one of those query sites individually.
     if (role === 'VENDOR' && domainId) {
-      await tx.vendor.update({ where: { id: domainId }, data: { approvalStatus: 'SUSPENDED' } });
+      await tx.vendor.update({
+        where: { id: domainId },
+        data: { approvalStatus: 'SUSPENDED', businessName: deletedVendorName(businessName!, domainId) },
+      });
     } else if (role === 'RIDER' && domainId) {
       await tx.rider.update({ where: { id: domainId }, data: { approvalStatus: 'SUSPENDED' } });
     }
@@ -591,7 +601,7 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
         action: `${role}_SELF_DELETED`,
         entity: entity ?? 'User',
         entityId: domainId ?? user.id,
-        meta: { originalEmail: user.email, originalPhone: user.phone },
+        meta: { originalEmail: user.email, originalPhone: user.phone, ...(businessName ? { businessName } : {}) },
       },
     });
   });
