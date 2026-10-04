@@ -107,12 +107,9 @@ const vendorSchema = z
       required_error: "Select a commission plan",
     }),
     // Step 3 — identity (not sent to API, all optional since step is skippable)
-    docType: z.enum(["NIN", "DRIVERS_LICENCE", "PASSPORT"]).optional(),
+    // NIN/BVN are deliberately not collected from vendors (NDPA data minimisation).
+    docType: z.enum(["DRIVERS_LICENCE", "PASSPORT"]).optional(),
     docNumber: z.string().optional(),
-    bvn: z
-      .string()
-      .refine((v) => !v || /^\d{11}$/.test(v), "BVN must be 11 digits")
-      .optional(),
   })
   .superRefine((data, ctx) => {
     if (data.password !== data.confirmPassword) {
@@ -123,13 +120,6 @@ const vendorSchema = z
       });
     }
     if (data.docType && data.docNumber) {
-      if (data.docType === "NIN" && !/^\d{11}$/.test(data.docNumber)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "NIN must be exactly 11 digits",
-          path: ["docNumber"],
-        });
-      }
       if (data.docType === "DRIVERS_LICENCE" && !/^[A-Za-z0-9]+$/.test(data.docNumber)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -416,7 +406,6 @@ function VendorForm({ onSuccess }: { onSuccess: () => void }) {
       commissionTier: undefined,
       docType: undefined,
       docNumber: "",
-      bvn: "",
     },
   });
 
@@ -459,10 +448,6 @@ function VendorForm({ onSuccess }: { onSuccess: () => void }) {
     const v = form.getValues();
     if (v.docType || v.docNumber) {
       const valid = await form.trigger(["docType", "docNumber"]);
-      if (!valid) return;
-    }
-    if (v.bvn) {
-      const valid = await form.trigger(["bvn"]);
       if (!valid) return;
     }
     await submitForm();
@@ -667,7 +652,6 @@ function VendorForm({ onSuccess }: { onSuccess: () => void }) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="NIN">NIN</SelectItem>
                         <SelectItem value="DRIVERS_LICENCE">Driver's Licence</SelectItem>
                         <SelectItem value="PASSPORT">International Passport</SelectItem>
                       </SelectContent>
@@ -687,35 +671,12 @@ function VendorForm({ onSuccess }: { onSuccess: () => void }) {
                         {...field}
                         disabled={!docType}
                         placeholder={
-                          docType === "NIN"
-                            ? "12345678901"
-                            : docType === "DRIVERS_LICENCE"
+                          docType === "DRIVERS_LICENCE"
                             ? "ABC123456XY"
                             : docType === "PASSPORT"
                             ? "A12345678"
                             : "Select a document type first"
                         }
-                        className="border-2 border-ink"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="bvn"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-mono-pop text-xs uppercase tracking-widest">
-                      BVN{" "}
-                      <span className="normal-case text-muted-foreground">(optional)</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="22123456789"
-                        maxLength={11}
                         className="border-2 border-ink"
                       />
                     </FormControl>

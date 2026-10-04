@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
+import { createAuthedSocket } from '@/services/socket';
 
 export interface RiderPosition {
   lat: number;
   lng: number;
 }
-
-const SOCKET_URL = (process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:5000').replace(/\/api\/v1\/?$/, '');
 
 /** Streams the rider's live browser GPS position to the backend over the /riders socket namespace. */
 export function useRiderLiveLocation(riderId: string | null, active: boolean) {
@@ -17,14 +16,15 @@ export function useRiderLiveLocation(riderId: string | null, active: boolean) {
   useEffect(() => {
     if (!active || !riderId || typeof navigator === 'undefined' || !navigator.geolocation) return;
 
-    const socket = io(`${SOCKET_URL}/riders`, { transports: ['websocket', 'polling'] });
+    const socket = createAuthedSocket('/riders');
     socketRef.current = socket;
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       ({ coords }) => {
         const next = { lat: coords.latitude, lng: coords.longitude };
         setPosition(next);
-        socket.emit('rider:updateLocation', { riderId, latitude: next.lat, longitude: next.lng });
+        // The server takes the rider from the authenticated socket, not the payload.
+        socket.emit('rider:updateLocation', { latitude: next.lat, longitude: next.lng });
       },
       () => {},
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 },

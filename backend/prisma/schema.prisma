@@ -18,6 +18,8 @@ model User {
   avatar                 String?
   isEmailVerified        Boolean             @default(false)
   isPhoneVerified        Boolean             @default(false)
+  /// When `phone` was last proven by SMS OTP. Cleared whenever `phone` changes.
+  phoneVerifiedAt        DateTime?
   isActive               Boolean             @default(true)
   deletedAt              DateTime?
   refreshToken           String?
@@ -42,6 +44,7 @@ model User {
   offerRedemptions       OfferRedemption[]
   onboardingEvents       OnboardingEvent[]
   creditTransactions     CreditTransaction[]
+  phoneOtps              PhoneOtp[]
   pushSubscriptions      PushSubscription[]
   vendorPlanChanges      VendorPlanChange[]
   crmNotesAbout          CrmNote[]           @relation("CrmNoteSubject")
@@ -544,7 +547,6 @@ model VendorDocument {
   rejectedItem String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
-  bvn          String?
   selfieUrl    String?
   vendor       Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
@@ -557,7 +559,6 @@ model VendorBusinessVerification {
   cacNumber   String?
   cacImageUrl String?
   tin         String?
-  directorNin String?
   status      DocumentStatus @default(PENDING)
   reviewNote  String?
   createdAt   DateTime       @default(now())
@@ -797,15 +798,38 @@ model Message {
   @@map("messages")
 }
 
+/// One email verification code (sign-up, password change). The code itself is
+/// never stored — only an HMAC of it. 10 min TTL, 5 attempts per code.
 model EmailOtp {
   id        String   @id @default(uuid())
   userId    String
-  code      String
+  codeHash  String
+  attempts  Int      @default(0)
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
 
+  @@index([userId, createdAt])
   @@map("email_otps")
+}
+
+/// One SMS verification code for a phone number. The code itself is never stored —
+/// only an HMAC of it — and rows are short-lived (10 min TTL, 5 attempts).
+model PhoneOtp {
+  id         String    @id @default(uuid())
+  userId     String
+  /// Number being verified, normalised to E.164 (+234XXXXXXXXXX). Only copied
+  /// onto the user once the code is confirmed.
+  phone      String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("phone_otps")
 }
 
 model PlatformSetting {
@@ -1125,8 +1149,9 @@ enum PayoutStatus {
   FAILED
 }
 
+/// Vendor identity documents. NIN is intentionally absent — vendors are not asked
+/// for national identifiers (NDPA data minimisation).
 enum DocumentType {
-  NIN
   DRIVERS_LICENSE
   PASSPORT
 }

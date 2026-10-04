@@ -61,8 +61,21 @@ function GuestAuthPanel() {
   const [otpErr, setOtpErr] = useState('');
   const [otpCooldown, setOtpCooldown] = useState(60);
   const otpInputs = useRef<(HTMLInputElement | null)[]>([]);
-  const pendingEmail = useRef('');
-  const pendingPw    = useRef('');
+  const pendingEmail  = useRef('');
+  const pendingPw     = useRef('');
+  // The OTP endpoints are keyed by userId (returned by register, and by login
+  // when the email is still unverified), not by email.
+  const pendingUserId = useRef('');
+
+  const startOtpStage = (userId: string, email: string, password: string) => {
+    pendingUserId.current = userId;
+    pendingEmail.current  = email;
+    pendingPw.current     = password;
+    setOtp(['', '', '', '', '', '']);
+    setOtpCooldown(60);
+    setOtpErr('');
+    setStage('otp');
+  };
 
   useEffect(() => {
     if (stage !== 'otp' || otpCooldown <= 0) return;
@@ -83,6 +96,13 @@ function GuestAuthPanel() {
     } catch (err: any) {
       const status = err?.response?.status;
       const msg    = err?.response?.data?.message;
+      const pending = err?.response?.data?.errors?.[0];
+      if (status === 403 && pending?.requiresVerification && pending.userId) {
+        // Unverified account: the backend just emailed a code — verify it here.
+        startOtpStage(pending.userId, lEmail.trim().toLowerCase(), lPw);
+        toast('Verify your email to continue. We sent you a code.', 'success');
+        return;
+      }
       if (status === 404) setLErr('No account found with this email.');
       else if (status === 401) setLErr('Incorrect password. Please try again.');
       else setLErr(msg ?? 'Login failed. Please check your credentials.');
@@ -98,17 +118,12 @@ function GuestAuthPanel() {
     setSLoading(true);
     try {
       const phone = formatPhone(sPhone);
-      await api.post('/auth/register', {
+      const { data } = await api.post('/auth/register', {
         name: sName.trim(), email: sEmail.trim().toLowerCase(), password: sPw,
         role: 'CUSTOMER',
         ...(phone ? { phone } : {}),
       });
-      pendingEmail.current = sEmail.trim().toLowerCase();
-      pendingPw.current    = sPw;
-      setOtp(['', '', '', '', '', '']);
-      setOtpCooldown(60);
-      setOtpErr('');
-      setStage('otp');
+      startOtpStage(data.data.userId, sEmail.trim().toLowerCase(), sPw);
       toast('Account created! Check your email for the code.', 'success');
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? '';
@@ -142,7 +157,7 @@ function GuestAuthPanel() {
     setOtpErr('');
     setOtpLoading(true);
     try {
-      const { data } = await api.post('/auth/verify-otp', { email: pendingEmail.current, otp: code });
+      const { data } = await api.post('/auth/verify-otp', { userId: pendingUserId.current, otp: code });
       const d = data.data;
       if (d?.user) {
         login({ id: d.user.id, name: d.user.name, email: d.user.email, phone: d.user.phone, role: 'customer' });
@@ -162,11 +177,14 @@ function GuestAuthPanel() {
   const handleResendOtp = async () => {
     setOtpResending(true);
     try {
-      await api.post('/auth/resend-otp', { email: pendingEmail.current });
+      await api.post('/auth/resend-otp', { userId: pendingUserId.current });
       setOtp(['', '', '', '', '', '']);
       setOtpCooldown(60);
       toast('New code sent!', 'success');
-    } catch { toast('Failed to resend. Try again.', 'error'); }
+    } catch (err: any) {
+      // e.g. 429 "Please wait 45s…" from the resend cooldown
+      toast(err?.response?.data?.message ?? 'Failed to resend. Try again.', 'error');
+    }
     finally { setOtpResending(false); }
   };
 

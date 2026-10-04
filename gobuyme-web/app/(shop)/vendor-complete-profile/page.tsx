@@ -12,10 +12,10 @@ import { uploadToCloudinary } from '@/services/cloudinary';
 import { useCommissionRates, CommissionRates } from '@/hooks/useCommissionRates';
 
 type Tier = 'TIER_1' | 'TIER_2';
-type DocType = 'NIN' | 'DRIVERS_LICENSE' | 'PASSPORT';
+// NIN/BVN are deliberately not collected from vendors (NDPA data minimisation).
+type DocType = 'DRIVERS_LICENSE' | 'PASSPORT';
 
 const DOC_META: Record<DocType, { label: string; numberLabel: string; placeholder: string; backRequired: boolean }> = {
-  NIN: { label: 'NIN', numberLabel: 'NIN', placeholder: '11-digit NIN (e.g. 12345678901)', backRequired: false },
   DRIVERS_LICENSE: { label: "Driver's License", numberLabel: 'License Number', placeholder: 'e.g. ABC123456XY', backRequired: true },
   PASSPORT: { label: 'Passport', numberLabel: 'Passport Number', placeholder: 'e.g. A12345678', backRequired: false },
 };
@@ -161,11 +161,10 @@ export default function VendorCompleteProfilePage() {
   const [closingTime, setClosingTime] = useState('');
   const [tier, setTier] = useState<Tier>('TIER_2');
 
-  const [docType, setDocType] = useState<DocType>('NIN');
+  const [docType, setDocType] = useState<DocType>('DRIVERS_LICENSE');
   const [docNumber, setDocNumber] = useState('');
   const [docFrontUrl, setDocFrontUrl] = useState('');
   const [docBackUrl, setDocBackUrl] = useState('');
-  const [bvn, setBvn] = useState('');
   const [selfieUrl, setSelfieUrl] = useState('');
 
   useEffect(() => {
@@ -224,7 +223,6 @@ export default function VendorCompleteProfilePage() {
         number: docNumber.trim(),
         imageUrl: docFrontUrl,
         imageUrlBack: docBackUrl || null,
-        bvn: bvn.trim() || null,
         selfieUrl: selfieUrl || null,
       });
 
@@ -334,10 +332,6 @@ export default function VendorCompleteProfilePage() {
             )}
           </div>
 
-          <div className="form-group">
-            <label className="label">BVN (Bank Verification Number) — Optional</label>
-            <input className="input" value={bvn} onChange={e => setBvn(e.target.value.replace(/\D/g, '').slice(0, 11))} placeholder="11-digit BVN" />
-          </div>
 
           <ImageUploadBox label="Selfie / Liveness Photo — Optional" value={selfieUrl} onChange={setSelfieUrl} height={110} folder="vendor-onboarding/id" />
 

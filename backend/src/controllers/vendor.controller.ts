@@ -134,11 +134,13 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
 export const getVendorById = catchAsync(async (req: Request, res: Response) => {
   const vendor = await prisma.vendor.findFirst({
     where: { id: req.params.id, approvalStatus: ApprovalStatus.APPROVED },
-    select: { ...vendorSelect, ...availabilityInclude },
+    select: { ...vendorSelect, ...availabilityInclude, user: { select: { isPhoneVerified: true } } },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
   const availability = computeAvailability(vendor as unknown as AvailabilityInput);
-  return apiResponse.success(res, 'Vendor fetched.', { ...vendor, availability });
+  // Flattened so the public payload exposes only the badge, never owner details.
+  const { user, ...publicVendor } = vendor;
+  return apiResponse.success(res, 'Vendor fetched.', { ...publicVendor, phoneVerified: user.isPhoneVerified, availability });
 });
 
 export const getVendorMenu = catchAsync(async (req: Request, res: Response) => {
@@ -175,7 +177,7 @@ export const getMyVendorProfile = catchAsync(async (req: AuthRequest, res: Respo
   const vendor = await prisma.vendor.findUnique({
     where: { userId: req.user!.userId },
     include: {
-      user: { select: { name: true, email: true, phone: true, avatar: true } },
+      user: { select: { name: true, email: true, phone: true, avatar: true, isPhoneVerified: true } },
       payoutAccount: { select: { bankName: true, accountNumber: true, accountName: true } },
       businessHours: {
         select: { id: true, dayOfWeek: true, openTime: true, closeTime: true },
@@ -1231,7 +1233,11 @@ export const savePayoutAccount = catchAsync(async (req: AuthRequest, res: Respon
 
 // ── Vendor Documents ──────────────────────────────────────────────────────────
 
-const VALID_DOC_TYPES = ['NIN', 'DRIVERS_LICENSE', 'PASSPORT'] as const;
+// NIN and BVN are deliberately not collected from vendors (NDPA data minimisation):
+// a raw national identifier is not needed to list a business. Identity assurance
+// for vendors, if required later, goes through a NIMC verification partner that
+// returns a result rather than us storing the number.
+const VALID_DOC_TYPES = ['DRIVERS_LICENSE', 'PASSPORT'] as const;
 
 // GET /vendors/me/document
 export const getMyDocument = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -1247,10 +1253,10 @@ export const getMyDocument = catchAsync(async (req: AuthRequest, res: Response) 
 
 // POST /vendors/me/document
 export const submitDocument = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { type, number, imageUrl, imageUrlBack, bvn, selfieUrl } = req.body;
+  const { type, number, imageUrl, imageUrlBack, selfieUrl } = req.body;
 
   if (!VALID_DOC_TYPES.includes(type)) {
-    return apiResponse.error(res, 'Invalid document type. Must be NIN, DRIVERS_LICENSE, or PASSPORT.', 400);
+    return apiResponse.error(res, 'Invalid document type. Must be DRIVERS_LICENSE or PASSPORT.', 400);
   }
   if (!number?.trim()) return apiResponse.error(res, 'Document number is required.', 400);
   if (!imageUrl?.trim()) return apiResponse.error(res, 'Document image URL is required.', 400);
@@ -1269,7 +1275,6 @@ export const submitDocument = catchAsync(async (req: AuthRequest, res: Response)
       number: number.trim(),
       imageUrl,
       imageUrlBack: imageUrlBack || null,
-      bvn: bvn?.trim() || null,
       selfieUrl: selfieUrl || null,
     },
     update: {
@@ -1277,7 +1282,6 @@ export const submitDocument = catchAsync(async (req: AuthRequest, res: Response)
       number: number.trim(),
       imageUrl,
       imageUrlBack: imageUrlBack || null,
-      bvn: bvn?.trim() || null,
       selfieUrl: selfieUrl || null,
       status: 'PENDING',
       reviewNote: null,
@@ -1398,7 +1402,7 @@ export const getMyBusinessVerification = catchAsync(async (req: AuthRequest, res
 
 // POST /vendors/me/business-verification
 export const submitBusinessVerification = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { cacNumber, cacImageUrl, tin, directorNin } = req.body;
+  const { cacNumber, cacImageUrl, tin } = req.body;
 
   if (!cacNumber?.trim() && !cacImageUrl?.trim()) {
     return apiResponse.error(res, 'At least cacNumber or cacImageUrl is required.', 400);
@@ -1417,13 +1421,11 @@ export const submitBusinessVerification = catchAsync(async (req: AuthRequest, re
       cacNumber: cacNumber?.trim() || null,
       cacImageUrl: cacImageUrl || null,
       tin: tin?.trim() || null,
-      directorNin: directorNin?.trim() || null,
     },
     update: {
       cacNumber: cacNumber?.trim() || null,
       cacImageUrl: cacImageUrl || null,
       tin: tin?.trim() || null,
-      directorNin: directorNin?.trim() || null,
       status: 'PENDING',
       reviewNote: null,
     },

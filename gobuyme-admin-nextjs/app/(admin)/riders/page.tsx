@@ -35,7 +35,7 @@ interface RiderDetail {
   totalDeliveries: number; totalEarnings: number;
   user: {
     name: string; email: string; phone: string | null; avatar: string | null;
-    isEmailVerified: boolean; isActive: boolean; createdAt: string;
+    isEmailVerified: boolean; isPhoneVerified?: boolean; isActive: boolean; createdAt: string;
   };
   document: {
     id: string; ninNumber: string;
@@ -387,6 +387,7 @@ export default function RidersPage() {
                   ['Email', detail.user.email],
                   ['Phone', detail.user.phone ?? '—'],
                   ['Email verified', detail.user.isEmailVerified ? 'Yes' : 'No'],
+                  ['Phone verified (SMS)', detail.user.isPhoneVerified ? 'Yes' : 'No'],
                   ['Account active', detail.user.isActive ? 'Yes' : 'No'],
                   ['Registered', fmtDate(detail.user.createdAt)],
                 ]} T={T} />

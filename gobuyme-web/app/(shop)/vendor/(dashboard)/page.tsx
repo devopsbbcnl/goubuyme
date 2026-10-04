@@ -6,6 +6,7 @@ import api from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
+import { PhoneVerifyBanner } from '@/components/ui/PhoneVerification';
 
 interface Stats { todayOrders: number; todayRevenue: number; pendingOrders: number; isOpen: boolean; }
 interface RecentOrder { id: string; orderNumber: string; status: string; subtotal: number; createdAt: string; customer: string; }
@@ -31,7 +32,6 @@ const REJECTED_ITEM_LABELS: Record<string, string> = {
   ID_FRONT: 'ID document (front)',
   ID_BACK: 'ID document (back)',
   SELFIE: 'selfie photo',
-  BVN: 'BVN',
 };
 
 /** Details a vendor must supply before the store can be reviewed. */
@@ -116,6 +116,7 @@ export default function VendorDashboard() {
 
   return (
     <div>
+      <PhoneVerifyBanner role="vendor" />
       <div className="between" style={{ marginBottom: 28 }}>
         <div>
           <h1 className="t-page">Dashboard</h1>

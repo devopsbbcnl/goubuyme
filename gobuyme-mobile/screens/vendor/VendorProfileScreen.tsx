@@ -14,6 +14,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
+import { PhoneVerifiedBadge } from '@/components/ui/PhoneVerifiedBadge';
 
 interface VendorProfile {
 	id: string;
@@ -31,7 +32,7 @@ interface VendorProfile {
 	rating: number;
 	totalRatings: number;
 	approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
-	user: { name: string; email: string; phone: string | null };
+	user: { name: string; email: string; phone: string | null; isPhoneVerified?: boolean };
 }
 
 type MenuRow = {
@@ -208,15 +209,18 @@ export default function VendorProfileScreen() {
 						<Text style={[styles.category, { color: T.textSec }]}>
 							{profile?.category ?? ''}
 						</Text>
-						<View
-							style={[
-								styles.statusPill,
-								{ backgroundColor: `${statusColor}18` },
-							]}
-						>
-							<Text style={[styles.statusPillText, { color: statusColor }]}>
-								{profile?.approvalStatus ?? 'PENDING'}
-							</Text>
+						<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+							<View
+								style={[
+									styles.statusPill,
+									{ backgroundColor: `${statusColor}18` },
+								]}
+							>
+								<Text style={[styles.statusPillText, { color: statusColor }]}>
+									{profile?.approvalStatus ?? 'PENDING'}
+								</Text>
+							</View>
+							{profile?.user?.isPhoneVerified && <PhoneVerifiedBadge />}
 						</View>
 					</View>
 

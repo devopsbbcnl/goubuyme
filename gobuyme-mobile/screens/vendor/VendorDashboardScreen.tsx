@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { shadows } from '@/theme';
 import api from '@/services/api';
 import { connectSockets } from '@/services/socketService';
+import { PhoneVerifyBanner } from '@/components/ui/PhoneVerifyBanner';
 import { useAuth } from '@/context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCommissionRates } from '@/hooks/useCommissionRates';
@@ -64,7 +65,6 @@ const REJECTED_ITEM_LABELS: Record<string, string> = {
   ID_FRONT: 'ID document (front)',
   ID_BACK: 'ID document (back)',
   SELFIE: 'selfie photo',
-  BVN: 'BVN',
 };
 
 /** Details a vendor must supply before the store can be reviewed. */
@@ -329,6 +329,10 @@ export default function VendorDashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={T.primary} colors={[T.primary]} />
         }
       >
+        <View style={{ paddingHorizontal: 20 }}>
+          <PhoneVerifyBanner role="vendor" />
+        </View>
+
         {/* Header */}
         <View style={styles.header}>
           <View>

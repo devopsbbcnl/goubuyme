@@ -9,12 +9,15 @@ import {
   generateAccessToken,
   generateRefreshToken,
   generateReferralCode,
+  generateSocketTicket,
 } from '../utils/generateToken';
-import { sendPasswordResetEmail, sendOtpEmail, sendWelcomeEmail } from '../services/email.service';
+import { sendPasswordResetEmail, sendWelcomeEmail } from '../services/email.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { Role, CommissionTier, VendorCategory, OrderStatus } from '@prisma/client';
 import { recordError } from '../utils/recordError';
+import { sendPhoneOtp, verifyPhoneOtp, PhoneVerificationError } from '../services/phoneVerification.service';
+import { issueEmailOtp, issueEmailOtpIfAllowed, checkEmailOtp, EmailOtpError } from '../services/emailOtp.service';
 
 const SALT_ROUNDS = 12;
 
@@ -33,20 +36,14 @@ const buildUserPayload = (user: {
   id: string; name: string; email: string; phone: string | null; role: Role; avatar: string | null;
 }) => ({ id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, avatar: user.avatar });
 
-function generateOtp(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-async function createAndDispatchOtp(userId: string, email: string, name: string): Promise<void> {
-  await prisma.emailOtp.deleteMany({ where: { userId } });
-  const code = generateOtp();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  await prisma.emailOtp.create({ data: { userId, code, expiresAt } });
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`[OTP] ${email} → ${code}`);
+// Maps OTP service errors (cooldown, lockout, expiry) to responses; rethrows the rest.
+const sendOtpError = (res: Response, err: unknown) => {
+  if (err instanceof EmailOtpError || err instanceof PhoneVerificationError) {
+    if (err.retryAfterSeconds) res.setHeader('Retry-After', String(err.retryAfterSeconds));
+    return apiResponse.error(res, err.message, err.status);
   }
-  void sendOtpEmail(email, name, code);
-}
+  throw err;
+};
 
 export const register = catchAsync(async (req: Request, res: Response) => {
   const {
@@ -59,7 +56,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     if (!existing.isEmailVerified) {
-      await createAndDispatchOtp(existing.id, existing.email, existing.name);
+      await issueEmailOtpIfAllowed(existing.id, existing.email, existing.name);
       return apiResponse.success(res, 'A new verification code has been sent to your email.', {
         userId: existing.id,
         email: existing.email,
@@ -145,7 +142,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
     return newUser;
   });
 
-  await createAndDispatchOtp(user.id, user.email, user.name);
+  await issueEmailOtpIfAllowed(user.id, user.email, user.name);
 
   void recordOnboardingEvent(user.id, user.role, 'SIGNED_UP');
 
@@ -159,14 +156,12 @@ export const register = catchAsync(async (req: Request, res: Response) => {
 export const verifyOtp = catchAsync(async (req: Request, res: Response) => {
   const { userId, otp } = req.body;
 
-  const record = await prisma.emailOtp.findFirst({
-    where: { userId, used: false },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  if (!record) return apiResponse.error(res, 'Invalid or expired code.', 400);
-  if (record.code !== otp) return apiResponse.error(res, 'Incorrect code. Please try again.', 400);
-  if (new Date() > record.expiresAt) return apiResponse.error(res, 'This code has expired. Please request a new one.', 400);
+  let otpId: string;
+  try {
+    otpId = await checkEmailOtp(userId, otp);
+  } catch (err) {
+    return sendOtpError(res, err);
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -174,7 +169,7 @@ export const verifyOtp = catchAsync(async (req: Request, res: Response) => {
   });
 
   await prisma.$transaction([
-    prisma.emailOtp.update({ where: { id: record.id }, data: { used: true } }),
+    prisma.emailOtp.update({ where: { id: otpId }, data: { used: true } }),
     prisma.user.update({ where: { id: userId }, data: { isEmailVerified: true } }),
   ]);
 
@@ -193,7 +188,11 @@ export const resendOtp = catchAsync(async (req: Request, res: Response) => {
   if (!user) return apiResponse.error(res, 'User not found.', 404);
   if (user.isEmailVerified) return apiResponse.error(res, 'Email is already verified.', 400);
 
-  await createAndDispatchOtp(user.id, user.email, user.name);
+  try {
+    await issueEmailOtp(user.id, user.email, user.name);
+  } catch (err) {
+    return sendOtpError(res, err);
+  }
 
   return apiResponse.success(res, 'A new verification code has been sent to your email.');
 });
@@ -206,7 +205,11 @@ export const requestPasswordOtp = catchAsync(async (req: AuthRequest, res: Respo
   });
   if (!user) return apiResponse.error(res, 'User not found.', 404);
 
-  await createAndDispatchOtp(user.id, user.email, user.name);
+  try {
+    await issueEmailOtp(user.id, user.email, user.name);
+  } catch (err) {
+    return sendOtpError(res, err);
+  }
 
   return apiResponse.success(res, 'Verification code sent to your email.');
 });
@@ -232,7 +235,7 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   }
 
   if (!user.isEmailVerified) {
-    await createAndDispatchOtp(user.id, user.email, user.name);
+    await issueEmailOtpIfAllowed(user.id, user.email, user.name);
     return apiResponse.error(res, 'Your email is not verified. A new code has been sent to your email.', 403, [
       { requiresVerification: true, userId: user.id, email: user.email, role: user.role.toLowerCase() },
     ]);
@@ -391,12 +394,22 @@ export const logout = catchAsync(async (req: AuthRequest, res: Response) => {
   return apiResponse.success(res, 'Logged out successfully.');
 });
 
+// POST /auth/socket-ticket — short-lived credential for the Socket.io handshake.
+// The web app keeps its access token in an httpOnly cookie, so browser JS can only
+// reach this through the BFF proxy; mobile uses it too so token refresh is handled
+// by the normal axios interceptor instead of by the socket layer.
+export const socketTicket = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { userId, role } = req.user!;
+  return apiResponse.success(res, 'Socket ticket issued.', { ticket: generateSocketTicket({ userId, role }) });
+});
+
 export const getMe = catchAsync(async (req: AuthRequest, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user!.userId },
     select: {
       id: true, name: true, email: true, phone: true,
       role: true, avatar: true, isEmailVerified: true,
+      isPhoneVerified: true,
       mfaEnabled: true,
       referralCode: true, freeDeliveryCredits: true,
       createdAt: true,
@@ -404,6 +417,26 @@ export const getMe = catchAsync(async (req: AuthRequest, res: Response) => {
   });
   if (!user) return apiResponse.error(res, 'User not found.', 404);
   return apiResponse.success(res, 'User fetched.', user);
+});
+
+// POST /auth/phone/send-otp — SMS a 6-digit code to `phone` (or the current number).
+export const sendPhoneVerificationCode = catchAsync(async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await sendPhoneOtp(req.user!.userId, req.body?.phone);
+    return apiResponse.success(res, 'Verification code sent.', result);
+  } catch (err) {
+    return sendOtpError(res, err);
+  }
+});
+
+// POST /auth/phone/verify — confirm the code; the number becomes the verified phone.
+export const verifyPhoneCode = catchAsync(async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await verifyPhoneOtp(req.user!.userId, req.body?.code);
+    return apiResponse.success(res, 'Phone number verified.', { ...result, isPhoneVerified: true });
+  } catch (err) {
+    return sendOtpError(res, err);
+  }
 });
 
 export const updateProfile = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -420,10 +453,19 @@ export const updateProfile = catchAsync(async (req: AuthRequest, res: Response) 
     return apiResponse.error(res, 'No fields to update.', 400);
   }
 
+  // A changed number has not been proven by SMS, so it loses its verified status.
+  if (data.phone !== undefined) {
+    const current = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { phone: true } });
+    if (current?.phone !== data.phone) {
+      data.isPhoneVerified = false;
+      data.phoneVerifiedAt = null;
+    }
+  }
+
   const user = await prisma.user.update({
     where: { id: req.user!.userId },
     data,
-    select: { id: true, name: true, email: true, phone: true, role: true, avatar: true },
+    select: { id: true, name: true, email: true, phone: true, role: true, avatar: true, isPhoneVerified: true },
   });
 
   return apiResponse.success(res, 'Profile updated.', user);
@@ -459,15 +501,11 @@ export const changePassword = catchAsync(async (req: AuthRequest, res: Response)
   });
   if (!user || !user.password) return apiResponse.error(res, 'User not found.', 404);
 
-  const otpRecord = await prisma.emailOtp.findFirst({
-    where: { userId: user.id, used: false },
-    orderBy: { createdAt: 'desc' },
-  });
-  if (!otpRecord || otpRecord.expiresAt < new Date()) {
-    return apiResponse.error(res, 'Verification code expired. Request a new one.', 400);
-  }
-  if (otpRecord.code !== otp) {
-    return apiResponse.error(res, 'Invalid verification code.', 400);
+  let otpId: string;
+  try {
+    otpId = await checkEmailOtp(user.id, otp);
+  } catch (err) {
+    return sendOtpError(res, err);
   }
 
   const valid = await bcrypt.compare(currentPassword, user.password);
@@ -480,7 +518,7 @@ export const changePassword = catchAsync(async (req: AuthRequest, res: Response)
   const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
   await prisma.$transaction([
     prisma.user.update({ where: { id: user.id }, data: { password: hashed } }),
-    prisma.emailOtp.update({ where: { id: otpRecord.id }, data: { used: true } }),
+    prisma.emailOtp.update({ where: { id: otpId }, data: { used: true } }),
   ]);
 
   return apiResponse.success(res, 'Password changed successfully.');

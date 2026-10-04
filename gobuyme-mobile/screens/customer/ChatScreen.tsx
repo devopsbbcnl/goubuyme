@@ -14,7 +14,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
-import { connectSockets } from '@/services/socketService';
+import { connectSockets, joinOrderRoom, leaveOrderRoom } from '@/services/socketService';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -67,10 +67,10 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!conversation) return;
 
+    // Messages arrive on this user's personal room, which the server joins
+    // automatically from the authenticated handshake.
     const { ordersSocket } = connectSockets(user?.token ?? undefined);
-    
-    ordersSocket.emit('user:join', { userId: user?.id });
-    ordersSocket.emit('order:join', { orderId });
+    if (orderId) joinOrderRoom(orderId);
 
     const onMessageReceive = ({ message }: { message: Message }) => {
       setMessages((prev) => {
@@ -92,6 +92,7 @@ export default function ChatScreen() {
     return () => {
       ordersSocket.off('message:receive', onMessageReceive);
       ordersSocket.off('message:read', onMessageRead);
+      if (orderId) leaveOrderRoom(orderId);
     };
   }, [conversation, user?.token, user?.id, orderId]);
 

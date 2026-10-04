@@ -9,11 +9,10 @@ import { uploadToCloudinary } from '@/services/cloudinary';
 
 interface IdDocument {
   id: string;
-  type: 'NIN' | 'DRIVERS_LICENSE' | 'PASSPORT';
+  type: 'DRIVERS_LICENSE' | 'PASSPORT';
   number: string;
   imageUrl: string;
   imageUrlBack?: string;
-  bvn?: string;
   selfieUrl?: string;
   status: 'PENDING' | 'VERIFIED' | 'REJECTED';
   reviewNote?: string;
@@ -26,7 +25,6 @@ interface BusinessVerification {
   cacNumber?: string;
   cacImageUrl?: string;
   tin?: string;
-  directorNin?: string;
   status: 'PENDING' | 'VERIFIED' | 'REJECTED';
   reviewNote?: string;
   createdAt: string;
@@ -55,7 +53,7 @@ const STATUS_LABEL: Record<string, string> = {
   REJECTED: '✕ Rejected',      EXPIRED:  '✕ Expired',
 };
 const DOC_TYPE_LABEL: Record<string, string> = {
-  NIN: 'National ID (NIN)', DRIVERS_LICENSE: "Driver's License", PASSPORT: 'International Passport',
+  DRIVERS_LICENSE: "Driver's License", PASSPORT: 'International Passport',
   NAFDAC: 'NAFDAC Certificate', PHARMACIST: 'Pharmacist License',
   FOOD_HANDLER: 'Food Handler Certificate', BUSINESS_PERMIT: 'Business Permit', IMPORT_PERMIT: 'Import Permit',
 };
@@ -124,9 +122,8 @@ function IdentitySection({ initial, onSaved }: { initial: IdDocument | null; onS
   const toast = useToast();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    type:     initial?.type ?? 'NIN' as string,
+    type:     initial?.type ?? 'DRIVERS_LICENSE' as string,
     number:   initial?.number ?? '',
-    bvn:      initial?.bvn ?? '',
     imageUrl:     initial?.imageUrl ?? '',
     imageUrlBack: initial?.imageUrlBack ?? '',
     selfieUrl:    initial?.selfieUrl ?? '',
@@ -151,7 +148,7 @@ function IdentitySection({ initial, onSaved }: { initial: IdDocument | null; onS
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h2 style={{ fontSize: 17, fontWeight: 800 }}>Identity Document</h2>
-          <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>NIN, Driver's License, or Passport</p>
+          <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>Driver's License or Passport</p>
         </div>
         {initial && <span className={`badge ${STATUS_BADGE[initial.status] ?? 'badge-neutral'}`}>{STATUS_LABEL[initial.status]}</span>}
       </div>
@@ -167,7 +164,6 @@ function IdentitySection({ initial, onSaved }: { initial: IdDocument | null; onS
         <div className="form-group">
           <label className="label">Document Type *</label>
           <select className="select" value={form.type} onChange={e => sf('type', e.target.value)}>
-            <option value="NIN">National ID (NIN)</option>
             <option value="DRIVERS_LICENSE">Driver's License</option>
             <option value="PASSPORT">International Passport</option>
           </select>
@@ -175,10 +171,6 @@ function IdentitySection({ initial, onSaved }: { initial: IdDocument | null; onS
         <div className="form-group">
           <label className="label">Document Number *</label>
           <input className="input" value={form.number} onChange={e => sf('number', e.target.value)} placeholder="e.g. 12345678901" />
-        </div>
-        <div className="form-group">
-          <label className="label">BVN</label>
-          <input className="input" value={form.bvn} onChange={e => sf('bvn', e.target.value)} placeholder="11-digit BVN" />
         </div>
       </div>
 
@@ -205,7 +197,6 @@ function BusinessSection({ initial, onSaved }: { initial: BusinessVerification |
   const [form, setForm] = useState({
     cacNumber:   initial?.cacNumber ?? '',
     tin:         initial?.tin ?? '',
-    directorNin: initial?.directorNin ?? '',
     cacImageUrl: initial?.cacImageUrl ?? '',
   });
 
@@ -246,10 +237,6 @@ function BusinessSection({ initial, onSaved }: { initial: BusinessVerification |
         <div className="form-group">
           <label className="label">TIN</label>
           <input className="input" value={form.tin} onChange={e => sf('tin', e.target.value)} placeholder="Tax Identification Number" />
-        </div>
-        <div className="form-group">
-          <label className="label">Director NIN</label>
-          <input className="input" value={form.directorNin} onChange={e => sf('directorNin', e.target.value)} placeholder="Director's NIN" />
         </div>
       </div>
 

@@ -112,3 +112,13 @@ export const changePasswordSchema = Joi.object({
 export const deleteAccountSchema = Joi.object({
   password: Joi.string().required(),
 });
+
+export const sendPhoneOtpSchema = Joi.object({
+  // Optional: omit to verify the number already on the account. Format is checked
+  // by normalizeNigerianMobile so the user gets a specific error message.
+  phone: Joi.string().max(20).optional().allow(''),
+});
+
+export const verifyPhoneOtpSchema = Joi.object({
+  code: Joi.string().length(6).pattern(/^[0-9]+$/).required(),
+});

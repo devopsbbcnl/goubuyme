@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
+import { createAuthedSocket } from '@/services/socket';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
 import api from '@/services/api';
 
-const SOCKET_URL = (process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:5000').replace(/\/api\/v1\/?$/, '');
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -120,22 +120,15 @@ export default function VendorOrdersPage() {
   // Live "new order" nudge: join this vendor's socket room and refresh + show a blocking
   // banner the moment an order lands, instead of relying on the manual refresh button.
   useEffect(() => {
-    let cancelled = false;
-    api.get('/vendors/me').then(r => {
-      const vendorId = r.data.data?.id;
-      if (cancelled || !vendorId) return;
-
-      const socket = io(`${SOCKET_URL}/orders`, { transports: ['websocket', 'polling'] });
-      socketRef.current = socket;
-      socket.emit('vendor:join', { vendorId });
-      socket.on('order:new', ({ order }: { order: { orderNumber: string } }) => {
-        setNewOrderAlert({ orderNumber: order.orderNumber });
-        loadRef.current();
-      });
-    }).catch(() => {});
+    // The server puts an authenticated vendor socket in its vendor room automatically.
+    const socket = createAuthedSocket('/orders');
+    socketRef.current = socket;
+    socket.on('order:new', ({ order }: { order: { orderNumber: string } }) => {
+      setNewOrderAlert({ orderNumber: order.orderNumber });
+      loadRef.current();
+    });
 
     return () => {
-      cancelled = true;
       socketRef.current?.disconnect();
       socketRef.current = null;
     };

@@ -7,12 +7,12 @@ const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
-type DocType = 'NIN' | 'DRIVERS_LICENSE' | 'PASSPORT';
+// NIN/BVN are deliberately not collected from vendors (NDPA data minimisation).
+type DocType = 'DRIVERS_LICENSE' | 'PASSPORT';
 type Tier = 'TIER_1' | 'TIER_2';
 type Step = 'login' | 'form' | 'done';
 
 const DOC_META: Record<DocType, { label: string; numberLabel: string; placeholder: string; backRequired: boolean }> = {
-  NIN:             { label: 'NIN',               numberLabel: 'NIN',             placeholder: '11-digit NIN (e.g. 12345678901)', backRequired: false },
   DRIVERS_LICENSE: { label: "Driver's License",  numberLabel: 'License Number',  placeholder: 'e.g. ABC123456XY',               backRequired: true  },
   PASSPORT:        { label: 'Passport',           numberLabel: 'Passport Number', placeholder: 'e.g. A12345678',                 backRequired: false },
 };
@@ -122,7 +122,6 @@ export default function VendorSetupPage() {
   const [docFrontPreview, setDocFrontPreview] = useState('');
   const [docBackUrl, setDocBackUrl] = useState('');
   const [docBackPreview, setDocBackPreview] = useState('');
-  const [bvn, setBvn] = useState('');
   const [selfieUrl, setSelfieUrl] = useState('');
   const [selfiePreview, setSelfiePreview] = useState('');
   const [uploadingDocFront, setUploadingDocFront] = useState(false);
@@ -213,7 +212,6 @@ export default function VendorSetupPage() {
         number: docNumber.trim(),
         imageUrl: docFrontUrl,
         imageUrlBack: docBackUrl || null,
-        bvn: bvn.trim() || null,
         selfieUrl: selfieUrl || null,
       });
       const validItems = menuItems.filter(i => i.name.trim() && i.price.trim() && !isNaN(parseFloat(i.price)));
@@ -458,9 +456,6 @@ export default function VendorSetupPage() {
               onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setDocFrontPreview, setDocFrontUrl, setUploadingDocFront); e.target.value = ''; }} />
             <input ref={docBackRef} type="file" accept="image/*" style={{ display: 'none' }}
               onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setDocBackPreview, setDocBackUrl, setUploadingDocBack); e.target.value = ''; }} />
-
-            <label style={labelStyle(T)}>BVN (Bank Verification Number) — Optional</label>
-            <Input value={bvn} onChange={e => setBvn(e.target.value.replace(/\D/g, '').slice(0, 11))} placeholder="11-digit BVN" style={{ marginBottom: 18 }} T={T} />
 
             <label style={labelStyle(T)}>Selfie / Liveness Photo — Optional</label>
             <ImgBox preview={selfiePreview} uploading={uploadingSelfie} hint="Click to upload a clear selfie" onClick={() => selfieRef.current?.click()} T={T} />
