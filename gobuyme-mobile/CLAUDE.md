@@ -80,10 +80,9 @@ screens/
   vendor/
     VendorCompleteProfileScreen.tsx ✅  post-signup profile setup: cover photo, logo, description,
                                          opening/closing hours, commission tier selection (TIER_1/TIER_2),
-                                         identity document upload (NIN/Driver's License/Passport),
                                          menu items with option groups (choice of swallow etc.);
                                          calls PATCH /vendors/me, optionally PATCH /vendors/me/tier,
-                                         POST /vendors/me/document, POST /vendors/me/menu (×n);
+                                         POST /vendors/me/menu (×n); no ID step (optional, see below);
                                          on save checks approval status → dashboard or account-not-active
   customer/
     HomeScreen.tsx              ✅  auto-scrolling promo carousel (3.5s interval, pagingEnabled);
@@ -115,6 +114,10 @@ screens/
     VendorOrdersScreen.tsx      ✅  order management list, status filters, pull-to-refresh
     ManageMenuScreen.tsx        ✅  menu CRUD, image picker, Cloudinary upload
     EditVendorProfileScreen.tsx ✅  edit business info + cover image via Cloudinary
+    VendorIdentityDocumentScreen.tsx ✅  optional ID upload (Driver's License/Passport + optional selfie)
+                                     for the ID Verified badge; GET/POST /vendors/me/document;
+                                     route /(vendor)/identity-document (hidden tab), linked from profile
+                                     menu and the dashboard's "document rejected" prompt
     VendorPromotionsScreen.tsx  ✅  tier-gated promo card management:
                                      · TIER_1 — full screen visible, Add button disabled;
                                        pressing it shows Alert to upgrade to Growth Plan
@@ -272,7 +275,8 @@ Socket.io namespaces: `/orders` (status updates) · `/riders` (GPS location)
   `_layout.tsx`). Back buttons use `router.navigate('/(rider)/profile')` — not `router.back()` —
   because hidden tab screens have no reliable stack to pop.
 - Same pattern applies to any future hidden screens added to customer or vendor groups.
-- Vendor hidden routes: `edit-profile`, `earnings`, `notifications`, `settings`, `promotions`.
+- Vendor hidden routes: `edit-profile`, `earnings`, `notifications`, `settings`, `promotions`,
+  `identity-document`, `business-verification`, `licenses`.
   All use `router.push('/(vendor)/<screen>')` to navigate in and `router.back()` to return.
 
 ## Visual reference

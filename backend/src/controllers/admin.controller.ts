@@ -14,6 +14,7 @@ import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { linkLeadForUser } from '../services/crm/lead.service';
 import { recordError } from '../utils/recordError';
+import { deletedVendorName } from '../utils/deletedVendorName';
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
@@ -1762,7 +1763,10 @@ export const deleteVendor = catchAsync(async (req: AuthRequest, res: Response) =
       { userId: vendor.userId, email: vendor.user.email, phone: vendor.user.phone },
       'Vendor', id, 'VENDOR_ADMIN_DELETED', { businessName: vendor.businessName },
     );
-    await tx.vendor.update({ where: { id: vendor.id }, data: { approvalStatus: 'SUSPENDED' } });
+    await tx.vendor.update({
+      where: { id: vendor.id },
+      data: { approvalStatus: 'SUSPENDED', businessName: deletedVendorName(vendor.businessName, vendor.id) },
+    });
   });
 
   return apiResponse.success(res, 'Vendor deleted successfully.', { id, businessName: vendor.businessName });

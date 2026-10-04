@@ -33,14 +33,6 @@ type OptionGroup = {
   options: OptionItem[];
 };
 
-// NIN/BVN are deliberately not collected from vendors (NDPA data minimisation).
-type DocType = 'DRIVERS_LICENSE' | 'PASSPORT';
-
-const DOC_META: Record<DocType, { label: string; numberLabel: string; placeholder: string; backRequired: boolean }> = {
-  DRIVERS_LICENSE: { label: "Driver's License", numberLabel: 'License Number', placeholder: 'e.g. ABC123456XY', backRequired: true },
-  PASSPORT: { label: 'Passport', numberLabel: 'Passport Number', placeholder: 'e.g. A12345678', backRequired: false },
-};
-
 type MenuItemDraft = {
   id: string;
   name: string;
@@ -161,18 +153,6 @@ export default function VendorCompleteProfileScreen() {
   const [editingItem, setEditingItem] = useState<MenuItemDraft | null>(null);
   const [isNewItem, setIsNewItem] = useState(true);
 
-  const [docType, setDocType] = useState<DocType | null>(null);
-  const [docNumber, setDocNumber] = useState('');
-  const [docFrontUri, setDocFrontUri] = useState('');
-  const [docFrontUrl, setDocFrontUrl] = useState('');
-  const [docBackUri, setDocBackUri] = useState('');
-  const [docBackUrl, setDocBackUrl] = useState('');
-  const [uploadingDocFront, setUploadingDocFront] = useState(false);
-  const [uploadingDocBack, setUploadingDocBack] = useState(false);
-  const [selfieUri, setSelfieUri] = useState('');
-  const [selfieUrl, setSelfieUrl] = useState('');
-  const [uploadingSelfie, setUploadingSelfie] = useState(false);
-
   const [modalTier, setModalTier] = useState<Tier | null>(null);
   const [showCoverHint, setShowCoverHint] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -215,41 +195,6 @@ export default function VendorCompleteProfileScreen() {
     }
   };
 
-  const pickSelfie = async () => {
-    const uri = await openImagePicker({ allowsEditing: false, quality: 0.9 });
-    if (!uri) return;
-    setSelfieUri(uri);
-    setUploadingSelfie(true);
-    try {
-      const url = await uploadImage(uri);
-      setSelfieUrl(url);
-    } catch (err: any) {
-      Alert.alert('Upload failed', err?.message || 'Could not upload selfie. Please try again.');
-      setSelfieUri('');
-    } finally {
-      setUploadingSelfie(false);
-    }
-  };
-
-  const pickDocumentImage = async (side: 'front' | 'back') => {
-    const uri = await openImagePicker({ allowsEditing: false, quality: 0.9 });
-    if (!uri) return;
-    if (side === 'front') { setDocFrontUri(uri); setUploadingDocFront(true); }
-    else { setDocBackUri(uri); setUploadingDocBack(true); }
-    try {
-      const url = await uploadImage(uri);
-      if (side === 'front') setDocFrontUrl(url);
-      else setDocBackUrl(url);
-    } catch (err: any) {
-      Alert.alert('Upload failed', err?.message || 'Could not upload the document image. Please try again.');
-      if (side === 'front') setDocFrontUri('');
-      else setDocBackUri('');
-    } finally {
-      if (side === 'front') setUploadingDocFront(false);
-      else setUploadingDocBack(false);
-    }
-  };
-
   const handleSave = async () => {
     if (!description.trim()) {
       Alert.alert('Required', 'Please add a short description of your store.');
@@ -261,18 +206,6 @@ export default function VendorCompleteProfileScreen() {
     }
     if (!openingTime.trim() || !closingTime.trim()) {
       Alert.alert('Required', 'Please enter your store opening and closing times.');
-      return;
-    }
-    if (!docType) {
-      Alert.alert('Required', 'Please select a document type for identity verification.');
-      return;
-    }
-    if (!docNumber.trim()) {
-      Alert.alert('Required', `Please enter your ${DOC_META[docType].numberLabel}.`);
-      return;
-    }
-    if (!docFrontUrl) {
-      Alert.alert('Required', 'Please upload an image of your document.');
       return;
     }
     try {
@@ -311,13 +244,6 @@ export default function VendorCompleteProfileScreen() {
       if (tier === 'TIER_1') {
         await api.patch('/vendors/me/tier', { tier: 'TIER_1' });
       }
-      await api.post('/vendors/me/document', {
-        type: docType,
-        number: docNumber.trim(),
-        imageUrl: docFrontUrl,
-        imageUrlBack: docBackUrl || null,
-        selfieUrl: selfieUrl || null,
-      });
       const validItems = menuItems.filter(
         i => i.name.trim() && i.price.trim() && !isNaN(parseFloat(i.price)) && i.stockQuantity.trim(),
       );
@@ -351,7 +277,7 @@ export default function VendorCompleteProfileScreen() {
     }
   };
 
-  const busy = saving || uploadingLogo || uploadingCover || uploadingDocFront || uploadingDocBack || uploadingSelfie;
+  const busy = saving || uploadingLogo || uploadingCover;
   const modalDetails = modalTier ? PLAN_DETAILS[modalTier] : null;
 
   return (
@@ -506,152 +432,6 @@ export default function VendorCompleteProfileScreen() {
             T={T}
           />
         </View>
-
-        {/* Identity verification */}
-        <SectionLabel label="IDENTITY VERIFICATION *" T={T} mt={28} />
-        <Text style={[styles.subText, { color: T.textSec }]}>
-          Select a government-issued ID to verify your identity. This is required for account activation.
-        </Text>
-
-        {/* Doc type picker */}
-        <View style={styles.docTypeRow}>
-          {(Object.keys(DOC_META) as DocType[]).map((dt) => (
-            <TouchableOpacity
-              key={dt}
-              onPress={() => { setDocType(dt); setDocNumber(''); setDocFrontUri(''); setDocFrontUrl(''); setDocBackUri(''); setDocBackUrl(''); }}
-              style={[
-                styles.docTypeChip,
-                {
-                  backgroundColor: docType === dt ? T.primary : T.surface,
-                  borderColor: docType === dt ? T.primary : T.border,
-                },
-              ]}
-            >
-              <Text style={[styles.docTypeChipText, { color: docType === dt ? '#fff' : T.textSec }]}>
-                {DOC_META[dt].label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {docType && (
-          <>
-            {/* Document number */}
-            <Text style={[styles.fieldLabel, { color: T.textSec, marginTop: 16, marginBottom: 6 }]}>
-              {DOC_META[docType].numberLabel} *
-            </Text>
-            <TextInput
-              value={docNumber}
-              onChangeText={setDocNumber}
-              placeholder={DOC_META[docType].placeholder}
-              placeholderTextColor={T.textMuted}
-              autoCapitalize="characters"
-              style={[styles.input, { backgroundColor: T.surface, borderColor: T.border, color: T.text }]}
-            />
-
-            {/* Document images */}
-            <Text style={[styles.fieldLabel, { color: T.textSec, marginTop: 16, marginBottom: 8 }]}>
-              {DOC_META[docType].backRequired ? 'Front & Back *' : 'Document Image *'}
-            </Text>
-            <View style={DOC_META[docType].backRequired ? styles.docImgRow : undefined}>
-              {/* Front */}
-              <TouchableOpacity
-                onPress={() => pickDocumentImage('front')}
-                activeOpacity={0.85}
-                style={[
-                  styles.docImgBox,
-                  { flex: DOC_META[docType].backRequired ? 1 : undefined, backgroundColor: T.surface, borderColor: T.border },
-                ]}
-              >
-                {docFrontUri ? (
-                  <Image source={{ uri: docFrontUri }} style={[StyleSheet.absoluteFill, { borderRadius: 4 }]} resizeMode="cover" />
-                ) : (
-                  <View style={{ alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="id-card-outline" size={26} color={T.textMuted} />
-                    <Text style={[styles.pickerHint, { color: T.textMuted }]}>
-                      {DOC_META[docType].backRequired ? 'Front' : 'Tap to upload'}
-                    </Text>
-                  </View>
-                )}
-                {uploadingDocFront ? (
-                  <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 4 }]}>
-                    <ActivityIndicator color="#fff" />
-                  </View>
-                ) : docFrontUri ? (
-                  <View style={[styles.cameraChip, { backgroundColor: T.primary }]}>
-                    <Ionicons name="camera" size={14} color="#fff" />
-                    <Text style={styles.cameraChipText}>Change</Text>
-                  </View>
-                ) : null}
-              </TouchableOpacity>
-
-              {/* Back (Driver's License only) */}
-              {DOC_META[docType].backRequired && (
-                <TouchableOpacity
-                  onPress={() => pickDocumentImage('back')}
-                  activeOpacity={0.85}
-                  style={[styles.docImgBox, { flex: 1, backgroundColor: T.surface, borderColor: T.border }]}
-                >
-                  {docBackUri ? (
-                    <Image source={{ uri: docBackUri }} style={[StyleSheet.absoluteFill, { borderRadius: 4 }]} resizeMode="cover" />
-                  ) : (
-                    <View style={{ alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="id-card-outline" size={26} color={T.textMuted} />
-                      <Text style={[styles.pickerHint, { color: T.textMuted }]}>Back</Text>
-                    </View>
-                  )}
-                  {uploadingDocBack ? (
-                    <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 4 }]}>
-                      <ActivityIndicator color="#fff" />
-                    </View>
-                  ) : docBackUri ? (
-                    <View style={[styles.cameraChip, { backgroundColor: T.primary }]}>
-                      <Ionicons name="camera" size={14} color="#fff" />
-                      <Text style={styles.cameraChipText}>Change</Text>
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Selfie */}
-            <Text style={[styles.fieldLabel, { color: T.textSec, marginTop: 16, marginBottom: 8 }]}>
-              Selfie / Liveness Photo — Optional
-            </Text>
-            <TouchableOpacity
-              onPress={pickSelfie}
-              activeOpacity={0.85}
-              style={[styles.docImgBox, { backgroundColor: T.surface, borderColor: T.border }]}
-            >
-              {selfieUri ? (
-                <Image source={{ uri: selfieUri }} style={[StyleSheet.absoluteFill, { borderRadius: 4 }]} resizeMode="cover" />
-              ) : (
-                <View style={{ alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="person-circle-outline" size={26} color={T.textMuted} />
-                  <Text style={[styles.pickerHint, { color: T.textMuted }]}>Tap to upload a clear selfie</Text>
-                </View>
-              )}
-              {uploadingSelfie ? (
-                <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 4 }]}>
-                  <ActivityIndicator color="#fff" />
-                </View>
-              ) : selfieUri ? (
-                <View style={[styles.cameraChip, { backgroundColor: T.primary }]}>
-                  <Ionicons name="camera" size={14} color="#fff" />
-                  <Text style={styles.cameraChipText}>Change</Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
-
-            {/* Privacy note */}
-            <View style={[styles.docPrivacyBox, { backgroundColor: T.surface2 ?? T.surface }]}>
-              <Ionicons name="lock-closed-outline" size={13} color={T.textMuted} style={{ marginTop: 1 }} />
-              <Text style={[styles.docPrivacyText, { color: T.textMuted }]}>
-                Your document is encrypted and used only for identity verification. It will never be shared with third parties.
-              </Text>
-            </View>
-          </>
-        )}
 
         {/* Menu items */}
         <SectionLabel label="MENU ITEMS" T={T} mt={28} />
@@ -1252,21 +1032,6 @@ const styles = StyleSheet.create({
   tierItem: { fontSize: 13, lineHeight: 20, fontFamily: 'PlusJakartaSans_400Regular' },
   planDetailsBtn: { alignSelf: 'flex-start', marginTop: 4 },
   planDetailsText: { fontSize: 12, fontWeight: '600', fontFamily: 'PlusJakartaSans_600SemiBold', textDecorationLine: 'underline' },
-  // Document
-  docTypeRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4 },
-  docTypeChip: {
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 4, borderWidth: 1,
-  },
-  docTypeChipText: { fontSize: 13, fontWeight: '600', fontFamily: 'PlusJakartaSans_600SemiBold' },
-  docImgRow: { flexDirection: 'row', gap: 10 },
-  docImgBox: {
-    height: 110, borderRadius: 4, borderWidth: 1, borderStyle: 'dashed',
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-    marginBottom: 10,
-  },
-  docPrivacyBox: { flexDirection: 'row', gap: 8, borderRadius: 4, padding: 12, marginTop: 4 },
-  docPrivacyText: { flex: 1, fontSize: 12, lineHeight: 18, fontFamily: 'PlusJakartaSans_400Regular' },
   // Menu list
   menuEmpty: {
     height: 96, borderRadius: 4, borderWidth: 1, borderStyle: 'dashed',
