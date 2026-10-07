@@ -1,4 +1,4 @@
-import { Stack, router } from 'expo-router';
+import { Stack, router, useSegments } from 'expo-router';
 import { StatusBar } from 'react-native';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ThemeProvider } from '@/context/ThemeContext';
@@ -20,6 +20,7 @@ import { useEffect } from 'react';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { setOnUnauthorized } from '@/services/api';
 import { reportError } from '@/services/errorReporting';
+import { initAnalytics, trackScreen } from '@/services/analytics';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,6 +42,12 @@ if (globalErrorUtils) {
 function AppContent() {
   usePushNotifications();
   const { loading: authLoading, logout } = useAuth();
+
+  // Route pattern (e.g. "(customer)/vendor/[id]"), not the concrete path — keeps ids out
+  // of analytics and screen names low-cardinality enough to aggregate.
+  const screen = useSegments().join('/');
+  useEffect(() => { void initAnalytics(); }, []);
+  useEffect(() => { if (screen) trackScreen(screen); }, [screen]);
 
   useEffect(() => {
     // When api.ts exhausts the refresh token, clear auth state and send to login.

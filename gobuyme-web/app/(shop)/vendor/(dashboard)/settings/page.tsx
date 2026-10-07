@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 import { useCommissionRates } from '@/hooks/useCommissionRates';
 import DeleteAccountModal from '@/components/ui/DeleteAccountModal';
+import { AnalyticsConsentRow } from '@/components/AnalyticsConsentRow';
 
 // ── Nigerian bank list ─────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ function AppearanceSection() {
         </div>
         <label className="switch"><input type="checkbox" checked={isDark} onChange={toggleTheme} /><span className="track" /></label>
       </div>
+      <AnalyticsConsentRow style={{ marginTop: 16 }} />
     </Section>
   );
 }

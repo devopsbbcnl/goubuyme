@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
+import { AnalyticsConsentSection } from '@/components/AnalyticsConsentSection';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -201,6 +202,8 @@ export default function VendorSettingsScreen() {
             </View>
           </View>
         ))}
+
+        <AnalyticsConsentSection />
 
         <View style={{ gap: 8 }}>
           <Text style={[styles.sectionLabel, { color: T.error }]}>DANGER ZONE</Text>

@@ -6,6 +6,7 @@ import { useCart } from '@/context/CartContext';
 import { useToast } from '@/components/ui/Toast';
 import Image from 'next/image';
 import api from '@/services/api';
+import { track } from '@/services/analytics';
 import { PhoneVerifiedBadge } from '@/components/ui/PhoneVerification';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -122,6 +123,13 @@ export default function VendorDetailPage() {
     ]).then(([vRes, mRes]) => {
       setVendor(vRes.data.data);
       setMenu(mRes.data.data ?? []);
+      track('vendor_viewed', {
+        // The route param can be a slug — record the canonical id from the response.
+        vendorId: vRes.data.data?.id ?? String(id),
+        category: vRes.data.data?.category ?? null,
+        isOpen: !!vRes.data.data?.isOpen,
+        menuItemCount: (mRes.data.data ?? []).length,
+      });
     }).catch(() => {}).finally(() => setLoading(false));
   }, [id]);
 

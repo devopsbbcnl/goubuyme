@@ -10,6 +10,7 @@ import { getIO } from '../config/socket';
 import { isValidCoordinate, publishRiderLocation } from '../sockets/riderLocation';
 import { notifyUser } from '../services/notification.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
+import { trackServerEvent } from '../services/analytics.service';
 
 const resolveRider = async (userId: string) =>
   prisma.rider.findUnique({ where: { userId }, select: { id: true, approvalStatus: true } });
@@ -229,6 +230,12 @@ export const acceptJob = catchAsync(async (req: AuthRequest, res: Response) => {
     getIO().of('/orders').to(`order:${orderId}`).emit('order:status', { orderId, status: 'ASSIGNED' });
   } catch { /* socket may not be connected */ }
 
+  void trackServerEvent('job_accepted', req.user!.userId, 'RIDER', {
+    orderId: order.id,
+    fee: order.originalDeliveryFee,
+    distanceKm: order.distanceKm,
+  });
+
   return apiResponse.success(res, 'Job accepted.', {
     orderId: order.id,
     orderNumber: order.orderNumber,
@@ -345,6 +352,13 @@ export const updateDeliveryStatus = catchAsync(async (req: AuthRequest, res: Res
       type: 'order',
       data: { orderId: order.id },
     }).catch(() => {});
+
+    void trackServerEvent('delivery_completed', req.user!.userId, 'RIDER', {
+      orderId: order.id,
+      fee: order.originalDeliveryFee,
+      distanceKm: order.distanceKm,
+      minutesSincePlaced: Math.round((Date.now() - order.createdAt.getTime()) / 60_000),
+    });
   }
 
   try {

@@ -2,6 +2,7 @@ import React from 'react';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/context/AuthContext';
+import { track } from '@/services/analytics';
 
 export interface CartItemSelection {
   label: string;
@@ -94,6 +95,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     prev[vendor.id] ?? { vendorId: vendor.id, vendorName: vendor.name, vendorImage: vendor.image, items: [] };
 
   const addItem = (item: Omit<CartItem, 'qty'>, delta: number, vendor: VendorInfo) => {
+    if (delta > 0) track('item_added_to_cart', { vendorId: vendor.id, itemId: item.id, price: item.price, qty: delta });
     setCarts(prev => {
       const bucket = bucketFor(prev, vendor);
       const existing = bucket.items.find(i => i.id === item.id);
@@ -115,6 +117,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const replaceItem = (item: Omit<CartItem, 'qty'>, qty: number, vendor: VendorInfo) => {
+    const prevQty = carts[vendor.id]?.items.find(i => i.id === item.id)?.qty ?? 0;
+    if (qty > prevQty) track('item_added_to_cart', { vendorId: vendor.id, itemId: item.id, price: item.price, qty: qty - prevQty });
     setCarts(prev => {
       const bucket = bucketFor(prev, vendor);
       const filtered = bucket.items.filter(i => i.id !== item.id);

@@ -1,33 +1,18 @@
 import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
 import logger from '../utils/logger';
 import { analyzeErrorLog } from '../services/errorAnalysis.service';
+import { decodeOptionalUser } from '../utils/decodeOptionalUser';
 
-// Error reports can arrive before login (e.g. Google Sign-In failures), so the
-// ingest endpoint doesn't require a token — but if one is present, attaching the
-// user's identity makes the admin dashboard far more useful for support staff.
-const decodeUserIfPresent = (req: Request): { userId?: string; role?: string } => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) return {};
-  try {
-    const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_ACCESS_SECRET as string) as {
-      userId: string;
-      role: string;
-    };
-    return { userId: decoded.userId, role: decoded.role };
-  } catch {
-    return {};
-  }
-};
-
-// POST /api/v1/errors — public ingest from mobile/web/admin clients
+// POST /api/v1/errors — public ingest from mobile/web/admin clients.
+// Error reports can arrive before login (e.g. Google Sign-In failures), so no token is
+// required — but if one is present, the user's identity is attached for support staff.
 export const reportError = catchAsync(async (req: Request, res: Response) => {
   const { platform, source, message, stack, context, appVersion, deviceInfo, url, method } = req.body;
-  const { userId, role } = decodeUserIfPresent(req);
+  const { userId, role } = decodeOptionalUser(req);
 
   const log = await prisma.errorLog.create({
     data: { platform, source, message, stack, context, appVersion, deviceInfo, url, method, userId, role },

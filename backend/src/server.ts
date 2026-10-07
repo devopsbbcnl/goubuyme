@@ -38,6 +38,7 @@ import { startEscalationJob } from './jobs/escalationJob';
 import { startTicketSlaJob } from './jobs/ticketSlaJob';
 import { startCampaignJobs } from './jobs/campaignJob';
 import { startTaskJobs } from './jobs/taskJob';
+import { startAnalyticsRetentionJob } from './jobs/analyticsRetentionJob';
 import { errorHandler } from './middleware/error.middleware';
 import { globalLimiter, publicSettingsLimiter } from './middleware/rateLimiter.middleware';
 import { maintenanceGuard } from './middleware/maintenance.middleware';
@@ -58,6 +59,7 @@ import supportRoutes from './routes/support.routes';
 import messageRoutes from './routes/message.routes';
 import geocodeRoutes from './routes/geocode.routes';
 import errorLogRoutes from './routes/errorLog.routes';
+import appEventRoutes from './routes/appEvent.routes';
 import logger from './utils/logger';
 
 const app = express();
@@ -160,6 +162,10 @@ app.get('/api/v1/settings/public', publicSettingsLimiter, async (_req, res) => {
   }
 });
 
+// Analytics ingest has its own limiters (see eventsLimiter) and must not share the
+// global bucket — a chatty screen-view stream would otherwise 429 the user's real calls.
+app.use('/api/v1/events', appEventRoutes);
+
 app.use(globalLimiter);
 app.use(maintenanceGuard);
 
@@ -218,6 +224,7 @@ const start = async () => {
   startTicketSlaJob();
   startCampaignJobs();
   startTaskJobs();
+  startAnalyticsRetentionJob();
   httpServer.listen(PORT, '0.0.0.0', () => logger.info(`GoBuyMe API running on port ${PORT}`));
 };
 

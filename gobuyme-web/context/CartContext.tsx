@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import api from '@/services/api';
 import { useAuth } from './AuthContext';
+import { track } from '@/services/analytics';
 
 export interface CartItem {
   id?: string;          // backend cart-item id — set once synced, undefined while an add is in flight
@@ -100,6 +101,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = (item: Omit<CartItem, 'qty'>, initialQty = 1) => {
     const key = item.compositeKey ?? item.menuItemId;
+    track('item_added_to_cart', { vendorId: item.vendorId, itemId: item.menuItemId, price: item.price, qty: initialQty });
     updateLocalCarts(prev => {
       const existingCart = prev.find(c => c.vendorId === item.vendorId);
       if (!existingCart) {
@@ -137,6 +139,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const updateQty = (vendorId: string, key: string, qty: number) => {
     if (qty <= 0) { removeItem(vendorId, key); return; }
+    const existing = getVendorItems(vendorId).find(i => (i.compositeKey ?? i.menuItemId) === key);
+    if (existing && qty > existing.qty) {
+      track('item_added_to_cart', { vendorId, itemId: existing.menuItemId, price: existing.price, qty: qty - existing.qty });
+    }
     updateLocalCarts(prev => prev.map(c =>
       c.vendorId === vendorId
         ? { ...c, items: c.items.map(i => (i.compositeKey ?? i.menuItemId) === key ? { ...i, qty } : i) }

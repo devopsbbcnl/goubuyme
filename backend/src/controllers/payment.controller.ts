@@ -10,6 +10,7 @@ import { notifyUser } from '../services/notification.service';
 import { releaseUnpaidOrder } from './order.controller';
 import { PaymentStatus, OrderStatus } from '@prisma/client';
 import { recordError } from '../utils/recordError';
+import { trackServerEvent } from '../services/analytics.service';
 import { getPrimaryClientUrl } from '../utils/clientUrl';
 
 const PAYSTACK_BASE = 'https://api.paystack.co';
@@ -133,6 +134,9 @@ export const verifyPayment = catchAsync(async (req: AuthRequest, res: Response) 
     }).catch(() => {});
 
     activateReferral(updatedOrder.customer.userId).catch(() => {});
+    void trackServerEvent('payment_succeeded', updatedOrder.customer.userId, 'CUSTOMER', {
+      orderId: updatedOrder.id, amount: updatedOrder.totalAmount, via: 'verify',
+    });
 
     return apiResponse.success(res, 'Payment verified.', {
       status:  'success',
@@ -160,7 +164,10 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
   try {
     if (event === 'charge.success') {
-      const order = await prisma.order.findFirst({ where: { paystackRef: data.reference } });
+      const order = await prisma.order.findFirst({
+        where: { paystackRef: data.reference },
+        include: { customer: { select: { userId: true } } },
+      });
       if (!order || order.paystackVerified) return;
 
       await prisma.order.update({
@@ -170,6 +177,9 @@ export const handleWebhook = async (req: Request, res: Response) => {
           paystackVerified: true,
           status:           OrderStatus.CONFIRMED,
         },
+      });
+      void trackServerEvent('payment_succeeded', order.customer.userId, 'CUSTOMER', {
+        orderId: order.id, amount: order.totalAmount, via: 'webhook',
       });
     }
 

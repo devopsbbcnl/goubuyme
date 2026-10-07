@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import api from '@/services/api';
 import DeleteAccountModal from '@/components/ui/DeleteAccountModal';
+import { AnalyticsConsentRow } from '@/components/AnalyticsConsentRow';
 import ImageCropModal from '@/components/ui/ImageCropModal';
 import { uploadToCloudinary } from '@/services/cloudinary';
 
@@ -240,6 +241,7 @@ export default function RiderProfilePage() {
             <span style={{ fontWeight: 600 }}>Dark Mode</span>
             <label className="switch"><input type="checkbox" checked={isDark} onChange={toggleTheme} /><span className="track" /></label>
           </div>
+          <AnalyticsConsentRow style={{ marginTop: 14 }} />
           <div className="divider" />
           <button className="btn btn-danger btn-block" style={{ marginTop: 12 }} onClick={logout}>Sign Out</button>
         </div>

@@ -7,6 +7,7 @@ import { ToastProvider } from '@/components/ui/Toast';
 import { ConfirmProvider } from '@/components/ui/Confirm';
 import { ThemeScript } from '@/components/ui/ThemeScript';
 import { WhatsAppFab } from '@/components/ui/WhatsAppFab';
+import { AnalyticsTracker } from '@/components/AnalyticsTracker';
 import { SITE_URL, SITE_NAME, DEFAULT_TITLE, DEFAULT_DESCRIPTION } from '@/lib/seo';
 
 export const metadata: Metadata = {
@@ -55,6 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <ConfirmProvider>
                   {children}
                   <WhatsAppFab />
+                  <AnalyticsTracker />
                 </ConfirmProvider>
               </ToastProvider>
             </CartProvider>

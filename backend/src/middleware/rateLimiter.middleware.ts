@@ -171,6 +171,35 @@ export const publicSettingsLimiter = rateLimit({
   handler: rateLimitHandler('Too many requests. Please try again later.'),
 });
 
+// /api/v1/events (analytics ingest) is registered ahead of globalLimiter so batched usage
+// events never eat into a user's quota for real requests. Web events arrive through the
+// Next.js proxy, so many browsers share one source IP — the primary bucket is therefore
+// per install/browser (the client's anonymousId), with a coarse per-IP ceiling behind it
+// so rotating anonymousIds can't flood the table. Clients flush every ~15-30s, well under this.
+export const eventsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: sharedStore('rl:events:'),
+  skip: skipOutsideProduction,
+  keyGenerator: (req) => {
+    const anon = req.body?.anonymousId;
+    return typeof anon === 'string' && anon.length > 0 && anon.length <= 64 ? `anon:${anon}` : `ip:${req.ip}`;
+  },
+  handler: rateLimitHandler('Too many analytics events. Please slow down.'),
+});
+
+export const eventsIpLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 1200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: sharedStore('rl:events-ip:'),
+  skip: skipOutsideProduction,
+  handler: rateLimitHandler('Too many analytics events. Please slow down.'),
+});
+
 // Root endpoint `/` limiter — much stricter than globalLimiter since it's commonly
 // targeted in reconnaissance scans and DDoS attacks. Real traffic (browsers, API clients)
 // rarely hit this directly; most go to /api/v1/* routes instead.
