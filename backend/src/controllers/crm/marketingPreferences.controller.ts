@@ -4,22 +4,33 @@ import { AuthRequest } from '../../middleware/auth.middleware';
 import { catchAsync } from '../../utils/catchAsync';
 import { apiResponse } from '../../utils/apiResponse';
 import { verifyUnsubscribeToken } from '../../services/crm/unsubscribe.service';
+import { invalidateAnalyticsOptIn } from '../../services/analytics.service';
+
+const preferenceSelect = { marketingOptIn: true, analyticsOptIn: true } as const;
 
 // GET /notifications/preferences
 export const getMarketingPreferences = catchAsync(async (req: AuthRequest, res: Response) => {
-  const user = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { marketingOptIn: true } });
+  const user = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: preferenceSelect });
   if (!user) return apiResponse.error(res, 'User not found.', 404);
   return apiResponse.success(res, 'Preferences fetched.', user);
 });
 
-// PATCH /notifications/preferences  { marketingOptIn: boolean }
+// PATCH /notifications/preferences  { marketingOptIn?: boolean, analyticsOptIn?: boolean }
 export const updateMarketingPreferences = catchAsync(async (req: AuthRequest, res: Response) => {
-  if (typeof req.body?.marketingOptIn !== 'boolean') return apiResponse.error(res, 'marketingOptIn must be true or false.', 400);
-  const user = await prisma.user.update({
-    where: { id: req.user!.userId },
-    data: { marketingOptIn: req.body.marketingOptIn },
-    select: { marketingOptIn: true },
-  });
+  const { marketingOptIn, analyticsOptIn } = req.body ?? {};
+  const data: { marketingOptIn?: boolean; analyticsOptIn?: boolean } = {};
+  if (marketingOptIn !== undefined) {
+    if (typeof marketingOptIn !== 'boolean') return apiResponse.error(res, 'marketingOptIn must be true or false.', 400);
+    data.marketingOptIn = marketingOptIn;
+  }
+  if (analyticsOptIn !== undefined) {
+    if (typeof analyticsOptIn !== 'boolean') return apiResponse.error(res, 'analyticsOptIn must be true or false.', 400);
+    data.analyticsOptIn = analyticsOptIn;
+  }
+  if (Object.keys(data).length === 0) return apiResponse.error(res, 'Nothing to update.', 400);
+
+  const user = await prisma.user.update({ where: { id: req.user!.userId }, data, select: preferenceSelect });
+  if (analyticsOptIn !== undefined) invalidateAnalyticsOptIn(req.user!.userId);
   return apiResponse.success(res, 'Preferences saved.', user);
 });
 

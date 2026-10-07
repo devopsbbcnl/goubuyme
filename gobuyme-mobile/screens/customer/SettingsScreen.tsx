@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
+import { AnalyticsConsentSection } from '@/components/AnalyticsConsentSection';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 const WEBSITE_URL = process.env.EXPO_PUBLIC_WEBSITE_URL || 'https://gobuyme.shop';
@@ -189,6 +190,8 @@ export default function SettingsScreen() {
             </View>
           </View>
         ))}
+
+        <AnalyticsConsentSection />
 
         <Text style={[styles.buildInfo, { color: T.textMuted }]}>
           GoBuyMe © 2026 · Bubble Barrel

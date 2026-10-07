@@ -59,7 +59,9 @@ model User {
   cannedReplies          CannedReply[]
   /// Consent to promotional campaigns (NDPR). Transactional messages ignore this.
   marketingOptIn         Boolean             @default(true)
-  segmentsCreated        Segment[]
+  /// Consent to product-usage analytics (AppEvent). When false, no events are stored for this user.
+  analyticsOptIn         Boolean             @default(true)
+  segmentsCreated       Segment[]
   campaignsCreated       Campaign[]
   campaignRecipients     CampaignRecipient[]
   automationsCreated     CrmAutomation[]
@@ -765,6 +767,33 @@ model ErrorLog {
   @@index([severity])
   @@index([fingerprint])
   @@map("error_logs")
+}
+
+/// In-house product analytics stream (no third-party SDK). Client events arrive batched
+/// via POST /events; order/payment/delivery events are written server-side by
+/// analytics.service.ts. Properties must never carry PII — ids, counts and amounts only.
+/// Pruned after ANALYTICS_RETENTION_DAYS by analyticsRetentionJob.
+model AppEvent {
+  id          String   @id @default(uuid())
+  name        String
+  /// Derived from the access token server-side, never trusted from the client.
+  userId      String?
+  /// Random per-install/per-browser id, so pre-login activity can be funnelled too.
+  anonymousId String?
+  role        String?
+  platform    String // MOBILE | WEB | SERVER
+  sessionId   String?
+  screen      String?
+  properties  Json?
+  appVersion  String?
+  occurredAt  DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([name, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([anonymousId])
+  @@index([occurredAt])
+  @@map("app_events")
 }
 
 model Conversation {

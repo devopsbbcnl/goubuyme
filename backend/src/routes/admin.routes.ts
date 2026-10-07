@@ -30,6 +30,7 @@ import { listErrorLogs, getErrorLogDetail, resolveErrorLog, bulkResolveErrorLogs
 import { validate } from '../middleware/validate.middleware';
 import { bulkResolveErrorLogsSchema } from '../validators/errorLog.validator';
 import { getOnboardingFunnel, getStuckUsers, getOnboardingEventFunnel } from '../controllers/analytics.controller';
+import { getUsageOverview, getUsageFunnel, getUsageRetention, listAppEvents, getEventCatalog } from '../controllers/appEvent.controller';
 import { createOffer, updateOffer } from '../controllers/offer.controller';
 import {
   getPricingProfiles,
@@ -71,6 +72,13 @@ router.get('/dashboard', ...readAuth, getDashboardStats);
 router.get('/analytics/funnel', ...readAuth, getOnboardingFunnel);
 router.get('/analytics/event-funnel', ...readAuth, getOnboardingEventFunnel);
 router.get('/analytics/stuck-users', ...readAuth, getStuckUsers);
+
+// App usage analytics (AppEvent stream)
+router.get('/analytics/usage/overview', ...readAuth, getUsageOverview);
+router.get('/analytics/usage/funnel', ...readAuth, getUsageFunnel);
+router.get('/analytics/usage/retention', ...readAuth, getUsageRetention);
+router.get('/analytics/usage/events', ...readAuth, listAppEvents);
+router.get('/analytics/usage/catalog', ...readAuth, getEventCatalog);
 router.get('/settings', ...readAuth, getAdminSettings);
 router.patch('/settings', ...superAdminAuth, updateAdminSettings);
 

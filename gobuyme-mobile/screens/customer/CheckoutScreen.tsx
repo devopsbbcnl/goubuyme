@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, Alert, ActivityIndicator, TextInput, Modal,
@@ -12,6 +12,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
+import { track } from '@/services/analytics';
 import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 const TYPE_ICONS: Record<string, any> = { home: 'home', work: 'business', other: 'location-on' };
@@ -44,6 +45,18 @@ export default function CheckoutScreen() {
   useEffect(() => {
     setPhone(user?.phone ?? '');
   }, [user?.phone]);
+
+  // Once per checkout visit, as soon as the cart (restored asynchronously) has items.
+  const checkoutTrackedRef = useRef(false);
+  useEffect(() => {
+    if (checkoutTrackedRef.current || !vid || items.length === 0) return;
+    checkoutTrackedRef.current = true;
+    track('checkout_started', {
+      vendorId: vid,
+      subtotal: total,
+      itemCount: items.reduce((s, i) => s + i.qty, 0),
+    });
+  }, [vid, items, total]);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [freeDeliveryReason, setFreeDeliveryReason] = useState<'THRESHOLD' | 'CREDIT' | null>(null);
   const [feeLoading, setFeeLoading] = useState(false);

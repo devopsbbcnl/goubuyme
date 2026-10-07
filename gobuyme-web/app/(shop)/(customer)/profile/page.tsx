@@ -9,6 +9,7 @@ import ImageCropModal from '@/components/ui/ImageCropModal';
 import DeleteAccountModal from '@/components/ui/DeleteAccountModal';
 import Image from 'next/image';
 import api from '@/services/api';
+import { AnalyticsConsentRow } from '@/components/AnalyticsConsentRow';
 
 interface Order {
   id: string;
@@ -527,6 +528,7 @@ export default function ProfilePage() {
                   <span className="track" />
                 </label>
               </div>
+              {user && <AnalyticsConsentRow style={{ marginTop: 16 }} />}
             </div>
 
             {/* Quick links */}

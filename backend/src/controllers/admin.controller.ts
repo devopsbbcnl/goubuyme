@@ -1725,8 +1725,10 @@ async function softDeleteUser(
       phone: null,
       refreshToken: null,
       pushToken: null,
+      analyticsOptIn: false,
     },
   });
+  await tx.appEvent.deleteMany({ where: { userId: target.userId } });
 
   await tx.auditLog.create({
     data: {

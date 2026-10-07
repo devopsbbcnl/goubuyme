@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/components/ui/Toast';
 import api from '@/services/api';
+import { track } from '@/services/analytics';
 import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
 
 interface Address { id: string; label: string; street: string; city: string; }
@@ -386,6 +387,19 @@ function CheckoutContent() {
   useEffect(() => {
     setPhone(user?.phone ?? '');
   }, [user?.phone]);
+
+  // Once per checkout visit. The cart loads asynchronously on a hard refresh, so wait
+  // for items to arrive instead of firing (or skipping) on the first empty render.
+  const checkoutTrackedRef = useRef(false);
+  useEffect(() => {
+    if (checkoutTrackedRef.current || !vendorId || items.length === 0) return;
+    checkoutTrackedRef.current = true;
+    track('checkout_started', {
+      vendorId,
+      subtotal: totalAmount,
+      itemCount: items.reduce((s, i) => s + i.qty, 0),
+    });
+  }, [vendorId, items, totalAmount]);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [originalDeliveryFee, setOriginalDeliveryFee] = useState<number | null>(null);
   const [freeDeliveryReason, setFreeDeliveryReason] = useState<'THRESHOLD' | 'CREDIT' | null>(null);

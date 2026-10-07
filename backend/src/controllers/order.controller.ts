@@ -15,6 +15,7 @@ import { sendSms } from '../services/sms.service';
 import { sendWebPush } from '../services/webPush.service';
 import { sendVendorNewOrderEmail } from '../services/email.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
+import { trackServerEvent } from '../services/analytics.service';
 import { availabilityInclude, computeAvailability, AvailabilityInput } from '../services/availability.service';
 import { PaymentMethod, OrderStatus, PaymentStatus } from '@prisma/client';
 
@@ -378,6 +379,23 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
 
   // First order = customer activation (idempotent — only the first order counts).
   void recordOnboardingEvent(req.user!.userId, 'CUSTOMER', 'FIRST_ORDER');
+  void trackServerEvent('order_placed', req.user!.userId, 'CUSTOMER', {
+    orderId: order.id,
+    vendorId: vendor.id,
+    vendorTier: vendor.commissionTier,
+    paymentMethod,
+    subtotal,
+    total: totalAmount,
+    itemCount: cart.items.reduce((s, i) => s + i.quantity, 0),
+    promoApplied: !!promoApplied,
+    creditApplied,
+  });
+  // Store credit covering the whole total settles the order immediately — no Paystack step follows.
+  if (order.paymentStatus === PaymentStatus.PAID) {
+    void trackServerEvent('payment_succeeded', req.user!.userId, 'CUSTOMER', {
+      orderId: order.id, amount: totalAmount, via: 'store_credit',
+    });
+  }
 
   return apiResponse.success(res, 'Order placed.', { ...order, amountToCharge }, 201);
 });
@@ -436,6 +454,13 @@ export const cancelOrder = catchAsync(async (req: AuthRequest, res: Response) =>
   if (wasPaid) {
     issueCredit(customer.userId, order.totalAmount, 'CUSTOMER_CANCEL_REFUND', order.id).catch(() => {});
   }
+
+  void trackServerEvent('order_cancelled', customer.userId, 'CUSTOMER', {
+    orderId: order.id,
+    cancelledBy: 'customer',
+    wasPaid,
+    minutesSincePlaced: Math.round((Date.now() - order.createdAt.getTime()) / 60_000),
+  });
 
   return apiResponse.success(res, 'Order cancelled.');
 });
@@ -507,6 +532,15 @@ export const releaseUnpaidOrder = async (orderId: string, reason: string): Promi
     type: 'order',
     data: { orderId: order.id },
   }).catch(() => {});
+
+  // Every route to an unpaid card/transfer order ending — Paystack failure, abandoned
+  // checkout, customer backing out, stale-order sweep — passes through here.
+  void trackServerEvent('payment_failed', order.customer.userId, 'CUSTOMER', {
+    orderId: order.id,
+    amount: order.totalAmount,
+    paymentMethod: order.paymentMethod,
+    reason: reason.slice(0, 200),
+  });
 
   return true;
 };

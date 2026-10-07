@@ -9,6 +9,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { getPlatformSettings } from '../services/settings.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { issueCredit } from '../services/storeCredit.service';
+import { trackServerEvent } from '../services/analytics.service';
 import {
   availabilityInclude,
   computeAvailability,
@@ -708,6 +709,14 @@ export const updateMyOrderStatus = catchAsync(async (req: AuthRequest, res: Resp
   if (wasPaid) {
     issueCredit(order.customer.userId, order.totalAmount, 'VENDOR_REJECT_REFUND', order.id).catch(() => {});
   }
+
+  const vendorEvent = ({ accept: 'order_accepted', reject: 'order_rejected', ready: 'order_ready' } as const)[action as 'accept' | 'reject' | 'ready'];
+  void trackServerEvent(vendorEvent, req.user!.userId, 'VENDOR', {
+    orderId: order.id,
+    vendorId: vendor.id,
+    minutesSincePlaced: Math.round((Date.now() - order.createdAt.getTime()) / 60_000),
+    ...(action === 'reject' ? { wasPaid } : {}),
+  });
 
   return apiResponse.success(res, 'Order status updated.', updated);
 });

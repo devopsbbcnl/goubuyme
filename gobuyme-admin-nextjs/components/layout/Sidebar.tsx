@@ -24,6 +24,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { href: '/dashboard',  label: 'Overview',     icon: '▦',  pendingKey: null },
   { href: '/analytics',  label: 'Analytics',     icon: '📈', pendingKey: null },
+  { href: '/app-usage',  label: 'App Usage',     icon: '📊', pendingKey: null },
   { href: '/vendors',    label: 'Vendors',       icon: '🏪', pendingKey: 'vendors' },
   { href: '/riders',     label: 'Riders',        icon: '🏍️', pendingKey: 'riders' },
   { href: '/orders',     label: 'Orders',        icon: '📦', pendingKey: null },

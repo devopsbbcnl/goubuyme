@@ -580,8 +580,11 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
         phone: null,
         refreshToken: null,
         pushToken: null,
+        analyticsOptIn: false,
       },
     });
+    // Usage analytics are not needed for any legal/financial record — erase them outright.
+    await tx.appEvent.deleteMany({ where: { userId: user.id } });
 
     // Vendor/rider public-facing queries filter on approvalStatus === APPROVED,
     // so suspending here removes them from customer-facing discovery without

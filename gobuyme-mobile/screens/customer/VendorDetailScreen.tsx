@@ -10,6 +10,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { shadows } from '@/theme';
 import api from '@/services/api';
+import { track } from '@/services/analytics';
 import { PhoneVerifiedBadge } from '@/components/ui/PhoneVerifiedBadge';
 
 type VerificationBadge = 'UNVERIFIED' | 'ID_VERIFIED' | 'BUSINESS_VERIFIED' | 'PREMIUM_VERIFIED';
@@ -95,6 +96,12 @@ export default function VendorDetailScreen() {
       ]);
       setVendor(vendorRes.data.data);
       setMenuItems(menuRes.data.data ?? []);
+      track('vendor_viewed', {
+        vendorId: vendorRes.data.data?.id ?? id,
+        category: vendorRes.data.data?.category ?? null,
+        isOpen: !!vendorRes.data.data?.isOpen,
+        menuItemCount: (menuRes.data.data ?? []).length,
+      });
     } catch {
       setError(true);
     } finally {

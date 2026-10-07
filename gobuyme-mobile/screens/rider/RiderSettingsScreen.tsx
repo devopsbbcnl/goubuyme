@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
+import { AnalyticsConsentSection } from '@/components/AnalyticsConsentSection';
 
 type NavApp = 'google_maps' | 'waze' | 'in_app';
 
@@ -243,6 +244,8 @@ export default function RiderSettingsScreen() {
 						</View>
 					</View>
 				))}
+
+				<AnalyticsConsentSection />
 
 				<View style={{ gap: 8 }}>
 					<Text style={[styles.sectionLabel, { color: T.error }]}>DANGER ZONE</Text>

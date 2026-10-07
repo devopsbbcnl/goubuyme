@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useCity } from '@/context/CityContext';
 import Image from 'next/image';
 import api from '@/services/api';
+import { track } from '@/services/analytics';
 
 interface Vendor {
   id: string; businessName: string; category: string; city: string;
@@ -195,6 +196,10 @@ function VendorsContent() {
           setMenuItems(m);
           setTotalVendors(v.length);
           setTotalPages(1);
+          // Query length + result counts only — the query text itself can contain personal info.
+          track('search_performed', {
+            queryLength: q.length, type: searchType, vendorCount: v.length, menuItemCount: m.length,
+          });
           if (searchType === 'menu_items') setActiveTab('menu_items');
           else if (searchType === 'vendors') setActiveTab('vendors');
           else setActiveTab(v.length > 0 ? 'vendors' : 'menu_items');

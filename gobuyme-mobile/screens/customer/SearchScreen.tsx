@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomNav } from '@/components/layout/BottomNav';
 import api from '@/services/api';
+import { track } from '@/services/analytics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Timeout = ReturnType<typeof setTimeout>;
@@ -55,6 +56,10 @@ export default function SearchScreen() {
 			if (search && search.length >= 2) params.search = search;
 			const res = await api.get('/vendors', { params });
 			setVendors(res.data.data ?? []);
+			// Query length + result count only — the query text itself can contain personal info.
+			if (params.search) {
+				track('search_performed', { queryLength: params.search.length, resultCount: (res.data.data ?? []).length });
+			}
 		} catch {
 			// keep whatever we have
 		} finally {
