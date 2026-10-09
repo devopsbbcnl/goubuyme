@@ -218,19 +218,28 @@ setupSockets(io);
 
 const PORT = Number(process.env.PORT) || 5000;
 
+// PM2 cluster mode (ecosystem.config.js) runs one process per CPU core, and each would start
+// every scheduled job — e.g. the payout batch would send each Paystack transfer once per worker.
+// Only the first worker runs jobs; the rest just serve requests. Outside PM2 this is unset → runs.
+const runsScheduledJobs = (process.env.NODE_APP_INSTANCE ?? '0') === '0';
+
 const start = async () => {
   await connectDB();
-  startPayoutJob();
-  startStoreHoursJob();
-  startStaleOrderJob();
-  startEscalationJob();
-  startTicketSlaJob();
-  startCampaignJobs();
-  startTaskJobs();
-  startAnalyticsRetentionJob();
-  startOpsBriefingJob();
-  startDispatchWatcherJob();
-  startTicketTriagerJob();
+  if (runsScheduledJobs) {
+    startPayoutJob();
+    startStoreHoursJob();
+    startStaleOrderJob();
+    startEscalationJob();
+    startTicketSlaJob();
+    startCampaignJobs();
+    startTaskJobs();
+    startAnalyticsRetentionJob();
+    startOpsBriefingJob();
+    startDispatchWatcherJob();
+    startTicketTriagerJob();
+  } else {
+    logger.info(`Worker ${process.env.NODE_APP_INSTANCE}: scheduled jobs run on worker 0 only`);
+  }
   httpServer.listen(PORT, '0.0.0.0', () => logger.info(`GoBuyMe API running on port ${PORT}`));
 };
 
