@@ -29,6 +29,18 @@ import {
 import { listErrorLogs, getErrorLogDetail, resolveErrorLog, bulkResolveErrorLogs, reanalyzeErrorLog } from '../controllers/errorLog.controller';
 import { validate } from '../middleware/validate.middleware';
 import { bulkResolveErrorLogsSchema } from '../validators/errorLog.validator';
+import {
+  getOrderCandidateRiders, cancelOrderAsAdmin, assignRiderAsAdmin, unassignRiderAsAdmin, issueOrderCreditAsAdmin,
+} from '../controllers/adminOrderActions.controller';
+import {
+  adminCancelOrderSchema, adminAssignRiderSchema, adminUnassignRiderSchema, adminOrderCreditSchema,
+} from '../validators/adminOrder.validator';
+import { runOpsBriefingSchema } from '../validators/opsBriefing.validator';
+import { listOpsBriefings, runOpsBriefingNow } from '../controllers/opsBriefing.controller';
+import {
+  listAgents, updateAgent, listSuggestions, approveAgentSuggestion, rejectAgentSuggestion,
+} from '../controllers/agents.controller';
+import { updateAgentSchema, rejectSuggestionSchema } from '../validators/agents.validator';
 import { getOnboardingFunnel, getStuckUsers, getOnboardingEventFunnel } from '../controllers/analytics.controller';
 import { getUsageOverview, getUsageFunnel, getUsageRetention, listAppEvents, getEventCatalog } from '../controllers/appEvent.controller';
 import { createOffer, updateOffer } from '../controllers/offer.controller';
@@ -111,6 +123,22 @@ router.delete('/customers/:id', ...superAdminAuth, deleteCustomer);
 router.get('/orders',    ...readAuth, getAdminOrders);
 router.get('/orders/:id', ...readAuth, getAdminOrderDetail);
 router.delete('/orders/:id', ...superAdminAuth, deleteAdminOrder);
+router.get('/orders/:id/candidate-riders', ...opsAuth, getOrderCandidateRiders);
+router.post('/orders/:id/cancel',          ...opsAuth, validate(adminCancelOrderSchema), cancelOrderAsAdmin);
+router.post('/orders/:id/assign-rider',    ...opsAuth, validate(adminAssignRiderSchema), assignRiderAsAdmin);
+router.post('/orders/:id/unassign-rider',  ...opsAuth, validate(adminUnassignRiderSchema), unassignRiderAsAdmin);
+router.post('/orders/:id/credit',          ...opsAuth, validate(adminOrderCreditSchema), issueOrderCreditAsAdmin);
+
+// Daily ops briefing agent
+router.get('/ops-briefings',      ...readAuth,       listOpsBriefings);
+router.post('/ops-briefings/run', ...superAdminAuth, validate(runOpsBriefingSchema), runOpsBriefingNow);
+
+// Agent framework: config (super admin) + suggestion inbox (ops can approve/reject)
+router.get('/agents',                               ...readAuth,       listAgents);
+router.get('/agents/suggestions',                   ...readAuth,       listSuggestions);
+router.post('/agents/suggestions/:id/approve',      ...opsAuth,        approveAgentSuggestion);
+router.post('/agents/suggestions/:id/reject',       ...opsAuth,        validate(rejectSuggestionSchema), rejectAgentSuggestion);
+router.patch('/agents/:key',                        ...superAdminAuth, validate(updateAgentSchema), updateAgent);
 
 // Audit logs
 router.get('/audit', ...readAuth, getAuditLogs);

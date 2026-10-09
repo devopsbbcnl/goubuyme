@@ -5,20 +5,19 @@ import prisma from '../../config/db';
 import { AuthRequest } from '../../middleware/auth.middleware';
 import { catchAsync } from '../../utils/catchAsync';
 import { apiResponse } from '../../utils/apiResponse';
-import { issueCredit } from '../../services/storeCredit.service';
 import { logCrmActivity } from '../../services/crm/activity.service';
 import { lifecycleStage, CrmRole } from '../../services/crm/health.service';
+import { retriageTicket } from '../../services/agents/ticketTriager';
 import {
-  MAX_TICKET_BODY, TicketError, createTicket, notifyRequester,
+  MAX_TICKET_BODY, TicketError, createTicket, issueTicketCredit, notifyRequester, sendStaffReply,
 } from '../../services/crm/ticket.service';
 import {
   TICKET_CATEGORIES, TICKET_PRIORITIES, TICKET_STATUSES, TicketCategory, TicketPriority, TicketStatus,
-  isSlaBreached, slaDueAt, statusAfterStaffReply,
+  isSlaBreached, slaDueAt,
 } from '../../services/crm/ticketSla.service';
 
 const ADMIN_ROLES = ['SUPER_ADMIN', 'OPERATIONS_ADMIN', 'SUPPORT_ADMIN'] as const;
 const OPEN_STATUSES: TicketStatus[] = ['OPEN', 'IN_PROGRESS', 'PENDING_REQUESTER'];
-const MAX_TICKET_CREDIT = 50_000;
 
 const isOps = (role: string) => role === 'SUPER_ADMIN' || role === 'OPERATIONS_ADMIN';
 
@@ -156,7 +155,7 @@ export const getTicket = catchAsync(async (req: Request, res: Response) => {
 
   const requester = ticket.requester;
   const role = requester.role as CrmRole;
-  const [lastOrder, ticketCount] = await Promise.all([
+  const [lastOrder, ticketCount, agentSuggestions] = await Promise.all([
     prisma.order.findFirst({
       where: {
         status: role === 'RIDER' ? 'DELIVERED' : { not: 'CANCELLED' },
@@ -168,11 +167,18 @@ export const getTicket = catchAsync(async (req: Request, res: Response) => {
       select: { createdAt: true },
     }),
     prisma.ticket.count({ where: { requesterId: requester.id } }),
+    // Ticket triager proposals waiting on a person (draft reply, credit).
+    prisma.agentSuggestion.findMany({
+      where: { ticketId: ticket.id, status: 'PENDING' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, action: true, title: true, reason: true, payload: true, expiresAt: true },
+    }),
   ]);
 
   return apiResponse.success(res, 'Ticket fetched.', {
     ...ticket,
     breached: isSlaBreached({ status: ticket.status as TicketStatus, slaDueAt: ticket.slaDueAt }),
+    agentSuggestions,
     requester: {
       id: requester.id,
       name: requester.name,
@@ -218,58 +224,18 @@ export const createTicketForUser = catchAsync(async (req: AuthRequest, res: Resp
 
 // POST /admin/crm/tickets/:id/messages  { body, isInternal?, status? }
 export const replyToTicket = catchAsync(async (req: AuthRequest, res: Response) => {
-  const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } });
-  if (!ticket) return apiResponse.error(res, 'Ticket not found.', 404);
-
-  const body = String(req.body?.body ?? '').trim();
-  const isInternal = req.body?.isInternal === true;
   const requested = req.body?.status as TicketStatus | undefined;
-  if (!body) return apiResponse.error(res, 'Message cannot be empty.', 400);
-  if (body.length > MAX_TICKET_BODY) return apiResponse.error(res, 'Message is too long.', 400);
   if (requested !== undefined && !TICKET_STATUSES.includes(requested)) return apiResponse.error(res, 'Invalid status.', 400);
-  if (ticket.status === 'CLOSED' && !isInternal) {
-    return apiResponse.error(res, 'This ticket is closed. Add an internal note or open a new ticket.', 409);
-  }
-
-  const now = new Date();
-  const staffId = req.user!.userId;
-  const data: Prisma.TicketUpdateInput = { lastMessageAt: now };
-
-  if (!isInternal) {
-    const nextStatus = statusAfterStaffReply(ticket.status as TicketStatus, requested);
-    const firstResponseAt = ticket.firstResponseAt ?? now;
-    Object.assign(data, {
-      status: nextStatus,
-      firstResponseAt,
-      requesterUnread: true,
-      slaDueAt: slaDueAt(ticket.priority, ticket.createdAt, firstResponseAt),
-      ...(nextStatus === 'RESOLVED' && !ticket.resolvedAt ? { resolvedAt: now } : {}),
-      ...(nextStatus === 'CLOSED' ? { closedAt: now } : {}),
-      // Replying claims an unassigned ticket so two agents don't work the same one.
-      ...(ticket.assigneeId ? {} : { assignee: { connect: { id: staffId } } }),
+  const isInternal = req.body?.isInternal === true;
+  try {
+    const message = await sendStaffReply({
+      ticketId: req.params.id, staffId: req.user!.userId, body: String(req.body?.body ?? ''), isInternal, status: requested,
     });
+    return apiResponse.success(res, isInternal ? 'Note added.' : 'Reply sent.', message, 201);
+  } catch (err) {
+    if (err instanceof TicketError) return apiResponse.error(res, err.message, err.status);
+    throw err;
   }
-
-  const [message] = await prisma.$transaction([
-    prisma.ticketMessage.create({
-      data: { ticketId: ticket.id, authorId: staffId, body, isInternal },
-      select: { id: true, body: true, isInternal: true, createdAt: true, author: { select: { id: true, name: true, role: true } } },
-    }),
-    prisma.ticket.update({ where: { id: ticket.id }, data }),
-  ]);
-
-  if (!isInternal) {
-    const resolvedNow = data.status === 'RESOLVED' && ticket.status !== 'RESOLVED';
-    void notifyRequester({ ticketId: ticket.id, kind: 'reply', replyBody: body });
-    if (resolvedNow) {
-      await logCrmActivity({
-        subjectUserId: ticket.requesterId, actorId: staffId, type: 'TICKET_RESOLVED',
-        title: `Ticket #${ticket.number} resolved`, meta: { ticketId: ticket.id },
-      });
-    }
-  }
-
-  return apiResponse.success(res, isInternal ? 'Note added.' : 'Reply sent.', message, 201);
 });
 
 // PATCH /admin/crm/tickets/:id  { status?, priority?, category?, assigneeId? }
@@ -377,31 +343,15 @@ export const bulkUpdateTickets = catchAsync(async (req: AuthRequest, res: Respon
 
 // POST /admin/crm/tickets/:id/credit  { amount, reason }
 export const creditFromTicket = catchAsync(async (req: AuthRequest, res: Response) => {
-  const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } });
-  if (!ticket) return apiResponse.error(res, 'Ticket not found.', 404);
-
-  const amount = Math.round(Number(req.body?.amount));
-  const reason = String(req.body?.reason ?? '').trim();
-  if (!Number.isFinite(amount) || amount <= 0) return apiResponse.error(res, 'Amount must be a positive number.', 400);
-  if (amount > MAX_TICKET_CREDIT) return apiResponse.error(res, `Ticket credit is capped at ₦${MAX_TICKET_CREDIT.toLocaleString()}.`, 400);
-  if (reason.length < 3) return apiResponse.error(res, 'A reason is required.', 400);
-
-  // One credit per ticket guards against double-clicks and repeat compensation.
-  const already = await prisma.creditTransaction.findFirst({
-    where: { userId: ticket.requesterId, reason: { startsWith: `Support #${ticket.number}:` } },
-  });
-  if (already) return apiResponse.error(res, `₦${already.amount.toLocaleString()} was already credited for this ticket.`, 409);
-
-  const staffId = req.user!.userId;
-  await issueCredit(ticket.requesterId, amount, `Support #${ticket.number}: ${reason}`, ticket.orderId ?? undefined);
-  await prisma.ticketMessage.create({
-    data: { ticketId: ticket.id, authorId: staffId, isInternal: true, body: `Issued ₦${amount.toLocaleString()} store credit — ${reason}` },
-  });
-  await logCrmActivity({
-    subjectUserId: ticket.requesterId, actorId: staffId, type: 'TICKET_CREDIT_ISSUED',
-    title: `₦${amount.toLocaleString()} credit on ticket #${ticket.number}`, meta: { ticketId: ticket.id, amount, reason },
-  });
-  return apiResponse.success(res, 'Credit issued.', { amount });
+  try {
+    const result = await issueTicketCredit({
+      ticketId: req.params.id, staffId: req.user!.userId, amount: Number(req.body?.amount), reason: String(req.body?.reason ?? ''),
+    });
+    return apiResponse.success(res, 'Credit issued.', result);
+  } catch (err) {
+    if (err instanceof TicketError) return apiResponse.error(res, err.message, err.status);
+    throw err;
+  }
 });
 
 // ─── Canned replies ───────────────────────────────────────────────────────────
@@ -452,4 +402,19 @@ export const deleteCannedReply = catchAsync(async (req: AuthRequest, res: Respon
   if (!existing) return apiResponse.error(res, 'Canned reply not found.', 404);
   await prisma.cannedReply.delete({ where: { id: existing.id } });
   return apiResponse.success(res, 'Canned reply deleted.', { id: existing.id });
+});
+
+// POST /admin/crm/tickets/:id/triage — re-run the ticket triager agent on this ticket now
+export const retriage = catchAsync(async (req: AuthRequest, res: Response) => {
+  const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!ticket) return apiResponse.error(res, 'Ticket not found.', 404);
+  try {
+    const result = await retriageTicket(ticket.id);
+    if (result?.stored.analyzedBy === 'failed') {
+      return apiResponse.error(res, `Triage failed: ${result.stored.error ?? 'unknown error'}`, 502);
+    }
+    return apiResponse.success(res, 'Ticket triaged.', result?.stored ?? null);
+  } catch (err) {
+    return apiResponse.error(res, (err as Error).message, 409);
+  }
 });

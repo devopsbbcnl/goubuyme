@@ -440,7 +440,7 @@ export const getTimeline = async (userId: string, limit: number): Promise<Timeli
     prisma.auditLog.findMany({
       where: { entityId: { in: entityIds }, NOT: { action: { startsWith: 'CRM_' } } },
       orderBy: { createdAt: 'desc' }, take: limit,
-      select: { id: true, action: true, entity: true, meta: true, createdAt: true, user: { select: { name: true } } },
+      select: { id: true, action: true, entity: true, meta: true, createdAt: true, agentKey: true, user: { select: { name: true } } },
     }),
     prisma.onboardingEvent.findMany({
       where: { userId }, orderBy: { createdAt: 'desc' }, take: limit,
@@ -477,7 +477,7 @@ export const getTimeline = async (userId: string, limit: number): Promise<Timeli
     })),
     ...audits.map(a => ({
       id: `audit:${a.id}`, at: a.createdAt, kind: 'audit' as const,
-      title: humanize(a.action), detail: a.entity, actor: a.user.name, meta: a.meta,
+      title: humanize(a.action), detail: a.entity, actor: a.user?.name ?? (a.agentKey ? `Agent: ${a.agentKey}` : null), meta: a.meta,
     })),
     ...onboarding.map(e => ({
       id: `onb:${e.id}`, at: e.createdAt, kind: 'onboarding' as const, title: humanize(e.event),

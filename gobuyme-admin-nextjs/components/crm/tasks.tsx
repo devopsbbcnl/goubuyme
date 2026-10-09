@@ -106,7 +106,7 @@ export function TaskModal({ task, links, defaultTitle, onClose, onSaved }: {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [title, setTitle] = useState(task?.title ?? defaultTitle ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
-  const [dueAt, setDueAt] = useState(task?.dueAt ? toLocalInput(new Date(task.dueAt)) : toLocalInput(new Date(Date.now() + 24 * 3_600_000)));
+  const [dueAt, setDueAt] = useState(() => task?.dueAt ? toLocalInput(new Date(task.dueAt)) : toLocalInput(new Date(Date.now() + 24 * 3_600_000)));
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 'NORMAL');
   const [assigneeId, setAssigneeId] = useState(task ? (task.assignee?.id ?? '') : (user?.id ?? ''));
   const [saving, setSaving] = useState(false);

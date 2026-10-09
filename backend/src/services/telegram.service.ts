@@ -22,9 +22,10 @@ export const isTelegramConfigured = (): boolean =>
 // `html` may contain a small subset of HTML tags Telegram supports: <b> <i>
 // <code> <pre> <a>. Anything user-derived interpolated into it must be escaped
 // by the caller with `escapeTelegramHtml`.
-export const sendTelegramAlert = async (html: string): Promise<boolean> => {
+// `opts.chatId` sends somewhere other than the alert chat (e.g. a separate briefing group).
+export const sendTelegramAlert = async (html: string, opts: { chatId?: string } = {}): Promise<boolean> => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_ALERT_CHAT_ID;
+  const chatId = opts.chatId || process.env.TELEGRAM_ALERT_CHAT_ID;
 
   if (!token || !chatId) {
     // Log the misconfiguration once — repeating it on every critical error would

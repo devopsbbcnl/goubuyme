@@ -11,6 +11,7 @@ export const issueCredit = async (
   amount: number,
   reason: string,
   orderId?: string,
+  opts: { throwOnError?: boolean; silent?: boolean } = {},
 ): Promise<void> => {
   if (amount <= 0) return;
 
@@ -32,7 +33,8 @@ export const issueCredit = async (
       });
     });
 
-    notifyUser(userId, {
+    // `silent` lets callers send their own, more specific push instead of this generic one.
+    if (!opts.silent) notifyUser(userId, {
       title: 'Store credit added 🎉',
       body: `₦${amount.toLocaleString()} in GoBuyMe credit has been added to your account and is ready to use on your next order.`,
       type: 'store_credit',
@@ -40,6 +42,7 @@ export const issueCredit = async (
     }).catch(() => {});
   } catch (err) {
     recordError('storeCredit', 'issueCredit failed', err, { userId, amount, reason, orderId });
+    if (opts.throwOnError) throw err;
   }
 };
 

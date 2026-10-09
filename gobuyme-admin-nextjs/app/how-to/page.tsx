@@ -235,7 +235,7 @@ function QuickStartContent({ role, data, T }: { role: Role; data: { title: strin
         <div style={{ marginTop: 24, padding: 16, background: '#F0E6FF', borderRadius: 4, border: '1px solid #E0D0FF' }}>
           <strong style={{ display: 'block', fontSize: 13, color: '#6B21A8', marginBottom: 4 }}>⏱️ Approval Time</strong>
           <p style={{ fontSize: 13, color: '#444', margin: 0 }}>
-            Vendor accounts require admin approval. This typically takes 1-2 business days. You'll receive an email when your account is activated.
+            Vendor accounts require admin approval. This typically takes 1-2 business days. You&apos;ll receive an email when your account is activated.
           </p>
         </div>
       )}

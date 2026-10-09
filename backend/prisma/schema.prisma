@@ -363,6 +363,8 @@ model Order {
   reminderSentAt      DateTime?
   urgentSentAt        DateTime?
   autoCancelledAt     DateTime?
+  statusChangedAt     DateTime?
+  riderAssignedAt     DateTime?
   note                String?
   estimatedTime       Int?
   deliveryPin         String?
@@ -381,6 +383,7 @@ model Order {
   offerRedemption     OfferRedemption?
   vendorIncidents     VendorIncident[]
   tickets             Ticket[]
+  events              OrderEvent[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -388,7 +391,44 @@ model Order {
   @@index([status])
   @@index([paymentStatus])
   @@index([createdAt])
+  @@index([status, statusChangedAt])
   @@map("orders")
+}
+
+enum OrderEventType {
+  STATUS_CHANGED
+  RIDER_ASSIGNED
+  RIDER_UNASSIGNED
+  CREDIT_ISSUED
+}
+
+enum OrderActorType {
+  CUSTOMER
+  VENDOR
+  RIDER
+  ADMIN
+  SYSTEM
+  AGENT
+}
+
+// Append-only timeline for an order: every status change, rider (re)assignment and goodwill
+// credit, with who did it. Powers the admin timeline and stuck-order detection.
+model OrderEvent {
+  id         String         @id @default(uuid())
+  orderId    String
+  type       OrderEventType
+  fromStatus OrderStatus?
+  toStatus   OrderStatus?
+  actorType  OrderActorType
+  actorId    String?
+  note       String?
+  meta       Json?
+  createdAt  DateTime       @default(now())
+  order      Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@index([type, createdAt])
+  @@map("order_events")
 }
 
 model OrderItem {
@@ -621,17 +661,22 @@ model VendorPromotion {
 }
 
 model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String
+  id        String         @id @default(uuid())
+  /// Null when an agent acted on its own (actorType AGENT).
+  userId    String?
+  actorType OrderActorType @default(ADMIN)
+  /// Which agent acted or suggested the action, e.g. "dispatch_watcher".
+  agentKey  String?
   action    String
   entity    String
   entityId  String
   meta      Json?
   ip        String?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime       @default(now())
+  user      User?          @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([agentKey, createdAt])
   @@index([entity])
   @@index([createdAt])
   @@map("audit_logs")
@@ -1330,6 +1375,10 @@ model Ticket {
   csatComment     String?
   /// True when staff replied and the requester has not opened the ticket since.
   requesterUnread Boolean         @default(false)
+  /// Ticket triager agent output (summary, facts, draft reply) — see agents/ticketTriager.ts.
+  aiTriage        Json?
+  /// Set once the triager has looked at the ticket (even if it failed), so it isn't re-run every tick.
+  aiTriagedAt     DateTime?
   lastMessageAt   DateTime        @default(now())
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -1629,4 +1678,92 @@ model JobLock {
   claimedAt DateTime @default(now())
 
   @@map("job_locks")
+}
+
+// One row per day the ops-briefing agent reported on (opsBriefing.service.ts). The unique `day`
+// makes the 7am job idempotent across restarts and multiple server instances.
+model OpsBriefing {
+  id         String    @id @default(uuid())
+  /// Lagos calendar day the briefing covers, YYYY-MM-DD.
+  day        String    @unique
+  metrics    Json
+  flags      Json
+  summary    Json?
+  /// "llm" when Claude wrote the narrative, "rules" when it fell back to rule-based flags only.
+  analyzedBy String
+  model      String?
+  html       String
+  sentAt     DateTime?
+  sendError  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("ops_briefings")
+}
+
+// ─── Agent framework (agentRuntime.service.ts) ───────────────────────────────────
+
+enum AgentMode {
+  /// Agent doesn't run.
+  OFF
+  /// Agent only proposes; a human approves every action.
+  SUGGEST
+  /// Actions listed in AgentConfig.autoActions run without approval; the rest are proposed.
+  AUTO
+}
+
+enum AgentSuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
+  FAILED
+  /// The situation resolved itself (or the suggestion timed out) before anyone acted.
+  EXPIRED
+}
+
+model AgentConfig {
+  /// e.g. "dispatch_watcher"
+  key         String    @id
+  mode        AgentMode @default(SUGGEST)
+  /// Action types allowed to run without approval when mode is AUTO.
+  autoActions String[]  @default([])
+  /// Agent-specific thresholds; defaults live in code and are merged over.
+  settings    Json?
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("agent_configs")
+}
+
+model AgentSuggestion {
+  id          String                @id @default(uuid())
+  agentKey    String
+  /// Action type from the agent action registry, e.g. ASSIGN_RIDER.
+  action      String
+  title       String
+  reason      String
+  payload     Json
+  orderId     String?
+  ticketId    String?
+  status      AgentSuggestionStatus @default(PENDING)
+  /// Makes each (agent, action, situation) suggested once, across ticks and server instances.
+  dedupeKey   String                @unique
+  /// True when it ran without human approval (AUTO mode).
+  autoExecuted Boolean              @default(false)
+  decidedById String?
+  decidedAt   DateTime?
+  executedAt  DateTime?
+  result      Json?
+  error       String?
+  expiresAt   DateTime
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([status, createdAt])
+  @@index([agentKey, createdAt])
+  @@index([orderId])
+  @@index([ticketId])
+  @@map("agent_suggestions")
 }

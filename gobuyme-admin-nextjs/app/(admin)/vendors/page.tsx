@@ -209,8 +209,8 @@ export default function VendorsPage() {
         `/admin/vendors/${detail.id}/regeocode`, {},
       );
       setDetail(d => d ? { ...d, latitude: res.data.latitude, longitude: res.data.longitude } : d);
-    } catch (e: any) {
-      setRegeocodeError(e?.message ?? 'Could not resolve coordinates for this address.');
+    } catch (e) {
+      setRegeocodeError(e instanceof Error ? e.message : 'Could not resolve coordinates for this address.');
     } finally {
       setRegeocoding(false);
     }

@@ -39,6 +39,9 @@ import { startTicketSlaJob } from './jobs/ticketSlaJob';
 import { startCampaignJobs } from './jobs/campaignJob';
 import { startTaskJobs } from './jobs/taskJob';
 import { startAnalyticsRetentionJob } from './jobs/analyticsRetentionJob';
+import { startOpsBriefingJob } from './jobs/opsBriefingJob';
+import { startDispatchWatcherJob } from './jobs/dispatchWatcherJob';
+import { startTicketTriagerJob } from './jobs/ticketTriagerJob';
 import { errorHandler } from './middleware/error.middleware';
 import { globalLimiter, publicSettingsLimiter } from './middleware/rateLimiter.middleware';
 import { maintenanceGuard } from './middleware/maintenance.middleware';
@@ -225,6 +228,9 @@ const start = async () => {
   startCampaignJobs();
   startTaskJobs();
   startAnalyticsRetentionJob();
+  startOpsBriefingJob();
+  startDispatchWatcherJob();
+  startTicketTriagerJob();
   httpServer.listen(PORT, '0.0.0.0', () => logger.info(`GoBuyMe API running on port ${PORT}`));
 };
 

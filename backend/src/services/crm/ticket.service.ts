@@ -7,8 +7,9 @@ import { escapeTelegramHtml, sendTelegramAlert } from '../telegram.service';
 import { getPrimaryClientUrl } from '../../utils/clientUrl';
 import { logCrmActivity } from './activity.service';
 import {
-  CATEGORY_LABEL, TicketCategory, TicketPriority, TicketStatus, defaultPriority, slaDueAt,
+  CATEGORY_LABEL, TicketCategory, TicketPriority, TicketStatus, defaultPriority, slaDueAt, statusAfterStaffReply,
 } from './ticketSla.service';
+import { issueCredit } from '../storeCredit.service';
 
 export const MAX_TICKET_BODY = 4000;
 export const MAX_OPEN_TICKETS_PER_USER = 5;
@@ -118,6 +119,95 @@ export const createTicket = async (input: CreateTicketInput) => {
   }
 
   return ticket;
+};
+
+export const MAX_TICKET_CREDIT = 50_000;
+
+/**
+ * Staff reply (or internal note) on a ticket. Shared by the support inbox and the ticket triager
+ * agent (when an admin approves its drafted reply), so both behave identically.
+ */
+export const sendStaffReply = async (input: {
+  ticketId: string;
+  staffId: string;
+  body: string;
+  isInternal?: boolean;
+  status?: TicketStatus;
+}) => {
+  const ticket = await prisma.ticket.findUnique({ where: { id: input.ticketId } });
+  if (!ticket) throw new TicketError('Ticket not found.', 404);
+
+  const body = input.body.trim();
+  const isInternal = input.isInternal === true;
+  if (!body) throw new TicketError('Message cannot be empty.');
+  if (body.length > MAX_TICKET_BODY) throw new TicketError('Message is too long.');
+  if (ticket.status === 'CLOSED' && !isInternal) {
+    throw new TicketError('This ticket is closed. Add an internal note or open a new ticket.', 409);
+  }
+
+  const now = new Date();
+  const data: Prisma.TicketUpdateInput = { lastMessageAt: now };
+  if (!isInternal) {
+    const nextStatus = statusAfterStaffReply(ticket.status as TicketStatus, input.status);
+    const firstResponseAt = ticket.firstResponseAt ?? now;
+    Object.assign(data, {
+      status: nextStatus,
+      firstResponseAt,
+      requesterUnread: true,
+      slaDueAt: slaDueAt(ticket.priority, ticket.createdAt, firstResponseAt),
+      ...(nextStatus === 'RESOLVED' && !ticket.resolvedAt ? { resolvedAt: now } : {}),
+      ...(nextStatus === 'CLOSED' ? { closedAt: now } : {}),
+      // Replying claims an unassigned ticket so two agents don't work the same one.
+      ...(ticket.assigneeId ? {} : { assignee: { connect: { id: input.staffId } } }),
+    });
+  }
+
+  const [message] = await prisma.$transaction([
+    prisma.ticketMessage.create({
+      data: { ticketId: ticket.id, authorId: input.staffId, body, isInternal },
+      select: { id: true, body: true, isInternal: true, createdAt: true, author: { select: { id: true, name: true, role: true } } },
+    }),
+    prisma.ticket.update({ where: { id: ticket.id }, data }),
+  ]);
+
+  if (!isInternal) {
+    void notifyRequester({ ticketId: ticket.id, kind: 'reply', replyBody: body });
+    if (data.status === 'RESOLVED' && ticket.status !== 'RESOLVED') {
+      await logCrmActivity({
+        subjectUserId: ticket.requesterId, actorId: input.staffId, type: 'TICKET_RESOLVED',
+        title: `Ticket #${ticket.number} resolved`, meta: { ticketId: ticket.id },
+      });
+    }
+  }
+  return message;
+};
+
+/** Goodwill store credit from a ticket — one per ticket, capped at MAX_TICKET_CREDIT. */
+export const issueTicketCredit = async (input: { ticketId: string; staffId: string; amount: number; reason: string }) => {
+  const ticket = await prisma.ticket.findUnique({ where: { id: input.ticketId } });
+  if (!ticket) throw new TicketError('Ticket not found.', 404);
+
+  const amount = Math.round(Number(input.amount));
+  const reason = input.reason.trim();
+  if (!Number.isFinite(amount) || amount <= 0) throw new TicketError('Amount must be a positive number.');
+  if (amount > MAX_TICKET_CREDIT) throw new TicketError(`Ticket credit is capped at ₦${MAX_TICKET_CREDIT.toLocaleString()}.`);
+  if (reason.length < 3) throw new TicketError('A reason is required.');
+
+  // One credit per ticket guards against double-clicks and repeat compensation.
+  const already = await prisma.creditTransaction.findFirst({
+    where: { userId: ticket.requesterId, reason: { startsWith: `Support #${ticket.number}:` } },
+  });
+  if (already) throw new TicketError(`₦${already.amount.toLocaleString()} was already credited for this ticket.`, 409);
+
+  await issueCredit(ticket.requesterId, amount, `Support #${ticket.number}: ${reason}`, ticket.orderId ?? undefined);
+  await prisma.ticketMessage.create({
+    data: { ticketId: ticket.id, authorId: input.staffId, isInternal: true, body: `Issued ₦${amount.toLocaleString()} store credit — ${reason}` },
+  });
+  await logCrmActivity({
+    subjectUserId: ticket.requesterId, actorId: input.staffId, type: 'TICKET_CREDIT_ISSUED',
+    title: `₦${amount.toLocaleString()} credit on ticket #${ticket.number}`, meta: { ticketId: ticket.id, amount, reason },
+  });
+  return { amount };
 };
 
 /** Notifies the requester that staff replied or changed the ticket. Never throws. */

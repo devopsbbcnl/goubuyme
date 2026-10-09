@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal';
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
+import { OrderActionsPanel, OrderTimeline, OrderEvent } from '@/components/orders/OrderActions';
 
 type OrderStatus = 'IN_TRANSIT' | 'PREPARING' | 'DELIVERED' | 'CANCELLED' | 'CONFIRMED' | 'PENDING' | 'READY' | 'PICKED_UP';
 type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
@@ -48,6 +49,8 @@ interface OrderDetail {
   review: string | null;
   createdAt: string;
   updatedAt: string;
+  creditIssued: number;
+  events: OrderEvent[];
   customer: {
     id: string;
     user: {
@@ -150,6 +153,8 @@ export default function OrdersPage() {
   const { theme: T } = useTheme();
   const { user } = useAuth();
   const canDelete = user?.role === 'SUPER_ADMIN';
+  const canAct = user?.role === 'SUPER_ADMIN' || user?.role === 'OPERATIONS_ADMIN';
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -185,17 +190,23 @@ export default function OrdersPage() {
       .finally(() => setLoading(false));
   }, [page, perPage, filter, debouncedSearch]);
 
-  useEffect(() => {
-    const openOrderId = searchParams.get('openOrderId');
-    if (!openOrderId) return;
-    openDetail(openOrderId);
-    router.replace('/orders');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // After an admin action, refresh the open order and patch its row in the list in place.
+  const refreshAfterAction = async (message: string) => {
+    if (!detail) return;
+    setActionMessage(message);
+    try {
+      const res = await api.get<{ data: OrderDetail }>(`/admin/orders/${detail.id}`);
+      setDetail(res.data);
+      setOrders(os => os.map(o => o.id === res.data.id
+        ? { ...o, status: res.data.status, riderName: res.data.rider?.user.name ?? null }
+        : o));
+    } catch { /* detail stays as-is; the success message still shows */ }
+  };
 
   const openDetail = async (id: string) => {
     setDetailOpen(true);
     setDetail(null);
+    setActionMessage(null);
     setDetailLoading(true);
     try {
       const res = await api.get<{ data: OrderDetail }>(`/admin/orders/${id}`);
@@ -206,6 +217,14 @@ export default function OrdersPage() {
       setDetailLoading(false);
     }
   };
+
+  useEffect(() => {
+    const openOrderId = searchParams.get('openOrderId');
+    if (!openOrderId) return;
+    openDetail(openOrderId);
+    router.replace('/orders');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openDeleteModal = (id: string, orderNumber: string) => {
     setDeleteOrderId(id);
@@ -374,6 +393,22 @@ export default function OrdersPage() {
               </div>
             </div>
 
+            {actionMessage && (
+              <div style={{ fontSize: 13, color: T.success, background: T.successBg, borderRadius: 4, padding: '8px 12px' }}>
+                {actionMessage}
+              </div>
+            )}
+
+            {canAct && (
+              <OrderActionsPanel
+                key={`${detail.id}:${detail.status}:${detail.rider?.id ?? ''}`}
+                order={detail}
+                isSuperAdmin={user?.role === 'SUPER_ADMIN'}
+                T={T}
+                onChanged={refreshAfterAction}
+              />
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
               {[
                 { label: 'Total', value: fmtCurrency(detail.totalAmount) },
@@ -411,8 +446,14 @@ export default function OrdersPage() {
                   ['Paystack Ref', detail.paystackRef ?? '-'],
                   ['Paystack Verified', detail.paystackVerified ? 'Yes' : 'No'],
                   ['Free Delivery', detail.freeDeliveryUsed ? 'Yes' : 'No'],
+                  ['Credit Issued', detail.creditIssued > 0 ? fmtCurrency(detail.creditIssued) : '-'],
                 ]} T={T} />
               </div>
+            </div>
+
+            <div>
+              <SectionHead label="Timeline" T={T} />
+              <OrderTimeline events={detail.events ?? []} T={T} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>

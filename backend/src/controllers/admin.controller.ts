@@ -480,7 +480,7 @@ export const getAuditLogs = catchAsync(async (req: Request, res: Response) => {
       where,
       select: {
         id: true, action: true, entity: true, entityId: true,
-        meta: true, ip: true, createdAt: true,
+        meta: true, ip: true, createdAt: true, actorType: true, agentKey: true,
         user: { select: { name: true, role: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -737,12 +737,29 @@ export const getAdminOrderDetail = catchAsync(async (req: Request, res: Response
           },
         },
       },
+      creditIssued: true,
+      statusChangedAt: true,
+      riderAssignedAt: true,
+      events: {
+        select: {
+          id: true, type: true, fromStatus: true, toStatus: true,
+          actorType: true, actorId: true, note: true, meta: true, createdAt: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      },
     },
   });
 
   if (!order) return apiResponse.error(res, 'Order not found.', 404);
 
-  return apiResponse.success(res, 'Order detail fetched.', order);
+  const actorIds = [...new Set(order.events.map((e) => e.actorId).filter((x): x is string => !!x))];
+  const actors = actorIds.length
+    ? await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true } })
+    : [];
+  const actorName = new Map(actors.map((a) => [a.id, a.name]));
+  const events = order.events.map((e) => ({ ...e, actorName: e.actorId ? actorName.get(e.actorId) ?? null : null }));
+
+  return apiResponse.success(res, 'Order detail fetched.', { ...order, events });
 });
 
 // GET /admin/payouts
