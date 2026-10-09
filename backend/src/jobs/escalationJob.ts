@@ -1,11 +1,10 @@
 import prisma from '../config/db';
-import { OrderStatus, PaymentStatus } from '@prisma/client';
-import { issueCredit } from '../services/storeCredit.service';
+import { OrderActorType, OrderStatus, PaymentStatus } from '@prisma/client';
+import { cancelOrderWithRefund, OrderActionError } from '../services/orderLifecycle.service';
 import { sendSms } from '../services/sms.service';
 import { sendWhatsappMessage } from '../services/whatsapp.service';
 import { notifyUser } from '../services/notification.service';
 import { localTimeInZone } from '../services/storeHours.service';
-import { getIO } from '../config/socket';
 import logger from '../utils/logger';
 import { recordError } from '../utils/recordError';
 
@@ -37,34 +36,25 @@ async function autoCancelForNoResponse(order: {
   customer: { userId: string };
   vendor: { userId: string };
 }): Promise<void> {
-  const wasPaid = order.paymentStatus === PaymentStatus.PAID;
-
-  await prisma.$transaction(async (tx) => {
-    await tx.order.update({
-      where: { id: order.id },
-      data: {
-        status: OrderStatus.CANCELLED,
-        cancelReason: 'no_response_timeout',
-        autoCancelledAt: new Date(),
-        ...(wasPaid ? { paymentStatus: PaymentStatus.REFUNDED, creditIssued: order.totalAmount } : {}),
+  let wasPaid: boolean;
+  try {
+    ({ wasPaid } = await cancelOrderWithRefund({
+      orderId: order.id,
+      // Only while still unaccepted — if the vendor accepts in the same instant, their accept wins.
+      from: [OrderStatus.PENDING, OrderStatus.CONFIRMED],
+      actor: { type: OrderActorType.SYSTEM },
+      cancelReason: 'no_response_timeout',
+      creditReason: 'ORDER_AUTO_CANCEL_REFUND',
+      data: { autoCancelledAt: new Date() },
+      inTransaction: async (tx) => {
+        await tx.vendorIncident.create({
+          data: { vendorId: order.vendorId, orderId: order.id, incidentType: 'no_response_timeout' },
+        });
       },
-    });
-    if (order.stockReserved) {
-      await Promise.all(order.items.map((item) =>
-        tx.menuItem.update({
-          where: { id: item.menuItemId },
-          data: { stockQuantity: { increment: item.quantity } },
-        }),
-      ));
-      await tx.order.update({ where: { id: order.id }, data: { stockReserved: false } });
-    }
-    await tx.vendorIncident.create({
-      data: { vendorId: order.vendorId, orderId: order.id, incidentType: 'no_response_timeout' },
-    });
-  });
-
-  if (wasPaid) {
-    issueCredit(order.customer.userId, order.totalAmount, 'ORDER_AUTO_CANCEL_REFUND', order.id).catch(() => {});
+    }));
+  } catch (err) {
+    if (err instanceof OrderActionError) return; // vendor acted (or customer cancelled) in the meantime
+    throw err;
   }
 
   notifyUser(order.customer.userId, {
@@ -82,10 +72,6 @@ async function autoCancelForNoResponse(order: {
     type: 'order',
     data: { orderId: order.id },
   }).catch(() => {});
-
-  try {
-    getIO().of('/orders').to(`order:${order.id}`).emit('order:status', { orderId: order.id, status: OrderStatus.CANCELLED });
-  } catch { /* socket may not be connected */ }
 }
 
 export const startEscalationJob = (): void => {

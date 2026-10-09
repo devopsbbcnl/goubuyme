@@ -17,7 +17,8 @@ import { sendVendorNewOrderEmail } from '../services/email.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { trackServerEvent } from '../services/analytics.service';
 import { availabilityInclude, computeAvailability, AvailabilityInput } from '../services/availability.service';
-import { PaymentMethod, OrderStatus, PaymentStatus } from '@prisma/client';
+import { cancelOrderWithRefund, transitionOrder, OrderActionError } from '../services/orderLifecycle.service';
+import { PaymentMethod, OrderStatus, PaymentStatus, OrderActorType, OrderEventType } from '@prisma/client';
 
 const generateOrderNumber = () => {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -280,6 +281,9 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
       // Store credit fully covering the total means there's nothing left for Paystack to
       // verify — treat it the same as a cash order that's already settled at creation time.
       const fullyCoveredByCredit = paymentMethod !== PaymentMethod.CASH_ON_DELIVERY && amountToCharge <= 0;
+      const initialStatus = paymentMethod === PaymentMethod.CASH_ON_DELIVERY || fullyCoveredByCredit
+        ? OrderStatus.CONFIRMED
+        : OrderStatus.PENDING;
 
       const newOrder = await tx.order.create({
         data: {
@@ -287,7 +291,16 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
           deliveryPin: generateDeliveryPin(),
           customerId: customer.id,
           vendorId: vendor.id,
-          status: paymentMethod === PaymentMethod.CASH_ON_DELIVERY || fullyCoveredByCredit ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
+          status: initialStatus,
+          events: {
+            create: {
+              type: OrderEventType.STATUS_CHANGED,
+              toStatus: initialStatus,
+              actorType: OrderActorType.CUSTOMER,
+              actorId: req.user!.userId,
+              note: 'Order placed',
+            },
+          },
           paymentStatus: fullyCoveredByCredit ? PaymentStatus.PAID : undefined,
           subtotal,
           deliveryFee,
@@ -296,6 +309,7 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
           totalAmount,
           creditApplied,
           vendorNotifiedAt: new Date(),
+          statusChangedAt: new Date(),
           freeDeliveryUsed: creditUsed,
           promoCode: promoApplied ? promo!.code : null,
           promoDiscount: promoApplied ? promoDiscount : 0,
@@ -426,33 +440,18 @@ export const cancelOrder = catchAsync(async (req: AuthRequest, res: Response) =>
     return apiResponse.error(res, `Orders can only be cancelled within ${windowMinutes} minute${windowMinutes === 1 ? '' : 's'} of placing them.`, 400);
   }
 
-  const wasPaid = order.paymentStatus === 'PAID';
-
-  await prisma.$transaction(async (tx) => {
-    await tx.order.update({
-      where: { id: order.id },
-      data: {
-        status: OrderStatus.CANCELLED,
-        cancelReason: req.body.reason,
-        ...(wasPaid ? { paymentStatus: PaymentStatus.REFUNDED, creditIssued: order.totalAmount } : {}),
-      },
-    });
-    if (order.stockReserved) {
-      await Promise.all(order.items.map((item) =>
-        tx.menuItem.update({
-          where: { id: item.menuItemId },
-          data: { stockQuantity: { increment: item.quantity } },
-        }),
-      ));
-      await tx.order.update({
-        where: { id: order.id },
-        data: { stockReserved: false },
-      });
-    }
-  });
-
-  if (wasPaid) {
-    issueCredit(customer.userId, order.totalAmount, 'CUSTOMER_CANCEL_REFUND', order.id).catch(() => {});
+  let wasPaid: boolean;
+  try {
+    ({ wasPaid } = await cancelOrderWithRefund({
+      orderId: order.id,
+      from: [OrderStatus.PENDING, OrderStatus.CONFIRMED],
+      actor: { type: OrderActorType.CUSTOMER, id: customer.userId },
+      cancelReason: req.body.reason,
+      creditReason: 'CUSTOMER_CANCEL_REFUND',
+    }));
+  } catch (err) {
+    if (err instanceof OrderActionError) return apiResponse.error(res, err.message, 400);
+    throw err;
   }
 
   void trackServerEvent('order_cancelled', customer.userId, 'CUSTOMER', {
@@ -483,7 +482,25 @@ export const releaseUnpaidOrder = async (orderId: string, reason: string): Promi
   if (order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY) return false;
   if (order.status !== OrderStatus.PENDING) return false;
 
-  await prisma.$transaction(async (tx) => {
+  const released = await prisma.$transaction(async (tx) => {
+    // Guarded on PENDING/unpaid so a payment confirming at the same moment wins instead of
+    // being overwritten with FAILED.
+    const previous = await transitionOrder(tx, {
+      orderId: order.id,
+      from: [OrderStatus.PENDING],
+      to: OrderStatus.CANCELLED,
+      actor: { type: OrderActorType.SYSTEM },
+      note: reason,
+      where: { paymentStatus: { not: PaymentStatus.PAID } },
+      data: {
+        paymentStatus: PaymentStatus.FAILED,
+        cancelReason: reason,
+        stockReserved: false,
+        deliveryPin: null,
+      },
+    });
+    if (!previous) return false;
+
     if (order.stockReserved) {
       await Promise.all(order.items.map((item) =>
         tx.menuItem.update({
@@ -492,17 +509,6 @@ export const releaseUnpaidOrder = async (orderId: string, reason: string): Promi
         }),
       ));
     }
-
-    await tx.order.update({
-      where: { id: order.id },
-      data: {
-        status: OrderStatus.CANCELLED,
-        paymentStatus: PaymentStatus.FAILED,
-        cancelReason: reason,
-        stockReserved: false,
-        deliveryPin: null,
-      },
-    });
 
     // Only restore cart items into an empty cart — if the customer already started a fresh
     // cart for this vendor while this order sat unpaid, leave it untouched.
@@ -524,11 +530,18 @@ export const releaseUnpaidOrder = async (orderId: string, reason: string): Promi
         })),
       });
     }
+    return true;
   });
+  if (!released) return false;
+
+  // Store credit applied at checkout was deducted when the order was created — hand it back.
+  if (order.creditApplied > 0) {
+    await issueCredit(order.customer.userId, order.creditApplied, 'UNPAID_ORDER_CREDIT_RESTORE', order.id, { silent: true });
+  }
 
   notifyUser(order.customer.userId, {
     title: 'Payment not completed',
-    body: `Your order #${order.orderNumber} was cancelled because payment wasn't completed. We've restored your cart.`,
+    body: `Your order #${order.orderNumber} was cancelled because payment wasn't completed. We've restored your cart${order.creditApplied > 0 ? ` and your ₦${order.creditApplied.toLocaleString()} store credit` : ''}.`,
     type: 'order',
     data: { orderId: order.id },
   }).catch(() => {});

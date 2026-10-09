@@ -9,7 +9,7 @@ import {
 } from '../controllers/crm/noteTag.controller';
 import {
   bulkUpdateTickets, createCannedReply, createTicketForUser, creditFromTicket, deleteCannedReply, getTicket,
-  listAgents, listCannedReplies, listTickets, replyToTicket, ticketSummary, updateCannedReply, updateTicket,
+  listAgents, listCannedReplies, listTickets, replyToTicket, retriage, ticketSummary, updateCannedReply, updateTicket,
 } from '../controllers/crm/ticket.controller';
 import {
   cancelCampaign, createAutomation, createCampaign, createSegment, deleteAutomation, deleteCampaign, deleteSegment,
@@ -63,6 +63,7 @@ router.get('/tickets/:id',                  ...readAuth, getTicket);
 router.patch('/tickets/:id',                ...readAuth, updateTicket);
 router.post('/tickets/:id/messages',        ...readAuth, replyToTicket);
 router.post('/tickets/:id/credit',          ...opsAuth,  creditFromTicket);
+router.post('/tickets/:id/triage',          ...readAuth, retriage);
 
 // Canned replies
 router.get('/canned-replies',               ...readAuth, listCannedReplies);

@@ -33,6 +33,11 @@ interface ErrorLogEntry {
   escalatedAt: string | null;
 }
 
+const contextIp = (log: ErrorLogEntry): string | undefined => {
+  const ip = log.context?.ip;
+  return typeof ip === 'string' && ip ? ip : undefined;
+};
+
 interface Pagination {
   page: number;
   limit: number;
@@ -264,7 +269,7 @@ export default function ErrorLogsPage() {
 
   const blockIpFromLog = async (e: React.MouseEvent, log: ErrorLogEntry) => {
     e.stopPropagation();
-    const ip = (log.context as any)?.ip;
+    const ip = contextIp(log);
     if (!ip) {
       setBlockIpError('No IP address found in this error log.');
       setTimeout(() => setBlockIpError(null), 3000);
@@ -280,8 +285,8 @@ export default function ErrorLogsPage() {
       });
       fetchLogs();
       setTimeout(() => setBlockingIp(null), 2000);
-    } catch (err: any) {
-      setBlockIpError(err?.message || 'Failed to block IP');
+    } catch (err) {
+      setBlockIpError(err instanceof Error ? err.message : 'Failed to block IP');
       setBlockingIp(null);
     }
   };
@@ -558,18 +563,18 @@ export default function ErrorLogsPage() {
                             padding: '4px 10px', cursor: 'pointer',
                           }}
                         >{copiedId === log.id ? 'Copied!' : 'Copy details'}</button>
-                        {log.category === 'ATTACK' && log.severity === 'CRITICAL' && (log.context as any)?.ip && (
+                        {log.category === 'ATTACK' && log.severity === 'CRITICAL' && contextIp(log) && (
                           <button
                             onClick={(e) => blockIpFromLog(e, log)}
-                            disabled={blockingIp === (log.context as any)?.ip}
-                            title={`Block IP ${(log.context as any)?.ip}`}
+                            disabled={blockingIp === contextIp(log)}
+                            title={`Block IP ${contextIp(log)}`}
                             style={{
-                              fontSize: 11, fontWeight: 700, color: blockingIp === (log.context as any)?.ip ? T.success : T.error,
+                              fontSize: 11, fontWeight: 700, color: blockingIp === contextIp(log) ? T.success : T.error,
                               background: T.surface2, border: `1px solid ${T.error}`, borderRadius: 4,
-                              padding: '4px 10px', cursor: blockingIp === (log.context as any)?.ip ? 'default' : 'pointer',
-                              opacity: blockingIp === (log.context as any)?.ip ? 0.5 : 1,
+                              padding: '4px 10px', cursor: blockingIp === contextIp(log) ? 'default' : 'pointer',
+                              opacity: blockingIp === contextIp(log) ? 0.5 : 1,
                             }}
-                          >🔒 {blockingIp === (log.context as any)?.ip ? 'Blocking…' : 'Block IP'}</button>
+                          >🔒 {blockingIp === contextIp(log) ? 'Blocking…' : 'Block IP'}</button>
                         )}
                       </div>
                       {(log.context || log.stack || log.deviceInfo) && (

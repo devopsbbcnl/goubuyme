@@ -5,7 +5,8 @@ import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { haversineDistance, estimateDeliveryMinutes } from '../services/distance.service';
 import { calcRiderEarning } from '../services/payout.service';
-import { OrderStatus } from '@prisma/client';
+import { OrderActorType, OrderEventType, OrderStatus } from '@prisma/client';
+import { recordOrderEvent, transitionOrder } from '../services/orderLifecycle.service';
 import { getIO } from '../config/socket';
 import { isValidCoordinate, publishRiderLocation } from '../sockets/riderLocation';
 import { notifyUser } from '../services/notification.service';
@@ -208,16 +209,23 @@ export const acceptJob = catchAsync(async (req: AuthRequest, res: Response) => {
   });
   if (!order) return apiResponse.error(res, 'Job no longer available.', 404);
 
-  await prisma.$transaction([
-    prisma.order.update({
-      where: { id: orderId },
-      data: { riderId: rider.id },
-    }),
-    prisma.rider.update({
-      where: { id: rider.id },
-      data: { isAvailable: false },
-    }),
-  ]);
+  // Guarded on riderId: null so two riders tapping accept at once can't both get the job.
+  const claimed = await prisma.$transaction(async (tx) => {
+    const res = await tx.order.updateMany({
+      where: { id: orderId, status: OrderStatus.READY, riderId: null },
+      data: { riderId: rider.id, riderAssignedAt: new Date() },
+    });
+    if (res.count === 0) return false;
+    await tx.rider.update({ where: { id: rider.id }, data: { isAvailable: false } });
+    await recordOrderEvent(tx, {
+      orderId,
+      type: OrderEventType.RIDER_ASSIGNED,
+      actor: { type: OrderActorType.RIDER, id: req.user!.userId },
+      meta: { riderId: rider.id, selfAccepted: true },
+    });
+    return true;
+  });
+  if (!claimed) return apiResponse.error(res, 'Job no longer available.', 404);
 
   notifyUser(order.customer.user.id, {
     title: 'Rider assigned! 🏍️',
@@ -323,7 +331,15 @@ export const updateDeliveryStatus = catchAsync(async (req: AuthRequest, res: Res
   }
 
   const targetStatus = OrderStatus[requestedStatus as keyof typeof OrderStatus];
-  await prisma.order.update({ where: { id: orderId }, data: { status: targetStatus } });
+  const previous = await transitionOrder(prisma, {
+    orderId,
+    from: [validFrom[requestedStatus]!],
+    to: targetStatus,
+    actor: { type: OrderActorType.RIDER, id: req.user!.userId },
+    // An admin may have reassigned the job since this rider loaded it.
+    where: { riderId: rider.id },
+  });
+  if (!previous) return apiResponse.error(res, 'This delivery just changed. Refresh and try again.', 409);
 
   if (requestedStatus === 'DELIVERED') {
     // Pay the rider off the true (pre-discount) delivery cost. When delivery was free for the

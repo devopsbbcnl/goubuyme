@@ -13,7 +13,7 @@ type NavItem = {
   href: string;
   label: string;
   icon: string;
-  pendingKey: null | 'vendors' | 'riders' | 'errorLogs' | 'tickets' | 'tasks';
+  pendingKey: null | 'vendors' | 'riders' | 'errorLogs' | 'tickets' | 'tasks' | 'agents';
   minRole?: 'OPERATIONS_ADMIN' | 'SUPER_ADMIN';
   /** Extra path prefixes that should highlight this item. */
   activePrefixes?: string[];
@@ -23,6 +23,8 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { href: '/dashboard',  label: 'Overview',     icon: '▦',  pendingKey: null },
+  { href: '/agents',     label: 'Agents',       icon: '🤖', pendingKey: 'agents' },
+  { href: '/ops-briefing', label: 'Ops Briefing', icon: '🗞️', pendingKey: null },
   { href: '/analytics',  label: 'Analytics',     icon: '📈', pendingKey: null },
   { href: '/app-usage',  label: 'App Usage',     icon: '📊', pendingKey: null },
   { href: '/vendors',    label: 'Vendors',       icon: '🏪', pendingKey: 'vendors' },
@@ -61,7 +63,7 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
   const { theme: T, isDark, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
-  const [pending, setPending] = useState<{ vendors: number; riders: number; errorLogs: number; tickets: number; tasks: number }>({ vendors: 0, riders: 0, errorLogs: 0, tickets: 0, tasks: 0 });
+  const [pending, setPending] = useState<{ vendors: number; riders: number; errorLogs: number; tickets: number; tasks: number; agents: number }>({ vendors: 0, riders: 0, errorLogs: 0, tickets: 0, tasks: 0, agents: 0 });
 
   useEffect(() => {
     const loadPendingCounts = () => {
@@ -71,7 +73,8 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
         api.get<{ pagination: { total: number } }>('/admin/error-logs?resolved=false&limit=1'),
         api.get<{ data: { unassigned: number; mine: number } }>('/admin/crm/tickets/summary'),
         api.get<{ data: { counts: { mineOverdue: number } } }>('/admin/crm/tasks?view=mine'),
-      ]).then(([vRes, rRes, eRes, tRes, kRes]) => {
+        api.get<{ pagination: { total: number } }>('/admin/agents/suggestions?view=pending&limit=1'),
+      ]).then(([vRes, rRes, eRes, tRes, kRes, aRes]) => {
         setPending({
           vendors: vRes.status === 'fulfilled'
             ? vRes.value.data.filter(v => v.approvalStatus === 'PENDING').length
@@ -84,6 +87,8 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
           tickets: tRes.status === 'fulfilled' ? tRes.value.data.unassigned + tRes.value.data.mine : 0,
           // Only overdue work, so the badge means "act now" rather than "you have a list".
           tasks: kRes.status === 'fulfilled' ? kRes.value.data.counts.mineOverdue : 0,
+          // Agent suggestions waiting for a person to approve or reject.
+          agents: aRes.status === 'fulfilled' ? aRes.value.pagination.total : 0,
         });
       });
     };

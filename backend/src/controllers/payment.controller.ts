@@ -8,7 +8,8 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { activateReferral } from '../services/referral.service';
 import { notifyUser } from '../services/notification.service';
 import { releaseUnpaidOrder } from './order.controller';
-import { PaymentStatus, OrderStatus } from '@prisma/client';
+import { PaymentStatus } from '@prisma/client';
+import { settleSuccessfulPayment, latePaymentMessage } from '../services/paymentSettlement.service';
 import { recordError } from '../utils/recordError';
 import { trackServerEvent } from '../services/analytics.service';
 import { getPrimaryClientUrl } from '../utils/clientUrl';
@@ -115,14 +116,18 @@ export const verifyPayment = catchAsync(async (req: AuthRequest, res: Response) 
   }
 
   if (order) {
-    const updatedOrder = await prisma.order.update({
+    const amountPaid = typeof data.data.amount === 'number' ? data.data.amount / 100 : null;
+    const outcome = await settleSuccessfulPayment({ orderId: order.id, reference, amountPaid, via: 'verify' });
+
+    if (outcome === 'late_credited' || outcome === 'already_credited') {
+      return apiResponse.error(res, latePaymentMessage(amountPaid), 409);
+    }
+    if (outcome !== 'confirmed') {
+      return apiResponse.success(res, 'Payment verified.', { status: 'success', orderId: order.id, vendorId: order.vendorId });
+    }
+
+    const updatedOrder = await prisma.order.findUniqueOrThrow({
       where: { id: order.id },
-      data: {
-        paystackRef:      reference,
-        paymentStatus:    PaymentStatus.PAID,
-        paystackVerified: true,
-        status:           OrderStatus.CONFIRMED,
-      },
       include: { customer: { select: { userId: true } } },
     });
 
@@ -170,14 +175,13 @@ export const handleWebhook = async (req: Request, res: Response) => {
       });
       if (!order || order.paystackVerified) return;
 
-      await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          paymentStatus:    PaymentStatus.PAID,
-          paystackVerified: true,
-          status:           OrderStatus.CONFIRMED,
-        },
+      const outcome = await settleSuccessfulPayment({
+        orderId: order.id,
+        reference: data.reference,
+        amountPaid: typeof data.amount === 'number' ? data.amount / 100 : null,
+        via: 'webhook',
       });
+      if (outcome !== 'confirmed') return;
       void trackServerEvent('payment_succeeded', order.customer.userId, 'CUSTOMER', {
         orderId: order.id, amount: order.totalAmount, via: 'webhook',
       });

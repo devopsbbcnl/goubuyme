@@ -16,6 +16,7 @@ import {
   TICKET_STATUSES, TicketCategory, TicketPriority, TicketStatus, TicketStatusBadge, useNow,
 } from '@/components/crm/tickets';
 import { LinkedTasks } from '@/components/crm/tasks';
+import { AiTriage, TicketAgentSuggestion, TicketTriagePanel } from '@/components/crm/TicketTriagePanel';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,8 @@ interface TicketDetail {
   breached: boolean;
   assignee: { id: string; name: string } | null;
   messages: TicketMessage[];
+  aiTriage: AiTriage | null;
+  agentSuggestions: TicketAgentSuggestion[];
   requester: {
     id: string; name: string; displayName: string; email: string; phone: string | null; role: CrmRole;
     isActive: boolean; createdAt: string; storeCreditBalance: number; tags: CrmTag[]; stage: LifecycleStage; ticketCount: number;
@@ -290,6 +293,8 @@ function TicketPane({ ticketId, agents, canned, isOps, isMobile, now, onBack, on
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
   const [creditOpen, setCreditOpen] = useState(false);
+  // "Edit in reply box" remounts the composer pre-filled with the agent's draft.
+  const [draft, setDraft] = useState<{ text: string; n: number }>({ text: '', n: 0 });
   const threadRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() =>
@@ -376,11 +381,21 @@ function TicketPane({ ticketId, agents, canned, isOps, isMobile, now, onBack, on
           )}
         </div>
 
-        <Composer ticket={ticket} canned={canned} onSent={async () => { await load(); onChanged(); }} />
+        <Composer key={draft.n} initialBody={draft.text} ticket={ticket} canned={canned} onSent={async () => { await load(); onChanged(); }} />
       </div>
 
       {/* Details */}
       <div style={{ width: isMobile ? '100%' : 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+        <TicketTriagePanel
+          ticketId={ticket.id}
+          triage={ticket.aiTriage}
+          suggestions={ticket.agentSuggestions ?? []}
+          open={!['RESOLVED', 'CLOSED'].includes(ticket.status)}
+          isOps={isOps}
+          onUseDraft={text => setDraft(d => ({ text, n: d.n + 1 }))}
+          onChanged={async () => { await load(); onChanged(); }}
+        />
+
         <div style={{ ...panel, padding: 14 }}>
           <SectionLabel>Ticket</SectionLabel>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -477,10 +492,12 @@ function TicketPane({ ticketId, agents, canned, isOps, isMobile, now, onBack, on
 
 // ─── Composer ────────────────────────────────────────────────────────────────
 
-function Composer({ ticket, canned, onSent }: { ticket: TicketDetail; canned: CannedReply[]; onSent: () => Promise<void> }) {
+function Composer({ ticket, canned, onSent, initialBody = '' }: {
+  ticket: TicketDetail; canned: CannedReply[]; onSent: () => Promise<void>; initialBody?: string;
+}) {
   const { theme: T } = useTheme();
   const [mode, setMode] = useState<'reply' | 'note'>('reply');
-  const [body, setBody] = useState('');
+  const [body, setBody] = useState(initialBody);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const closed = ticket.status === 'CLOSED';

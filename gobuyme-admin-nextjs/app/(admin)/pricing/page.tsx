@@ -50,7 +50,7 @@ interface PricingModifier {
   surchargeType: SurchargeType;
   name: string;
   value: number;
-  conditions: any;
+  conditions: unknown;
   isActive: boolean;
 }
 
@@ -63,8 +63,8 @@ interface DeliveryZone {
   parentZoneId: string | null;
   multiplier: number;
   description: string;
-  polygonCoordinates: any;
-  geometry: any;
+  polygonCoordinates: unknown;
+  geometry: unknown;
   landmarkKeywords: string[];
   requiresManualCorrection: boolean;
   isActive: boolean;
@@ -77,7 +77,7 @@ interface SurgeEvent {
   multiplier: number;
   startTime: string;
   endTime: string;
-  affectedAreas: any;
+  affectedAreas: { country?: string; state?: string; city?: string } | null;
   isActive: boolean;
 }
 
@@ -210,13 +210,9 @@ export default function PricingPage() {
     country: 'Nigeria',
     state: 'Lagos',
     city: 'Lagos',
-    weatherCondition: 'CLEAR' as const,
-    trafficLevel: 'LOW' as const,
+    weatherCondition: 'CLEAR' as 'CLEAR' | 'RAIN' | 'HEAVY_RAIN',
+    trafficLevel: 'LOW' as 'LOW' | 'MEDIUM' | 'HIGH',
   });
-
-  useEffect(() => {
-    fetchProfiles();
-  }, []);
 
   const fetchProfiles = async () => {
     setProfilesLoading(true);
@@ -229,6 +225,10 @@ export default function PricingPage() {
       setProfilesLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
 
   const fetchZones = async () => {
     setZonesLoading(true);
@@ -505,10 +505,10 @@ export default function PricingPage() {
       await refetchBuckets();
       setBucketFormModalOpen(false);
       setSelectedBucket(null);
-    } catch (err: any) {
+    } catch (err) {
       // Server-side validation errors (e.g. overlapping ranges, a second
       // open-ended bucket) surface here instead of failing silently.
-      setBucketError(err?.message || 'Failed to save bucket.');
+      setBucketError(err instanceof Error ? err.message : 'Failed to save bucket.');
     } finally {
       setBucketSaving(false);
     }
@@ -601,7 +601,7 @@ export default function PricingPage() {
   const openSurgeModal = (surge?: SurgeEvent) => {
     if (surge) {
       setSelectedSurge(surge);
-      const areas = surge.affectedAreas as any;
+      const areas = surge.affectedAreas;
       setSurgeForm({
         name: surge.name,
         type: surge.type as SurchargeType,
@@ -1127,7 +1127,7 @@ export default function PricingPage() {
                   </label>
                   <select
                     value={simForm.weatherCondition}
-                    onChange={e => setSimForm({ ...simForm, weatherCondition: e.target.value as any })}
+                    onChange={e => setSimForm({ ...simForm, weatherCondition: e.target.value as typeof simForm.weatherCondition })}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -1150,7 +1150,7 @@ export default function PricingPage() {
                   </label>
                   <select
                     value={simForm.trafficLevel}
-                    onChange={e => setSimForm({ ...simForm, trafficLevel: e.target.value as any })}
+                    onChange={e => setSimForm({ ...simForm, trafficLevel: e.target.value as typeof simForm.trafficLevel })}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -2044,8 +2044,8 @@ export default function PricingPage() {
       >
         <div style={{ padding: 20 }}>
           <p style={{ fontSize: 13, color: T.textSec, marginBottom: 16, lineHeight: 1.6 }}>
-            Buckets set the delivery fee by distance range within this profile — e.g. "0–5km costs ₦500"
-            or "10km and beyond costs ₦1000 plus ₦100 per extra km." Only the last (open-ended) bucket's
+            Buckets set the delivery fee by distance range within this profile — e.g. &ldquo;0–5km costs ₦500&rdquo;
+            or &ldquo;10km and beyond costs ₦1000 plus ₦100 per extra km.&rdquo; Only the last (open-ended) bucket&apos;s
             per-km rate is ever applied; bounded buckets always charge their flat fee.
           </p>
 

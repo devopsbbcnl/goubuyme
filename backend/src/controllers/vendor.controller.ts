@@ -4,11 +4,12 @@ import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { haversineDistance, estimateDeliveryMinutes } from '../services/distance.service';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
-import { ApprovalStatus, CommissionTier, LicenseType, OrderStatus, PaymentStatus, Prisma, VendorCategory, VerificationBadge } from '@prisma/client';
+import { ApprovalStatus, CommissionTier, LicenseType, OrderActorType, OrderStatus, Prisma, VendorCategory, VerificationBadge } from '@prisma/client';
+import { cancelOrderWithRefund, transitionOrder, OrderActionError } from '../services/orderLifecycle.service';
+import { notifyUser } from '../services/notification.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getPlatformSettings } from '../services/settings.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
-import { issueCredit } from '../services/storeCredit.service';
 import { trackServerEvent } from '../services/analytics.service';
 import {
   availabilityInclude,
@@ -672,42 +673,37 @@ export const updateMyOrderStatus = catchAsync(async (req: AuthRequest, res: Resp
     return apiResponse.error(res, `Cannot ${action} order with status ${order.status}.`, 400);
   }
 
-  const transition = { to: transitionTo[action] };
-  const wasPaid = action === 'reject' && order.paymentStatus === 'PAID';
+  const actor = { type: OrderActorType.VENDOR, id: req.user!.userId };
+  let wasPaid = false;
+  try {
+    if (action === 'reject') {
+      ({ wasPaid } = await cancelOrderWithRefund({
+        orderId,
+        from: validFrom.reject,
+        actor,
+        ...(reason ? { cancelReason: reason } : {}),
+        creditReason: 'VENDOR_REJECT_REFUND',
+      }));
+    } else {
+      const previous = await transitionOrder(prisma, { orderId, from: validFrom[action], to: transitionTo[action], actor });
+      if (!previous) return apiResponse.error(res, 'This order just changed status. Refresh and try again.', 409);
+    }
+  } catch (err) {
+    if (err instanceof OrderActionError) return apiResponse.error(res, err.message, err.status);
+    throw err;
+  }
+  const updated = { id: order.id, orderNumber: order.orderNumber, status: transitionTo[action] };
 
-  const updated = action === 'reject'
-    ? await prisma.$transaction(async (tx) => {
-        const nextOrder = await tx.order.update({
-          where: { id: orderId },
-          data: {
-            status: transition.to,
-            ...(reason ? { cancelReason: reason } : {}),
-            ...(wasPaid ? { paymentStatus: PaymentStatus.REFUNDED, creditIssued: order.totalAmount } : {}),
-          },
-          select: { id: true, orderNumber: true, status: true },
-        });
-        if (order.stockReserved) {
-          await Promise.all(order.items.map((item) =>
-            tx.menuItem.update({
-              where: { id: item.menuItemId },
-              data: { stockQuantity: { increment: item.quantity } },
-            }),
-          ));
-          await tx.order.update({
-            where: { id: orderId },
-            data: { stockReserved: false },
-          });
-        }
-        return nextOrder;
-      })
-    : await prisma.order.update({
-        where: { id: orderId },
-        data: { status: transition.to },
-        select: { id: true, orderNumber: true, status: true },
-      });
-
-  if (wasPaid) {
-    issueCredit(order.customer.userId, order.totalAmount, 'VENDOR_REJECT_REFUND', order.id).catch(() => {});
+  if (action === 'reject') {
+    const vendorReason = reason?.trim() ? ` Reason: ${reason.trim().slice(0, 200)}` : '';
+    notifyUser(order.customer.userId, {
+      title: 'Order declined',
+      body: wasPaid
+        ? `The vendor couldn't take order #${order.orderNumber}, so it's been cancelled. ₦${order.totalAmount.toLocaleString()} was added to your GoBuyMe store credit.${vendorReason}`
+        : `The vendor couldn't take order #${order.orderNumber}, so it's been cancelled.${vendorReason}`,
+      type: 'order',
+      data: { orderId: order.id },
+    }).catch(() => {});
   }
 
   const vendorEvent = ({ accept: 'order_accepted', reject: 'order_rejected', ready: 'order_ready' } as const)[action as 'accept' | 'reject' | 'ready'];

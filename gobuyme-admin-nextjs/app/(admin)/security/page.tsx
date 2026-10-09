@@ -61,8 +61,8 @@ export default function SecurityPage() {
       setManualReason('');
       setTimeout(() => setBlockingSuccess(''), 3000);
       fetchBlockedIps();
-    } catch (err: any) {
-      setBlockingError(err?.message || 'Failed to block IP');
+    } catch (err) {
+      setBlockingError(err instanceof Error ? err.message : 'Failed to block IP');
     } finally {
       setBlocking(false);
     }
@@ -219,7 +219,7 @@ export default function SecurityPage() {
         <div style={{ fontSize: 13, color: T.primary, lineHeight: 1.6 }}>
           <div style={{ fontWeight: 700, marginBottom: 8 }}>ℹ️ How automated IP blocking works:</div>
           <ul style={{ margin: 0, paddingLeft: 20 }}>
-            <li>When an attack is classified as <strong>CRITICAL</strong>, the source IP is automatically added to Cloudflare's blocklist</li>
+            <li>When an attack is classified as <strong>CRITICAL</strong>, the source IP is automatically added to Cloudflare&apos;s blocklist</li>
             <li>Blocked IPs are filtered at the edge (Cloudflare WAF) before reaching your backend</li>
             <li>Auto-blocks are permanent — they stay blocked until an admin removes them manually</li>
             <li>You can manually block/unblock IPs for immediate protection or recovery</li>
