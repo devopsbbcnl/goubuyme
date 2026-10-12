@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1066952030704",
+    "project_id": "gobuyme-29873",
+    "storage_bucket": "gobuyme-29873.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1066952030704:android:3dea7755f501cfdaf24535",
+        "android_client_info": {
+          "package_name": "dev.bubblebarrel.gobuyme"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAuxlJYHwPCAkSJ7Lxm8r5OacR2f4Gdrk4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
@@ -30,6 +31,15 @@ export function usePushNotifications() {
     (async () => {
       if (!Device.isDevice) return;
 
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF521B',
+        });
+      }
+
       const { status: existing } = await Notifications.getPermissionsAsync();
       const finalStatus =
         existing === 'granted'
@@ -38,7 +48,16 @@ export function usePushNotifications() {
 
       if (finalStatus !== 'granted') return;
 
-      const { data: token } = await Notifications.getExpoPushTokenAsync();
+      const projectId =
+        Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+
+      let token: string;
+      try {
+        ({ data: token } = await Notifications.getExpoPushTokenAsync({ projectId }));
+      } catch {
+        // Android: throws until google-services.json (FCM) is bundled in the build
+        return;
+      }
 
       try {
         await api.post('/notifications/register-token', { token });
