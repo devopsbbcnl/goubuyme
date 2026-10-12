@@ -43,3 +43,5 @@ gobuyme-mobile/ios/build/
 # Documentation
 *.md
 .gstack/
+
+gobuyme-production-2026-10-12-fcm.aab

@@ -30,6 +30,8 @@ jobs:
       - run: npx prisma generate
       - run: npx tsc --noEmit
       - run: npm test
+        env:
+          RESEND_API_KEY: re_test_dummy
 
   admin:
     runs-on: ubuntu-latest
