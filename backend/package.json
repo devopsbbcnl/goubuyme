@@ -13,6 +13,7 @@
     "prisma:seed": "ts-node prisma/seed.ts",
     "demo:seed": "ts-node prisma/seed-demo.ts",
     "demo:unseed": "ts-node prisma/unseed-demo.ts",
+    "seed:play-reviewer": "ts-node prisma/seed-play-reviewer.ts",
     "bulk:seed": "ts-node prisma/seed-bulk.ts",
     "bulk:unseed": "ts-node prisma/unseed-bulk.ts",
     "bulk:backfill-hours": "ts-node prisma/backfill-bulk-business-hours.ts",
