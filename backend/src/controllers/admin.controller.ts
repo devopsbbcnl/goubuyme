@@ -1452,7 +1452,7 @@ export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Respon
     return apiResponse.error(res, 'Category must be RESTAURANT, EMART, PHARMACY, BAKERY, DRINKS, BUTCHER, or GAS.', 400);
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+  const existing = await prisma.user.findFirst({ where: { email: { equals: email.trim(), mode: 'insensitive' } } });
   if (existing) return apiResponse.error(res, 'Email already registered.', 409);
 
   const existingVendor = await prisma.vendor.findFirst({
@@ -1555,7 +1555,7 @@ export const createAdminUser = catchAsync(async (req: AuthRequest, res: Response
     return apiResponse.error(res, 'Role must be OPERATIONS_ADMIN or SUPPORT_ADMIN.', 400);
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+  const existing = await prisma.user.findFirst({ where: { email: { equals: email.trim(), mode: 'insensitive' } } });
   if (existing) return apiResponse.error(res, 'Email already registered.', 409);
 
   const hashed = await bcrypt.hash(password, 10);
@@ -1662,7 +1662,7 @@ export const adminCreateRider = catchAsync(async (req: AuthRequest, res: Respons
     return apiResponse.error(res, 'Name, email, password, and vehicle type are required.', 400);
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+  const existing = await prisma.user.findFirst({ where: { email: { equals: email.trim(), mode: 'insensitive' } } });
   if (existing) return apiResponse.error(res, 'Email already registered.', 409);
 
   const hashed = await bcrypt.hash(password, 10);
@@ -1739,6 +1739,7 @@ async function softDeleteUser(
       isActive: false,
       deletedAt: new Date(),
       email: `deleted-${target.userId}@deleted.gobuyme.local`,
+      googleId: null,
       phone: null,
       refreshToken: null,
       pushToken: null,

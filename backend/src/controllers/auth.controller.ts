@@ -46,15 +46,22 @@ const sendOtpError = (res: Response, err: unknown) => {
   throw err;
 };
 
+// Emails are stored lowercase and matched case-insensitively (legacy rows may be
+// mixed-case), so Google sign-in and password sign-up can't split one person into two users.
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+const findUserByEmail = (email: string) =>
+  prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
+
 export const register = catchAsync(async (req: Request, res: Response) => {
   const {
-    name, email, phone, password, role,
+    name, phone, password, role,
     referralCode,
     commissionTier, businessName, category, address, city, state, latitude, longitude,
     vehicleType, plateNumber,
   } = req.body;
+  const email = normalizeEmail(req.body.email);
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await findUserByEmail(email);
   if (existing) {
     if (!existing.isEmailVerified) {
       await issueEmailOtpIfAllowed(existing.id, existing.email, existing.name);
@@ -221,9 +228,10 @@ export const requestPasswordOtp = catchAsync(async (req: AuthRequest, res: Respo
 });
 
 export const login = catchAsync(async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = normalizeEmail(req.body.email);
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await findUserByEmail(email);
   if (!user || !user.password) {
     // Track failed login attempt
     const { trackSuspiciousActivity } = await import('../services/auto-blocker.service');
@@ -289,12 +297,17 @@ export const googleAuth = catchAsync(async (req: Request, res: Response) => {
     return apiResponse.error(res, 'Google account has no email address.', 400);
   }
 
+  // Google can link to an existing account by email, so the address must be one Google has verified.
+  if (payload.email_verified === false) {
+    return apiResponse.error(res, 'Your Google email address is not verified.', 401);
+  }
+
   const email = payload.email.toLowerCase();
-  let user = await prisma.user.findUnique({ where: { email } });
+  let user = await findUserByEmail(email);
 
   if (user) {
     if (!user.isActive) return apiResponse.error(res, 'Account suspended. Contact support.', 403);
-    if (user.role !== 'CUSTOMER') {
+    if (user.role !== 'CUSTOMER' && user.role !== 'VENDOR') {
       return apiResponse.error(res, 'This email is already registered as a different account type. Sign in with your password instead.', 409);
     }
     if (!user.googleId || !user.isEmailVerified) {
@@ -342,8 +355,14 @@ export const googleAuth = catchAsync(async (req: Request, res: Response) => {
   const refreshToken = generateRefreshToken({ userId: user.id, role: user.role });
   await prisma.user.update({ where: { id: user.id }, data: { refreshToken } });
 
+  let approvalStatus: string | undefined;
+  if (user.role === 'VENDOR') {
+    const vendor = await prisma.vendor.findUnique({ where: { userId: user.id }, select: { approvalStatus: true } });
+    approvalStatus = vendor?.approvalStatus;
+  }
+
   return apiResponse.success(res, 'Signed in with Google.', {
-    user: buildUserPayload(user),
+    user: { ...buildUserPayload(user), ...(approvalStatus !== undefined ? { approvalStatus } : {}) },
     accessToken,
     refreshToken,
   });
@@ -478,8 +497,8 @@ export const updateProfile = catchAsync(async (req: AuthRequest, res: Response) 
 });
 
 export const forgotPassword = catchAsync(async (req: Request, res: Response) => {
-  const { email } = req.body;
-  const user = await prisma.user.findUnique({ where: { email } });
+  const email = normalizeEmail(req.body.email);
+  const user = await findUserByEmail(email);
 
   if (!user) return apiResponse.success(res, 'If that email exists, a reset link has been sent.');
 
@@ -577,6 +596,7 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
         isActive: false,
         deletedAt: new Date(),
         email: `deleted-${user.id}@deleted.gobuyme.local`,
+        googleId: null,
         phone: null,
         refreshToken: null,
         pushToken: null,
