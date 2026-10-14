@@ -32,6 +32,9 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingAll, setMarkingAll] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -39,9 +42,29 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     if (user) {
-      api.get('/notifications').then(r => setNotifications(r.data.data ?? [])).catch(() => {}).finally(() => setLoading(false));
+      api.get('/notifications', { params: { page: 1, limit: 30 } })
+        .then(r => {
+          setNotifications(r.data.data ?? []);
+          setHasMore(1 < (r.data.pagination?.totalPages ?? 1));
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
     }
   }, [user]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const r = await api.get('/notifications', { params: { page: page + 1, limit: 30 } });
+      setNotifications(prev => [...prev, ...(r.data.data ?? [])]);
+      setPage(page + 1);
+      setHasMore(page + 1 < (r.data.pagination?.totalPages ?? 1));
+    } catch {
+      // leave the button so they can try again
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const markRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
@@ -112,6 +135,11 @@ export default function NotificationsPage() {
                 </div>
               </button>
             ))}
+            {hasMore && (
+              <button className="btn btn-ghost" onClick={loadMore} disabled={loadingMore} style={{ alignSelf: 'center' }}>
+                {loadingMore ? 'Loading...' : 'Load more'}
+              </button>
+            )}
           </div>
         )}
       </div>

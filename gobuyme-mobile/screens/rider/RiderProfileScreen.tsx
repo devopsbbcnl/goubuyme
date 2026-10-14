@@ -93,7 +93,7 @@ const STATUS_COLOR: Record<string, string> = {
 const MENU_ROWS = [
 	{ icon: '💳', label: 'Earnings', sub: 'Payouts and history' },
 	{ icon: '🪪', label: 'Identity Documents', sub: 'NIN, selfie & guarantor' },
-	{ icon: '🔔', label: 'Notifications', sub: 'Manage alerts' },
+	{ icon: '🔔', label: 'Notifications', sub: 'Inbox & alerts' },
 	{ icon: '⚙️', label: 'Settings', sub: 'Theme, language & more' },
 	{ icon: '🚪', label: 'Sign Out', sub: null },
 ];

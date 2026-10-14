@@ -99,6 +99,7 @@ export default function VendorLayout() {
       <Tabs.Screen name="order-detail" options={{ href: null }} />
       <Tabs.Screen name="earnings" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="notification-settings" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
       <Tabs.Screen name="promotions" options={{ href: null }} />
       <Tabs.Screen name="business-verification" options={{ href: null }} />

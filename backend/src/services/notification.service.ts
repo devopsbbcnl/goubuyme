@@ -2,6 +2,7 @@ import { Expo, ExpoPushMessage, ExpoPushTicket } from 'expo-server-sdk';
 import { Prisma } from '@prisma/client';
 import prisma from '../config/db';
 import { recordError } from '../utils/recordError';
+import { wantsNotification } from './notificationPrefs';
 
 const expo = new Expo();
 
@@ -63,11 +64,16 @@ export const sendPushToMany = async (tokens: string[], payload: PushPayload): Pr
   }
 };
 
+// Sends a notification and keeps it in the user's inbox. A category the user has
+// switched off is neither pushed nor stored, so the inbox only ever holds what
+// they chose to hear about.
 export const notifyUser = async (userId: string, payload: PushPayload): Promise<void> => {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { pushToken: true, notificationPrefs: true } });
+  if (!user || !wantsNotification(user.notificationPrefs, payload.type)) return;
+
   await prisma.notification.create({
     data: { userId, title: payload.title, body: payload.body, type: payload.type, meta: payload.data as Prisma.InputJsonValue },
   });
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { pushToken: true } });
-  if (user?.pushToken) await sendPush(user.pushToken, payload);
+  if (user.pushToken) await sendPush(user.pushToken, payload);
 };

@@ -7,6 +7,7 @@ import {
 import { CenteredKeyboardModal } from '@/components/ui/CenteredKeyboardModal';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
+import { NotificationBell } from '@/components/NotificationBell';
 import { Ionicons } from '@expo/vector-icons';
 import { shadows } from '@/theme';
 import api from '@/services/api';
@@ -348,6 +349,7 @@ export default function VendorDashboardScreen() {
             <Text style={[styles.storeName, { color: T.text }]}>{storeName}</Text>
           </View>
           <View style={styles.headerRight}>
+            <NotificationBell route="/(vendor)/notifications" />
             <TouchableOpacity
               onPress={handleStoreToggle}
               style={[

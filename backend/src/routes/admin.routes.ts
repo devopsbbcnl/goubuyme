@@ -36,6 +36,8 @@ import {
   adminCancelOrderSchema, adminAssignRiderSchema, adminUnassignRiderSchema, adminOrderCreditSchema,
 } from '../validators/adminOrder.validator';
 import { runOpsBriefingSchema } from '../validators/opsBriefing.validator';
+import { sendBroadcastSchema } from '../validators/broadcast.validator';
+import { listBroadcasts, previewBroadcast, sendBroadcast } from '../controllers/broadcast.controller';
 import { listOpsBriefings, runOpsBriefingNow } from '../controllers/opsBriefing.controller';
 import {
   listAgents, updateAgent, listSuggestions, approveAgentSuggestion, rejectAgentSuggestion,
@@ -142,6 +144,11 @@ router.patch('/agents/:key',                        ...superAdminAuth, validate(
 
 // Audit logs
 router.get('/audit', ...readAuth, getAuditLogs);
+
+// Platform broadcasts: read-only for support, sending needs operations or above.
+router.get('/broadcasts',         ...readAuth, listBroadcasts);
+router.get('/broadcasts/preview', ...readAuth, previewBroadcast);
+router.post('/broadcasts',        ...opsAuth, validate(sendBroadcastSchema), sendBroadcast);
 
 // Server logs (Winston files on disk) — super admin only
 router.get('/logs/files', ...superAdminAuth, getLogFiles);

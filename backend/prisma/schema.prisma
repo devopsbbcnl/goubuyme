@@ -24,6 +24,8 @@ model User {
   deletedAt              DateTime?
   refreshToken           String?
   pushToken              String?
+  /// Per-category switches, e.g. {"orders":false}. A missing key means on.
+  notificationPrefs      Json?
   preferredLocale        String              @default("en")
   referralCode           String              @unique
   referredById           String?
@@ -46,6 +48,7 @@ model User {
   creditTransactions     CreditTransaction[]
   phoneOtps              PhoneOtp[]
   pushSubscriptions      PushSubscription[]
+  broadcasts             Broadcast[]
   vendorPlanChanges      VendorPlanChange[]
   crmNotesAbout          CrmNote[]           @relation("CrmNoteSubject")
   crmNotesAuthored       CrmNote[]           @relation("CrmNoteAuthor")
@@ -755,6 +758,8 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([userId, createdAt])
+  @@index([userId, isRead])
   @@index([isRead])
   @@index([createdAt])
   @@map("notifications")
@@ -1770,4 +1775,31 @@ model AgentSuggestion {
   @@index([orderId])
   @@index([ticketId])
   @@map("agent_suggestions")
+}
+
+/// A platform announcement to every active user of a role (or all). Written once
+/// when staff send it and never edited or deleted — it is the record of what the
+/// platform said and to how many people.
+model Broadcast {
+  id             String            @id @default(uuid())
+  authorId       String
+  audience       BroadcastAudience
+  title          String
+  body           String
+  /// Accounts that were sent the message (each gets an in-app Notification row).
+  recipientCount Int
+  /// Of those, how many had a push token or web subscription to be buzzed on.
+  pushCount      Int
+  createdAt      DateTime          @default(now())
+  author         User              @relation(fields: [authorId], references: [id])
+
+  @@index([createdAt])
+  @@map("broadcasts")
+}
+
+enum BroadcastAudience {
+  ALL
+  CUSTOMERS
+  VENDORS
+  RIDERS
 }

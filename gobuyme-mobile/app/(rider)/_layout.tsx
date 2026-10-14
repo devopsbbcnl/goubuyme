@@ -97,6 +97,7 @@ export default function RiderLayout() {
       <Tabs.Screen name="active" options={{ href: null }} />
       <Tabs.Screen name="earnings" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="notification-settings" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
       <Tabs.Screen name="document" options={{ href: null }} />
       </Tabs>

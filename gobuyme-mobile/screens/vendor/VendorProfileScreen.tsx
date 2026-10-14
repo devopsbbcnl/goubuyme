@@ -79,7 +79,7 @@ const MENU_ROWS: MenuRow[] = [
 		sub: 'NAFDAC, pharmacy & more',
 		route: '/(vendor)/licenses',
 	},
-	{ icon: '🔔', label: 'Notifications', sub: 'Manage alerts', route: '/(vendor)/notifications' },
+	{ icon: '🔔', label: 'Notifications', sub: 'Inbox & alerts', route: '/(vendor)/notifications' },
 	{ icon: '⚙️', label: 'Settings', sub: 'Theme, language & more', route: '/(vendor)/settings' },
 	{ icon: '🚪', label: 'Sign Out', sub: null },
 ];

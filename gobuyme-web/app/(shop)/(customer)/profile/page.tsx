@@ -111,6 +111,13 @@ const IconWallet = () => (
   </svg>
 );
 
+type NotifCategory = 'orders' | 'earnings' | 'account';
+const NOTIF_ROWS: Array<{ key: NotifCategory; label: string; desc: string }> = [
+  { key: 'orders', label: 'Order updates', desc: 'Confirmed, ready, picked up, delivered or cancelled' },
+  { key: 'earnings', label: 'Credit & rewards', desc: 'Store credit and referral rewards' },
+  { key: 'account', label: 'Account alerts', desc: 'Security alerts and support replies' },
+];
+
 export default function ProfilePage() {
   const { user, loading: authLoading, logout, updateUser } = useAuth();
   const router = useRouter();
@@ -153,10 +160,28 @@ export default function ProfilePage() {
 
   // null until loaded, so the switch never shows a guessed value.
   const [marketingOptIn, setMarketingOptIn] = useState<boolean | null>(null);
+  const [categories, setCategories] = useState<Record<NotifCategory, boolean> | null>(null);
   useEffect(() => {
     if (!user) return;
-    api.get('/notifications/preferences').then(r => setMarketingOptIn(Boolean(r.data.data?.marketingOptIn))).catch(() => {});
+    api.get('/notifications/preferences').then(r => {
+      setMarketingOptIn(Boolean(r.data.data?.marketingOptIn));
+      setCategories(r.data.data?.categories ?? null);
+    }).catch(() => {});
   }, [user]);
+
+  // Saved on the server, which decides what is sent and kept in the notifications inbox.
+  const toggleCategory = async (key: NotifCategory) => {
+    if (!categories) return;
+    const before = categories;
+    setCategories({ ...categories, [key]: !categories[key] });
+    try {
+      const r = await api.patch('/notifications/preferences', { categories: { [key]: !categories[key] } });
+      setCategories(r.data.data.categories);
+    } catch {
+      setCategories(before);
+      toast("Couldn't update your preference", 'error');
+    }
+  };
 
   const toggleMarketing = async () => {
     if (marketingOptIn === null) return;
@@ -512,6 +537,24 @@ export default function ProfilePage() {
                   <span className="track" />
                 </label>
               </div>
+              {NOTIF_ROWS.map(n => (
+                <div key={n.key} className="between" style={{ marginTop: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{n.label}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{n.desc}</div>
+                  </div>
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      aria-label={n.label}
+                      checked={categories?.[n.key] ?? true}
+                      disabled={categories === null}
+                      onChange={() => toggleCategory(n.key)}
+                    />
+                    <span className="track" />
+                  </label>
+                </div>
+              ))}
               <div className="between" style={{ marginTop: 16 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>Deals & Offers</div>

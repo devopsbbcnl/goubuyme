@@ -19,7 +19,7 @@ type MenuItem = {
 const MENU_ITEMS: MenuItem[] = [
   { icon: '📦', label: 'My Orders',         sub: 'View order history',        route: '/orders' },
   { icon: '📍', label: 'Saved Addresses',   sub: 'Home, Work, and more',      route: '/saved-addresses' },
-  { icon: '🔔', label: 'Notifications',     sub: 'Manage alerts',             route: '/notifications' },
+  { icon: '🔔', label: 'Notifications',     sub: 'Inbox & alerts',             route: '/notifications' },
   { icon: '🎁', label: 'Offers & Promos',   sub: 'Available deals',           route: '/offers-promos' },
   { icon: '⭐', label: 'Rate the App',      sub: 'Leave a review',            route: '/rate-app' },
   { icon: '🔐', label: 'Privacy & Security',sub: 'Manage data',               route: '/privacy-security' },

@@ -2,6 +2,7 @@ import webpush from 'web-push';
 import prisma from '../config/db';
 import logger from '../utils/logger';
 import { recordError } from '../utils/recordError';
+import { wantsNotification } from './notificationPrefs';
 
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
@@ -27,6 +28,10 @@ export const sendWebPush = async (userId: string, payload: WebPushPayload): Prom
 
   const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } });
   if (!subscriptions.length) return;
+
+  // The same switches that govern phone push apply to the web dashboard.
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { notificationPrefs: true } });
+  if (!wantsNotification(user?.notificationPrefs, payload.type)) return;
 
   const body = JSON.stringify(payload);
   const staleIds: string[] = [];

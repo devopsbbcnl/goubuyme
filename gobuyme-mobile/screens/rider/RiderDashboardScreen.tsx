@@ -13,6 +13,7 @@ import {
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
+import { NotificationBell } from '@/components/NotificationBell';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -282,6 +283,7 @@ export default function RiderDashboardScreen() {
 						</Text>
 					</View>
 					<View style={styles.headerRight}>
+						<NotificationBell route="/(rider)/notifications" />
 						<View
 							style={{
 								position: 'relative',

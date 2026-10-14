@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  registerPushToken, getNotifications, markNotificationRead, markAllRead,
+  registerPushToken, getNotifications, getUnreadCount, markNotificationRead, markAllRead,
 } from '../controllers/notification.controller';
 import { verifyToken } from '../middleware/auth.middleware';
 import { getMarketingPreferences, updateMarketingPreferences } from '../controllers/crm/marketingPreferences.controller';
@@ -11,6 +11,7 @@ router.use(verifyToken);
 
 router.post('/register-token', registerPushToken);
 router.get('/', getNotifications);
+router.get('/unread-count', getUnreadCount);
 router.get('/preferences', getMarketingPreferences);
 router.patch('/preferences', updateMarketingPreferences);
 router.patch('/read-all', markAllRead);

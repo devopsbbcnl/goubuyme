@@ -13,6 +13,7 @@ import { useAddress } from '@/context/AddressContext';
 import { useCity, SUPPORTED_CITIES } from '@/context/CityContext';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { router } from 'expo-router';
+import { NotificationBell } from '@/components/NotificationBell';
 import { Ionicons } from '@expo/vector-icons';
 import { FontAwesome } from '@expo/vector-icons';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -354,14 +355,17 @@ export default function HomeScreen() {
             )}
           </View>
 
-          <TouchableOpacity onPress={() => router.push('/cart')} style={[styles.cartBtn, { backgroundColor: T.surface }]}>
-            <Ionicons name="cart-outline" size={20} color={T.text} />
-            {count > 0 && (
-              <View style={[styles.cartBadge, { backgroundColor: T.primary }]}>
-                <Text style={styles.cartBadgeText}>{count}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <NotificationBell route="/notifications" />
+            <TouchableOpacity onPress={() => router.push('/cart')} style={[styles.cartBtn, { backgroundColor: T.surface }]}>
+              <Ionicons name="cart-outline" size={20} color={T.text} />
+              {count > 0 && (
+                <View style={[styles.cartBadge, { backgroundColor: T.primary }]}>
+                  <Text style={styles.cartBadgeText}>{count}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search bar + filter */}
