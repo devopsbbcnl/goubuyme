@@ -14,6 +14,10 @@ interface SettingsApi {
   maintenanceMode: boolean;
   tier1CommissionPercent: number;
   tier2CommissionPercent: number;
+  minAppVersion: string;
+  latestAppVersion: string;
+  storeUrlAndroid: string;
+  storeUrlIos: string;
 }
 
 interface SettingsState {
@@ -26,6 +30,10 @@ interface SettingsState {
   maintenanceMode: boolean;
   tier1CommissionPercent: string;
   tier2CommissionPercent: string;
+  minAppVersion: string;
+  latestAppVersion: string;
+  storeUrlAndroid: string;
+  storeUrlIos: string;
 }
 
 const EMPTY: SettingsState = {
@@ -38,6 +46,10 @@ const EMPTY: SettingsState = {
   maintenanceMode: false,
   tier1CommissionPercent: '',
   tier2CommissionPercent: '',
+  minAppVersion: '',
+  latestAppVersion: '',
+  storeUrlAndroid: '',
+  storeUrlIos: '',
 };
 
 const toState = (s: SettingsApi | undefined): SettingsState => {
@@ -54,6 +66,10 @@ const toState = (s: SettingsApi | undefined): SettingsState => {
     maintenanceMode: Boolean(s.maintenanceMode),
     tier1CommissionPercent: String(s.tier1CommissionPercent ?? ''),
     tier2CommissionPercent: String(s.tier2CommissionPercent ?? ''),
+    minAppVersion: s.minAppVersion ?? '',
+    latestAppVersion: s.latestAppVersion ?? '',
+    storeUrlAndroid: s.storeUrlAndroid ?? '',
+    storeUrlIos: s.storeUrlIos ?? '',
   };
 };
 
@@ -96,7 +112,7 @@ export default function SettingsPage() {
 
     try {
       // Each field is independent: empty inputs are simply not sent, leaving the saved value unchanged.
-      const payload: Record<string, number | boolean> = { maintenanceMode: cfg.maintenanceMode };
+      const payload: Record<string, number | boolean | string> = { maintenanceMode: cfg.maintenanceMode };
       const numericKeys = [
         'deliveryBaseFee', 'deliveryPerKmRate', 'deliveryMaxFee',
         'maxDeliveryRadiusKm', 'cancellationWindowMinutes', 'customerCancellationWindowMinutes',
@@ -112,6 +128,12 @@ export default function SettingsPage() {
             ? Math.round(n)
             : n;
       }
+      // Version gate: empty versions / Play link are left unchanged; the App Store link may be cleared.
+      for (const key of ['minAppVersion', 'latestAppVersion', 'storeUrlAndroid'] as const) {
+        const raw = cfg[key].trim();
+        if (raw !== '') payload[key] = raw;
+      }
+      payload.storeUrlIos = cfg.storeUrlIos.trim();
       const res = await api.patch<{ data: SettingsApi }>('/admin/settings', payload);
       setCfg(toState(res.data));
       setSaved(true);
@@ -308,6 +330,38 @@ export default function SettingsPage() {
               General cancellation grace period. Vendor no-response auto-cancel is handled
               separately by the escalation service.
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={sectionHeader}>Mobile App Version</div>
+        <div style={sectionBody}>
+          <div>
+            <label style={labelStyle}>Minimum Version (forced update)</label>
+            <input style={inputStyle} type="text" placeholder="1.0.0" value={cfg.minAppVersion} onChange={e => set('minAppVersion', e.target.value)} />
+            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 5 }}>
+              Apps older than this are blocked until the user updates. Format x.y.z.
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Latest Version (gentle prompt)</label>
+            <input style={inputStyle} type="text" placeholder="1.0.0" value={cfg.latestAppVersion} onChange={e => set('latestAppVersion', e.target.value)} />
+            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 5 }}>
+              Apps older than this are asked to update once, and can dismiss it. Cannot be below the minimum.
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Play Store Link</label>
+            <input style={inputStyle} type="text" placeholder="https://play.google.com/store/apps/details?id=…" value={cfg.storeUrlAndroid} onChange={e => set('storeUrlAndroid', e.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>App Store Link</label>
+            <input style={inputStyle} type="text" placeholder="Leave empty until the iOS app is published" value={cfg.storeUrlIos} onChange={e => set('storeUrlIos', e.target.value)} />
+          </div>
+          <div style={{ gridColumn: '1 / -1', fontSize: 11, color: T.textMuted }}>
+            Raise the minimum only after the new build is live in the store. Phones that cannot reach the
+            server are never locked out.
           </div>
         </div>
       </div>

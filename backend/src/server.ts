@@ -61,6 +61,7 @@ import offerRoutes from './routes/offer.routes';
 import supportRoutes from './routes/support.routes';
 import messageRoutes from './routes/message.routes';
 import geocodeRoutes from './routes/geocode.routes';
+import appVersionRoutes from './routes/appVersion.routes';
 import errorLogRoutes from './routes/errorLog.routes';
 import appEventRoutes from './routes/appEvent.routes';
 import logger from './utils/logger';
@@ -168,6 +169,10 @@ app.get('/api/v1/settings/public', publicSettingsLimiter, async (_req, res) => {
 // Analytics ingest has its own limiters (see eventsLimiter) and must not share the
 // global bucket — a chatty screen-view stream would otherwise 429 the user's real calls.
 app.use('/api/v1/events', appEventRoutes);
+
+// The mobile app's version gate: public, and ahead of the maintenance guard so a
+// phone can still learn it must update while the platform is in maintenance.
+app.use('/api/v1/app-version', publicSettingsLimiter, appVersionRoutes);
 
 app.use(globalLimiter);
 app.use(maintenanceGuard);

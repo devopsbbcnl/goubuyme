@@ -13,13 +13,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { connectSockets, subscribeBackendStatus } from '@/services/socketService';
 import { useGoogleSignIn } from '@/hooks/useGoogleSignIn';
 import GoogleIcon from '@/components/ui/GoogleIcon';
+import { routeAfterLogin } from '@/services/postLoginRoute';
 import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
-
-const ROLE_ROUTE: Record<string, string> = {
-  customer: '/(customer)',
-  vendor: '/(vendor)',
-  rider: '/(rider)',
-};
 
 type LoginErrors = {
   email?: string;
@@ -103,24 +98,7 @@ export default function LoginScreen() {
         photoUrl: user.avatar ?? undefined,
       }, refreshToken);
 
-      if (role === 'vendor') {
-        try {
-          const vRes = await api.get('/vendors/me');
-          const v = vRes.data.data;
-          const profileComplete = !!(v.description?.trim() && v.openingTime?.trim() && v.closingTime?.trim());
-          if (!profileComplete) {
-            router.replace('/vendor-complete-profile' as never);
-            return;
-          }
-        } catch {
-          // if vendor profile check fails, fall through to dashboard
-        }
-        router.replace('/(vendor)' as never);
-        return;
-      }
-
-      const route = ROLE_ROUTE[role ?? ''] ?? '/(customer)';
-      router.replace(route as never);
+      await routeAfterLogin(role);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number; data?: { errors?: { requiresVerification?: boolean; userId?: string; email?: string; role?: string }[] } } };
       const verificationPayload = axiosErr.response?.data?.errors?.[0];

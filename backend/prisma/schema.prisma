@@ -922,6 +922,10 @@ model PlatformSetting {
   riderPayoutPercentage             Float    @default(85)
   tier1CommissionPercent            Float    @default(3)
   tier2CommissionPercent            Float    @default(7.5)
+  minAppVersion                     String   @default("1.0.0")
+  latestAppVersion                  String   @default("1.0.0")
+  storeUrlAndroid                   String   @default("https://play.google.com/store/apps/details?id=dev.bubblebarrel.gobuyme")
+  storeUrlIos                       String   @default("")
 
   @@map("platform_settings")
 }

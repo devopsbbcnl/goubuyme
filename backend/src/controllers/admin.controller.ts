@@ -10,6 +10,7 @@ import { notifyUser } from '../services/notification.service';
 import { sendVendorApprovalEmail, sendRiderApprovalEmail } from '../services/email.service';
 import { generateReferralCode } from '../utils/generateToken';
 import { getPlatformSettings, updatePlatformSettings, PlatformSettingsPatch } from '../services/settings.service';
+import { VERSION_PATTERN, compareVersions } from '../services/appVersion.service';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { linkLeadForUser } from '../services/crm/lead.service';
@@ -134,6 +135,35 @@ export const updateAdminSettings = catchAsync(async (req: AuthRequest, res: Resp
 
   if ('maintenanceMode' in body) {
     patch.maintenanceMode = Boolean(body.maintenanceMode);
+  }
+
+  // App version gate. Below `min` the app is blocked until updated; below `latest` it only asks.
+  for (const [key, label] of [['minAppVersion', 'Minimum app version'], ['latestAppVersion', 'Latest app version']] as const) {
+    const raw = String(body[key] ?? '').trim();
+    if (!raw) continue;
+    if (!VERSION_PATTERN.test(raw)) return apiResponse.error(res, `${label} must look like 1.2.0.`, 400);
+    patch[key] = raw;
+  }
+
+  const storeUrlFields = [
+    ['storeUrlAndroid', 'Play Store link', false],
+    ['storeUrlIos', 'App Store link', true], // empty until the iOS app is published
+  ] as const;
+  for (const [key, label, mayBeEmpty] of storeUrlFields) {
+    if (!(key in body) || body[key] === null || body[key] === undefined) continue;
+    const raw = String(body[key]).trim();
+    if (!raw && !mayBeEmpty) continue;
+    if (raw && !/^https:\/\/\S+$/.test(raw)) return apiResponse.error(res, `${label} must be an https link.`, 400);
+    patch[key] = raw;
+  }
+
+  if (patch.minAppVersion || patch.latestAppVersion) {
+    const current = await getPlatformSettings();
+    const min = patch.minAppVersion ?? current.minAppVersion;
+    const latest = patch.latestAppVersion ?? current.latestAppVersion;
+    if (compareVersions(min, latest) > 0) {
+      return apiResponse.error(res, 'Minimum app version cannot be higher than the latest version.', 400);
+    }
   }
 
   const settings = await updatePlatformSettings(patch);

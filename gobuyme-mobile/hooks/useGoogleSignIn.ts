@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
-import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import api from '@/services/api';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, UserRole } from '@/context/AuthContext';
+import { routeAfterLogin } from '@/services/postLoginRoute';
 import { reportError } from '@/services/errorReporting';
 
 // @react-native-google-signin/google-signin resolves its native TurboModule at import time,
@@ -75,14 +75,18 @@ export function useGoogleSignIn() {
         const res = await api.post('/auth/google', { idToken });
         const { user, accessToken, refreshToken } = res.data.data;
 
+        // The account's real role comes back from the server: a vendor who signs in
+        // with Google must land in the vendor app, not the customer one.
+        const role = (user.role as string).toLowerCase() as UserRole;
         await login({
-          id: user.id, name: user.name, email: user.email, role: 'customer',
+          id: user.id, name: user.name, email: user.email, role,
           token: accessToken,
+          approvalStatus: user.approvalStatus,
           phone: user.phone ?? undefined,
           photoUrl: user.avatar ?? undefined,
         }, refreshToken);
 
-        router.replace('/(customer)' as never);
+        await routeAfterLogin(role);
       } catch (err: unknown) {
         const code = (err as { code?: string })?.code;
         if (code === statusCodes!.SIGN_IN_CANCELLED) {
