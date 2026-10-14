@@ -15,6 +15,10 @@ export const DEFAULT_PLATFORM_SETTINGS = {
   maintenanceMode: false,
   tier1CommissionPercent: parseFloat(process.env.COMMISSION_TIER_1_RATE || '0.03') * 100,
   tier2CommissionPercent: parseFloat(process.env.COMMISSION_TIER_2_RATE || '0.075') * 100,
+  minAppVersion: '1.0.0',
+  latestAppVersion: '1.0.0',
+  storeUrlAndroid: 'https://play.google.com/store/apps/details?id=dev.bubblebarrel.gobuyme',
+  storeUrlIos: '',
 };
 
 export const getPlatformSettings = async () =>
@@ -36,6 +40,10 @@ export type PlatformSettingsPatch = Partial<{
   maintenanceMode: boolean;
   tier1CommissionPercent: number;
   tier2CommissionPercent: number;
+  minAppVersion: string;
+  latestAppVersion: string;
+  storeUrlAndroid: string;
+  storeUrlIos: string;
 }>;
 
 export const updatePlatformSettings = async (data: PlatformSettingsPatch) =>

@@ -21,6 +21,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { setOnUnauthorized } from '@/services/api';
 import { reportError } from '@/services/errorReporting';
 import { initAnalytics, trackScreen } from '@/services/analytics';
+import { UpdateGate } from '@/components/UpdateGate';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -73,6 +74,7 @@ function AppContent() {
   return (
     <>
       <StatusBar translucent backgroundColor="transparent" />
+      <UpdateGate />
       <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="onboarding" />
