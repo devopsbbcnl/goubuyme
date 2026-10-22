@@ -11,6 +11,8 @@ import {
 	Alert,
 } from 'react-native';
 import { pickImage as openImagePicker } from '@/utils/pickImage';
+import { PositionedImage } from '@/components/ui/PositionedImage';
+import { useImagePositioner } from '@/components/ui/ImagePositioner';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
@@ -80,6 +82,7 @@ interface RiderProfile {
 		email: string;
 		phone: string | null;
 		avatar: string | null;
+		avatarPosition?: string | null;
 	};
 }
 
@@ -133,16 +136,36 @@ export default function RiderProfileScreen() {
 		fetchProfile();
 	}, [fetchProfile]);
 
+	const positioner = useImagePositioner();
+
+	const repositionAvatar = async () => {
+		const current = profile?.user?.avatar;
+		if (!current) return;
+		const position = await positioner.open({ uri: current, aspect: 1, round: true, position: profile?.user?.avatarPosition });
+		if (!position) return;
+		try {
+			await api.patch('/auth/profile', { avatarPosition: position });
+			await updateUser({ photoPosition: position });
+			setProfile((prev) =>
+				prev ? { ...prev, user: { ...prev.user, avatarPosition: position } } : prev,
+			);
+		} catch (err: any) {
+			Alert.alert('Could not save', err?.message || 'Could not save the photo position. Please try again.');
+		}
+	};
+
 	const pickAvatar = async () => {
-		const uri = await openImagePicker({ aspect: [1, 1], quality: 0.8 });
+		const uri = await openImagePicker({ allowsEditing: false, quality: 0.8 });
 		if (!uri) return;
+		const position = await positioner.open({ uri, aspect: 1, round: true });
+		if (!position) return;
 		try {
 			setUploadingAvatar(true);
 			const url = await uploadToCloudinary(uri);
-			await api.patch('/auth/profile', { photoUrl: url });
-			await updateUser({ photoUrl: url });
+			await api.patch('/auth/profile', { photoUrl: url, avatarPosition: position });
+			await updateUser({ photoUrl: url, photoPosition: position });
 			setProfile((prev) =>
-				prev ? { ...prev, user: { ...prev.user, avatar: url } } : prev,
+				prev ? { ...prev, user: { ...prev.user, avatar: url, avatarPosition: position } } : prev,
 			);
 		} catch (err: any) {
 			Alert.alert('Upload failed', err?.message || 'Could not upload your photo. Please try again.');
@@ -305,7 +328,7 @@ export default function RiderProfileScreen() {
 						style={styles.avatarWrap}
 					>
 						{profile?.user?.avatar ? (
-							<Image source={{ uri: profile.user.avatar }} style={styles.avatarImg} />
+							<PositionedImage uri={profile.user.avatar} position={profile.user.avatarPosition} style={styles.avatarImg} />
 						) : (
 							<View style={[styles.avatarPlaceholder, { backgroundColor: '#1A6EFF' }]}>
 								<Text style={{ fontSize: 28 }}>🏍️</Text>
@@ -321,6 +344,12 @@ export default function RiderProfileScreen() {
 							</View>
 						)}
 					</TouchableOpacity>
+					{profile?.user?.avatar ? (
+						<TouchableOpacity onPress={repositionAvatar} style={{ marginBottom: 10 }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+							<Text style={{ color: T.primary, fontSize: 12, fontWeight: '600' }}>Reposition photo</Text>
+						</TouchableOpacity>
+					) : null}
+					{positioner.element}
 
 					{isEditing ? (
 						<TextInput

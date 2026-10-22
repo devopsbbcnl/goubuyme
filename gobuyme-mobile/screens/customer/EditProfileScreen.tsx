@@ -8,7 +8,6 @@ import {
 	TextInput,
 	ActivityIndicator,
 	Alert,
-	Image,
 } from 'react-native';
 import { pickImage as openImagePicker } from '@/utils/pickImage';
 import { useTheme } from '@/context/ThemeContext';
@@ -18,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
+import { PositionedImage } from '@/components/ui/PositionedImage';
+import { useImagePositioner } from '@/components/ui/ImagePositioner';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -70,21 +71,27 @@ export default function EditProfileScreen() {
 	const [name, setName] = useState(user?.name ?? '');
 	const [phone, setPhone] = useState(phoneToDisplay(user?.phone ?? ''));
 	const [photoUrl, setPhotoUrl] = useState(user?.photoUrl ?? '');
+	const [photoPosition, setPhotoPosition] = useState(user?.photoPosition ?? '');
+	const positioner = useImagePositioner();
 	const [uploading, setUploading] = useState(false);
 	const [saving, setSaving] = useState(false);
 
 	const pickImage = async () => {
-		const uri = await openImagePicker({ aspect: [1, 1], quality: 0.8 });
+		const uri = await openImagePicker({ allowsEditing: false, quality: 0.8 });
 		if (!uri) return;
+		const position = await positioner.open({ uri, aspect: 1, round: true });
+		if (!position) return;
 		if (!CLOUD_NAME || CLOUD_NAME === 'your_cloud_name') {
 			// fallback: use local URI if Cloudinary not configured
 			setPhotoUrl(uri);
+			setPhotoPosition(position);
 			return;
 		}
 		try {
 			setUploading(true);
 			const url = await uploadToCloudinary(uri);
 			setPhotoUrl(url);
+			setPhotoPosition(position);
 		} catch (err: any) {
 			Alert.alert(
 				'Upload failed',
@@ -93,6 +100,11 @@ export default function EditProfileScreen() {
 		} finally {
 			setUploading(false);
 		}
+	};
+
+	const repositionPhoto = async () => {
+		const position = await positioner.open({ uri: photoUrl, aspect: 1, round: true, position: photoPosition });
+		if (position) setPhotoPosition(position);
 	};
 
 	const handleSave = async () => {
@@ -107,8 +119,9 @@ export default function EditProfileScreen() {
 				name: name.trim(),
 				phone: formattedPhone || undefined,
 				photoUrl: photoUrl || undefined,
+				avatarPosition: photoUrl ? photoPosition || null : null,
 			});
-			await updateUser({ name: name.trim(), phone: formattedPhone || phone.trim(), photoUrl });
+			await updateUser({ name: name.trim(), phone: formattedPhone || phone.trim(), photoUrl, photoPosition });
 			router.back();
 		} finally {
 			setSaving(false);
@@ -148,7 +161,7 @@ export default function EditProfileScreen() {
 						]}
 					>
 						{photoUrl ? (
-							<Image source={{ uri: photoUrl }} style={styles.avatarImg} />
+							<PositionedImage uri={photoUrl} position={photoPosition} style={styles.avatarImg} />
 						) : (
 							<View
 								style={[
@@ -182,6 +195,12 @@ export default function EditProfileScreen() {
 					<Text style={[styles.avatarHint, { color: T.textSec }]}>
 						Tap to change photo
 					</Text>
+					{photoUrl ? (
+						<TouchableOpacity onPress={repositionPhoto} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+							<Text style={[styles.avatarHint, { color: T.primary, marginTop: 6 }]}>Reposition photo</Text>
+						</TouchableOpacity>
+					) : null}
+					{positioner.element}
 				</View>
 
 				{/* Fields */}

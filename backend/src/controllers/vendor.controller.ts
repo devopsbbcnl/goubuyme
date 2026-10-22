@@ -8,6 +8,7 @@ import { ApprovalStatus, CommissionTier, LicenseType, OrderActorType, OrderStatu
 import { cancelOrderWithRefund, transitionOrder, OrderActionError } from '../services/orderLifecycle.service';
 import { notifyUser } from '../services/notification.service';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { nextImagePosition, parseImagePosition } from '../utils/imagePosition';
 import { getPlatformSettings } from '../services/settings.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { trackServerEvent } from '../services/analytics.service';
@@ -55,7 +56,7 @@ const DEFAULT_RADIUS = parseFloat(process.env.DEFAULT_VENDOR_RADIUS_KM || '10');
 
 const vendorSelect = {
   id: true, businessName: true, slug: true, description: true,
-  logo: true, coverImage: true, category: true, city: true, state: true,
+  logo: true, logoPosition: true, coverImage: true, coverPosition: true, category: true, city: true, state: true,
   latitude: true, longitude: true, isOpen: true, rating: true,
   totalRatings: true, openingTime: true, closingTime: true,
   avgDeliveryTime: true, commissionTier: true, verificationBadge: true,
@@ -86,6 +87,7 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
     where,
     select: {
       ...vendorSelect,
+      user: { select: { isPhoneVerified: true } },
       menuItems: { select: { price: true }, where: { isAvailable: true, stockQuantity: { gt: 0 } }, take: 1, orderBy: { price: 'asc' } },
     },
     orderBy: [
@@ -112,6 +114,8 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
           : null;
       return {
         ...v,
+        user: undefined,
+        phoneVerified: v.user.isPhoneVerified,
         latitude: undefined,
         longitude: undefined,
         distanceKm: distanceKm ? Math.round(distanceKm * 10) / 10 : null,
@@ -156,7 +160,7 @@ export const getVendorMenu = catchAsync(async (req: Request, res: Response) => {
     where: { vendorId: req.params.id, isAvailable: true, stockQuantity: { gt: 0 } },
     select: {
       id: true, name: true, description: true, price: true,
-      image: true, category: true, isAvailable: true, isFeatured: true, stockQuantity: true,
+      image: true, imagePosition: true, category: true, isAvailable: true, isFeatured: true, stockQuantity: true,
       drinkOptions: {
         where: { isAvailable: true },
         select: drinkOptionSelect,
@@ -179,7 +183,7 @@ export const getMyVendorProfile = catchAsync(async (req: AuthRequest, res: Respo
   const vendor = await prisma.vendor.findUnique({
     where: { userId: req.user!.userId },
     include: {
-      user: { select: { name: true, email: true, phone: true, avatar: true, isPhoneVerified: true } },
+      user: { select: { name: true, email: true, phone: true, avatar: true, avatarPosition: true, isPhoneVerified: true } },
       payoutAccount: { select: { bankName: true, accountNumber: true, accountName: true } },
       businessHours: {
         select: { id: true, dayOfWeek: true, openTime: true, closeTime: true },
@@ -199,6 +203,11 @@ export const getMyVendorProfile = catchAsync(async (req: AuthRequest, res: Respo
 
 export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Response) => {
   const { businessName, description, logo, coverImage, address, city, state, openingTime, closingTime, avgDeliveryTime } = req.body;
+  const logoPosition = parseImagePosition(req.body.logoPosition);
+  const coverPosition = parseImagePosition(req.body.coverPosition);
+  if (logoPosition === false || coverPosition === false) {
+    return apiResponse.error(res, 'Image position must look like "50% 30%".', 400);
+  }
   if (businessName) {
     const conflict = await prisma.vendor.findFirst({
       where: { businessName: { equals: businessName.trim(), mode: 'insensitive' }, NOT: { userId: req.user!.userId } },
@@ -209,9 +218,11 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
 
   const currentVendor = await prisma.vendor.findUnique({
     where: { userId: req.user!.userId },
-    select: { address: true, city: true, state: true, latitude: true, longitude: true },
+    select: { address: true, city: true, state: true, latitude: true, longitude: true, logo: true, coverImage: true },
   });
   if (!currentVendor) return apiResponse.error(res, 'Vendor profile not found.', 404);
+  const logoPos = nextImagePosition(logoPosition, logo, currentVendor.logo);
+  const coverPos = nextImagePosition(coverPosition, coverImage, currentVendor.coverImage);
 
   const newAddress = address?.trim() ?? currentVendor.address;
   const newCity = city?.trim() ?? currentVendor.city;
@@ -223,6 +234,8 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
     ...(description       !== undefined && { description }),
     ...(logo              !== undefined && { logo }),
     ...(coverImage        !== undefined && { coverImage }),
+    ...(logoPos.set  && { logoPosition: logoPos.value }),
+    ...(coverPos.set && { coverPosition: coverPos.value }),
     ...(address           && { address: newAddress }),
     ...(city              && { city: newCity }),
     ...(state             && { state: newState }),
@@ -802,7 +815,7 @@ const optionGroupSelect = {
 
 const menuItemSelect = {
   id: true, name: true, description: true, price: true,
-  image: true, category: true, isAvailable: true, isFeatured: true, stockQuantity: true,
+  image: true, imagePosition: true, category: true, isAvailable: true, isFeatured: true, stockQuantity: true,
   drinkOptions: { select: drinkOptionSelect, orderBy: { price: 'asc' as const } },
   optionGroups: { select: optionGroupSelect, orderBy: { createdAt: 'asc' as const } },
 };
@@ -834,6 +847,9 @@ export const createMenuItem = catchAsync(async (req: AuthRequest, res: Response)
     optionGroups?: { name?: string; required?: boolean; options?: { name?: string; extraPrice?: number }[] }[];
   };
 
+  const imagePosition = parseImagePosition(req.body.imagePosition);
+  if (imagePosition === false) return apiResponse.error(res, 'Image position must look like "50% 30%".', 400);
+
   if (!name?.trim())                    return apiResponse.error(res, 'Item name is required.', 400);
   if (price === undefined || price <= 0) return apiResponse.error(res, 'Valid price is required.', 400);
   if (stockQuantity !== undefined && (!Number.isInteger(Number(stockQuantity)) || Number(stockQuantity) < 0)) {
@@ -847,6 +863,7 @@ export const createMenuItem = catchAsync(async (req: AuthRequest, res: Response)
       description: description?.trim() || null,
       price:       Number(price),
       image:       image        || null,
+      imagePosition: imagePosition ?? null,
       category:    category?.trim() || null,
       isAvailable: isAvailable  ?? true,
       isFeatured:  isFeatured   ?? false,
@@ -881,7 +898,7 @@ export const updateMenuItem = catchAsync(async (req: AuthRequest, res: Response)
 
   const exists = await prisma.menuItem.findFirst({
     where: { id: req.params.itemId, vendorId },
-    select: { id: true },
+    select: { id: true, image: true },
   });
   if (!exists) return apiResponse.error(res, 'Menu item not found.', 404);
 
@@ -892,6 +909,9 @@ export const updateMenuItem = catchAsync(async (req: AuthRequest, res: Response)
   if (stockQuantity !== undefined && (!Number.isInteger(Number(stockQuantity)) || Number(stockQuantity) < 0)) {
     return apiResponse.error(res, 'Stock quantity must be 0 or more.', 400);
   }
+  const imagePosition = parseImagePosition(req.body.imagePosition);
+  if (imagePosition === false) return apiResponse.error(res, 'Image position must look like "50% 30%".', 400);
+  const imagePos = nextImagePosition(imagePosition, image, exists.image);
 
   const item = await prisma.menuItem.update({
     where: { id: req.params.itemId },
@@ -900,7 +920,8 @@ export const updateMenuItem = catchAsync(async (req: AuthRequest, res: Response)
       ...(description              !== undefined && { description: description?.trim() || null }),
       ...(price                    !== undefined && { price: Number(price) }),
       ...(image                    !== undefined && { image: image || null }),
-      ...(category                 !== undefined && { category: category?.trim() || null }),
+      ...(imagePos.set             && { imagePosition: imagePos.value }),
+      ...(category                !== undefined && { category: category?.trim() || null }),
       ...(isAvailable              !== undefined && { isAvailable }),
       ...(isFeatured               !== undefined && { isFeatured }),
       ...(stockQuantity            !== undefined && { stockQuantity: Number(stockQuantity) }),
@@ -1341,10 +1362,38 @@ export const createPromotion = catchAsync(async (req: AuthRequest, res: Response
     return apiResponse.error(res, 'title and imageUrl are required.', 400);
   }
 
+  const imagePosition = parseImagePosition(req.body.imagePosition);
+  if (imagePosition === false) return apiResponse.error(res, 'Image position must look like "50% 30%".', 400);
+
   const promo = await prisma.vendorPromotion.create({
-    data: { vendorId: vendor.id, title, imageUrl, code: code || null, isActive: false },
+    data: { vendorId: vendor.id, title, imageUrl, imagePosition: imagePosition ?? null, code: code || null, isActive: false },
   });
   return apiResponse.success(res, 'Promotion created.', promo, 201);
+});
+
+// PATCH /vendors/me/promotions/:id/position
+export const updatePromotionPosition = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendor = await prisma.vendor.findUnique({
+    where: { userId: req.user!.userId },
+    select: { id: true },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+
+  const imagePosition = parseImagePosition(req.body.imagePosition);
+  if (imagePosition === false) return apiResponse.error(res, 'Image position must look like "50% 30%".', 400);
+  if (imagePosition === undefined) return apiResponse.error(res, 'imagePosition is required.', 400);
+
+  const promo = await prisma.vendorPromotion.findFirst({
+    where: { id: req.params.id, vendorId: vendor.id },
+    select: { id: true },
+  });
+  if (!promo) return apiResponse.error(res, 'Promotion not found.', 404);
+
+  const updated = await prisma.vendorPromotion.update({
+    where: { id: promo.id },
+    data: { imagePosition },
+  });
+  return apiResponse.success(res, 'Promotion position updated.', updated);
 });
 
 // PATCH /vendors/me/promotions/:id/toggle
@@ -1542,7 +1591,7 @@ export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
               { menuItems: { some: { OR: [{ name: { contains: searchTerm, mode: 'insensitive' } }, { description: { contains: searchTerm, mode: 'insensitive' } }], isAvailable: true } } },
             ],
           },
-          select: vendorSelect,
+          select: { ...vendorSelect, user: { select: { isPhoneVerified: true } } },
           orderBy: [
             { isOpen: 'desc' },
             { displayOrder: 'desc' },
@@ -1552,7 +1601,7 @@ export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
             { totalRatings: 'desc' },
           ],
           take: 30,
-        })
+        }).then((rows) => rows.map(({ user, ...v }) => ({ ...v, phoneVerified: user.isPhoneVerified })))
       : Promise.resolve([]),
 
     searchType !== 'vendors'
@@ -1567,8 +1616,8 @@ export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
             vendor: vendorFilter,
           },
           select: {
-            id: true, name: true, description: true, price: true, image: true, category: true,
-            vendor: { select: { id: true, businessName: true, logo: true, city: true, isOpen: true } },
+            id: true, name: true, description: true, price: true, image: true, imagePosition: true, category: true,
+            vendor: { select: { id: true, businessName: true, logo: true, logoPosition: true, city: true, isOpen: true } },
           },
           orderBy: { name: 'asc' },
           take: 60,
@@ -1605,12 +1654,13 @@ export const searchMenuItems = catchAsync(async (req: Request, res: Response) =>
       description: true,
       price: true,
       image: true,
+      imagePosition: true,
       category: true,
       vendor: {
         select: {
           id: true,
           businessName: true,
-          logo: true,
+          logo: true, logoPosition: true,
           city: true,
           isOpen: true,
         },
@@ -1628,7 +1678,7 @@ export const getMenuItemById = catchAsync(async (req: Request, res: Response) =>
   const item = await prisma.menuItem.findFirst({
     where: { id: req.params.id, vendor: { approvalStatus: ApprovalStatus.APPROVED } },
     select: {
-      id: true, name: true, description: true, price: true, image: true,
+      id: true, name: true, description: true, price: true, image: true, imagePosition: true,
       category: true, isAvailable: true, stockQuantity: true, isFeatured: true,
       drinkOptions: {
         where: { isAvailable: true },
@@ -1645,7 +1695,7 @@ export const getMenuItemById = catchAsync(async (req: Request, res: Response) =>
       },
       vendor: {
         select: {
-          id: true, businessName: true, logo: true, coverImage: true,
+          id: true, businessName: true, logo: true, logoPosition: true, coverImage: true, coverPosition: true,
           category: true, city: true, rating: true, totalRatings: true,
           isOpen: true, avgDeliveryTime: true, verificationBadge: true,
         },
@@ -1696,8 +1746,8 @@ export const getSimilarMenuItems = catchAsync(async (req: Request, res: Response
       OR: keywordConditions,
     },
     select: {
-      id: true, name: true, price: true, image: true, category: true,
-      vendor: { select: { id: true, businessName: true, logo: true, city: true, isOpen: true, isFeatured: true } },
+      id: true, name: true, price: true, image: true, imagePosition: true, category: true,
+      vendor: { select: { id: true, businessName: true, logo: true, logoPosition: true, city: true, isOpen: true, isFeatured: true } },
     },
     orderBy: [{ isFeatured: 'desc' }, { name: 'asc' }],
     take: 12,
@@ -1735,8 +1785,8 @@ export const browseItems = catchAsync(async (req: Request, res: Response) => {
     prisma.menuItem.findMany({
       where: itemWhere,
       select: {
-        id: true, name: true, description: true, price: true, image: true, category: true,
-        vendor: { select: { id: true, businessName: true, logo: true, city: true, isOpen: true } },
+        id: true, name: true, description: true, price: true, image: true, imagePosition: true, category: true,
+        vendor: { select: { id: true, businessName: true, logo: true, logoPosition: true, city: true, isOpen: true } },
       },
       orderBy: [{ isFeatured: 'desc' }, { name: 'asc' }],
       skip: (pageNum - 1) * limitNum,
@@ -1761,10 +1811,10 @@ export const getActiveVendorPromotions = catchAsync(async (req: Request, res: Re
   const promos = await prisma.vendorPromotion.findMany({
     where,
     select: {
-      id: true, title: true, imageUrl: true, code: true,
+      id: true, title: true, imageUrl: true, imagePosition: true, code: true,
       vendor: {
         select: {
-          id: true, businessName: true, logo: true, coverImage: true,
+          id: true, businessName: true, logo: true, logoPosition: true, coverImage: true, coverPosition: true,
           category: true, city: true, rating: true, isOpen: true,
           verificationBadge: true,
         },

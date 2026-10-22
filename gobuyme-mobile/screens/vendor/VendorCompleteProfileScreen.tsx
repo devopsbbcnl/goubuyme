@@ -4,6 +4,8 @@ import {
   TextInput, ActivityIndicator, Alert, Image, Modal, Pressable, Switch,
 } from 'react-native';
 import { pickImage as openImagePicker } from '@/utils/pickImage';
+import { PositionedImage } from '@/components/ui/PositionedImage';
+import { useImagePositioner } from '@/components/ui/ImagePositioner';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -142,6 +144,9 @@ export default function VendorCompleteProfileScreen() {
 
   const [logo, setLogo] = useState('');
   const [coverImage, setCoverImage] = useState('');
+  const [logoPosition, setLogoPosition] = useState('');
+  const [coverPosition, setCoverPosition] = useState('');
+  const positioner = useImagePositioner();
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
@@ -181,18 +186,32 @@ export default function VendorCompleteProfileScreen() {
   };
 
   const pickImage = async (type: 'logo' | 'cover') => {
-    const uri = await openImagePicker({ aspect: type === 'logo' ? [1, 1] : [16, 9], quality: 0.8 });
+    const uri = await openImagePicker({ allowsEditing: false, quality: 0.8 });
     if (!uri) return;
+    const position = await positioner.open({ uri, aspect: type === 'logo' ? 1 : 16 / 9, round: type === 'logo' });
+    if (!position) return;
     try {
       type === 'logo' ? setUploadingLogo(true) : setUploadingCover(true);
       const url = await uploadImage(uri);
-      type === 'logo' ? setLogo(url) : setCoverImage(url);
+      if (type === 'logo') { setLogo(url); setLogoPosition(position); }
+      else { setCoverImage(url); setCoverPosition(position); }
     } catch (err: any) {
       Alert.alert('Upload failed', err?.message || 'Could not upload the image. Please try again.');
     } finally {
       setUploadingLogo(false);
       setUploadingCover(false);
     }
+  };
+
+  const repositionImage = async (type: 'logo' | 'cover') => {
+    const position = await positioner.open({
+      uri: type === 'logo' ? logo : coverImage,
+      aspect: type === 'logo' ? 1 : 16 / 9,
+      round: type === 'logo',
+      position: type === 'logo' ? logoPosition : coverPosition,
+    });
+    if (!position) return;
+    type === 'logo' ? setLogoPosition(position) : setCoverPosition(position);
   };
 
   const handleSave = async () => {
@@ -233,6 +252,8 @@ export default function VendorCompleteProfileScreen() {
         description: description.trim(),
         logo: logo || null,
         coverImage: coverImage || null,
+        logoPosition: logo ? logoPosition || null : null,
+        coverPosition: coverImage ? coverPosition || null : null,
         address: address.trim(),
         city: city.trim(),
         state: state.trim(),
@@ -301,7 +322,7 @@ export default function VendorCompleteProfileScreen() {
           style={[styles.coverPicker, { backgroundColor: T.surface, borderColor: T.border }]}
         >
           {coverImage ? (
-            <Image source={{ uri: coverImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <PositionedImage uri={coverImage} position={coverPosition} style={StyleSheet.absoluteFill} />
           ) : (
             <View style={styles.coverPlaceholder}>
               <Ionicons name="image-outline" size={32} color={T.textMuted} />
@@ -320,11 +341,17 @@ export default function VendorCompleteProfileScreen() {
           )}
         </TouchableOpacity>
 
+        {coverImage ? (
+          <TouchableOpacity onPress={() => repositionImage('cover')} style={{ marginTop: 8 }}>
+            <Text style={{ color: T.primary, fontSize: 12, fontWeight: '600' }}>Reposition cover</Text>
+          </TouchableOpacity>
+        ) : null}
+
         {/* Logo */}
         <SectionLabel label="STORE LOGO" T={T} mt={20} />
         <TouchableOpacity onPress={() => pickImage('logo')} style={styles.logoPicker} activeOpacity={0.85}>
           {logo ? (
-            <Image source={{ uri: logo }} style={[styles.logoImg, { borderColor: T.border }]} />
+            <PositionedImage uri={logo} position={logoPosition} style={[styles.logoImg, { borderColor: T.border }]} />
           ) : (
             <View style={[styles.logoPlaceholder, { backgroundColor: T.primaryTint, borderColor: T.border }]}>
               <Text style={{ fontSize: 28 }}>🍽️</Text>
@@ -338,6 +365,13 @@ export default function VendorCompleteProfileScreen() {
             )}
           </View>
         </TouchableOpacity>
+
+        {logo ? (
+          <TouchableOpacity onPress={() => repositionImage('logo')} style={{ marginTop: 8 }}>
+            <Text style={{ color: T.primary, fontSize: 12, fontWeight: '600' }}>Reposition logo</Text>
+          </TouchableOpacity>
+        ) : null}
+        {positioner.element}
 
         {/* Description */}
         <SectionLabel label="ABOUT YOUR STORE *" T={T} mt={24} />

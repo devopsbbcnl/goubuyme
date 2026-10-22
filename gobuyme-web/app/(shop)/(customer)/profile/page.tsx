@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
-import ImageCropModal from '@/components/ui/ImageCropModal';
+import ImageRepositionModal from '@/components/ui/ImageRepositionModal';
+import { positionStyle } from '@/lib/imagePosition';
 import DeleteAccountModal from '@/components/ui/DeleteAccountModal';
 import Image from 'next/image';
 import api from '@/services/api';
@@ -145,6 +146,7 @@ export default function ProfilePage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarCropFile, setAvatarCropFile] = useState<File | null>(null);
+  const [repositioningAvatar, setRepositioningAvatar] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -211,8 +213,17 @@ export default function ProfilePage() {
     setAvatarCropFile(file);
   };
 
-  const uploadCroppedAvatar = async (file: File) => {
+  const saveAvatarPosition = async (position: string) => {
+    try {
+      await api.patch('/auth/profile', { avatarPosition: position });
+      updateUser({ avatarPosition: position });
+      toast('Position saved', 'success');
+    } catch { toast('Could not save position', 'error'); }
+  };
+
+  const uploadCroppedAvatar = async ({ file, position }: { file?: File; position: string }) => {
     setAvatarCropFile(null);
+    if (!file) return;
     setUploadingAvatar(true);
     try {
       const fd = new FormData();
@@ -227,8 +238,8 @@ export default function ProfilePage() {
       if (!res.ok || !data.secure_url) {
         throw new Error(`Image upload failed: ${data?.error?.message ?? `HTTP ${res.status}`}`);
       }
-      await api.patch('/auth/profile', { photoUrl: data.secure_url });
-      updateUser({ avatar: data.secure_url });
+      await api.patch('/auth/profile', { photoUrl: data.secure_url, avatarPosition: position });
+      updateUser({ avatar: data.secure_url, avatarPosition: position });
       toast('Avatar updated!', 'success');
     } catch (err: any) { toast(err?.message || 'Could not upload image', 'error'); }
     finally { setUploadingAvatar(false); }
@@ -355,9 +366,19 @@ export default function ProfilePage() {
             >
               <div className="avatar" style={{ width: 88, height: 88, fontSize: 30 }}>
                 {user.avatar
-                  ? <Image src={user.avatar} alt={user.name ?? ''} width={88} height={88} style={{ objectFit: 'cover' }} />
+                  ? <Image src={user.avatar} alt={user.name ?? ''} width={88} height={88} style={{ objectFit: 'cover', ...positionStyle(user.avatarPosition) }} />
                   : initials(user.name ?? 'U')}
               </div>
+
+              {user.avatar && (
+                <button
+                  type="button"
+                  title="Reposition photo"
+                  aria-label="Reposition photo"
+                  onClick={e => { e.stopPropagation(); setRepositioningAvatar(true); }}
+                  style={{ position: 'absolute', top: -4, right: -4, width: 26, height: 26, borderRadius: '50%', border: '2px solid var(--surface)', background: 'var(--surface2)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}
+                >✥</button>
+              )}
 
               {/* Hover / loading overlay */}
               <div
@@ -408,12 +429,20 @@ export default function ProfilePage() {
               />
             </div>
 
-            <ImageCropModal
+            <ImageRepositionModal
               file={avatarCropFile}
               aspect={1}
-              outputWidth={500}
+              round
               onCancel={() => setAvatarCropFile(null)}
               onConfirm={uploadCroppedAvatar}
+            />
+            <ImageRepositionModal
+              src={repositioningAvatar ? user.avatar : null}
+              position={user.avatarPosition}
+              aspect={1}
+              round
+              onCancel={() => setRepositioningAvatar(false)}
+              onConfirm={({ position }) => { setRepositioningAvatar(false); void saveAvatarPosition(position); }}
             />
 
             {/* Identity + completion bar */}

@@ -7,7 +7,8 @@ import Image from 'next/image';
 import api from '@/services/api';
 import DeleteAccountModal from '@/components/ui/DeleteAccountModal';
 import { AnalyticsConsentRow } from '@/components/AnalyticsConsentRow';
-import ImageCropModal from '@/components/ui/ImageCropModal';
+import ImageRepositionModal from '@/components/ui/ImageRepositionModal';
+import { positionStyle } from '@/lib/imagePosition';
 import { uploadToCloudinary } from '@/services/cloudinary';
 
 interface RiderProfile {
@@ -20,10 +21,14 @@ const VEHICLE_LABELS: Record<string, string> = {
   MOTORCYCLE: 'Motorcycle', BICYCLE: 'Bicycle', CAR: 'Car', TRUCK: 'Truck',
 };
 
-function AvatarUpload({ avatar, initials, onUploaded }: { avatar?: string; initials: string; onUploaded: (url: string) => void }) {
+function AvatarUpload({ avatar, position, initials, onUploaded, onPositioned }: {
+  avatar?: string; position?: string | null; initials: string;
+  onUploaded: (url: string, position: string) => void; onPositioned: (position: string) => void;
+}) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [repositioning, setRepositioning] = useState(false);
   const toast = useToast();
 
   const handle = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,12 +37,13 @@ function AvatarUpload({ avatar, initials, onUploaded }: { avatar?: string; initi
     if (file) setCropFile(file);
   };
 
-  const uploadCropped = async (file: File) => {
+  const uploadCropped = async ({ file, position: pos }: { file?: File; position: string }) => {
     setCropFile(null);
+    if (!file) return;
     setBusy(true);
     try {
       const url = await uploadToCloudinary(file, 'rider-avatars');
-      onUploaded(url);
+      onUploaded(url, pos);
       toast('Photo updated', 'success');
     } catch (err: any) { toast(err?.message || 'Upload failed', 'error'); }
     finally { setBusy(false); }
@@ -52,10 +58,15 @@ function AvatarUpload({ avatar, initials, onUploaded }: { avatar?: string; initi
       aria-label="Change profile photo"
     >
       <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handle} />
-      <ImageCropModal file={cropFile} aspect={1} onCancel={() => setCropFile(null)} onConfirm={uploadCropped} />
+      <ImageRepositionModal file={cropFile} aspect={1} round onCancel={() => setCropFile(null)} onConfirm={uploadCropped} />
+      <ImageRepositionModal
+        src={repositioning ? avatar : null} position={position} aspect={1} round
+        onCancel={() => setRepositioning(false)}
+        onConfirm={({ position: pos }) => { setRepositioning(false); onPositioned(pos); }}
+      />
 
       <div className="avatar" style={{ width: 72, height: 72, fontSize: 26, background: '#EAF2FF', color: 'var(--rider)' }}>
-        {avatar ? <Image src={avatar} alt="" width={72} height={72} style={{ objectFit: 'cover' }} /> : initials}
+        {avatar ? <Image src={avatar} alt="" width={72} height={72} style={{ objectFit: 'cover', ...positionStyle(position) }} /> : initials}
       </div>
       <div style={{
         position: 'absolute', bottom: -2, right: -2, width: 26, height: 26, borderRadius: '50%',
@@ -128,11 +139,18 @@ export default function RiderProfilePage() {
   const initials = (name: string) =>
     name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-  const uploadAvatar = async (url: string) => {
+  const uploadAvatar = async (url: string, position: string) => {
     try {
-      await api.patch('/auth/profile', { photoUrl: url });
-      updateUser({ avatar: url });
+      await api.patch('/auth/profile', { photoUrl: url, avatarPosition: position });
+      updateUser({ avatar: url, avatarPosition: position });
     } catch { toast('Could not save photo', 'error'); }
+  };
+
+  const positionAvatar = async (position: string) => {
+    try {
+      await api.patch('/auth/profile', { avatarPosition: position });
+      updateUser({ avatarPosition: position });
+    } catch { toast('Could not save position', 'error'); }
   };
 
   if (loading) return (
@@ -158,7 +176,7 @@ export default function RiderProfilePage() {
 
         {/* Header */}
         <div className="card card-pad" style={{ gridColumn: '1 / -1', display: 'flex', gap: 20, alignItems: 'center' }}>
-          <AvatarUpload avatar={user?.avatar} initials={initials(src?.name ?? 'R')} onUploaded={uploadAvatar} />
+          <AvatarUpload avatar={user?.avatar} position={user?.avatarPosition} initials={initials(src?.name ?? 'R')} onUploaded={uploadAvatar} onPositioned={positionAvatar} />
           <div>
             <div style={{ fontSize: 20, fontWeight: 800 }}>{src?.name}</div>
             <div className="muted">{user?.email}</div>

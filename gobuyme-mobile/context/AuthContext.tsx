@@ -11,6 +11,7 @@ export interface AuthUser {
   email: string;
   phone?: string;
   photoUrl?: string;
+  photoPosition?: string;
   role: UserRole;
   token: string;
   approvalStatus?: ApprovalStatus;
@@ -22,7 +23,7 @@ type AuthCtx = {
   loading: boolean;
   login: (user: AuthUser, refreshToken: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateUser: (patch: Partial<Pick<AuthUser, 'name' | 'phone' | 'photoUrl'>>) => Promise<void>;
+  updateUser: (patch: Partial<Pick<AuthUser, 'name' | 'phone' | 'photoUrl' | 'photoPosition'>>) => Promise<void>;
   updateApprovalStatus: (status: ApprovalStatus) => void;
 };
 
@@ -65,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       SecureStore.setItemAsync('refreshToken', refreshToken),
       SecureStore.setItemAsync('userProfile', JSON.stringify({
         id: u.id, name: u.name, email: u.email, role: u.role,
-        phone: u.phone ?? '', photoUrl: u.photoUrl ?? '',
+        phone: u.phone ?? '', photoUrl: u.photoUrl ?? '', photoPosition: u.photoPosition ?? '',
         approvalStatus: u.approvalStatus ?? null,
       })),
     ]);
@@ -86,13 +87,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser({ ...user, approvalStatus: status });
   };
 
-  const updateUser = async (patch: Partial<Pick<AuthUser, 'name' | 'phone' | 'photoUrl'>>) => {
+  const updateUser = async (patch: Partial<Pick<AuthUser, 'name' | 'phone' | 'photoUrl' | 'photoPosition'>>) => {
     if (!user) return;
     const updated = { ...user, ...patch };
     setUser(updated);
     await SecureStore.setItemAsync('userProfile', JSON.stringify({
       id: updated.id, name: updated.name, email: updated.email, role: updated.role,
-      phone: updated.phone ?? '', photoUrl: updated.photoUrl ?? '',
+      phone: updated.phone ?? '', photoUrl: updated.photoUrl ?? '', photoPosition: updated.photoPosition ?? '',
     }));
   };
 

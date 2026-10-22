@@ -1,6 +1,7 @@
+import { PositionedImage } from '@/components/ui/PositionedImage';
 import React from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -50,7 +51,7 @@ export default function ProfileScreen() {
         <View style={[styles.avatarRow, { borderBottomColor: T.border }]}>
           <TouchableOpacity onPress={() => router.push('/edit-profile')} activeOpacity={0.85}>
             {user?.photoUrl ? (
-              <Image source={{ uri: user.photoUrl }} style={[styles.avatarImg, { borderColor: T.border }]} />
+              <PositionedImage uri={user.photoUrl} position={user.photoPosition} style={[styles.avatarImg, { borderColor: T.border }]} />
             ) : (
               <View style={[styles.avatar, { backgroundColor: T.primaryTint, borderColor: T.border }]}>
                 <Text style={{ fontSize: 28 }}>👤</Text>

@@ -6,7 +6,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
-import ImageCropModal from '@/components/ui/ImageCropModal';
+import ImageRepositionModal from '@/components/ui/ImageRepositionModal';
+import { positionStyle } from '@/lib/imagePosition';
 import api from '@/services/api';
 import { uploadToCloudinary } from '@/services/cloudinary';
 import { useCommissionRates, CommissionRates } from '@/hooks/useCommissionRates';
@@ -49,19 +50,24 @@ const planDetails = (rates: CommissionRates): Record<Tier, { title: string; best
 // ── Reusable image upload box ───────────────────────────────────────────────────
 
 function ImageUploadBox({
-  label, value, onChange, height = 150, folder, circle, aspect,
-}: { label: string; value: string; onChange: (url: string) => void; height?: number; folder: string; circle?: boolean; aspect?: number }) {
+  label, value, position, onChange, onPositionChange, height = 150, folder, circle, aspect,
+}: {
+  label: string; value: string; position?: string | null; onChange: (url: string, position: string) => void;
+  onPositionChange?: (position: string) => void; height?: number; folder: string; circle?: boolean; aspect?: number;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [repositioning, setRepositioning] = useState(false);
   const toast = useToast();
 
-  const upload = async (file: File) => {
+  const upload = async ({ file, position: pos }: { file?: File; position: string }) => {
     setCropFile(null);
+    if (!file) return;
     setUploading(true);
     try {
       const url = await uploadToCloudinary(file, folder);
-      onChange(url);
+      onChange(url, pos);
     } catch (err: any) {
       toast(err?.message || 'Upload failed. Please try again.', 'error');
     } finally {
@@ -76,7 +82,7 @@ function ImageUploadBox({
     // Aspect is only set for branding images (logo/cover) — ID/document
     // photos skip cropping so nothing gets cut off the page.
     if (aspect) setCropFile(file);
-    else upload(file);
+    else upload({ file, position: '' });
   };
 
   return (
@@ -90,7 +96,7 @@ function ImageUploadBox({
         {uploading ? (
           <span className="spin" />
         ) : value ? (
-          <img src={value} alt={label} />
+          <img src={value} alt={label} style={positionStyle(position)} />
         ) : (
           <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
             <div style={{ fontSize: 26, marginBottom: 4 }}>📷</div>
@@ -99,8 +105,20 @@ function ImageUploadBox({
         )}
       </div>
       <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handle} />
+      {aspect && value && onPositionChange && (
+        <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 6 }} onClick={() => setRepositioning(true)}>
+          ✥ Reposition
+        </button>
+      )}
       {aspect && (
-        <ImageCropModal file={cropFile} aspect={aspect} onCancel={() => setCropFile(null)} onConfirm={upload} />
+        <>
+          <ImageRepositionModal file={cropFile} aspect={aspect} round={circle} onCancel={() => setCropFile(null)} onConfirm={upload} />
+          <ImageRepositionModal
+            src={repositioning ? value : null} position={position} aspect={aspect} round={circle}
+            onCancel={() => setRepositioning(false)}
+            onConfirm={({ position: pos }) => { setRepositioning(false); onPositionChange?.(pos); }}
+          />
+        </>
       )}
     </div>
   );
@@ -146,6 +164,8 @@ export default function VendorCompleteProfilePage() {
 
   const [logo, setLogo] = useState('');
   const [coverImage, setCoverImage] = useState('');
+  const [logoPosition, setLogoPosition] = useState<string | null>(null);
+  const [coverPosition, setCoverPosition] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
@@ -166,6 +186,8 @@ export default function VendorCompleteProfilePage() {
       const v = data.data;
       setLogo(v.logo ?? '');
       setCoverImage(v.coverImage ?? '');
+      setLogoPosition(v.logoPosition ?? null);
+      setCoverPosition(v.coverPosition ?? null);
       setDescription(v.description ?? '');
       setAddress(v.address ?? '');
       setCity(v.city ?? '');
@@ -191,6 +213,8 @@ export default function VendorCompleteProfilePage() {
         description: description.trim(),
         logo: logo || null,
         coverImage: coverImage || null,
+        logoPosition: logo ? logoPosition : null,
+        coverPosition: coverImage ? coverPosition : null,
         address: address.trim(),
         city: city.trim(),
         state: state.trim(),
@@ -238,9 +262,9 @@ export default function VendorCompleteProfilePage() {
         <div className="card card-pad" style={{ marginBottom: 20 }}>
           <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 16 }}>Store Photos</h2>
           <div style={{ marginBottom: 16 }}>
-            <ImageUploadBox label="Cover Photo" value={coverImage} onChange={setCoverImage} height={160} folder="vendor-onboarding/cover" aspect={16 / 9} />
+            <ImageUploadBox label="Cover Photo" value={coverImage} position={coverPosition} onChange={(url, pos) => { setCoverImage(url); setCoverPosition(pos); }} onPositionChange={setCoverPosition} height={160} folder="vendor-onboarding/cover" aspect={16 / 9} />
           </div>
-          <ImageUploadBox label="Store Logo" value={logo} onChange={setLogo} height={88} circle folder="vendor-onboarding/logo" aspect={1} />
+          <ImageUploadBox label="Store Logo" value={logo} position={logoPosition} onChange={(url, pos) => { setLogo(url); setLogoPosition(pos); }} onPositionChange={setLogoPosition} height={88} circle folder="vendor-onboarding/logo" aspect={1} />
         </div>
 
         {/* About */}

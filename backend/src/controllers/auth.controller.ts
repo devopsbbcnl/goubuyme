@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
+import { nextImagePosition, parseImagePosition } from '../utils/imagePosition';
 import { catchAsync } from '../utils/catchAsync';
 import {
   generateAccessToken,
@@ -34,8 +35,8 @@ const GOOGLE_CLIENT_IDS = [
 const googleClient = new OAuth2Client();
 
 const buildUserPayload = (user: {
-  id: string; name: string; email: string; phone: string | null; role: Role; avatar: string | null;
-}) => ({ id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, avatar: user.avatar });
+  id: string; name: string; email: string; phone: string | null; role: Role; avatar: string | null; avatarPosition?: string | null;
+}) => ({ id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, avatar: user.avatar, avatarPosition: user.avatarPosition ?? null });
 
 // Maps OTP service errors (cooldown, lockout, expiry) to responses; rethrows the rest.
 const sendOtpError = (res: Response, err: unknown) => {
@@ -433,7 +434,7 @@ export const getMe = catchAsync(async (req: AuthRequest, res: Response) => {
     where: { id: req.user!.userId },
     select: {
       id: true, name: true, email: true, phone: true,
-      role: true, avatar: true, isEmailVerified: true,
+      role: true, avatar: true, avatarPosition: true, isEmailVerified: true,
       isPhoneVerified: true,
       mfaEnabled: true,
       referralCode: true, freeDeliveryCredits: true,
@@ -474,6 +475,16 @@ export const updateProfile = catchAsync(async (req: AuthRequest, res: Response) 
   if (phone !== undefined) data.phone  = phone.trim() || null;
   if (photoUrl !== undefined) data.avatar = photoUrl || null;
 
+  const avatarPosition = parseImagePosition(req.body.avatarPosition);
+  if (avatarPosition === false) {
+    return apiResponse.error(res, 'Image position must look like "50% 30%".', 400);
+  }
+  if (photoUrl !== undefined || avatarPosition !== undefined) {
+    const current = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { avatar: true } });
+    const next = nextImagePosition(avatarPosition, photoUrl, current?.avatar);
+    if (next.set) data.avatarPosition = next.value;
+  }
+
   if (Object.keys(data).length === 0) {
     return apiResponse.error(res, 'No fields to update.', 400);
   }
@@ -490,7 +501,7 @@ export const updateProfile = catchAsync(async (req: AuthRequest, res: Response) 
   const user = await prisma.user.update({
     where: { id: req.user!.userId },
     data,
-    select: { id: true, name: true, email: true, phone: true, role: true, avatar: true, isPhoneVerified: true },
+    select: { id: true, name: true, email: true, phone: true, role: true, avatar: true, avatarPosition: true, isPhoneVerified: true },
   });
 
   return apiResponse.success(res, 'Profile updated.', user);

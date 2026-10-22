@@ -1,5 +1,6 @@
 'use client';
 
+import { positionStyle } from '@/lib/imagePosition';
 // Interactive landing-page content (hero carousel, categories, promos, vendor
 // grid). Rendered by the server component at app/page.tsx, which owns the
 // page metadata, JSON-LD and server-rendered SEO sections.
@@ -12,11 +13,11 @@ import api from '@/services/api';
 
 interface Vendor {
   id: string; businessName: string; category: string; city: string;
-  logo?: string | null; coverImage?: string | null; rating?: number;
+  logo?: string | null; logoPosition?: string | null; coverImage?: string | null; coverPosition?: string | null; rating?: number;
   isOpen: boolean; avgDeliveryTime?: number | null;
   isFeatured?: boolean; verificationBadge?: string;
 }
-interface Promo { id: string; title: string; description?: string; imageUrl?: string; vendor: { businessName: string }; }
+interface Promo { id: string; title: string; description?: string; imageUrl?: string; imagePosition?: string | null; vendor: { businessName: string }; }
 
 const HERO_SLIDES = [
   { bg: 'linear-gradient(135deg, #FF521B 0%, #FF7A4D 100%)', title: 'Food Delivery in 25 Minutes', sub: 'Hungry? GoBuyMe. Order jollof rice, suya, shawarma, pizza & more from the best restaurants near you — delivered hot to your door.', cta: 'Order Food Now', href: '/vendors' },
@@ -137,7 +138,7 @@ export function HomeClient() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
               {promos.slice(0, 4).map(p => (
                 <div key={p.id} className="card" style={{ overflow: 'hidden' }}>
-                  {p.imageUrl ? <img src={p.imageUrl} alt={p.title} style={{ width: '100%', height: 160, objectFit: 'cover' }} /> : <div style={{ width: '100%', height: 160, background: 'linear-gradient(135deg, var(--brand-tint), var(--surface2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>🎁</div>}
+                  {p.imageUrl ? <img src={p.imageUrl} alt={p.title} style={{ width: '100%', height: 160, objectFit: 'cover', ...positionStyle(p.imagePosition) }} /> : <div style={{ width: '100%', height: 160, background: 'linear-gradient(135deg, var(--brand-tint), var(--surface2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>🎁</div>}
                   <div style={{ padding: 14 }}>
                     <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{p.title}</div>
                     {p.description && <div className="muted" style={{ fontSize: 12 }}>{p.description}</div>}
@@ -174,9 +175,9 @@ export function HomeClient() {
                   {v.isFeatured && (
                     <span style={{ position: 'absolute', top: 8, left: 8, zIndex: 2, background: '#FF521B', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '.6px' }}>Featured</span>
                   )}
-                  {v.coverImage ? <img className="cover" src={v.coverImage} alt={v.businessName} /> : <div className="cover-ph">🏪</div>}
+                  {v.coverImage ? <img className="cover" src={v.coverImage} alt={v.businessName} style={positionStyle(v.coverPosition)} /> : <div className="cover-ph">🏪</div>}
                   <div className="card-body">
-                    {v.logo && <img className="vendor-logo" src={v.logo} alt="" />}
+                    {v.logo && <img className="vendor-logo" src={v.logo} alt="" style={positionStyle(v.logoPosition)} />}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <div className="vendor-name" style={{ flex: 1 }}>{v.businessName}</div>
                       {v.verificationBadge && v.verificationBadge !== 'UNVERIFIED' && (

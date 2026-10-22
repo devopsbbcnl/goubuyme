@@ -18,6 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 import { forwardGeocode } from '@/services/geocoding';
 import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
+import { PositionedImage } from '@/components/ui/PositionedImage';
+import { useImagePositioner } from '@/components/ui/ImagePositioner';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
@@ -60,6 +62,9 @@ export default function EditVendorProfileScreen() {
 	const [avgDeliveryTime, setAvgDeliveryTime] = useState('');
 	const [logo, setLogo] = useState('');
 	const [coverImage, setCoverImage] = useState('');
+	const [logoPosition, setLogoPosition] = useState('');
+	const [coverPosition, setCoverPosition] = useState('');
+	const positioner = useImagePositioner();
 
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
@@ -82,6 +87,8 @@ export default function EditVendorProfileScreen() {
 			);
 			setLogo(v.logo ?? '');
 			setCoverImage(v.coverImage ?? '');
+			setLogoPosition(v.logoPosition ?? '');
+			setCoverPosition(v.coverPosition ?? '');
 		} catch {
 			Alert.alert('Error', 'Could not load your store profile.');
 		} finally {
@@ -94,18 +101,31 @@ export default function EditVendorProfileScreen() {
 	}, [loadProfile]);
 
 	const pickImage = async (type: 'logo' | 'cover') => {
-		const uri = await openImagePicker({ aspect: type === 'logo' ? [1, 1] : [16, 9], quality: 0.8 });
+		const uri = await openImagePicker({ allowsEditing: false, quality: 0.8 });
 		if (!uri) return;
+		const position = await positioner.open({ uri, aspect: type === 'logo' ? 1 : 16 / 9, round: type === 'logo' });
+		if (!position) return;
 		try {
 			type === 'logo' ? setUploadingLogo(true) : setUploadingCover(true);
 			const url = await uploadImage(uri);
-			type === 'logo' ? setLogo(url) : setCoverImage(url);
+			if (type === 'logo') { setLogo(url); setLogoPosition(position); }
+			else { setCoverImage(url); setCoverPosition(position); }
 		} catch (err: any) {
 			Alert.alert('Upload failed', err?.message || 'Could not upload the image. Please try again.');
 		} finally {
 			setUploadingLogo(false);
 			setUploadingCover(false);
 		}
+	};
+
+	const repositionImage = async (type: 'logo' | 'cover') => {
+		const uri = type === 'logo' ? logo : coverImage;
+		const position = await positioner.open({
+			uri, aspect: type === 'logo' ? 1 : 16 / 9, round: type === 'logo',
+			position: type === 'logo' ? logoPosition : coverPosition,
+		});
+		if (!position) return;
+		type === 'logo' ? setLogoPosition(position) : setCoverPosition(position);
 	};
 
 	const handleSave = async () => {
@@ -132,6 +152,8 @@ export default function EditVendorProfileScreen() {
 				description: description.trim() || null,
 				logo: logo || null,
 				coverImage: coverImage || null,
+				logoPosition: logo ? logoPosition || null : null,
+				coverPosition: coverImage ? coverPosition || null : null,
 				address: address.trim(),
 				city: city.trim(),
 				state: stateVal.trim() || 'Rivers',
@@ -208,10 +230,10 @@ export default function EditVendorProfileScreen() {
 					]}
 				>
 					{coverImage ? (
-						<Image
-							source={{ uri: coverImage }}
+						<PositionedImage
+							uri={coverImage}
+							position={coverPosition}
 							style={StyleSheet.absoluteFill}
-							resizeMode="cover"
 						/>
 					) : (
 						<Text style={[styles.pickerHint, { color: T.textMuted }]}>
@@ -234,6 +256,12 @@ export default function EditVendorProfileScreen() {
 					)}
 				</TouchableOpacity>
 
+				{coverImage ? (
+					<TouchableOpacity onPress={() => repositionImage('cover')} style={{ marginTop: 8 }}>
+						<Text style={{ color: T.primary, fontSize: 12, fontWeight: '600' }}>Reposition cover</Text>
+					</TouchableOpacity>
+				) : null}
+
 				{/* Logo picker */}
 				<Text
 					style={[styles.sectionLabel, { color: T.textSec, marginTop: 20 }]}
@@ -246,8 +274,9 @@ export default function EditVendorProfileScreen() {
 					activeOpacity={0.85}
 				>
 					{logo ? (
-						<Image
-							source={{ uri: logo }}
+						<PositionedImage
+							uri={logo}
+							position={logoPosition}
 							style={[styles.logoImg, { borderColor: T.border }]}
 						/>
 					) : (
@@ -268,6 +297,13 @@ export default function EditVendorProfileScreen() {
 						)}
 					</View>
 				</TouchableOpacity>
+
+				{logo ? (
+					<TouchableOpacity onPress={() => repositionImage('logo')} style={{ marginTop: 8 }}>
+						<Text style={{ color: T.primary, fontSize: 12, fontWeight: '600' }}>Reposition logo</Text>
+					</TouchableOpacity>
+				) : null}
+				{positioner.element}
 
 				{/* Form fields */}
 				<View style={styles.fields}>

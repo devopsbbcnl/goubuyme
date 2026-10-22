@@ -1,3 +1,4 @@
+import { PositionedImage } from '@/components/ui/PositionedImage';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
@@ -22,6 +23,7 @@ interface VendorDetail {
   category: string;
   logo: string | null;
   coverImage: string | null;
+  coverPosition?: string | null;
   isOpen: boolean;
   rating: number;
   totalRatings: number;
@@ -66,6 +68,7 @@ interface MenuItem {
   description: string | null;
   price: number;
   image: string | null;
+  imagePosition?: string | null;
   category: string | null;
   isFeatured: boolean;
   stockQuantity?: number;
@@ -207,7 +210,7 @@ export default function VendorDetailScreen() {
         {/* Cover image */}
         <View style={{ position: 'relative', height: 220 }}>
           {vendor.coverImage ? (
-            <Image source={{ uri: vendor.coverImage }} style={styles.cover} />
+            <PositionedImage uri={vendor.coverImage} position={vendor.coverPosition} style={styles.cover} />
           ) : (
             <View style={[styles.cover, { backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' }]}>
               <Text style={{ fontSize: 60 }}>🍽️</Text>
@@ -322,6 +325,7 @@ export default function VendorDetailScreen() {
                           description: item.description ?? '',
                           price: String(item.price),
                           image: item.image ?? '',
+                          imagePosition: item.imagePosition ?? '',
                           category: item.category ?? '',
                           isFeatured: item.isFeatured ? '1' : '0',
                           stockQuantity: String(item.stockQuantity ?? 0),
@@ -334,7 +338,7 @@ export default function VendorDetailScreen() {
                       disabled={!vendor.isOpen}
                     >
                       {item.image ? (
-                        <Image source={{ uri: item.image }} style={styles.menuImg} />
+                        <PositionedImage uri={item.image} position={item.imagePosition} style={styles.menuImg} />
                       ) : (
                         <View style={[styles.menuImg, { backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' }]}>
                           <Ionicons name="restaurant-outline" size={28} color={T.textMuted} />
@@ -367,6 +371,7 @@ export default function VendorDetailScreen() {
                                   description: item.description ?? '',
                                   price: String(item.price),
                                   image: item.image ?? '',
+                                  imagePosition: item.imagePosition ?? '',
                                   category: item.category ?? '',
                                   isFeatured: item.isFeatured ? '1' : '0',
                                   stockQuantity: String(item.stockQuantity ?? 0),
