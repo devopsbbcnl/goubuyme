@@ -1,5 +1,6 @@
 'use client';
 
+import { positionStyle } from '@/lib/imagePosition';
 import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -22,7 +23,7 @@ interface PromoVendor {
 interface Promo {
   id: string;
   title: string;
-  imageUrl?: string | null;
+  imageUrl?: string | null; imagePosition?: string | null;
   code?: string | null;
   vendor: PromoVendor;
 }
@@ -46,7 +47,7 @@ function PromoCard({ promo }: { promo: Promo }) {
         {/* Promo banner */}
         <div style={{ position: 'relative', width: '100%', height: 170 }}>
           {promo.imageUrl
-            ? <Image src={promo.imageUrl} alt={promo.title} fill sizes="(max-width: 560px) 100vw, 400px" style={{ objectFit: 'cover' }} />
+            ? <Image src={promo.imageUrl} alt={promo.title} fill sizes="(max-width: 560px) 100vw, 400px" style={{ objectFit: 'cover', ...positionStyle(promo.imagePosition) }} />
             : <div style={{ width: '100%', height: 170, background: 'linear-gradient(135deg, var(--brand-tint), var(--surface2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52 }}>🎁</div>
           }
           {promo.code && (

@@ -31,7 +31,7 @@ export const getMyRiderProfile = catchAsync(async (req: AuthRequest, res: Respon
   const rider = await prisma.rider.findUnique({
     where: { userId: req.user!.userId },
     include: {
-      user: { select: { name: true, email: true, phone: true, avatar: true, isPhoneVerified: true } },
+      user: { select: { name: true, email: true, phone: true, avatar: true, avatarPosition: true, isPhoneVerified: true } },
       payoutAccount: { select: { bankName: true, accountNumber: true, accountName: true } },
       document: { select: { guarantorName: true, guarantorPhone: true, guarantorAddress: true, status: true } },
     },

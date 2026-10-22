@@ -1,5 +1,6 @@
 'use client';
 
+import { positionStyle } from '@/lib/imagePosition';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
@@ -16,8 +17,8 @@ interface VendorDetail {
   businessName: string;
   slug: string;
   description?: string;
-  logo?: string;
-  coverImage?: string;
+  logo?: string; logoPosition?: string | null;
+  coverImage?: string; coverPosition?: string | null;
   category: string;
   city: string;
   state?: string;
@@ -50,7 +51,7 @@ interface MenuItem {
   name: string;
   description?: string;
   price: number;
-  image?: string;
+  image?: string; imagePosition?: string | null;
   category?: string;
   isAvailable: boolean;
   isFeatured?: boolean;
@@ -298,7 +299,7 @@ export default function VendorDetailPage() {
       {/* Cover image */}
       <div style={{ position: 'relative', height: 280, background: 'var(--surface2)', overflow: 'hidden' }}>
         {vendor.coverImage
-          ? <Image src={vendor.coverImage} alt={vendor.businessName} fill sizes="100vw" style={{ objectFit: 'cover' }} />
+          ? <Image src={vendor.coverImage} alt={vendor.businessName} fill sizes="100vw" style={{ objectFit: 'cover', ...positionStyle(vendor.coverPosition) }} />
           : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, var(--brand-tint), var(--surface2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80 }}>🏪</div>
         }
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,.6) 0%, transparent 60%)' }} />
@@ -308,7 +309,7 @@ export default function VendorDetailPage() {
         {/* Vendor info card */}
         <div className="card" style={{ display: 'flex', gap: 20, padding: 24, marginTop: -40, position: 'relative', zIndex: 1, marginBottom: 32 }}>
           {vendor.logo && (
-            <Image src={vendor.logo} alt={vendor.businessName} width={72} height={72} style={{ borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: '3px solid var(--surface)' }} />
+            <Image src={vendor.logo} alt={vendor.businessName} width={72} height={72} style={{ borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: '3px solid var(--surface)', ...positionStyle(vendor.logoPosition) }} />
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="between" style={{ marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
@@ -381,7 +382,7 @@ export default function VendorDetailPage() {
                   onClick={() => router.push(`/item/${item.id}`)}
                 >
                   {item.image
-                    ? <div className="img" style={{ position: 'relative' }}><Image src={item.image} alt={item.name} fill sizes="(max-width: 560px) 50vw, 33vw" style={{ objectFit: 'cover' }} /></div>
+                    ? <div className="img" style={{ position: 'relative' }}><Image src={item.image} alt={item.name} fill sizes="(max-width: 560px) 50vw, 33vw" style={{ objectFit: 'cover', ...positionStyle(item.imagePosition) }} /></div>
                     : <div className="img-ph">🍽️</div>
                   }
                   {item.isFeatured && <span className="menu-featured-badge">FEATURED</span>}
@@ -428,7 +429,7 @@ export default function VendorDetailPage() {
             <div className="item-drawer-body">
               {drawerItem.image && (
                 <div style={{ position: 'relative', width: '100%', height: 160, borderRadius: 'var(--r)', overflow: 'hidden' }}>
-                  <Image src={drawerItem.image} alt={drawerItem.name} fill sizes="400px" style={{ objectFit: 'cover' }} />
+                  <Image src={drawerItem.image} alt={drawerItem.name} fill sizes="400px" style={{ objectFit: 'cover', ...positionStyle(drawerItem.imagePosition) }} />
                 </div>
               )}
 

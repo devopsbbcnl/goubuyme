@@ -1,5 +1,6 @@
 'use client';
 
+import { positionStyle } from '@/lib/imagePosition';
 import { Suspense, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -10,14 +11,14 @@ import { track } from '@/services/analytics';
 
 interface Vendor {
   id: string; businessName: string; category: string; city: string;
-  logo?: string | null; coverImage?: string | null; rating?: number;
+  logo?: string | null; logoPosition?: string | null; coverImage?: string | null; coverPosition?: string | null; rating?: number;
   isOpen: boolean; avgDeliveryTime?: number | null;
-  isFeatured?: boolean; verificationBadge?: string;
+  isFeatured?: boolean; verificationBadge?: string; phoneVerified?: boolean;
 }
 
 interface MenuItem {
   id: string; name: string; description?: string | null; price: number;
-  image?: string | null; category?: string | null;
+  image?: string | null; imagePosition?: string | null; category?: string | null;
   vendor: { id: string; businessName: string; logo?: string | null; city: string; isOpen: boolean; };
 }
 
@@ -52,7 +53,7 @@ function MenuItemCard({ item }: { item: MenuItem }) {
   return (
     <Link href={`/item/${item.id}`} className="menu-card">
       {item.image
-        ? <div className="img" style={{ position: 'relative' }}><Image src={item.image} alt={item.name} fill sizes="(max-width: 560px) 50vw, 33vw" style={{ objectFit: 'cover' }} /></div>
+        ? <div className="img" style={{ position: 'relative' }}><Image src={item.image} alt={item.name} fill sizes="(max-width: 560px) 50vw, 33vw" style={{ objectFit: 'cover', ...positionStyle(item.imagePosition) }} /></div>
         : <div className="img-ph">🍽️</div>}
       <div className="info">
         <div className="name">{item.name}</div>
@@ -106,9 +107,9 @@ function VendorCard({ v }: { v: Vendor }) {
           padding: '3px 8px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '.6px',
         }}>Featured</span>
       )}
-      {v.coverImage ? <div className="cover" style={{ position: 'relative' }}><Image src={v.coverImage} alt={v.businessName} fill sizes="(max-width: 560px) 50vw, 33vw" style={{ objectFit: 'cover' }} /></div> : <div className="cover-ph">🏪</div>}
+      {v.coverImage ? <div className="cover" style={{ position: 'relative' }}><Image src={v.coverImage} alt={v.businessName} fill sizes="(max-width: 560px) 50vw, 33vw" style={{ objectFit: 'cover', ...positionStyle(v.coverPosition) }} /></div> : <div className="cover-ph">🏪</div>}
       <div className="card-body">
-        {v.logo && <Image className="vendor-logo" src={v.logo} alt="" width={48} height={48} />}
+        {v.logo && <Image className="vendor-logo" src={v.logo} alt="" width={48} height={48} style={positionStyle(v.logoPosition)} />}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <div className="vendor-name" style={{ flex: 1 }}>{v.businessName}</div>
           {badgeLabel && (
@@ -117,6 +118,14 @@ function VendorCard({ v }: { v: Vendor }) {
               background: 'var(--brand-tint)', color: 'var(--brand)', flexShrink: 0,
             }}>
               ✓ {badgeLabel}
+            </span>
+          )}
+          {v.phoneVerified && (
+            <span title="Owner phone number verified by SMS" style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+              background: 'var(--brand-tint)', color: 'var(--brand)', flexShrink: 0,
+            }}>
+              📞 Phone Verified
             </span>
           )}
         </div>

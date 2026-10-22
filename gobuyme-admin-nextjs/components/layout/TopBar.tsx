@@ -23,6 +23,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/payouts':   'Payouts & Commissions',
   '/error-logs': 'Error Logs',
   '/audit':     'Audit Logs',
+  '/broadcasts': 'Broadcasts',
   '/admins':    'Admin Users',
   '/settings':  'Settings',
 };

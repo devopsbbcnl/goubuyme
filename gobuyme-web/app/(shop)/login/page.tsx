@@ -60,7 +60,7 @@ function LoginContent() {
       const d = data.data;
       login({
         id: d.user.id, name: d.user.name, email: d.user.email,
-        phone: d.user.phone, avatar: d.user.avatar,
+        phone: d.user.phone, avatar: d.user.avatar, avatarPosition: d.user.avatarPosition,
         role: d.user.role?.toLowerCase() ?? null,
         approvalStatus: d.user.approvalStatus,
       });

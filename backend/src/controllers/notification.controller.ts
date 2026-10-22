@@ -32,6 +32,11 @@ export const getNotifications = catchAsync(async (req: AuthRequest, res: Respons
   });
 });
 
+export const getUnreadCount = catchAsync(async (req: AuthRequest, res: Response) => {
+  const count = await prisma.notification.count({ where: { userId: req.user!.userId, isRead: false } });
+  return apiResponse.success(res, 'Unread count fetched.', { count });
+});
+
 export const markNotificationRead = catchAsync(async (req: AuthRequest, res: Response) => {
   await prisma.notification.updateMany({
     where: { id: req.params.id, userId: req.user!.userId },

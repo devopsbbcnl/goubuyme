@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
-import ImageCropModal from '@/components/ui/ImageCropModal';
+import ImageRepositionModal from '@/components/ui/ImageRepositionModal';
+import { positionStyle } from '@/lib/imagePosition';
 import api from '@/services/api';
 
 const CLOUD_NAME   = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
@@ -16,7 +17,7 @@ interface OptionGroup { id: string; name: string; required: boolean; items: Opti
 
 interface Item {
   id: string; name: string; description?: string; price: number;
-  image?: string; isAvailable: boolean; categoryTag?: string; stockQuantity: number;
+  image?: string; imagePosition?: string | null; isAvailable: boolean; categoryTag?: string; stockQuantity: number;
   drinkOptions: DrinkOption[];
   optionGroups: OptionGroup[];
 }
@@ -57,7 +58,7 @@ function VendorMenuCard({ item, toggleAvail, openDrinkModal, openOptModal, openM
       {item.categoryTag && <span className="menu-featured-badge">{item.categoryTag}</span>}
       {item.image ? (
         <div className="img" style={{ position: 'relative' }}>
-          <Image src={item.image} alt={item.name} fill sizes="(max-width: 560px) 50vw, 33vw" style={{ objectFit: 'cover' }} />
+          <Image src={item.image} alt={item.name} fill sizes="(max-width: 560px) 50vw, 33vw" style={{ objectFit: 'cover', ...positionStyle(item.imagePosition) }} />
         </div>
       ) : <div className="img-ph">🍽️</div>}
 
@@ -226,12 +227,13 @@ export default function VendorMenuPage() {
   // Add/edit modal
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Item | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', price: '', categoryTag: '', image: '', stockQuantity: '' });
+  const [form, setForm] = useState({ name: '', description: '', price: '', categoryTag: '', image: '', imagePosition: '', stockQuantity: '' });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef   = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [repositioning, setRepositioning] = useState(false);
 
   // Drink options modal
   const [drinkItem, setDrinkItem] = useState<Item | null>(null);
@@ -257,7 +259,7 @@ export default function VendorMenuPage() {
 
   // ── Image upload ──────────────────────────────────────────────────────────
 
-  const uploadImage = async (file: File) => {
+  const uploadImage = async (file: File, position: string) => {
     setUploading(true);
     try {
       const fd = new FormData();
@@ -270,7 +272,7 @@ export default function VendorMenuPage() {
       );
       if (!res.ok) throw new Error();
       const { secure_url } = await res.json();
-      setForm(f => ({ ...f, image: secure_url }));
+      setForm(f => ({ ...f, image: secure_url, imagePosition: position }));
       toast('Image uploaded', 'success');
     } catch {
       toast('Image upload failed', 'error');
@@ -290,10 +292,10 @@ export default function VendorMenuPage() {
   const openModal = (item?: Item) => {
     if (item) {
       setEditing(item);
-      setForm({ name: item.name, description: item.description ?? '', price: String(item.price), categoryTag: item.categoryTag ?? '', image: item.image ?? '', stockQuantity: String(item.stockQuantity ?? 0) });
+      setForm({ name: item.name, description: item.description ?? '', price: String(item.price), categoryTag: item.categoryTag ?? '', image: item.image ?? '', imagePosition: item.imagePosition ?? '', stockQuantity: String(item.stockQuantity ?? 0) });
     } else {
       setEditing(null);
-      setForm({ name: '', description: '', price: '', categoryTag: '', image: '', stockQuantity: '' });
+      setForm({ name: '', description: '', price: '', categoryTag: '', image: '', imagePosition: '', stockQuantity: '' });
     }
     setUploading(false);
     setModal(true);
@@ -308,7 +310,7 @@ export default function VendorMenuPage() {
     }
     setSaving(true);
     try {
-      const payload = { name: form.name, description: form.description, price: Number(form.price), category: form.categoryTag, image: form.image || undefined, stockQuantity };
+      const payload = { name: form.name, description: form.description, price: Number(form.price), category: form.categoryTag, image: form.image || undefined, imagePosition: form.image ? form.imagePosition || null : null, stockQuantity };
       if (editing) {
         const { data } = await api.patch(`/vendors/me/menu/${editing.id}`, payload);
         setItems(prev => prev.map(i => i.id === editing.id ? normalize(data.data) : i));
@@ -607,9 +609,9 @@ export default function VendorMenuPage() {
                     <span className="spin" style={{ borderColor: 'var(--line)', borderTopColor: 'var(--brand)', width: 28, height: 28 }} />
                   ) : form.image ? (
                     <>
-                      <Image src={form.image} alt="preview" fill sizes="400px" style={{ objectFit: 'cover' }} />
+                      <Image src={form.image} alt="preview" fill sizes="400px" style={{ objectFit: 'cover', ...positionStyle(form.imagePosition) }} />
                       <button
-                        onClick={() => setForm(f => ({ ...f, image: '' }))}
+                        onClick={() => setForm(f => ({ ...f, image: '', imagePosition: '' }))}
                         style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       >✕</button>
                     </>
@@ -628,6 +630,11 @@ export default function VendorMenuPage() {
                   <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={uploading} onClick={() => cameraInputRef.current?.click()}>
                     📷 Camera
                   </button>
+                  {form.image && (
+                    <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={uploading} onClick={() => setRepositioning(true)}>
+                      ✥ Reposition
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -796,11 +803,18 @@ export default function VendorMenuPage() {
         </div>
       )}
 
-      <ImageCropModal
+      <ImageRepositionModal
         file={cropFile}
         aspect={4 / 3}
         onCancel={() => setCropFile(null)}
-        onConfirm={(croppedFile) => { setCropFile(null); uploadImage(croppedFile); }}
+        onConfirm={({ file, position }) => { setCropFile(null); if (file) uploadImage(file, position); }}
+      />
+      <ImageRepositionModal
+        src={repositioning ? form.image : null}
+        position={form.imagePosition}
+        aspect={4 / 3}
+        onCancel={() => setRepositioning(false)}
+        onConfirm={({ position }) => { setRepositioning(false); setForm(f => ({ ...f, imagePosition: position })); }}
       />
     </div>
   );

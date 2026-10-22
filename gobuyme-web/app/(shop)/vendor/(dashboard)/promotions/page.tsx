@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
-import ImageCropModal from '@/components/ui/ImageCropModal';
+import ImageRepositionModal from '@/components/ui/ImageRepositionModal';
+import { positionStyle } from '@/lib/imagePosition';
 import api from '@/services/api';
 import { uploadToCloudinary } from '@/services/cloudinary';
 
-interface Promo { id: string; title: string; description?: string; imageUrl?: string; isActive: boolean; expiresAt?: string; }
+interface Promo { id: string; title: string; description?: string; imageUrl?: string; imagePosition?: string | null; isActive: boolean; expiresAt?: string; }
 
 export default function VendorPromotionsPage() {
   const toast = useToast();
@@ -17,11 +18,13 @@ export default function VendorPromotionsPage() {
   const [promos, setPromos] = useState<Promo[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', imageUrl: '', expiresAt: '' });
+  const [form, setForm] = useState({ title: '', description: '', imageUrl: '', imagePosition: '', expiresAt: '' });
   const [imgBusy, setImgBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tier, setTier] = useState<string | null>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  // Which saved promo (or the form's draft image) is being repositioned.
+  const [repositionTarget, setRepositionTarget] = useState<'form' | Promo | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -39,12 +42,21 @@ export default function VendorPromotionsPage() {
     if (file) setCropFile(file);
   };
 
-  const uploadCroppedImage = async (file: File) => {
+  const savePromoPosition = async (promo: Promo, position: string) => {
+    try {
+      await api.patch(`/vendors/me/promotions/${promo.id}/position`, { imagePosition: position });
+      setPromos(prev => prev.map(p => p.id === promo.id ? { ...p, imagePosition: position } : p));
+      toast('Position saved', 'success');
+    } catch { toast('Could not save position', 'error'); }
+  };
+
+  const uploadCroppedImage = async ({ file, position }: { file?: File; position: string }) => {
     setCropFile(null);
+    if (!file) return;
     setImgBusy(true);
     try {
       const url = await uploadToCloudinary(file, 'vendor-promotions');
-      setForm(f => ({ ...f, imageUrl: url }));
+      setForm(f => ({ ...f, imageUrl: url, imagePosition: position }));
       toast('Image uploaded', 'success');
     } catch (err: any) { toast(err?.message || 'Upload failed', 'error'); }
     finally { setImgBusy(false); }
@@ -95,7 +107,7 @@ export default function VendorPromotionsPage() {
     <div>
       <div className="between" style={{ marginBottom: 24 }}>
         <h1 className="t-page">Promotions</h1>
-        <button className="btn btn-primary" onClick={() => { setForm({ title: '', description: '', imageUrl: '', expiresAt: '' }); setModal(true); }}>+ New Promotion</button>
+        <button className="btn btn-primary" onClick={() => { setForm({ title: '', description: '', imageUrl: '', imagePosition: '', expiresAt: '' }); setModal(true); }}>+ New Promotion</button>
       </div>
 
       {loading ? (
@@ -103,19 +115,22 @@ export default function VendorPromotionsPage() {
           {[...Array(3)].map((_, i) => <div key={i} className="sk" style={{ height: 200 }} />)}
         </div>
       ) : promos.length === 0 ? (
-        <div className="empty"><div className="emoji">🎁</div><h3>No promotions</h3><p>Create your first promotion to attract more customers.</p><button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => { setForm({ title: '', description: '', imageUrl: '', expiresAt: '' }); setModal(true); }}>+ New Promotion</button></div>
+        <div className="empty"><div className="emoji">🎁</div><h3>No promotions</h3><p>Create your first promotion to attract more customers.</p><button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => { setForm({ title: '', description: '', imageUrl: '', imagePosition: '', expiresAt: '' }); setModal(true); }}>+ New Promotion</button></div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {promos.map(p => (
             <div key={p.id} className="card" style={{ overflow: 'hidden', opacity: p.isActive ? 1 : .6 }}>
-              {p.imageUrl ? <img src={p.imageUrl} alt="" style={{ width: '100%', height: 160, objectFit: 'cover' }} /> : <div style={{ width: '100%', height: 160, background: 'linear-gradient(135deg, var(--brand-tint), var(--surface2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>🎁</div>}
+              {p.imageUrl ? <img src={p.imageUrl} alt="" style={{ width: '100%', height: 160, objectFit: 'cover', ...positionStyle(p.imagePosition) }} /> : <div style={{ width: '100%', height: 160, background: 'linear-gradient(135deg, var(--brand-tint), var(--surface2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>🎁</div>}
               <div style={{ padding: 16 }}>
                 <div className="between" style={{ marginBottom: 8 }}>
                   <span style={{ fontWeight: 700 }}>{p.title}</span>
                   <label className="switch" style={{ transform: 'scale(.85)' }}><input type="checkbox" checked={p.isActive} onChange={() => toggle(p.id)} /><span className="track" /></label>
                 </div>
                 {p.description && <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>{p.description}</p>}
-                <button className="btn btn-danger btn-sm" onClick={() => del(p.id)}>Delete</button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {p.imageUrl && <button className="btn btn-ghost btn-sm" onClick={() => setRepositionTarget(p)}>✥ Reposition</button>}
+                  <button className="btn btn-danger btn-sm" onClick={() => del(p.id)}>Delete</button>
+                </div>
               </div>
             </div>
           ))}
@@ -141,7 +156,7 @@ export default function VendorPromotionsPage() {
                     <span className="spin" style={{ borderColor: 'var(--line)', borderTopColor: 'var(--brand)', width: 24, height: 24 }} />
                   ) : form.imageUrl ? (
                     <>
-                      <img src={form.imageUrl} alt="promo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={form.imageUrl} alt="promo" style={{ width: '100%', height: '100%', objectFit: 'cover', ...positionStyle(form.imagePosition) }} />
                       <button onClick={() => setForm(f => ({ ...f, imageUrl: '' }))} style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                     </>
                   ) : (
@@ -154,6 +169,7 @@ export default function VendorPromotionsPage() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={imgBusy} onClick={() => fileRef.current?.click()}>📁 Choose File</button>
                   <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={imgBusy} onClick={() => cameraRef.current?.click()}>📷 Camera</button>
+                  {form.imageUrl && <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={imgBusy} onClick={() => setRepositionTarget('form')}>✥ Reposition</button>}
                 </div>
               </div>
 
@@ -167,11 +183,23 @@ export default function VendorPromotionsPage() {
         </div>
       )}
 
-      <ImageCropModal
+      <ImageRepositionModal
         file={cropFile}
         aspect={1080 / 580}
         onCancel={() => setCropFile(null)}
         onConfirm={uploadCroppedImage}
+      />
+      <ImageRepositionModal
+        src={repositionTarget === 'form' ? form.imageUrl : repositionTarget?.imageUrl ?? null}
+        position={repositionTarget === 'form' ? form.imagePosition : repositionTarget?.imagePosition}
+        aspect={1080 / 580}
+        onCancel={() => setRepositionTarget(null)}
+        onConfirm={({ position }) => {
+          const target = repositionTarget;
+          setRepositionTarget(null);
+          if (target === 'form') setForm(f => ({ ...f, imagePosition: position }));
+          else if (target) void savePromoPosition(target, position);
+        }}
       />
     </div>
   );

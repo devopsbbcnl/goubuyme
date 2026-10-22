@@ -81,42 +81,67 @@ function AppearanceSection() {
 
 // ── Notification Toggles ───────────────────────────────────────────────────────
 
-const NOTIF_KEYS = [
-  { key: 'gbm_notif_orders',  label: 'New order alerts',         desc: 'Get notified when a customer places an order' },
-  { key: 'gbm_notif_promos',  label: 'Promotion performance',    desc: 'Updates when your promotions go live or expire' },
-  { key: 'gbm_notif_payouts', label: 'Payout notifications',     desc: 'Daily payout processing results' },
-  { key: 'gbm_notif_system',  label: 'Platform announcements',   desc: 'GoBuyMe news, maintenance, and policy updates' },
+// Saved on the server, which decides what is sent to this vendor and kept in their
+// notifications. Switched off means neither pushed nor listed.
+type NotifCategory = 'orders' | 'earnings' | 'account';
+const NOTIF_ROWS: Array<{ key: NotifCategory; label: string; desc: string }> = [
+  { key: 'orders',   label: 'Orders',  desc: 'New orders, cancellations and reminders' },
+  { key: 'earnings', label: 'Payouts', desc: 'When a payout is sent to you' },
+  { key: 'account',  label: 'Account', desc: 'Approval status, policy changes and support replies' },
 ];
 
+interface NotifPrefs {
+  marketingOptIn: boolean;
+  categories: Record<NotifCategory, boolean>;
+}
+
 function NotificationsSection() {
-  const [prefs, setPrefs] = useState<Record<string, boolean>>({});
+  const toast = useToast();
+  // null until loaded, so a switch never shows a guessed value.
+  const [prefs, setPrefs] = useState<NotifPrefs | null>(null);
 
   useEffect(() => {
-    const loaded: Record<string, boolean> = {};
-    NOTIF_KEYS.forEach(n => {
-      loaded[n.key] = localStorage.getItem(n.key) !== 'false';
-    });
-    setPrefs(loaded);
+    api.get('/notifications/preferences')
+      .then(r => setPrefs(r.data.data))
+      .catch(() => toast("Couldn't load your notification settings", 'error'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const toggle = (key: string) => {
-    const next = !prefs[key];
-    setPrefs(p => ({ ...p, [key]: next }));
-    localStorage.setItem(key, String(next));
+  const save = async (change: { marketingOptIn?: boolean; categories?: Partial<Record<NotifCategory, boolean>> }) => {
+    const before = prefs;
+    setPrefs(p => p && {
+      marketingOptIn: change.marketingOptIn ?? p.marketingOptIn,
+      categories: { ...p.categories, ...change.categories },
+    });
+    try {
+      const r = await api.patch('/notifications/preferences', change);
+      setPrefs(r.data.data);
+    } catch {
+      setPrefs(before);
+      toast("Couldn't save that change", 'error');
+    }
   };
 
+  const row = (label: string, desc: string, checked: boolean, onChange: () => void) => (
+    <div key={label} className="between">
+      <div>
+        <div style={{ fontWeight: 600, fontSize: 14 }}>{label}</div>
+        <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{desc}</div>
+      </div>
+      <label className="switch"><input type="checkbox" checked={checked} disabled={prefs === null} onChange={onChange} /><span className="track" /></label>
+    </div>
+  );
+
   return (
-    <Section title="Notifications" sub="In-app notification preferences">
+    <Section title="Notifications" sub="Choose what is sent to you and kept in your notifications">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {NOTIF_KEYS.map(n => (
-          <div key={n.key} className="between">
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{n.label}</div>
-              <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{n.desc}</div>
-            </div>
-            <label className="switch"><input type="checkbox" checked={!!prefs[n.key]} onChange={() => toggle(n.key)} /><span className="track" /></label>
-          </div>
-        ))}
+        {NOTIF_ROWS.map(n =>
+          row(n.label, n.desc, prefs?.categories[n.key] ?? true, () => { if (prefs) void save({ categories: { [n.key]: !prefs.categories[n.key] } }); }),
+        )}
+        {row('Deals & offers', 'Campaigns and news from GoBuyMe by push, email and SMS', prefs?.marketingOptIn ?? false, () => { if (prefs) void save({ marketingOptIn: !prefs.marketingOptIn }); })}
+        <div className="muted" style={{ fontSize: 12 }}>
+          Announcements from GoBuyMe and messages from our team always come through.
+        </div>
       </div>
     </Section>
   );

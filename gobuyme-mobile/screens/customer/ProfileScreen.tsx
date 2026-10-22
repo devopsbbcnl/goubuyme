@@ -1,6 +1,7 @@
+import { PositionedImage } from '@/components/ui/PositionedImage';
 import React from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -19,7 +20,7 @@ type MenuItem = {
 const MENU_ITEMS: MenuItem[] = [
   { icon: '📦', label: 'My Orders',         sub: 'View order history',        route: '/orders' },
   { icon: '📍', label: 'Saved Addresses',   sub: 'Home, Work, and more',      route: '/saved-addresses' },
-  { icon: '🔔', label: 'Notifications',     sub: 'Manage alerts',             route: '/notifications' },
+  { icon: '🔔', label: 'Notifications',     sub: 'Inbox & alerts',             route: '/notifications' },
   { icon: '🎁', label: 'Offers & Promos',   sub: 'Available deals',           route: '/offers-promos' },
   { icon: '⭐', label: 'Rate the App',      sub: 'Leave a review',            route: '/rate-app' },
   { icon: '🔐', label: 'Privacy & Security',sub: 'Manage data',               route: '/privacy-security' },
@@ -50,7 +51,7 @@ export default function ProfileScreen() {
         <View style={[styles.avatarRow, { borderBottomColor: T.border }]}>
           <TouchableOpacity onPress={() => router.push('/edit-profile')} activeOpacity={0.85}>
             {user?.photoUrl ? (
-              <Image source={{ uri: user.photoUrl }} style={[styles.avatarImg, { borderColor: T.border }]} />
+              <PositionedImage uri={user.photoUrl} position={user.photoPosition} style={[styles.avatarImg, { borderColor: T.border }]} />
             ) : (
               <View style={[styles.avatar, { backgroundColor: T.primaryTint, borderColor: T.border }]}>
                 <Text style={{ fontSize: 28 }}>👤</Text>

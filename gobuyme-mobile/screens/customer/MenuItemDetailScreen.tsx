@@ -1,3 +1,4 @@
+import { PositionedImage } from '@/components/ui/PositionedImage';
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
@@ -41,6 +42,7 @@ export default function MenuItemDetailScreen() {
     description: string;
     price: string;
     image: string;
+    imagePosition: string;
     category: string;
     isFeatured: string;
     stockQuantity: string;
@@ -59,6 +61,7 @@ export default function MenuItemDetailScreen() {
     description: params.description ?? '',
     price:       Number(params.price ?? 0),
     image:       params.image ?? '',
+    imagePosition: params.imagePosition ?? '',
     category:    params.category ?? '',
     isFeatured:  params.isFeatured === '1',
     stockQuantity: Number(params.stockQuantity ?? 0),
@@ -156,7 +159,7 @@ export default function MenuItemDetailScreen() {
         {/* Hero image */}
         <View style={{ position: 'relative', height: 300 }}>
           {item.image ? (
-            <Image source={{ uri: item.image }} style={styles.hero} resizeMode="cover" />
+            <PositionedImage uri={item.image} position={item.imagePosition} style={styles.hero} />
           ) : (
             <View style={[styles.hero, { backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' }]}>
               <Ionicons name="restaurant-outline" size={80} color={T.textMuted} />

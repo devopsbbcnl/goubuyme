@@ -15,6 +15,8 @@ import {
 	useWindowDimensions,
 } from 'react-native';
 import { pickImage as openImagePicker } from '@/utils/pickImage';
+import { PositionedImage } from '@/components/ui/PositionedImage';
+import { useImagePositioner } from '@/components/ui/ImagePositioner';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,6 +51,7 @@ interface MenuItem {
 	description: string | null;
 	price: number;
 	image: string | null;
+	imagePosition?: string | null;
 	category: string | null;
 	isAvailable: boolean;
 	isFeatured: boolean;
@@ -63,6 +66,7 @@ interface FormState {
 	price: string;
 	category: string;
 	image: string | null;
+	imagePosition: string;
 	isAvailable: boolean;
 	isFeatured: boolean;
 	stockQuantity: string;
@@ -74,6 +78,7 @@ const EMPTY_FORM: FormState = {
 	price: '',
 	category: '',
 	image: null,
+	imagePosition: '',
 	isAvailable: true,
 	isFeatured: false,
 	stockQuantity: '',
@@ -178,6 +183,7 @@ export default function ManageMenuScreen() {
 
 	const [vendorCategory, setVendorCategory] = useState<string | null>(null);
 	const [items, setItems] = useState<MenuItem[]>([]);
+	const positioner = useImagePositioner();
 	const [loading, setLoading] = useState(true);
 	const [sheetVisible, setSheetVisible] = useState(false);
 	const [editing, setEditing] = useState<MenuItem | null>(null);
@@ -247,6 +253,7 @@ export default function ManageMenuScreen() {
 			price: String(item.price),
 			category: item.category ?? '',
 			image: item.image,
+			imagePosition: item.imagePosition ?? '',
 			isAvailable: item.isAvailable,
 			isFeatured: item.isFeatured,
 			stockQuantity: String(item.stockQuantity ?? 0),
@@ -261,8 +268,16 @@ export default function ManageMenuScreen() {
 	};
 
 	const pickImage = async () => {
-		const uri = await openImagePicker({ aspect: [1, 1], quality: 0.8 });
-		if (uri) setForm((f) => ({ ...f, image: uri }));
+		const uri = await openImagePicker({ allowsEditing: false, quality: 0.8 });
+		if (!uri) return;
+		const position = await positioner.open({ uri, aspect: 1 });
+		if (position) setForm((f) => ({ ...f, image: uri, imagePosition: position }));
+	};
+
+	const repositionImage = async () => {
+		if (!form.image) return;
+		const position = await positioner.open({ uri: form.image, aspect: 1, position: form.imagePosition });
+		if (position) setForm((f) => ({ ...f, imagePosition: position }));
 	};
 
 	const handleSave = async () => {
@@ -295,6 +310,7 @@ export default function ManageMenuScreen() {
 				description: form.description.trim() || null,
 				category: form.category || null,
 				image: imageUrl,
+				imagePosition: imageUrl ? form.imagePosition || null : null,
 				isAvailable: form.isAvailable,
 				isFeatured: form.isFeatured,
 				stockQuantity,
@@ -906,7 +922,7 @@ export default function ManageMenuScreen() {
 								style={[styles.imagePicker, { backgroundColor: T.bg, borderColor: T.border }]}
 							>
 								{form.image ? (
-									<Image source={{ uri: form.image }} style={styles.imagePreview} resizeMode="cover" />
+									<PositionedImage uri={form.image} position={form.imagePosition} style={styles.imagePreview} />
 								) : (
 									<View style={{ alignItems: 'center', gap: 4 }}>
 										<Ionicons name="camera-outline" size={28} color={T.textMuted} />
@@ -916,6 +932,12 @@ export default function ManageMenuScreen() {
 									</View>
 								)}
 							</TouchableOpacity>
+							{form.image ? (
+								<TouchableOpacity onPress={repositionImage} style={{ marginBottom: 12 }}>
+									<Text style={{ color: T.primary, fontSize: 12, fontWeight: '600' }}>Reposition photo</Text>
+								</TouchableOpacity>
+							) : null}
+							{positioner.element}
 
 							<FormField
 								label="Item Name *"
@@ -1053,10 +1075,10 @@ function ItemCard({
 			]}
 		>
 			{item.image ? (
-				<Image
-					source={{ uri: item.image }}
+				<PositionedImage
+					uri={item.image}
+					position={item.imagePosition}
 					style={styles.cardImage}
-					resizeMode="cover"
 				/>
 			) : (
 				<View style={[styles.cardImagePlaceholder, { backgroundColor: T.bg }]}>

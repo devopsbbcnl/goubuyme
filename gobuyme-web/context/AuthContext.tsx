@@ -10,6 +10,7 @@ export interface AuthUser {
   email: string;
   phone?: string;
   avatar?: string;
+  avatarPosition?: string | null;
   role: 'customer' | 'vendor' | 'rider' | null;
   approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 }
@@ -43,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const base: AuthUser = {
           id: u.id, name: u.name, email: u.email,
-          phone: u.phone, avatar: u.avatar,
+          phone: u.phone, avatar: u.avatar, avatarPosition: u.avatarPosition,
           role: u.role?.toLowerCase() ?? null,
         };
 

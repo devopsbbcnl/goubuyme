@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
-import ImageCropModal from '@/components/ui/ImageCropModal';
+import ImageRepositionModal from '@/components/ui/ImageRepositionModal';
+import { positionStyle } from '@/lib/imagePosition';
 import api from '@/services/api';
 import { uploadToCloudinary } from '@/services/cloudinary';
 import Image from 'next/image';
@@ -17,7 +18,9 @@ interface VendorProfile {
   phone?: string;
   category: string;
   coverImage?: string;
+  coverPosition?: string | null;
   logo?: string;
+  logoPosition?: string | null;
   commissionTier: string;
   openingTime?: string;
   closingTime?: string;
@@ -26,14 +29,16 @@ interface VendorProfile {
 }
 
 function ImgUpload({
-  label, value, folder, aspect, onUploaded,
+  label, value, folder, aspect, round, position, onUploaded, onPositioned,
 }: {
-  label: string; value?: string; folder: string; aspect: number; onUploaded: (url: string) => void;
+  label: string; value?: string; folder: string; aspect: number; round?: boolean; position?: string | null;
+  onUploaded: (url: string, position: string | null) => void; onPositioned: (position: string) => void;
 }) {
   const fileRef   = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [repositioning, setRepositioning] = useState(false);
   const toast = useToast();
 
   const handle = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,12 +47,13 @@ function ImgUpload({
     if (file) setCropFile(file);
   };
 
-  const uploadCropped = async (file: File) => {
+  const uploadPositioned = async ({ file, position: pos }: { file?: File; position: string }) => {
     setCropFile(null);
+    if (!file) return;
     setBusy(true);
     try {
       const url = await uploadToCloudinary(file, folder);
-      onUploaded(url);
+      onUploaded(url, pos);
       toast('Image uploaded', 'success');
     } catch (err: any) { toast(err?.message || 'Upload failed', 'error'); }
     finally { setBusy(false); }
@@ -58,7 +64,12 @@ function ImgUpload({
       <label className="label">{label}</label>
       <input ref={fileRef}   type="file" accept="image/*"                     style={{ display: 'none' }} onChange={handle} />
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handle} />
-      <ImageCropModal file={cropFile} aspect={aspect} onCancel={() => setCropFile(null)} onConfirm={uploadCropped} />
+      <ImageRepositionModal file={cropFile} aspect={aspect} round={round} onCancel={() => setCropFile(null)} onConfirm={uploadPositioned} />
+      <ImageRepositionModal
+        src={repositioning ? value : null} position={position} aspect={aspect} round={round}
+        onCancel={() => setRepositioning(false)}
+        onConfirm={({ position: pos }) => { setRepositioning(false); onPositioned(pos); }}
+      />
 
       {/* preview */}
       <div style={{ width: '100%', height: 130, borderRadius: 4, border: '1.5px dashed var(--line)', background: 'var(--surface2)', overflow: 'hidden', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
@@ -66,9 +77,9 @@ function ImgUpload({
           <span className="spin" style={{ borderColor: 'var(--line)', borderTopColor: 'var(--brand)', width: 26, height: 26 }} />
         ) : value ? (
           <>
-            <Image src={value} alt={label} fill sizes="400px" style={{ objectFit: 'cover' }} />
+            <Image src={value} alt={label} fill sizes="400px" style={{ objectFit: 'cover', ...positionStyle(position) }} />
             <button
-              onClick={() => onUploaded('')}
+              onClick={() => onUploaded('', null)}
               style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >✕</button>
           </>
@@ -83,6 +94,7 @@ function ImgUpload({
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={busy} onClick={() => fileRef.current?.click()}>📁 Choose File</button>
         <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={busy} onClick={() => cameraRef.current?.click()}>📷 Camera</button>
+        {value && <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={busy} onClick={() => setRepositioning(true)}>✥ Reposition</button>}
       </div>
     </div>
   );
@@ -150,6 +162,8 @@ export default function VendorProfilePage() {
         state:        profile.state,
         logo:         profile.logo,
         coverImage:   profile.coverImage,
+        logoPosition: profile.logoPosition ?? null,
+        coverPosition: profile.coverPosition ?? null,
         openingTime:  profile.openingTime,
         closingTime:  profile.closingTime,
       });
@@ -239,13 +253,13 @@ export default function VendorProfilePage() {
         {/* Logo */}
         <div className="card card-pad">
           <h3 style={{ fontWeight: 800, fontSize: 16, marginBottom: 18 }}>Store Logo</h3>
-          <ImgUpload label="Logo" value={profile.logo} folder="vendor-logos" aspect={1} onUploaded={url => set('logo', url)} />
+          <ImgUpload label="Logo" value={profile.logo} folder="vendor-logos" aspect={1} round position={profile.logoPosition} onUploaded={(url, pos) => { set('logo', url); set('logoPosition', pos); }} onPositioned={pos => set('logoPosition', pos)} />
         </div>
 
         {/* Cover Image */}
         <div className="card card-pad">
           <h3 style={{ fontWeight: 800, fontSize: 16, marginBottom: 18 }}>Cover Image</h3>
-          <ImgUpload label="Cover Photo" value={profile.coverImage} folder="vendor-covers" aspect={16 / 9} onUploaded={url => set('coverImage', url)} />
+          <ImgUpload label="Cover Photo" value={profile.coverImage} folder="vendor-covers" aspect={16 / 9} position={profile.coverPosition} onUploaded={(url, pos) => { set('coverImage', url); set('coverPosition', pos); }} onPositioned={pos => set('coverPosition', pos)} />
         </div>
 
         {/* Commission Tier */}

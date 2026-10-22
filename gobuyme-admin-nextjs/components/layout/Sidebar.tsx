@@ -37,6 +37,7 @@ const NAV: NavItem[] = [
   { href: '/crm/profiles', label: 'CRM Profiles', icon: '🧭', pendingKey: null },
   { href: '/crm/pipeline', label: 'Pipeline',   icon: '🤝', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
   { href: '/crm/campaigns', label: 'Marketing', icon: '📣', pendingKey: null, minRole: 'OPERATIONS_ADMIN', activePrefixes: ['/crm/segments', '/crm/automations'] },
+  { href: '/broadcasts', label: 'Broadcasts',  icon: '📢', pendingKey: null },
   { href: '/pricing',    label: 'Pricing',       icon: '💰', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
   { href: '/payouts',    label: 'Payouts',       icon: '💳', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
   { href: '/error-logs', label: 'Error Logs',    icon: '🐞', pendingKey: 'errorLogs' },

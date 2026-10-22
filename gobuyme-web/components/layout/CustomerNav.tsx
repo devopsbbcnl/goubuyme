@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import api from '@/services/api';
 import { useCart } from '@/context/CartContext';
 import { useCity, SUPPORTED_CITIES } from '@/context/CityContext';
 
@@ -82,6 +83,7 @@ interface Props { showPromoBar?: boolean; promoText?: string; }
 
 export function CustomerNav({ showPromoBar = true, promoText }: Props) {
   const { user, logout } = useAuth();
+  const pathname = usePathname();
   const { totalCount } = useCart();
   const { selectedCity, setSelectedCity } = useCity();
   const router = useRouter();
@@ -93,7 +95,19 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
   const [showPromo, setShowPromo] = useState(showPromoBar);
   const [cityOpen, setCityOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  // How many notifications are unread: on load, and again whenever the tab regains focus.
+  useEffect(() => {
+    if (!user) { setUnread(0); return; }
+    const refresh = () => {
+      api.get('/notifications/unread-count').then(r => setUnread(Number(r.data.data?.count) || 0)).catch(() => {});
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [user, pathname]);
   const [openCat, setOpenCat] = useState<string | null>(null);
   const [allHoveredSub, setAllHoveredSub] = useState('RESTAURANT');
   const prevCount = useRef(totalCount);
@@ -345,6 +359,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
               <>
                 <Link href="/notifications" className="icon-btn nav-notif" aria-label="Notifications">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                  {unread > 0 && <span className="cart-badge">{unread > 99 ? '99+' : unread}</span>}
                 </Link>
                 <Link href="/cart" className="icon-btn" aria-label="Cart">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>

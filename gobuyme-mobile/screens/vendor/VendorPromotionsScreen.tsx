@@ -4,6 +4,8 @@ import {
   Image, ActivityIndicator, TextInput, Alert,
 } from 'react-native';
 import { pickImage as openImagePicker } from '@/utils/pickImage';
+import { PositionedImage } from '@/components/ui/PositionedImage';
+import { useImagePositioner } from '@/components/ui/ImagePositioner';
 import { useTheme } from '@/context/ThemeContext';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +29,7 @@ interface Promo {
   id: string;
   title: string;
   imageUrl: string;
+  imagePosition?: string | null;
   code: string | null;
   isActive: boolean;
   createdAt: string;
@@ -74,6 +77,9 @@ export default function VendorPromotionsScreen() {
   const [title, setTitle] = useState('');
   const [code, setCode] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imagePosition, setImagePosition] = useState('');
+  const positioner = useImagePositioner();      // inside the "new promotion" sheet
+  const cardPositioner = useImagePositioner();  // for cards already saved
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const isTier2 = vendor?.commissionTier === 'TIER_2';
@@ -96,14 +102,38 @@ export default function VendorPromotionsScreen() {
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const pickImage = async () => {
-    const uri = await openImagePicker({ aspect: [PROMO_DIMENSIONS.width, PROMO_DIMENSIONS.height], quality: 0.85 });
-    if (uri) setImageUri(uri);
+    const uri = await openImagePicker({ allowsEditing: false, quality: 0.85 });
+    if (!uri) return;
+    const position = await positioner.open({ uri, aspect: PROMO_DIMENSIONS.width / PROMO_DIMENSIONS.height });
+    if (position) { setImageUri(uri); setImagePosition(position); }
+  };
+
+  const repositionDraft = async () => {
+    if (!imageUri) return;
+    const position = await positioner.open({
+      uri: imageUri, aspect: PROMO_DIMENSIONS.width / PROMO_DIMENSIONS.height, position: imagePosition,
+    });
+    if (position) setImagePosition(position);
+  };
+
+  const repositionPromo = async (promo: Promo) => {
+    const position = await cardPositioner.open({
+      uri: promo.imageUrl, aspect: PROMO_DIMENSIONS.width / PROMO_DIMENSIONS.height, position: promo.imagePosition,
+    });
+    if (!position) return;
+    try {
+      await api.patch(`/vendors/me/promotions/${promo.id}/position`, { imagePosition: position });
+      setPromos(prev => prev.map(p => (p.id === promo.id ? { ...p, imagePosition: position } : p)));
+    } catch (e: any) {
+      Alert.alert('Error', e?.response?.data?.message ?? e?.message ?? 'Could not save the position.');
+    }
   };
 
   const resetForm = () => {
     setTitle('');
     setCode('');
     setImageUri(null);
+    setImagePosition('');
   };
 
   const handleCreate = async () => {
@@ -119,6 +149,7 @@ export default function VendorPromotionsScreen() {
       await api.post('/vendors/me/promotions', {
         title: title.trim(),
         imageUrl,
+        imagePosition: imagePosition || undefined,
         code: code.trim() || undefined,
       });
 
@@ -189,6 +220,7 @@ export default function VendorPromotionsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
+      {cardPositioner.element}
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.navigate('/(vendor)/profile' as any)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -280,7 +312,7 @@ export default function VendorPromotionsScreen() {
               )}
 
               {/* Promo image */}
-              <Image source={{ uri: promo.imageUrl }} style={styles.promoImage} resizeMode="cover" />
+              <PositionedImage uri={promo.imageUrl} position={promo.imagePosition} style={styles.promoImage} />
 
               <View style={styles.promoBody}>
                 <Text style={[styles.promoTitle, { color: T.text }]} numberOfLines={1}>{promo.title}</Text>
@@ -296,6 +328,12 @@ export default function VendorPromotionsScreen() {
 
               {/* Actions */}
               <View style={[styles.promoActions, { borderTopColor: T.border }]}>
+                <TouchableOpacity
+                  onPress={() => repositionPromo(promo)}
+                  style={[styles.actionBtn, { backgroundColor: T.surface2, borderColor: T.border }]}
+                >
+                  <Text style={[styles.actionBtnText, { color: T.text }]}>Reposition</Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => handleToggle(promo)}
                   disabled={!isTier2 || togglingId === promo.id}
@@ -347,7 +385,7 @@ export default function VendorPromotionsScreen() {
               style={[styles.imagePicker, { backgroundColor: T.surface2, borderColor: T.border }]}
             >
               {imageUri ? (
-                <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
+                <PositionedImage uri={imageUri} position={imagePosition} style={styles.imagePreview} />
               ) : (
                 <View style={styles.imagePlaceholder}>
                   <Ionicons name="image-outline" size={32} color={T.textMuted} />
@@ -360,6 +398,12 @@ export default function VendorPromotionsScreen() {
                 </View>
               )}
             </TouchableOpacity>
+            {imageUri ? (
+              <TouchableOpacity onPress={repositionDraft} disabled={saving}>
+                <Text style={{ color: T.primary, fontSize: 12, fontWeight: '600' }}>Reposition image</Text>
+              </TouchableOpacity>
+            ) : null}
+            {positioner.element}
 
             <Text style={[styles.fieldLabel, { color: T.textSec }]}>Title *</Text>
             <TextInput

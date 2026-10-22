@@ -1,3 +1,4 @@
+import { PositionedImage } from '@/components/ui/PositionedImage';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
@@ -13,6 +14,7 @@ import { useAddress } from '@/context/AddressContext';
 import { useCity, SUPPORTED_CITIES } from '@/context/CityContext';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { router } from 'expo-router';
+import { NotificationBell } from '@/components/NotificationBell';
 import { Ionicons } from '@expo/vector-icons';
 import { FontAwesome } from '@expo/vector-icons';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -32,6 +34,7 @@ interface VendorPromo {
   id: string;
   title: string;
   imageUrl: string;
+  imagePosition?: string | null;
   code: string | null;
   vendor: { businessName: string };
 }
@@ -94,12 +97,15 @@ interface Vendor {
   rating: number;
   totalRatings: number;
   logo: string | null;
+  logoPosition?: string | null;
   coverImage: string | null;
+  coverPosition?: string | null;
   isOpen: boolean;
   distanceKm: number | null;
   estimatedMinutes: number | null;
   minOrderPrice: number;
   verificationBadge: VerificationBadge;
+  phoneVerified?: boolean;
 }
 
 interface BrowseItem {
@@ -108,6 +114,7 @@ interface BrowseItem {
   description: string | null;
   price: number;
   image: string | null;
+  imagePosition?: string | null;
   category: string | null;
   vendor: { id: string; businessName: string; logo: string | null; city: string; isOpen: boolean };
 }
@@ -354,14 +361,17 @@ export default function HomeScreen() {
             )}
           </View>
 
-          <TouchableOpacity onPress={() => router.push('/cart')} style={[styles.cartBtn, { backgroundColor: T.surface }]}>
-            <Ionicons name="cart-outline" size={20} color={T.text} />
-            {count > 0 && (
-              <View style={[styles.cartBadge, { backgroundColor: T.primary }]}>
-                <Text style={styles.cartBadgeText}>{count}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <NotificationBell route="/notifications" />
+            <TouchableOpacity onPress={() => router.push('/cart')} style={[styles.cartBtn, { backgroundColor: T.surface }]}>
+              <Ionicons name="cart-outline" size={20} color={T.text} />
+              {count > 0 && (
+                <View style={[styles.cartBadge, { backgroundColor: T.primary }]}>
+                  <Text style={styles.cartBadgeText}>{count}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search bar + filter */}
@@ -399,7 +409,7 @@ export default function HomeScreen() {
             if (item.kind === 'vendor') {
               return (
                 <View style={[styles.promoBanner, { width: PROMO_CARD_WIDTH, padding: 0, overflow: 'hidden' }]}>
-                  <Image source={{ uri: item.imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  <PositionedImage uri={item.imageUrl} position={item.imagePosition} style={StyleSheet.absoluteFill} />
                   {item.code && (
                     <View style={[styles.promoCode, { backgroundColor: 'rgba(0,0,0,0.45)' }]}>
                       <Text style={styles.promoCodeText}>Use: {item.code}</Text>
@@ -518,7 +528,7 @@ export default function HomeScreen() {
                 style={[styles.browseCard, { backgroundColor: T.surface, borderColor: T.border, ...shadows.card }]}
               >
                 {item.image ? (
-                  <Image source={{ uri: item.image }} style={styles.browseImg} />
+                  <PositionedImage uri={item.image} position={item.imagePosition} style={styles.browseImg} />
                 ) : (
                   <View style={[styles.browseImg, { backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' }]}>
                     <Text style={{ fontSize: 28 }}>🛒</Text>
@@ -578,8 +588,9 @@ export default function HomeScreen() {
                 >
                   <View style={{ position: 'relative' }}>
                     {v.coverImage && !coverFailed ? (
-                      <Image
-                        source={{ uri: v.coverImage }}
+                      <PositionedImage
+                        uri={v.coverImage}
+                        position={v.coverPosition}
                         style={styles.vendorImage}
                         onError={() => setFailedCovers(prev => new Set(prev).add(v.id))}
                       />
@@ -602,7 +613,7 @@ export default function HomeScreen() {
                   <View style={styles.vendorInfo}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       {v.logo ? (
-                        <Image source={{ uri: v.logo }} style={[styles.vendorLogo, { borderColor: T.border }]} />
+                        <PositionedImage uri={v.logo} position={v.logoPosition} style={[styles.vendorLogo, { borderColor: T.border }]} />
                       ) : (
                         <View style={[styles.vendorLogo, { backgroundColor: T.primaryTint, borderColor: T.border, alignItems: 'center', justifyContent: 'center' }]}>
                           <Text style={{ fontSize: 15 }}>🍽️</Text>
@@ -616,6 +627,12 @@ export default function HomeScreen() {
                       <Text style={[styles.vendorName, { color: T.text }]} numberOfLines={1}>{v.businessName}</Text>
                       {v.verificationBadge !== 'UNVERIFIED' && (
                         <VerifBadge badge={v.verificationBadge} />
+                      )}
+                      {v.phoneVerified && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: T.success + '18', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 }}>
+                          <Ionicons name="call" size={10} color={T.success} />
+                          <Text style={{ fontSize: 9, fontWeight: '700', color: T.success, fontFamily: 'PlusJakartaSans_700Bold' }}>Phone Verified</Text>
+                        </View>
                       )}
                     </View>
                     <Text style={[styles.vendorCat, { color: T.textSec }]} numberOfLines={1}>{CATEGORY_LABEL[v.category] ?? v.category}</Text>

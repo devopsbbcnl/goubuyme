@@ -16,6 +16,7 @@ model User {
   googleId               String?             @unique
   role                   Role                @default(CUSTOMER)
   avatar                 String?
+  avatarPosition         String?
   isEmailVerified        Boolean             @default(false)
   isPhoneVerified        Boolean             @default(false)
   /// When `phone` was last proven by SMS OTP. Cleared whenever `phone` changes.
@@ -24,6 +25,8 @@ model User {
   deletedAt              DateTime?
   refreshToken           String?
   pushToken              String?
+  /// Per-category switches, e.g. {"orders":false}. A missing key means on.
+  notificationPrefs      Json?
   preferredLocale        String              @default("en")
   referralCode           String              @unique
   referredById           String?
@@ -46,6 +49,7 @@ model User {
   creditTransactions     CreditTransaction[]
   phoneOtps              PhoneOtp[]
   pushSubscriptions      PushSubscription[]
+  broadcasts             Broadcast[]
   vendorPlanChanges      VendorPlanChange[]
   crmNotesAbout          CrmNote[]           @relation("CrmNoteSubject")
   crmNotesAuthored       CrmNote[]           @relation("CrmNoteAuthor")
@@ -61,7 +65,7 @@ model User {
   marketingOptIn         Boolean             @default(true)
   /// Consent to product-usage analytics (AppEvent). When false, no events are stored for this user.
   analyticsOptIn         Boolean             @default(true)
-  segmentsCreated       Segment[]
+  segmentsCreated        Segment[]
   campaignsCreated       Campaign[]
   campaignRecipients     CampaignRecipient[]
   automationsCreated     CrmAutomation[]
@@ -113,7 +117,9 @@ model Vendor {
   slug                 String                      @unique
   description          String?
   logo                 String?
+  logoPosition         String?
   coverImage           String?
+  coverPosition        String?
   category             VendorCategory
   subcategory          String?
   address              String
@@ -234,6 +240,7 @@ model MenuItem {
   description   String?
   price         Float
   image         String?
+  imagePosition String?
   category      String?
   isAvailable   Boolean               @default(true)
   isFeatured    Boolean               @default(false)
@@ -647,15 +654,16 @@ model RiderDocument {
 }
 
 model VendorPromotion {
-  id        String   @id @default(uuid())
-  vendorId  String
-  title     String
-  imageUrl  String
-  code      String?
-  isActive  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  id            String   @id @default(uuid())
+  vendorId      String
+  title         String
+  imageUrl      String
+  imagePosition String?
+  code          String?
+  isActive      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@map("vendor_promotions")
 }
@@ -755,6 +763,8 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([userId, createdAt])
+  @@index([userId, isRead])
   @@index([isRead])
   @@index([createdAt])
   @@map("notifications")
@@ -1742,32 +1752,59 @@ model AgentConfig {
 }
 
 model AgentSuggestion {
-  id          String                @id @default(uuid())
-  agentKey    String
+  id           String                @id @default(uuid())
+  agentKey     String
   /// Action type from the agent action registry, e.g. ASSIGN_RIDER.
-  action      String
-  title       String
-  reason      String
-  payload     Json
-  orderId     String?
-  ticketId    String?
-  status      AgentSuggestionStatus @default(PENDING)
+  action       String
+  title        String
+  reason       String
+  payload      Json
+  orderId      String?
+  ticketId     String?
+  status       AgentSuggestionStatus @default(PENDING)
   /// Makes each (agent, action, situation) suggested once, across ticks and server instances.
-  dedupeKey   String                @unique
+  dedupeKey    String                @unique
   /// True when it ran without human approval (AUTO mode).
-  autoExecuted Boolean              @default(false)
-  decidedById String?
-  decidedAt   DateTime?
-  executedAt  DateTime?
-  result      Json?
-  error       String?
-  expiresAt   DateTime
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  autoExecuted Boolean               @default(false)
+  decidedById  String?
+  decidedAt    DateTime?
+  executedAt   DateTime?
+  result       Json?
+  error        String?
+  expiresAt    DateTime
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
 
   @@index([status, createdAt])
   @@index([agentKey, createdAt])
   @@index([orderId])
   @@index([ticketId])
   @@map("agent_suggestions")
+}
+
+/// A platform announcement to every active user of a role (or all). Written once
+/// when staff send it and never edited or deleted — it is the record of what the
+/// platform said and to how many people.
+model Broadcast {
+  id             String            @id @default(uuid())
+  authorId       String
+  audience       BroadcastAudience
+  title          String
+  body           String
+  /// Accounts that were sent the message (each gets an in-app Notification row).
+  recipientCount Int
+  /// Of those, how many had a push token or web subscription to be buzzed on.
+  pushCount      Int
+  createdAt      DateTime          @default(now())
+  author         User              @relation(fields: [authorId], references: [id])
+
+  @@index([createdAt])
+  @@map("broadcasts")
+}
+
+enum BroadcastAudience {
+  ALL
+  CUSTOMERS
+  VENDORS
+  RIDERS
 }

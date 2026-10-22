@@ -96,6 +96,7 @@ export default function LoginScreen() {
         approvalStatus: user.approvalStatus,
         phone: user.phone ?? undefined,
         photoUrl: user.avatar ?? undefined,
+        photoPosition: user.avatarPosition ?? undefined,
       }, refreshToken);
 
       await routeAfterLogin(role);

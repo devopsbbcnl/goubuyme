@@ -289,7 +289,7 @@ export const getOrderById = catchAsync(async (req: AuthRequest, res: Response) =
     include: {
       items: { include: { menuItem: { select: { image: true } } } },
       vendor: { select: { businessName: true, logo: true, address: true, latitude: true, longitude: true } },
-      rider: { include: { user: { select: { name: true, avatar: true, phone: true } } } },
+      rider: { include: { user: { select: { name: true, avatar: true, avatarPosition: true, phone: true } } } },
       customer: { include: { user: { select: { phone: true } } } },
     },
   });
