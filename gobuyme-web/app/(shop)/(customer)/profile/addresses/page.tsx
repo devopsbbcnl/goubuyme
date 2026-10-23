@@ -119,7 +119,7 @@ export default function AddressesPage() {
       } catch {
         setGeocodeErr('Could not confirm this location — check the address and try again.');
       } finally { setGeocoding(false); }
-    }, 600);
+    }, 1200);
   };
 
   const setField = (key: keyof typeof form, val: string) => {
@@ -437,6 +437,15 @@ export default function AddressesPage() {
                   <p style={{ fontSize: 12, color: 'var(--success)', marginTop: 5, fontWeight: 600 }}>
                     Location confirmed
                   </p>
+                )}
+                {!geocodeErr && (
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen(true)}
+                    style={{ color: 'var(--brand)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0, marginTop: 5 }}
+                  >
+                    {latLng ? 'Adjust pin on map' : 'Pick on map'}
+                  </button>
                 )}
               </div>
 
