@@ -95,7 +95,7 @@ export default function SavedAddressesScreen() {
 				setGeocodeErr('Could not confirm this location — check the address and try again.');
 			}
 			setGeocoding(false);
-		}, 600);
+		}, 1200);
 	};
 
 	const setField = (key: 'address' | 'city' | 'state', v: string) => {
@@ -436,20 +436,31 @@ export default function SavedAddressesScreen() {
 						{/* Address search */}
 						<View style={styles.addressLabelRow}>
 							<Text style={[styles.fLabel, { color: T.textSec }]}>Full Address</Text>
-							<TouchableOpacity
-								onPress={handleUseLocation}
-								disabled={locating}
-								style={styles.useLocationBtn}
-							>
-								{locating ? (
-									<ActivityIndicator size="small" color={T.primary} />
-								) : (
-									<Ionicons name="locate" size={13} color={T.primary} />
-								)}
-								<Text style={[styles.useLocationText, { color: T.primary }]}>
-									Use my location
-								</Text>
-							</TouchableOpacity>
+							<View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+								<TouchableOpacity
+									onPress={() => setPickerVisible(true)}
+									style={styles.useLocationBtn}
+								>
+									<Ionicons name="map-outline" size={13} color={T.primary} />
+									<Text style={[styles.useLocationText, { color: T.primary }]}>
+										Pick on map
+									</Text>
+								</TouchableOpacity>
+								<TouchableOpacity
+									onPress={handleUseLocation}
+									disabled={locating}
+									style={styles.useLocationBtn}
+								>
+									{locating ? (
+										<ActivityIndicator size="small" color={T.primary} />
+									) : (
+										<Ionicons name="locate" size={13} color={T.primary} />
+									)}
+									<Text style={[styles.useLocationText, { color: T.primary }]}>
+										Use my location
+									</Text>
+								</TouchableOpacity>
+							</View>
 						</View>
 
 						<View style={{ position: 'relative' }}>

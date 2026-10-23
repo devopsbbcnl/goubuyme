@@ -10,6 +10,51 @@ const MAPTILER_BASE_URL = 'https://api.maptiler.com/geocoding';
 
 const nominatimHeaders = { 'User-Agent': NOMINATIM_USER_AGENT };
 
+// Nominatim's public instance allows at most 1 request/second. Calls are chained through
+// this promise so concurrent users (and the multi-candidate fallback below) can't burst.
+const NOMINATIM_MIN_GAP_MS = 1100;
+let nominatimQueue: Promise<unknown> = Promise.resolve();
+
+function throttleNominatim<T>(fn: () => Promise<T>): Promise<T> {
+  const run = nominatimQueue.then(fn, fn);
+  nominatimQueue = run.then(
+    () => new Promise((resolve) => setTimeout(resolve, NOMINATIM_MIN_GAP_MS)),
+    () => new Promise((resolve) => setTimeout(resolve, NOMINATIM_MIN_GAP_MS)),
+  );
+  return run;
+}
+
+// In-memory result cache, keyed by provider + normalized query. Hits skip the network
+// entirely; misses are cached briefly so a retry loop doesn't re-hit Nominatim/MapTiler
+// for an address neither can resolve.
+const HIT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const MISS_TTL_MS = 10 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 2000;
+const geocodeCache = new Map<string, { value: VendorCoordinates | null; expires: number }>();
+
+function cacheKey(provider: string, query: string): string {
+  return `${provider}:${query.trim().toLowerCase().replace(/\s+/g, ' ')}`;
+}
+
+function cacheGet(key: string): { value: VendorCoordinates | null } | undefined {
+  const entry = geocodeCache.get(key);
+  if (!entry) return undefined;
+  if (entry.expires < Date.now()) {
+    geocodeCache.delete(key);
+    return undefined;
+  }
+  return { value: entry.value };
+}
+
+function cacheSet(key: string, value: VendorCoordinates | null): void {
+  if (geocodeCache.size >= CACHE_MAX_ENTRIES) {
+    // Map iterates in insertion order, so the first key is the oldest.
+    const oldest = geocodeCache.keys().next().value;
+    if (oldest !== undefined) geocodeCache.delete(oldest);
+  }
+  geocodeCache.set(key, { value, expires: Date.now() + (value ? HIT_TTL_MS : MISS_TTL_MS) });
+}
+
 export interface VendorCoordinates {
   lat: number;
   lng: number;
@@ -44,16 +89,24 @@ function extractCityStateFromNominatim(address?: NominatimAddress): { city: stri
 }
 
 async function queryNominatim(query: string): Promise<VendorCoordinates | null> {
+  const key = cacheKey('nominatim', query);
+  const cached = cacheGet(key);
+  if (cached) return cached.value;
+
   try {
-    const response = await axios.get(`${NOMINATIM_BASE_URL}/search`, {
-      params: { q: query, format: 'json', countrycodes: 'ng', limit: 1 },
-      headers: nominatimHeaders,
-      timeout: 10000,
-    });
+    const response = await throttleNominatim(() =>
+      axios.get(`${NOMINATIM_BASE_URL}/search`, {
+        params: { q: query, format: 'json', countrycodes: 'ng', limit: 1 },
+        headers: nominatimHeaders,
+        timeout: 10000,
+      }),
+    );
 
     const results = response.data as NominatimResult[];
     if (!Array.isArray(results) || results.length === 0) {
-      console.warn('[Geocode] Nominatim returned no results for query:', query);
+      // Expected for informal NG addresses — stdout, not the pm2 error log.
+      console.info('[Geocode] Nominatim returned no results for query:', query);
+      cacheSet(key, null);
       return null;
     }
 
@@ -64,7 +117,9 @@ async function queryNominatim(query: string): Promise<VendorCoordinates | null> 
       return null;
     }
 
-    return { lat, lng };
+    const coords = { lat, lng };
+    cacheSet(key, coords);
+    return coords;
   } catch (error) {
     const message = error instanceof Error ? error.message : JSON.stringify(error);
     console.warn('[Geocode] queryNominatim failed for query:', query, message);
@@ -76,6 +131,10 @@ async function queryNominatim(query: string): Promise<VendorCoordinates | null> 
 // query (rate limited, informal NG addresses). Reuses the same MapTiler account already
 // paid for the mobile maps.
 async function queryMapTiler(query: string): Promise<VendorCoordinates | null> {
+  const key = cacheKey('maptiler', query);
+  const cached = cacheGet(key);
+  if (cached) return cached.value;
+
   try {
     const apiKey = process.env.MAPTILER_API_KEY;
     if (!apiKey) {
@@ -90,12 +149,17 @@ async function queryMapTiler(query: string): Promise<VendorCoordinates | null> {
 
     const feature = response.data?.features?.[0];
     const coords = feature?.geometry?.coordinates;
-    if (!Array.isArray(coords) || coords.length < 2) return null;
+    if (!Array.isArray(coords) || coords.length < 2) {
+      cacheSet(key, null);
+      return null;
+    }
 
     const [lng, lat] = coords;
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
-    return { lat, lng };
+    const result = { lat, lng };
+    cacheSet(key, result);
+    return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : JSON.stringify(error);
     console.warn('[Geocode] queryMapTiler failed for query:', query, message);
@@ -115,11 +179,13 @@ export interface GeocodeSuggestion {
 
 async function searchAddressSuggestionsNominatim(query: string): Promise<GeocodeSuggestion[]> {
   try {
-    const response = await axios.get(`${NOMINATIM_BASE_URL}/search`, {
-      params: { q: query, format: 'json', countrycodes: 'ng', limit: 5, addressdetails: 1 },
-      headers: nominatimHeaders,
-      timeout: 10000,
-    });
+    const response = await throttleNominatim(() =>
+      axios.get(`${NOMINATIM_BASE_URL}/search`, {
+        params: { q: query, format: 'json', countrycodes: 'ng', limit: 5, addressdetails: 1 },
+        headers: nominatimHeaders,
+        timeout: 10000,
+      }),
+    );
 
     const results = response.data as NominatimResult[];
     if (!Array.isArray(results)) return [];
@@ -234,11 +300,13 @@ export async function reverseGeocodeCoords(
   lng: number,
 ): Promise<{ address: string; city: string; state: string } | null> {
   try {
-    const response = await axios.get(`${NOMINATIM_BASE_URL}/reverse`, {
-      params: { lat, lon: lng, format: 'json', addressdetails: 1 },
-      headers: nominatimHeaders,
-      timeout: 10000,
-    });
+    const response = await throttleNominatim(() =>
+      axios.get(`${NOMINATIM_BASE_URL}/reverse`, {
+        params: { lat, lon: lng, format: 'json', addressdetails: 1 },
+        headers: nominatimHeaders,
+        timeout: 10000,
+      }),
+    );
 
     const result = response.data as NominatimResult | undefined;
     if (result && !(result as any).error) {
