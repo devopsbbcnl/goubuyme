@@ -9,7 +9,7 @@ import {
   isMaterialChange, needsBypass, qualityWarnings, reviewTarget, statusAfterMaterialEdit, submitTarget,
 } from '../../services/smois/workflow';
 import {
-  access, approverUserIds, date, fail, getSettings, handle, httpUrl, isAssignedToAccount, managementUserIds, mediaList,
+  access, approverUserIds, assertAssetsUsable, date, fail, getSettings, handle, httpUrl, isAssignedToAccount, managementUserIds, mediaList,
   nameMap, notifyMany, oneOf, reqStr, str, strList,
 } from './common';
 
@@ -129,6 +129,7 @@ export const createContent = handle(async (req, res) => {
   if (categoryId && !(await prisma.smoisCategory.findFirst({ where: { id: categoryId, isActive: true }, select: { id: true } }))) fail(400, 'Unknown category.');
   const inputs = Array.isArray(b.variants) ? (b.variants as Record<string, unknown>[]) : [];
   const parsed = await Promise.all(inputs.map(parseVariantInput));
+  for (const p of parsed) await assertAssetsUsable((p.mediaUrls as unknown as { url: string }[]).map((m) => m.url));
   for (const p of parsed) {
     if (!(await canUseAccount(req, p.accountId))) fail(403, 'You are not assigned to one of those accounts.');
   }
@@ -242,6 +243,7 @@ export const addVariant = handle(async (req, res) => {
   if (!c || c.archivedAt) return fail(404, 'Content not found.');
   const a = access(req);
   const p = await parseVariantInput(req.body ?? {});
+  await assertAssetsUsable((p.mediaUrls as unknown as { url: string }[]).map((m) => m.url));
   if (!(await canUseAccount(req, p.accountId))) fail(403, 'You are not assigned to that account.');
   if (await prisma.smoisVariant.findFirst({ where: { contentId: c.id, accountId: p.accountId, status: { notIn: ['CANCELLED', 'ARCHIVED', 'REJECTED'] } }, select: { id: true } })) {
     fail(409, 'This brief already has a live version for that account.');
@@ -279,6 +281,7 @@ export const updateVariant = handle(async (req, res) => {
     if (!(await canUseAccount(req, acc!.id))) fail(403, 'You are not assigned to that account.');
     next.accountId = acc!.id;
   }
+  if ('mediaUrls' in b) await assertAssetsUsable((next.mediaUrls as unknown as { url: string }[]).map((m) => m.url));
   const material = isMaterialChange(
     { caption: v.caption, hashtags: v.hashtags, mentions: v.mentions, mediaUrls: v.mediaUrls, linkUrl: v.linkUrl, accountId: v.accountId },
     { ...next, mediaUrls: next.mediaUrls },

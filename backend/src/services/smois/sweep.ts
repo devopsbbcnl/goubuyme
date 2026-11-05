@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../../config/db';
 import { approverUserIds, getSettings, managementUserIds, notifyMany } from '../../controllers/smois/common';
 import { occurrenceDue, TASK_DONE } from './workflow';
+import { negativeSpike } from './community';
 import { smoisAudit } from './audit';
 import { claimJobRun } from '../../utils/jobLock';
 import { lastFinishedPeriodStart } from '../../controllers/smois/report.controller';
@@ -115,4 +116,46 @@ export const sweepReportsDue = async (now = new Date()): Promise<void> => {
       await notifyMany(await managementUserIds(), { title: 'Monthly report due', body: 'The department report for the month starting ' + month + ' is ready to generate.', data: { link: '/smois/reports' } });
     }
   }
+};
+
+/** Conversations that passed their response target with no reply. Each is flagged once, to its owner or to management. */
+export const sweepResponseTargets = async (now = new Date()): Promise<void> => {
+  const late = await prisma.smoisConversation.findMany({
+    where: { status: { in: ['NEW', 'OPEN', 'ASSIGNED', 'IN_PROGRESS', 'ESCALATED'] }, firstResponseAt: null, slaDueAt: { lt: now }, slaBreachNotifiedAt: null },
+    select: { id: true, number: true, priority: true, assignedMemberId: true, account: { select: { name: true } } }, take: 100,
+  });
+  if (!late.length) return;
+  const mgmt = await managementUserIds();
+  for (const c of late) {
+    await prisma.smoisConversation.update({ where: { id: c.id }, data: { slaBreachNotifiedAt: now } });
+    const owner = c.assignedMemberId ? await prisma.smoisMember.findUnique({ where: { id: c.assignedMemberId }, select: { userId: true } }) : null;
+    await smoisAudit(null, { action: 'RESPONSE_TARGET_MISSED', entity: 'SmoisConversation', entityId: c.id, userId: null, meta: { priority: c.priority } });
+    await notifyMany(owner ? [owner.userId, ...(c.priority === 'HIGH' ? mgmt : [])] : mgmt, { title: 'Response target missed', body: '#' + c.number + ' on ' + c.account.name + ' (' + c.priority.toLowerCase() + ') has had no reply.', data: { link: '/smois/inbox?open=' + c.id } });
+  }
+};
+
+/** Library assets whose usage rights end within two weeks (or already have): tell the uploader and management once. */
+export const sweepAssetExpiry = async (now = new Date()): Promise<void> => {
+  const soon = new Date(now.getTime() + 14 * 86_400_000);
+  const assets = await prisma.smoisAsset.findMany({ where: { archivedAt: null, expiresAt: { lte: soon }, expiryNotifiedAt: null }, select: { id: true, name: true, expiresAt: true, uploadedById: true }, take: 100 });
+  if (!assets.length) return;
+  const mgmt = await managementUserIds();
+  for (const a of assets) {
+    await prisma.smoisAsset.update({ where: { id: a.id }, data: { expiryNotifiedAt: now } });
+    const expired = !!a.expiresAt && a.expiresAt <= now;
+    await notifyMany([a.uploadedById, ...mgmt], { title: expired ? 'Library asset expired' : 'Library asset expiring', body: '"' + a.name + '" ' + (expired ? 'has expired and can no longer be attached to content.' : 'expires on ' + a.expiresAt!.toLocaleDateString('en-NG') + '. Renew it or replace it.'), data: { link: '/smois/media' } });
+  }
+};
+
+/** A sudden run of negative mentions: tell management once a day. */
+export const sweepReputation = async (now = new Date()): Promise<void> => {
+  const day = 86_400_000;
+  const [last, prev] = await Promise.all([
+    prisma.smoisMention.count({ where: { sentiment: 'NEGATIVE', occurredAt: { gte: new Date(now.getTime() - day) } } }),
+    prisma.smoisMention.count({ where: { sentiment: 'NEGATIVE', occurredAt: { gte: new Date(now.getTime() - 8 * day), lt: new Date(now.getTime() - day) } } }),
+  ]);
+  const spike = negativeSpike(last, prev);
+  if (!spike.spike) return;
+  if (!(await claimJobRun('smois-negative-spike:' + lagosYmd(now)))) return;
+  await notifyMany(await managementUserIds(), { title: 'Reputation alert', body: last + ' negative mentions in the last 24 hours (usual: about ' + spike.avgDaily + ' a day). Mentions are logged by staff, so check the listening page.', data: { link: '/smois/listening' } });
 };

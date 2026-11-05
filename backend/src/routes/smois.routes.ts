@@ -9,6 +9,10 @@ import * as dash from '../controllers/smois/dashboard.controller';
 import * as analytics from '../controllers/smois/analytics.controller';
 import * as perf from '../controllers/smois/performance.controller';
 import * as reports from '../controllers/smois/report.controller';
+import * as inbox from '../controllers/smois/inbox.controller';
+import * as campaigns from '../controllers/smois/campaign.controller';
+import * as assets from '../controllers/smois/asset.controller';
+import * as monitoring from '../controllers/smois/monitoring.controller';
 
 const router = Router();
 const any = smoisAuth();
@@ -106,6 +110,58 @@ router.post('/reports/:id/refresh',             ...any, reports.refreshReport);
 router.post('/reports/:id/submit',              ...any, reports.submitReport);
 router.post('/reports/:id/review',              ...smoisAuth('reviewReports'), reports.reviewReport);
 router.get('/reports/:id/export',              ...any, reports.exportReport);
+
+// Inbox, contacts (people who wrote to the company accounts; personal data, so handled by staff who work the inbox)
+router.get('/inbox/summary',                 ...smoisAuth('handleInbox'), inbox.inboxSummary);
+router.get('/inbox',                         ...smoisAuth('handleInbox'), inbox.listInbox);
+router.post('/inbox',                         ...smoisAuth('handleInbox'), inbox.logConversation);
+router.get('/inbox/:id',                     ...smoisAuth('handleInbox'), inbox.getConversation);
+router.patch('/inbox/:id',                     ...smoisAuth('handleInbox'), inbox.updateConversation);
+router.post('/inbox/:id/assign',              ...smoisAuth('handleInbox'), inbox.assignConversation);
+router.post('/inbox/:id/messages',            ...smoisAuth('handleInbox'), inbox.addMessage);
+router.post('/inbox/:id/status',              ...smoisAuth('handleInbox'), inbox.setStatus);
+router.post('/inbox/:id/escalate',            ...smoisAuth('handleInbox'), inbox.escalate);
+router.get('/saved-replies',                 ...smoisAuth('handleInbox'), inbox.listSavedReplies);
+router.post('/saved-replies',                 ...smoisAuth('handleInbox'), inbox.createSavedReply);
+router.delete('/saved-replies/:id',             ...smoisAuth('handleInbox'), inbox.deleteSavedReply);
+router.get('/contacts',                      ...smoisAuth('handleInbox'), inbox.listContacts);
+router.post('/contacts',                      ...smoisAuth('handleInbox'), inbox.createContact);
+router.get('/contacts/:id',                  ...smoisAuth('handleInbox'), inbox.getContact);
+router.patch('/contacts/:id',                  ...smoisAuth('handleInbox'), inbox.updateContact);
+router.post('/contacts/:id/anonymize',        ...smoisAuth('manageListening'), inbox.anonymizeContact);
+
+// Campaigns
+router.get('/campaigns',                     ...smoisAuth('viewCampaigns'), campaigns.listCampaigns);
+router.post('/campaigns',                     ...smoisAuth('manageCampaigns'), campaigns.createCampaign);
+router.get('/campaigns/:id',                 ...smoisAuth('viewCampaigns'), campaigns.getCampaign);
+router.patch('/campaigns/:id',                 ...smoisAuth('manageCampaigns'), campaigns.updateCampaign);
+router.post('/campaigns/:id/status',          ...smoisAuth('manageCampaigns'), campaigns.setCampaignStatus);
+router.post('/campaigns/:id/results',         ...smoisAuth('viewCampaigns'), campaigns.addResult);
+router.post('/campaigns/:id/content',         ...smoisAuth('viewCampaigns'), campaigns.linkContent);
+router.get('/campaigns/:id/summary',         ...smoisAuth('viewCampaigns'), campaigns.getSummary);
+
+// Media and brand asset library
+router.get('/assets',                        ...any, assets.listAssets);
+router.post('/assets',                        ...smoisAuth('createContent'), assets.createAsset);
+router.get('/assets/:id',                    ...any, assets.getAsset);
+router.patch('/assets/:id',                    ...smoisAuth('createContent'), assets.updateAsset);
+router.post('/assets/:id/approve',            ...smoisAuth('approve'), assets.reviewAsset);
+router.post('/assets/:id/version',            ...smoisAuth('createContent'), assets.addVersion);
+router.post('/assets/:id/archive',            ...smoisAuth('createContent'), assets.archiveAsset);
+
+// Social listening and competitors (logged by people; no automated monitoring)
+router.get('/keywords',                      ...smoisAuth('viewAnalytics'), monitoring.listKeywords);
+router.post('/keywords',                      ...smoisAuth('manageListening'), monitoring.createKeyword);
+router.patch('/keywords/:id',                  ...smoisAuth('manageListening'), monitoring.updateKeyword);
+router.get('/listening/overview',            ...smoisAuth('viewAnalytics'), monitoring.listeningOverview);
+router.get('/mentions',                      ...smoisAuth('viewAnalytics'), monitoring.listMentions);
+router.post('/mentions',                      ...smoisAuth('handleInbox'), monitoring.logMention);
+router.patch('/mentions/:id',                  ...smoisAuth('handleInbox'), monitoring.updateMention);
+router.get('/competitors',                   ...smoisAuth('viewAnalytics'), monitoring.listCompetitors);
+router.post('/competitors',                   ...smoisAuth('manageListening'), monitoring.createCompetitor);
+router.patch('/competitors/:id',               ...smoisAuth('manageListening'), monitoring.updateCompetitor);
+router.get('/competitors/:id/snapshots',     ...smoisAuth('viewAnalytics'), monitoring.listCompetitorSnapshots);
+router.post('/competitors/:id/snapshots',     ...smoisAuth('recordMetrics'), monitoring.addCompetitorSnapshot);
 
 // Activity trail (read-only: there is deliberately no write or delete endpoint)
 router.get('/activity',                ...smoisAuth('viewActivity'), dash.listActivity);

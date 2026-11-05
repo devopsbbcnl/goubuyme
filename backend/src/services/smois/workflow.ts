@@ -40,7 +40,11 @@ export type Capability =
   | 'correctMetrics'   // change a recorded reading (management only, with a reason)
   | 'manageTargets'    // set KPI targets
   | 'viewPerformance'  // everyone's performance and evaluations
-  | 'reviewReports';   // approve or return reports
+  | 'reviewReports'    // approve or return reports
+  | 'handleInbox'      // see and work the shared inbox and contacts, log mentions
+  | 'manageCampaigns'  // create and run campaigns
+  | 'viewCampaigns'    // read campaigns
+  | 'manageListening'; // keywords and competitors
 
 export const can = (a: SmoisAccess, cap: Capability): boolean => {
   const L = a.level;
@@ -57,6 +61,10 @@ export const can = (a: SmoisAccess, cap: Capability): boolean => {
     case 'viewActivity': return L !== 'VIEWER' && L !== 'REVIEWER';
     case 'viewAnalytics': return L === 'SUPER' || L === 'MANAGEMENT' || L === 'MANAGER' || L === 'VIEWER';
     case 'recordMetrics': return L === 'SUPER' || L === 'MANAGEMENT' || L === 'MANAGER';
+    case 'handleInbox': return L === 'SUPER' || L === 'MANAGEMENT' || L === 'MANAGER';
+    case 'viewCampaigns': return L === 'SUPER' || L === 'MANAGEMENT' || L === 'MANAGER' || L === 'VIEWER';
+    case 'manageCampaigns':
+    case 'manageListening':
     case 'correctMetrics':
     case 'manageTargets':
     case 'viewPerformance':

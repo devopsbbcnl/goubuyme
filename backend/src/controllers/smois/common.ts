@@ -162,3 +162,14 @@ export const visibleAccountIds = async (a: SmoisAccess, filters: { platform?: st
   }
   return prisma.smoisAccount.findMany({ where, select: { id: true, name: true, platform: true }, orderBy: [{ platform: 'asc' }, { name: 'asc' }] });
 };
+
+/** Refuse media that comes from a library asset which has expired or been rejected. Links not in the library are left alone. */
+export const assertAssetsUsable = async (urls: string[]): Promise<void> => {
+  if (!urls.length) return;
+  const assets = await prisma.smoisAsset.findMany({ where: { url: { in: urls } }, select: { name: true, expiresAt: true, approvalStatus: true } });
+  const now = new Date();
+  for (const a of assets) {
+    if (a.approvalStatus === 'REJECTED') fail(400, '"' + a.name + '" was rejected in the media library and cannot be used.');
+    if (a.expiresAt && a.expiresAt <= now) fail(400, '"' + a.name + '" has expired in the media library (usage rights ended). Choose another asset.');
+  }
+};

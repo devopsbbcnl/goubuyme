@@ -6,9 +6,10 @@ import { apiResponse } from '../../utils/apiResponse';
 import { smoisAudit } from '../../services/smois/audit';
 import { METRIC_DICTIONARY, METRIC_VERSION, daysBetweenInclusive, parseYmd, previousPeriod, ymd } from '../../services/smois/analytics';
 import {
-  accountSummaries, groupPerformance, memberStats, rankedPosts, rollup, targetActual, topAndBottom,
+  accountSummaries, groupPerformance, loadSlaConfig, memberStats, rankedPosts, rollup, targetActual, topAndBottom,
 } from '../../services/smois/insights';
 import { can } from '../../services/smois/workflow';
+import { campaignTotals, responseMinutes } from '../../services/smois/community';
 import { access, fail, handle, lagosYmd, managementUserIds, nameMap, notifyMany, oneOf, str } from './common';
 
 const TYPES: SmoisReportType[] = ['WEEKLY_MANAGER', 'MONTHLY_DEPARTMENT', 'QUARTERLY_DEPARTMENT', 'ANNUAL_DEPARTMENT'];
@@ -54,8 +55,7 @@ export const lastFinishedPeriodStart = (type: SmoisReportType, today: string): s
 // ── Data generation (only counts recorded SMOIS data) ───────────────────────
 
 const UNAVAILABLE = [
-  'Inbox volume and response times (shared inbox is a later phase)',
-  'Campaign results (campaign management is a later phase)',
+  'Inbox and mention figures are what staff logged, not a feed from the platforms',
   'Platform-verified metrics (no platform API is connected; readings are entered by hand)',
 ];
 
@@ -88,6 +88,7 @@ export const buildReportData = async (type: SmoisReportType, from: string, to: s
       accounts: sums.map(flatSummary), content: stats.content,
       publishedPosts: published.map((p) => ({ title: p.content.title, account: p.account.name, platform: p.account.platform, url: p.publishedUrl })),
       platformsWorkedOn: [...new Set([...platformsWorked.map((x) => x.account.platform), ...published.map((x) => x.account.platform)])],
+      community: { responded: stats.community.responded, withinTarget: stats.community.withinTarget },
       tasks: stats.tasks, outstandingTasks: outstanding.map((t) => ({ title: t.title, status: t.status, deadline: t.deadline?.toISOString() ?? null, overdue: !!t.deadline && t.deadline < now })),
     };
   }
@@ -119,8 +120,22 @@ export const buildReportData = async (type: SmoisReportType, from: string, to: s
   const targets = await prisma.smoisTarget.findMany({ where: { isActive: true, startsAt: { lte: toD }, endsAt: { gte: fromD } } });
   const targetRows = await Promise.all(targets.map(async (t) => ({ name: t.name, metric: t.metric, scope: t.scope, target: t.targetValue, ...(await targetActual(t, now)) })));
 
+  const cfg = await loadSlaConfig();
+  const convs = await prisma.smoisConversation.findMany({ where: { receivedAt: inRange }, select: { type: true, priority: true, status: true, receivedAt: true, firstResponseAt: true, slaDueAt: true, resolvedAt: true } });
+  const answeredC = convs.filter((c) => c.firstResponseAt);
+  const mins = answeredC.map((c) => responseMinutes(c.receivedAt, c.firstResponseAt as Date, c.priority, cfg));
+  const community = {
+    received: convs.length, resolved: convs.filter((c) => c.resolvedAt).length, escalated: convs.filter((c) => c.status === 'ESCALATED').length,
+    unanswered: convs.filter((c) => !c.firstResponseAt && !['RESOLVED', 'CLOSED'].includes(c.status)).length,
+    avgFirstResponseMinutes: mins.length ? Math.round(mins.reduce((x, y) => x + y, 0) / mins.length) : null,
+    withinTargetPct: answeredC.length ? Math.round((answeredC.filter((c) => c.slaDueAt && (c.firstResponseAt as Date) <= c.slaDueAt).length / answeredC.length) * 100) : null,
+  };
+  const camps = await prisma.smoisCampaign.findMany({ where: { startsAt: { lte: toD }, endsAt: { gte: fromD }, status: { notIn: ['CANCELLED'] } }, include: { results: true }, orderBy: { startsAt: 'asc' } });
+  const campaigns = camps.map((c) => { const t = campaignTotals(c.results, c.budget); return { name: c.name, status: c.status, type: c.type, budget: c.budget, spent: t.paid.spend, paidReach: t.paid.reach, organicReach: t.organic.reach, leads: t.paid.leads, costPerLead: t.paid.costPerLead, returnOnAdSpend: t.paid.returnOnAdSpend }; });
+  const sentiment = await prisma.smoisMention.groupBy({ by: ['sentiment'], where: { occurredAt: inRange }, _count: true });
+
   return {
-    ...base, kind: 'department', author: author.name, previousPeriod: prev,
+    ...base, kind: 'department', community, campaigns, mentions: Object.fromEntries(sentiment.map((s) => [s.sentiment.toLowerCase(), s._count])), author: author.name, previousPeriod: prev,
     audience: { current, previous }, platforms, accounts: sums.map(flatSummary),
     content: { planned, created, approved, published, failedPublications: failed, rejected },
     topPosts: ranked.top, bottomPosts: ranked.bottom, postsMeasured: ranked.measured, postsUnmeasured: ranked.unmeasured,
@@ -296,6 +311,18 @@ export const reportToCsv = (r: { type: SmoisReportType; periodStart: Date; perio
     for (const t of d.targets) L.push(row(t.name, t.metric, t.target, na(t.actual), na(t.percent), t.status));
   }
 
+  if (d.community) {
+    L.push('', row('Community engagement', 'Value'));
+    for (const [k, v] of Object.entries(d.community)) L.push(row(k, na(v)));
+  }
+  if (d.mentions && Object.keys(d.mentions).length) {
+    L.push('', row('Logged mentions by sentiment (labelled by staff)', 'Count'));
+    for (const [k, v] of Object.entries(d.mentions)) L.push(row(k, v));
+  }
+  if (d.campaigns?.length) {
+    L.push('', row('Campaign', 'Status', 'Budget', 'Spent (paid)', 'Paid reach', 'Organic reach', 'Leads', 'Cost per lead', 'Return on ad spend'));
+    for (const c of d.campaigns) L.push(row(c.name, c.status, na(c.budget), na(c.spent), na(c.paidReach), na(c.organicReach), na(c.leads), na(c.costPerLead), na(c.returnOnAdSpend)));
+  }
   L.push('', row('Commentary'));
   for (const [k, v] of Object.entries((r.commentary ?? {}) as Record<string, string>)) if (v) L.push(row(k, v));
   L.push('', row('Not available in this report'));

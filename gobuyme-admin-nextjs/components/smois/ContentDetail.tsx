@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
 import { cloudinaryUpload } from '@/lib/cloudinaryUpload';
 import {
-  Btn, Empty, Field, Input, Notice, Pill, PlatformTag, Select, StatusPill, Tabs, TextArea,
+  Btn, Empty, Field, Input, Notice, Pill, PlatformTag, Select, StatusPill, Tabs, TextArea, Thumb,
   fmtDateTime, fromLocalInput, pretty, toLocalInput, useAction, useLoad, useSmois,
 } from './ui';
 
@@ -87,6 +87,7 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
   const [planned, setPlanned] = useState(v.plannedAt ? toLocalInput(v.plannedAt) : '');
   const [reason, setReason] = useState('');
   const [upErr, setUpErr] = useState('');
+  const [picking, setPicking] = useState(false);
 
   useEffect(() => { setError(''); setInfo(''); }, [panel, tab, setError]);
 
@@ -171,14 +172,13 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
           </div>
           <Field label="Media (one link per line)">
             <TextArea rows={3} value={media} disabled={!v.actions.edit} onChange={(e) => setMedia(e.target.value)} placeholder="https://…" />
-            {v.actions.edit && <div style={{ marginTop: 6 }}><input type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0])} style={{ fontSize: 12, color: T.textSec }} /></div>}
+            {v.actions.edit && <div style={{ marginTop: 6, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}><input type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0])} style={{ fontSize: 12, color: T.textSec }} /><Btn small onClick={() => setPicking(true)}>Choose from the library</Btn></div>}
             {upErr && <div style={{ fontSize: 11, color: T.error, marginTop: 4 }}>{upErr}</div>}
           </Field>
           {v.mediaUrls.length > 0 && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
             {v.mediaUrls.map((m) => /\.(mp4|mov|webm)(\?|$)/i.test(m.url)
               ? <a key={m.url} href={m.url} target="_blank" rel="noreferrer" style={{ color: T.primary, fontSize: 12 }}>🎬 {m.url.slice(-30)}</a>
-              // eslint-disable-next-line @next/next/no-img-element
-              : <img key={m.url} src={m.url} alt="" style={{ height: 72, borderRadius: 4, border: `1px solid ${T.border}` }} />)}
+              : <Thumb key={m.url} src={m.url} alt="" style={{ height: 72, borderRadius: 4, border: `1px solid ${T.border}` }} />)}
           </div>}
           {v.actions.edit && (
             <>
@@ -189,6 +189,8 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
           )}
         </>
       )}
+
+      {picking && <LibraryPicker onClose={() => setPicking(false)} onPick={(url) => { setMedia((m) => (m ? `${m}\n${url}` : url)); setPicking(false); }} />}
 
       {tab === 'reviews' && (v.reviews.length === 0 ? <Empty>No reviews yet.</Empty> : v.reviews.map((r) => (
         <div key={r.id} style={{ padding: '10px 0', borderTop: `1px solid ${T.border}`, fontSize: 12 }}>
@@ -343,5 +345,35 @@ function PostResults({ variantId }: { variantId: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+interface LibAsset { id: string; name: string; url: string; fileType: string; category: string; usageRestrictions: string | null }
+
+/** Only approved, in-date assets are offered; the server also refuses expired or rejected ones. */
+function LibraryPicker({ onClose, onPick }: { onClose: () => void; onPick: (url: string) => void }) {
+  const { theme: T } = useTheme();
+  const [q, setQ] = useState('');
+  const { data } = useLoad(() => api.get<{ data: { items: LibAsset[] } }>(`/admin/smois/assets?usable=1${q ? `&q=${encodeURIComponent(q)}` : ''}`).then((r) => r.data.items), [q]);
+  return (
+    <Modal open onClose={onClose} title="Choose from the media library" width={720}>
+      <div style={{ padding: 20 }}>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or tag" />
+        {!data ? <Empty>Loading…</Empty> : data.length === 0 ? <Empty>No approved assets match. Add and approve assets in the Media Library.</Empty> : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginTop: 12 }}>
+            {data.map((a) => (
+              <div key={a.id} onClick={() => onPick(a.url)} style={{ cursor: 'pointer', border: `1px solid ${T.border}`, borderRadius: 4, background: T.surface }}>
+                <div style={{ height: 90, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {a.fileType === 'IMAGE'
+                    ? <Thumb src={a.url} alt={a.name} style={{ maxWidth: '100%', maxHeight: '100%' }} />
+                    : <span style={{ fontSize: 26 }}>{a.fileType === 'VIDEO' ? '🎬' : '📄'}</span>}
+                </div>
+                <div style={{ padding: 8, fontSize: 12, color: T.text }}>{a.name}{a.usageRestrictions && <div style={{ color: T.warning, fontSize: 10 }}>{a.usageRestrictions}</div>}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }

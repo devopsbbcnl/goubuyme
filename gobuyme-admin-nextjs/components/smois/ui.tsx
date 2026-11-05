@@ -12,7 +12,7 @@ export interface SmoisMe {
   memberId: string | null;
   canEmergencyPublish: boolean;
   unreadNotifications: number;
-  can: Record<'createContent' | 'approve' | 'publish' | 'manageTasks' | 'completeTasks' | 'manageAccounts' | 'manageTeam' | 'configure' | 'viewAll' | 'viewActivity' | 'viewAnalytics' | 'recordMetrics' | 'correctMetrics' | 'manageTargets' | 'viewPerformance' | 'reviewReports', boolean>;
+  can: Record<'createContent' | 'approve' | 'publish' | 'manageTasks' | 'completeTasks' | 'manageAccounts' | 'manageTeam' | 'configure' | 'viewAll' | 'viewActivity' | 'viewAnalytics' | 'recordMetrics' | 'correctMetrics' | 'manageTargets' | 'viewPerformance' | 'reviewReports' | 'handleInbox' | 'manageCampaigns' | 'viewCampaigns' | 'manageListening', boolean>;
 }
 export interface Person { memberId: string | null; userId: string; name: string; role: string; canApprove: boolean; canPublish: boolean }
 
@@ -299,4 +299,22 @@ export function LineChart({ points, height = 140 }: { points: { label: string; v
       </div>
     </div>
   );
+}
+
+/**
+ * Image preview that degrades gracefully. The site only loads images from approved hosts (Cloudinary and a few
+ * others), so a link pasted from elsewhere still works as a link but cannot be previewed here.
+ */
+export function Thumb({ src, alt, style }: { src: string; alt: string; style?: CSSProperties }) {
+  const { theme: T } = useTheme();
+  const [bad, setBad] = useState(false);
+  if (bad) {
+    return (
+      <span title="This image is hosted somewhere the admin site does not preview. The link still works." style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: T.textMuted, fontSize: 11, textAlign: 'center', padding: 6 }}>
+        <span style={{ fontSize: 26 }}>🖼️</span>No preview
+      </span>
+    );
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={alt} onError={() => setBad(true)} style={style} />;
 }

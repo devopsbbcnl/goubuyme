@@ -7,6 +7,8 @@ import {
   postEngagementRate, previousPeriod, scorecard, summarize, targetProgress, ymd,
 } from './analytics';
 import { TASK_DONE } from './workflow';
+import { SlaConfig, responseMinutes } from './community';
+import { RATE_METRICS } from './analytics';
 
 const LOOKBACK_DAYS = 400;
 const DAY = 86_400_000;
@@ -125,11 +127,18 @@ export const rankedPosts = async (accountIds: string[], from: Date, to: Date): P
 
 // ── People ──────────────────────────────────────────────────────────────────
 
+/** Response-target settings, in the shape the community rules expect. */
+export const loadSlaConfig = async (): Promise<SlaConfig> => {
+  const s = await prisma.smoisSettings.upsert({ where: { id: 'default' }, create: { id: 'default' }, update: {} });
+  return { high: s.slaHighMinutes, standard: s.slaStandardMinutes, general: s.slaGeneralMinutes, hours: { startHour: s.businessStartHour, endHour: s.businessEndHour, days: s.businessDays } };
+};
+
 export interface MemberStats {
   tasks: { assigned: number; eligible: number; completed: number; onTime: number; overdue: number; open: number };
   content: { created: number; submitted: number; approved: number; rejected: number; revisionRequests: number; published: number };
   reviews: { reviewed: number; approved: number };
   reports: { due: number; submitted: number };
+  community: { responded: number; withinTarget: number };
   inputs: ScoreInputs;
 }
 
@@ -141,7 +150,7 @@ export const weeksIn = (from: Date, to: Date, now = new Date()): number => {
 
 export const memberStats = async (memberId: string, userId: string, from: Date, to: Date, now = new Date()): Promise<MemberStats> => {
   const inRange = { gte: from, lte: to };
-  const [assigned, doneTasks, overdueOpen, open, created, submitted, approvedV, publishedV, reviews, weeklyReports] = await Promise.all([
+  const [assigned, doneTasks, overdueOpen, open, created, submitted, approvedV, publishedV, reviews, weeklyReports, responses] = await Promise.all([
     prisma.smoisTask.count({ where: { assigneeId: memberId, createdAt: inRange } }),
     prisma.smoisTask.findMany({ where: { assigneeId: memberId, status: 'COMPLETED', completedAt: inRange }, select: { completedAt: true, deadline: true } }),
     prisma.smoisTask.count({ where: { assigneeId: memberId, status: { notIn: TASK_DONE }, deadline: { lt: now } } }),
@@ -152,6 +161,7 @@ export const memberStats = async (memberId: string, userId: string, from: Date, 
     prisma.smoisVariant.count({ where: { creatorId: userId, status: 'PUBLISHED', publishedAt: inRange } }),
     prisma.smoisReview.findMany({ where: { createdAt: inRange, emergencyBypass: false, variant: { creatorId: userId } }, select: { decision: true } }),
     prisma.smoisReport.count({ where: { authorId: userId, type: 'WEEKLY_MANAGER', periodStart: inRange, status: { in: ['SUBMITTED', 'APPROVED'] } } }),
+    prisma.smoisConversation.findMany({ where: { firstResponderId: userId, firstResponseAt: inRange }, select: { firstResponseAt: true, slaDueAt: true } }),
   ]);
   // Eligible = assigned work that is finished, or open and already past its deadline (cancelled work is excluded).
   const eligible = doneTasks.length + overdueOpen;
@@ -163,8 +173,9 @@ export const memberStats = async (memberId: string, userId: string, from: Date, 
     content: { created, submitted, approved: approvedV, rejected: reviews.filter((r) => r.decision === 'REJECTED').length, revisionRequests: reviews.filter((r) => r.decision === 'REVISION_REQUESTED').length, published: publishedV },
     reviews: { reviewed: reviews.length, approved: approvedReviews },
     reports: { due, submitted: Math.min(due, weeklyReports) },
+    community: { responded: responses.length, withinTarget: responses.filter((r) => r.slaDueAt && r.firstResponseAt && r.firstResponseAt <= r.slaDueAt).length },
   };
-  return { ...stats, inputs: { tasks: stats.tasks, content: stats.content, reviews: stats.reviews, reports: stats.reports, targetPercents: [] } };
+  return { ...stats, inputs: { tasks: stats.tasks, content: stats.content, reviews: stats.reviews, reports: stats.reports, community: stats.community.responded ? stats.community : undefined, targetPercents: [] } };
 };
 
 export const memberScorecard = async (memberId: string, userId: string, from: Date, to: Date, now = new Date()) => {
@@ -180,7 +191,7 @@ export const memberScorecard = async (memberId: string, userId: string, from: Da
 export const targetActual = async (t: SmoisTarget, now = new Date()): Promise<TargetProgress & { note?: string }> => {
   const from = ymd(t.startsAt); const to = ymd(t.endsAt);
   const asOf = ymd(now) < to ? ymd(now) : to;
-  const progress = (actual: number | null, note?: string) => ({ ...targetProgress(actual, t.targetValue, t.startsAt, t.endsAt, now), note });
+  const progress = (actual: number | null, note?: string) => ({ ...targetProgress(actual, t.targetValue, t.startsAt, t.endsAt, now, t.metric === 'AVG_FIRST_RESPONSE_MINUTES', (RATE_METRICS as readonly string[]).includes(t.metric)), note });
 
   const accountWhere: Prisma.SmoisAccountWhereInput = { archivedAt: null, ...(t.scope === 'ACCOUNT' && t.accountId ? { id: t.accountId } : {}), ...(t.scope === 'PLATFORM' && t.platform ? { platform: t.platform } : {}) };
   const member = t.memberId ? await prisma.smoisMember.findUnique({ where: { id: t.memberId }, select: { id: true, userId: true } }) : null;
@@ -215,6 +226,17 @@ export const targetActual = async (t: SmoisTarget, now = new Date()): Promise<Ta
       const submitted = await prisma.smoisReport.count({ where: { type: 'WEEKLY_MANAGER', periodStart: inRange, status: { in: ['SUBMITTED', 'APPROVED'] }, ...(member ? { authorId: member.userId } : {}) } });
       const expected = member ? due : due * Math.max(1, await prisma.smoisMember.count({ where: { isActive: true, role: 'MANAGER' } }));
       return progress(Math.round((Math.min(submitted, expected) / expected) * 10000) / 100);
+    }
+    case 'RESPONSE_COMPLIANCE': {
+      const rows = await prisma.smoisConversation.findMany({ where: { firstResponseAt: inRange, ...(member ? { firstResponderId: member.userId } : {}) }, select: { firstResponseAt: true, slaDueAt: true } });
+      const met = rows.filter((r) => r.slaDueAt && r.firstResponseAt && r.firstResponseAt <= r.slaDueAt).length;
+      return progress(rows.length ? Math.round((met / rows.length) * 10000) / 100 : null, rows.length ? undefined : 'No first responses logged in this period yet.');
+    }
+    case 'AVG_FIRST_RESPONSE_MINUTES': {
+      const cfg = await loadSlaConfig();
+      const rows = await prisma.smoisConversation.findMany({ where: { receivedAt: inRange, firstResponseAt: { not: null }, ...(t.scope === 'ACCOUNT' && t.accountId ? { accountId: t.accountId } : {}), ...(t.scope === 'PLATFORM' && t.platform ? { account: { platform: t.platform } } : {}) }, select: { receivedAt: true, firstResponseAt: true, priority: true } });
+      const mins = rows.map((r) => responseMinutes(r.receivedAt, r.firstResponseAt as Date, r.priority, cfg));
+      return progress(mins.length ? Math.round(mins.reduce((a, b) => a + b, 0) / mins.length) : null, mins.length ? 'Lower is better.' : 'No answered conversations in this period yet.');
     }
     default:
       return progress(null, 'Unknown metric.');

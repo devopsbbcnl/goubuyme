@@ -193,3 +193,35 @@ describe('post rankings', () => {
     expect(g.find((x: { name: string }) => x.name === 'Uncategorised')).toMatchObject({ posts: 1, avgEngagementRate: 2 });
   });
 });
+
+describe('phase 3 additions', () => {
+  const start = new Date('2026-11-01T00:00:00Z');
+  const end = new Date('2026-11-30T23:59:59Z');
+  const mid = new Date('2026-11-15T12:00:00Z');
+
+  it('judges a rate against the target itself, not against elapsed time', () => {
+    // 85% against a 90% target is within reach whatever the date; 50% is not
+    expect(targetProgress(85, 90, start, end, mid, false, true).status).toBe('ON_TRACK');
+    expect(targetProgress(50, 90, start, end, mid, false, true).status).toBe('AT_RISK');
+    expect(targetProgress(95, 90, start, end, mid, false, true).status).toBe('ACHIEVED');
+  });
+
+  it('treats response time as lower-is-better', () => {
+    // target 30 min, actual 20 min -> 150% -> exceeded
+    expect(targetProgress(20, 30, start, end, mid, true, true)).toMatchObject({ percent: 150, status: 'EXCEEDED' });
+    expect(targetProgress(60, 30, start, end, mid, true, true).status).toBe('AT_RISK');
+    expect(targetProgress(60, 30, start, end, new Date('2026-12-05T00:00:00Z'), true, true).status).toBe('MISSED');
+  });
+
+  const base = { tasks: { eligible: 0, completed: 0, onTime: 0 }, content: { created: 0, submitted: 0, approved: 0, published: 0 }, reviews: { reviewed: 0, approved: 0 }, reports: { due: 0, submitted: 0 }, targetPercents: [] as number[] };
+  it('scores community engagement from first responses within target once there are any', () => {
+    const c = scorecard({ ...base, community: { responded: 10, withinTarget: 9 } });
+    expect(c.categories.find((x) => x.key === 'community')).toMatchObject({ score: 90, weight: 15 });
+    expect(c.scoredWeight).toBe(15);
+    expect(c.overall).toBe(90);
+  });
+  it('leaves community unscored when nothing was answered', () => {
+    expect(scorecard(base).categories.find((x) => x.key === 'community')?.score).toBeNull();
+    expect(scorecard({ ...base, community: { responded: 0, withinTarget: 0 } }).categories.find((x) => x.key === 'community')?.score).toBeNull();
+  });
+});

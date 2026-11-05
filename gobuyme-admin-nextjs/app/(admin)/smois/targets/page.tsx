@@ -19,6 +19,7 @@ const METRICS: [string, string, boolean][] = [
   ['FOLLOWER_GROWTH', 'Follower growth', false], ['ENGAGEMENT_RATE', 'Engagement rate (%)', false], ['REACH', 'Reach', false], ['IMPRESSIONS', 'Impressions', false],
   ['VIDEO_VIEWS', 'Video views', false], ['WEBSITE_CLICKS', 'Website clicks', false], ['POSTS_PUBLISHED', 'Posts published', true],
   ['TASK_COMPLETION', 'Task completion (%)', true], ['ON_TIME_TASKS', 'On-time task completion (%)', true], ['APPROVAL_RATE', 'Approval rate (%)', true], ['REPORT_COMPLIANCE', 'Weekly report compliance (%)', true],
+  ['RESPONSE_COMPLIANCE', 'First replies within target (%)', true], ['AVG_FIRST_RESPONSE_MINUTES', 'Average first response (minutes, lower is better)', false],
 ];
 const TONE: Record<Status, 'neutral' | 'info' | 'warn' | 'good' | 'bad' | 'brand'> = { NOT_STARTED: 'neutral', ON_TRACK: 'info', AT_RISK: 'warn', ACHIEVED: 'good', EXCEEDED: 'good', MISSED: 'bad' };
 

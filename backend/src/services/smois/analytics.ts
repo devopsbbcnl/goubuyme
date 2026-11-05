@@ -151,7 +151,7 @@ export interface TargetProgress { actual: number | null; percent: number | null;
  * anything short is Missed. While running, you're On track if you've done at least 90% of the share of the
  * target that elapsed time implies, otherwise At risk. No data counts as 0 once the period has started.
  */
-export const targetProgress = (actual: number | null, target: number, startsAt: Date, endsAt: Date, now: Date, lowerIsBetter = false): TargetProgress => {
+export const targetProgress = (actual: number | null, target: number, startsAt: Date, endsAt: Date, now: Date, lowerIsBetter = false, rate = false): TargetProgress => {
   if (now < startsAt) return { actual, percent: null, remaining: target, status: 'NOT_STARTED' };
   const a = actual ?? 0;
   const percent = target > 0 ? round2((lowerIsBetter ? (a === 0 ? 0 : target / a) : a / target) * 100) : null;
@@ -160,19 +160,23 @@ export const targetProgress = (actual: number | null, target: number, startsAt: 
   if (p >= 110) return { actual, percent, remaining, status: 'EXCEEDED' };
   if (p >= 100) return { actual, percent, remaining, status: 'ACHIEVED' };
   if (now > endsAt) return { actual, percent, remaining, status: 'MISSED' };
+  // A rate or an average is already a ratio of finished work, so it is judged against the target itself, not against elapsed time.
+  if (rate || lowerIsBetter) return { actual, percent, remaining, status: p >= 90 ? 'ON_TRACK' : 'AT_RISK' };
   const elapsed = Math.min(1, Math.max(0, (now.getTime() - startsAt.getTime()) / (endsAt.getTime() - startsAt.getTime() || 1)));
   return { actual, percent, remaining, status: p >= elapsed * 100 * 0.9 ? 'ON_TRACK' : 'AT_RISK' };
 };
 
 /** Metrics a person can be held to: only ones their own work determines (PRD 18.5, 19.4). */
-export const EMPLOYEE_METRICS = ['POSTS_PUBLISHED', 'TASK_COMPLETION', 'ON_TIME_TASKS', 'APPROVAL_RATE', 'REPORT_COMPLIANCE'] as const;
+export const EMPLOYEE_METRICS = ['POSTS_PUBLISHED', 'TASK_COMPLETION', 'ON_TIME_TASKS', 'APPROVAL_RATE', 'REPORT_COMPLIANCE', 'RESPONSE_COMPLIANCE'] as const;
+/** Measures that are ratios or averages rather than running totals. */
+export const RATE_METRICS = ['ENGAGEMENT_RATE', 'TASK_COMPLETION', 'ON_TIME_TASKS', 'APPROVAL_RATE', 'REPORT_COMPLIANCE', 'RESPONSE_COMPLIANCE', 'AVG_FIRST_RESPONSE_MINUTES'] as const;
 export const ALL_TARGET_METRICS = [
   'FOLLOWER_GROWTH', 'ENGAGEMENT_RATE', 'REACH', 'IMPRESSIONS', 'VIDEO_VIEWS', 'WEBSITE_CLICKS',
-  'POSTS_PUBLISHED', 'TASK_COMPLETION', 'ON_TIME_TASKS', 'APPROVAL_RATE', 'REPORT_COMPLIANCE',
+  'POSTS_PUBLISHED', 'TASK_COMPLETION', 'ON_TIME_TASKS', 'APPROVAL_RATE', 'REPORT_COMPLIANCE', 'RESPONSE_COMPLIANCE', 'AVG_FIRST_RESPONSE_MINUTES',
 ] as const;
 export const TARGET_UNIT: Record<string, string> = {
   FOLLOWER_GROWTH: 'followers', ENGAGEMENT_RATE: '%', REACH: '', IMPRESSIONS: '', VIDEO_VIEWS: '', WEBSITE_CLICKS: '',
-  POSTS_PUBLISHED: 'posts', TASK_COMPLETION: '%', ON_TIME_TASKS: '%', APPROVAL_RATE: '%', REPORT_COMPLIANCE: '%',
+  POSTS_PUBLISHED: 'posts', TASK_COMPLETION: '%', ON_TIME_TASKS: '%', APPROVAL_RATE: '%', REPORT_COMPLIANCE: '%', RESPONSE_COMPLIANCE: '%', AVG_FIRST_RESPONSE_MINUTES: 'min',
 };
 
 // ── Staff scorecard ─────────────────────────────────────────────────────────
@@ -182,6 +186,8 @@ export interface ScoreInputs {
   content: { created: number; submitted: number; approved: number; published: number };
   reviews: { reviewed: number; approved: number };
   reports: { due: number; submitted: number };
+  /** First responses by this person, and how many met the response target. Omitted when the inbox has no data. */
+  community?: { responded: number; withinTarget: number };
   targetPercents: number[];
 }
 
@@ -203,12 +209,13 @@ export const scorecard = (i: ScoreInputs): Scorecard => {
   const quality = pct(i.reviews.approved, i.reviews.reviewed);
   const reporting = pct(i.reports.submitted, i.reports.due);
   const objectives = avg(i.targetPercents.map((p) => Math.min(100, p)));
+  const community = i.community ? pct(i.community.withinTarget, i.community.responded) : null;
 
   const categories: ScoreCategory[] = [
     { key: 'tasks', label: 'Task execution and deadlines', weight: 20, score: cap(avg([completion, onTime])), detail: i.tasks.eligible ? `${i.tasks.completed}/${i.tasks.eligible} tasks completed, ${i.tasks.onTime} on time` : 'No tasks in this period' },
     { key: 'production', label: 'Content production and consistency', weight: 20, score: cap(production), detail: i.content.created ? `${i.content.submitted}/${i.content.created} submitted, ${i.content.published}/${i.content.approved} approved items published` : 'No content in this period' },
     { key: 'quality', label: 'Content quality and approval', weight: 15, score: cap(quality), detail: i.reviews.reviewed ? `${i.reviews.approved}/${i.reviews.reviewed} reviews approved` : 'Nothing reviewed in this period' },
-    { key: 'community', label: 'Community engagement', weight: 15, score: null, detail: 'Not measurable yet: the shared inbox ships in a later phase' },
+    { key: 'community', label: 'Community engagement', weight: 15, score: cap(community), detail: i.community && i.community.responded ? `${i.community.withinTarget}/${i.community.responded} first responses within the response target` : 'No inbox responses logged in this period' },
     { key: 'reporting', label: 'Reporting and documentation', weight: 10, score: cap(reporting), detail: i.reports.due ? `${i.reports.submitted}/${i.reports.due} weekly reports submitted` : 'No reports due in this period' },
     { key: 'objectives', label: 'Assigned objectives and campaign execution', weight: 20, score: cap(objectives), detail: i.targetPercents.length ? `${i.targetPercents.length} assigned target(s); campaigns are not tracked yet` : 'No targets assigned' },
   ];
