@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { resolveVendorRoute } from '@/services/vendorGate';
+import { getActiveLocationId } from '@/services/api';
 import { VendorSidebar } from '@/components/layout/VendorSidebar';
 import { ApprovalBanner } from '@/components/ui/ApprovalBanner';
 import { useVendorPushSubscription } from '@/hooks/useVendorPushSubscription';
@@ -13,6 +14,14 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [gateChecked, setGateChecked] = useState(false);
+  const [locationKey, setLocationKey] = useState('main');
+
+  useEffect(() => {
+    setLocationKey(getActiveLocationId() ?? 'main');
+    const onChange = (e: Event) => setLocationKey(String((e as CustomEvent<string | null>).detail ?? 'main'));
+    window.addEventListener('gbm:location', onChange);
+    return () => window.removeEventListener('gbm:location', onChange);
+  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -34,7 +43,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className="v-shell">
-      <VendorSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <VendorSidebar key={locationKey} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="v-main">
         <header className="v-topbar">
           <div className="inner">
@@ -48,7 +57,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
           </div>
         </header>
         {user.approvalStatus !== 'APPROVED' && <ApprovalBanner role="vendor" />}
-        <div className="v-content">
+        <div className="v-content" key={locationKey}>
           {children}
         </div>
       </div>

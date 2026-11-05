@@ -68,6 +68,7 @@ function LoginContent() {
       const role = d.user.role?.toLowerCase();
       if (role === 'vendor') router.replace(await resolveVendorRoute());
       else if (role === 'rider') router.replace('/rider');
+      else if (role === 'logistics_company') router.replace('/company');
       else router.replace(next);
     } catch (e: any) {
       setErr(e?.response?.data?.message ?? 'Login failed. Check your credentials.');

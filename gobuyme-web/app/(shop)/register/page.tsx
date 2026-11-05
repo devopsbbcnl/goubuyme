@@ -8,8 +8,11 @@ import { useToast } from '@/components/ui/Toast';
 import api from '@/services/api';
 import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
 
-const ROLE_LABELS: Record<string, string> = { customer: 'Customer', vendor: 'Vendor', rider: 'Rider' };
-const ROLE_ICONS: Record<string, string> = { customer: '🛒', vendor: '🏪', rider: '🏍️' };
+const ROLE_LABELS: Record<string, string> = { customer: 'Customer', vendor: 'Vendor', rider: 'Rider', logistics_company: 'Logistics Company' };
+const ROLE_ICONS: Record<string, string> = { customer: '🛒', vendor: '🏪', rider: '🏍️', logistics_company: '🚚' };
+
+const MAX_SIGNUP_BRANCHES = 10;
+interface BranchDraft { name: string; address: string; city: string; phone: string }
 
 const VENDOR_CATEGORIES = [
   { value: 'RESTAURANT', label: 'Restaurant' },
@@ -24,6 +27,7 @@ const VENDOR_CATEGORIES = [
 const STEP_LABELS: Record<string, string> = {
   details: 'Business Details',
   riderDetails: 'Rider Details',
+  companyDetails: 'Company Details',
   account: 'Account Info',
   security: 'Security',
 };
@@ -66,6 +70,7 @@ function RegisterContent() {
 
   const steps = role === 'vendor' ? ['details', 'account', 'security']
     : role === 'rider' ? ['riderDetails', 'account', 'security']
+    : role === 'logistics_company' ? ['companyDetails', 'account', 'security']
     : ['account', 'security'];
   const [stepIndex, setStepIndex] = useState(0);
   const currentStep = steps[stepIndex];
@@ -73,6 +78,8 @@ function RegisterContent() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
   const [vendorForm, setVendorForm] = useState({ businessName: '', category: 'RESTAURANT', address: '', city: '', state: '' });
   const [riderForm, setRiderForm] = useState({ vehicleType: '', plateNumber: '', address: '', city: '', state: '' });
+  const [companyForm, setCompanyForm] = useState({ companyName: '', registrationNumber: '', address: '', city: '', state: '' });
+  const [branches, setBranches] = useState<BranchDraft[]>([]);
   const [show, setShow] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [agreed, setAgreed] = useState(false);
@@ -108,11 +115,26 @@ function RegisterContent() {
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, [k]: e.target.value }));
   const setVendor = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setVendorForm(f => ({ ...f, [k]: e.target.value }));
   const setRider = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setRiderForm(f => ({ ...f, [k]: e.target.value }));
+  const setCompany = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setCompanyForm(f => ({ ...f, [k]: e.target.value }));
+  const addBranch = () => setBranches(b => (b.length >= MAX_SIGNUP_BRANCHES ? b : [...b, { name: '', address: '', city: vendorForm.city.trim(), phone: '' }]));
+  const updateBranch = (i: number, patch: Partial<BranchDraft>) => setBranches(b => b.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  const removeBranch = (i: number) => setBranches(b => b.filter((_, idx) => idx !== i));
 
   const validateStep = (step: string): string | null => {
     if (step === 'details') {
       if (!vendorForm.businessName.trim() || !vendorForm.address.trim() || !vendorForm.city.trim() || !vendorForm.state.trim()) {
         return 'Please fill in your business details.';
+      }
+      if (branches.some(b => b.name.trim().length < 2 || b.address.trim().length < 3 || b.city.trim().length < 2)) {
+        return 'Each branch needs a name, address and city. Remove any branch you do not need.';
+      }
+      if (branches.some(b => b.phone.trim() && !/^[+]?[0-9]{10,15}$/.test(b.phone.trim()))) {
+        return 'Enter valid branch phone numbers (digits only, e.g. 08031234567) or leave them blank.';
+      }
+    }
+    if (step === 'companyDetails') {
+      if (companyForm.companyName.trim().length < 2 || !companyForm.address.trim() || !companyForm.city.trim() || !companyForm.state.trim()) {
+        return 'Please fill in your company details.';
       }
     }
     if (step === 'riderDetails') {
@@ -158,6 +180,19 @@ function RegisterContent() {
         payload.city = vendorForm.city.trim();
         payload.state = vendorForm.state.trim();
         payload.commissionTier = 'TIER_2';
+        if (branches.length > 0) {
+          payload.branches = branches.map(b => ({
+            name: b.name.trim(), address: b.address.trim(), city: b.city.trim(), state: vendorForm.state.trim(),
+            ...(b.phone.trim() ? { phone: b.phone.trim() } : {}),
+          }));
+        }
+      }
+      if (role === 'logistics_company') {
+        payload.companyName = companyForm.companyName.trim();
+        if (companyForm.registrationNumber.trim()) payload.registrationNumber = companyForm.registrationNumber.trim();
+        payload.address = companyForm.address.trim();
+        payload.city = companyForm.city.trim();
+        payload.state = companyForm.state.trim();
       }
       if (role === 'rider') {
         payload.vehicleType = riderForm.vehicleType.trim();
@@ -188,6 +223,7 @@ function RegisterContent() {
           {role === 'customer' && 'Order from local Owerri vendors and get delivered to your door in minutes.'}
           {role === 'vendor' && 'Reach thousands of customers and grow your business with GoBuyMe.'}
           {role === 'rider' && 'Set your own schedule and earn great money delivering in your city.'}
+          {role === 'logistics_company' && 'Register your company, invite your riders and manage your whole fleet from one dashboard.'}
         </p>
       </div>
 
@@ -240,6 +276,38 @@ function RegisterContent() {
               <div className="form-group"><label className="label">Street Address</label><input className="input" type="text" value={vendorForm.address} onChange={setVendor('address')} placeholder="12 Wetheral Road" required /></div>
               <div className="form-group"><label className="label">City</label><input className="input" type="text" value={vendorForm.city} onChange={setVendor('city')} placeholder="Owerri" required /></div>
               <div className="form-group"><label className="label">State</label><input className="input" type="text" value={vendorForm.state} onChange={setVendor('state')} placeholder="Imo" required /></div>
+            </>
+          )}
+          {currentStep === 'details' && (
+            <div style={{ marginTop: 8, marginBottom: 8 }}>
+              <label className="label">Branches (optional)</label>
+              <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+                The address above is your main location. Add other branches now, or manage them later from your dashboard.
+              </p>
+              {branches.map((b, i) => (
+                <div key={i} className="card card-pad" style={{ marginBottom: 12, padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <strong style={{ fontSize: 14 }}>Branch {i + 1}</strong>
+                    <button type="button" onClick={() => removeBranch(i)} style={{ color: 'var(--error)', fontSize: 13, fontWeight: 600 }}>Remove</button>
+                  </div>
+                  <div className="form-group"><label className="label">Branch Name</label><input className="input" type="text" value={b.name} onChange={e => updateBranch(i, { name: e.target.value })} placeholder="e.g. Rumuola branch" /></div>
+                  <div className="form-group"><label className="label">Street Address</label><input className="input" type="text" value={b.address} onChange={e => updateBranch(i, { address: e.target.value })} placeholder="5 Rumuola Road" /></div>
+                  <div className="form-group"><label className="label">City</label><input className="input" type="text" value={b.city} onChange={e => updateBranch(i, { city: e.target.value })} placeholder="Port Harcourt" /></div>
+                  <div className="form-group"><label className="label">Phone (optional)</label><input className="input" type="tel" value={b.phone} onChange={e => updateBranch(i, { phone: e.target.value })} placeholder="08031234567" /></div>
+                </div>
+              ))}
+              {branches.length < MAX_SIGNUP_BRANCHES && (
+                <button type="button" className="btn btn-ghost" onClick={addBranch} style={{ width: '100%' }}>+ Add a branch</button>
+              )}
+            </div>
+          )}
+          {currentStep === 'companyDetails' && (
+            <>
+              <div className="form-group"><label className="label">Company Name</label><input className="input" type="text" value={companyForm.companyName} onChange={setCompany('companyName')} placeholder="Swift Riders Logistics" required /></div>
+              <div className="form-group"><label className="label">CAC Registration Number (optional)</label><input className="input" type="text" value={companyForm.registrationNumber} onChange={setCompany('registrationNumber')} placeholder="RC 1234567" /></div>
+              <div className="form-group"><label className="label">Office Address</label><input className="input" type="text" value={companyForm.address} onChange={setCompany('address')} placeholder="12 Aba Road" required /></div>
+              <div className="form-group"><label className="label">City</label><input className="input" type="text" value={companyForm.city} onChange={setCompany('city')} placeholder="Port Harcourt" required /></div>
+              <div className="form-group"><label className="label">State</label><input className="input" type="text" value={companyForm.state} onChange={setCompany('state')} placeholder="Rivers" required /></div>
             </>
           )}
           {currentStep === 'riderDetails' && (

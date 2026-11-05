@@ -94,7 +94,7 @@ export const VENDOR_FAQ: FaqEntry[] = [
   },
   {
     q: 'Can multi-location Nigerian restaurants and retail chains use GoBuyMe?',
-    a: "Yes. GoBuyMe's Empire tier gives multi-branch restaurants, supermarkets and retail chains a single multi-branch console to manage all locations, plus a dedicated account lead and API access. Each branch can operate its own menu, hours and delivery radius.",
+    a: "Yes. GoBuyMe's Empire tier gives multi-branch restaurants, supermarkets and retail chains a single multi-branch console to manage all locations, plus a dedicated account lead and API access. Each branch can operate its own items, hours and delivery radius.",
   },
   {
     q: 'Does GoBuyMe support grocery stores and supermarkets, not just restaurants?',

@@ -29,6 +29,7 @@ const NAV: NavItem[] = [
   { href: '/app-usage',  label: 'App Usage',     icon: '📊', pendingKey: null },
   { href: '/vendors',    label: 'Vendors',       icon: '🏪', pendingKey: 'vendors' },
   { href: '/riders',     label: 'Riders',        icon: '🏍️', pendingKey: 'riders' },
+  { href: '/companies',  label: 'Logistics',     icon: '🚚', pendingKey: null },
   { href: '/orders',     label: 'Orders',        icon: '📦', pendingKey: null },
   { href: '/customers',  label: 'Customers',     icon: '👥', pendingKey: null },
   { href: '/crm',        label: 'CRM Overview',  icon: '🧩', pendingKey: null, exact: true },
@@ -48,6 +49,20 @@ const NAV: NavItem[] = [
   { href: '/settings',   label: 'Settings',      icon: '⚙️', pendingKey: null },
 ];
 
+type SmoisNavItem = { href: string; label: string; icon: string; cap?: string; badge?: 'approvals' | 'tasks'; exact?: boolean };
+const SMOIS_NAV: SmoisNavItem[] = [
+  { href: '/smois',            label: 'Overview',     icon: '📱', exact: true },
+  { href: '/smois/accounts',   label: 'Accounts',     icon: '🔗' },
+  { href: '/smois/content',    label: 'Content',      icon: '✍️' },
+  { href: '/smois/calendar',   label: 'Calendar',     icon: '🗓️' },
+  { href: '/smois/approvals',  label: 'Approvals',    icon: '✔️', badge: 'approvals' },
+  { href: '/smois/publishing', label: 'Publishing',   icon: '🚀' },
+  { href: '/smois/tasks',      label: 'Social Tasks', icon: '📌', badge: 'tasks' },
+  { href: '/smois/team',       label: 'Social Team',  icon: '🧑‍🤝‍🧑', cap: 'viewAll' },
+  { href: '/smois/activity',   label: 'Activity Log', icon: '🕘', cap: 'viewActivity' },
+  { href: '/smois/settings',   label: 'Social Settings', icon: '🎛️', cap: 'configure' },
+];
+
 const ROLE_RANK: Record<string, number> = {
   SUPPORT_ADMIN: 0,
   OPERATIONS_ADMIN: 1,
@@ -64,9 +79,34 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
   const { theme: T, isDark, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
+  const [smois, setSmois] = useState<{ can: Record<string, boolean> } | null>(null);
+  const [smoisCounts, setSmoisCounts] = useState({ approvals: 0, tasks: 0 });
   const [pending, setPending] = useState<{ vendors: number; riders: number; errorLogs: number; tickets: number; tasks: number; agents: number }>({ vendors: 0, riders: 0, errorLogs: 0, tickets: 0, tasks: 0, agents: 0 });
 
+  // Probe SMOIS access quietly (a 403 just means this person has none) and keep its badges fresh.
   useEffect(() => {
+    if (!user) return;
+    let live = true;
+    const get = (p: string) => fetch('/api/proxy/admin/smois' + p).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const load = async () => {
+      const me = await get('/me');
+      if (!live) return;
+      if (!me?.data) { setSmois(null); return; }
+      setSmois(me.data);
+      const [ap, tk] = await Promise.all([
+        me.data.can.approve ? get('/approvals?view=queue') : null,
+        get('/tasks?view=mine'),
+      ]);
+      if (live) setSmoisCounts({ approvals: ap?.data?.filter((v: { canReview: boolean }) => v.canReview).length ?? 0, tasks: tk?.data?.counts?.overdue ?? 0 });
+    };
+    load();
+    const t = setInterval(load, 60_000);
+    window.addEventListener('gbm:pending-counts-updated', load);
+    return () => { live = false; clearInterval(t); window.removeEventListener('gbm:pending-counts-updated', load); };
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.role === 'SOCIAL_MEDIA') return; // social media staff can't read these admin lists
     const loadPendingCounts = () => {
       Promise.allSettled([
         api.get<{ data: Array<{ approvalStatus: string }> }>('/admin/vendors?status=PENDING&limit=200'),
@@ -103,7 +143,7 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
       clearInterval(poll);
       window.removeEventListener('gbm:pending-counts-updated', loadPendingCounts);
     };
-  }, []);
+  }, [user?.role]);
 
   const userRole = user?.role ?? 'SUPPORT_ADMIN';
 
@@ -156,7 +196,7 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto' }}>
-        {NAV.filter(item => canSeeItem(userRole, item.minRole)).map(item => {
+        {userRole !== 'SOCIAL_MEDIA' && NAV.filter(item => canSeeItem(userRole, item.minRole)).map(item => {
           const isActive = item.exact
             ? pathname === item.href
             : [item.href, ...(item.activePrefixes ?? [])].some(p => pathname === p || pathname.startsWith(p + '/'));
@@ -185,6 +225,28 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
             </Link>
           );
         })}
+        {smois && (
+          <>
+            <div style={{ padding: '14px 12px 6px', fontSize: 10, fontWeight: 700, color: T.textMuted, letterSpacing: '0.6px' }}>SOCIAL MEDIA</div>
+            {SMOIS_NAV.filter(i => !i.cap || smois.can[i.cap]).map(item => {
+              const isActive = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/');
+              const badge = item.badge ? smoisCounts[item.badge] : 0;
+              return (
+                <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }} onClick={() => { if (isMobile) onClose?.(); }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 4, marginBottom: 2,
+                    background: isActive ? T.primaryTint : 'transparent',
+                    border: isActive ? '1px solid rgba(255,82,27,0.2)' : '1px solid transparent', cursor: 'pointer',
+                  }}>
+                    <span style={{ fontSize: 16, opacity: isActive ? 1 : 0.7 }}>{item.icon}</span>
+                    <span style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? T.primary : T.textSec, flex: 1 }}>{item.label}</span>
+                    {badge > 0 && <span style={{ background: T.warning, color: '#fff', borderRadius: 999, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{badge}</span>}
+                  </div>
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {/* Theme toggle */}

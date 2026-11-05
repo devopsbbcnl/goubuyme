@@ -43,6 +43,7 @@ export const CATEGORIES_FOR_ROLE: Record<Exclude<UserRole, null>, TicketCategory
   customer: ['ORDER_ISSUE', 'MISSING_ITEM', 'LATE_DELIVERY', 'REFUND', 'PAYMENT', 'RIDER_CONDUCT', 'VENDOR_ISSUE', 'ACCOUNT', 'APP_BUG', 'OTHER'],
   vendor: ['ORDER_ISSUE', 'PAYMENT', 'RIDER_CONDUCT', 'ACCOUNT', 'APP_BUG', 'OTHER'],
   rider: ['ORDER_ISSUE', 'PAYMENT', 'VENDOR_ISSUE', 'ACCOUNT', 'APP_BUG', 'OTHER'],
+  logistics_company: ['ORDER_ISSUE', 'PAYMENT', 'VENDOR_ISSUE', 'ACCOUNT', 'APP_BUG', 'OTHER'],
 };
 
 export const STATUS_LABEL: Record<TicketStatus, string> = {
@@ -69,6 +70,11 @@ export const FAQ_FOR_ROLE: Record<Exclude<UserRole, null>, Array<{ q: string; a:
     { q: 'When do I get paid?', a: 'You keep 85% of each delivery fee. Earnings are paid out daily at 11:30 AM.' },
     { q: 'The vendor isn\'t ready', a: 'Message support from the active delivery so we can contact the vendor and note the delay.' },
     { q: 'I had a problem during a delivery', a: 'Open a request about the order with as much detail as you can, and we\'ll follow up quickly.' },
+  ],
+  logistics_company: [
+    { q: 'How do I add riders to my fleet?', a: 'Open Fleet and invite each rider by email. They join automatically when they sign up or sign in as a rider with that email. Invites last 14 days.' },
+    { q: 'Why can my riders not take jobs?', a: 'Your riders can only work while your company is approved. If your company is pending or suspended, contact support.' },
+    { q: 'How do my riders get paid?', a: 'Each rider keeps being paid directly for their deliveries. Earnings are paid out daily at 11:30 AM.' },
   ],
 };
 

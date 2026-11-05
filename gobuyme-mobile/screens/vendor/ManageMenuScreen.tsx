@@ -16,6 +16,8 @@ import {
 } from 'react-native';
 import { pickImage as openImagePicker } from '@/utils/pickImage';
 import { PositionedImage } from '@/components/ui/PositionedImage';
+import { FullImage } from '@/components/ui/FullImage';
+import { prepareForUpload } from '@/utils/imageOptimize';
 import { useImagePositioner } from '@/components/ui/ImagePositioner';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
@@ -23,6 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
+import { DEFAULT_CATEGORY_TAGS, DEFAULT_TERMINOLOGY, VendorTerminology } from '@/utils/vendorTerminology';
 
 interface DrinkOption {
 	id: string;
@@ -84,51 +87,6 @@ const EMPTY_FORM: FormState = {
 	stockQuantity: '',
 };
 
-const RESTAURANT_CATS = ['Meals', 'Drinks', 'Snacks', 'Pastries', 'Sides', 'Desserts', 'Specials', 'Other'];
-
-const EMART_CATS = [
-	'Alcohol & Cigarettes', 'Snacks', 'Drinks', 'Water', 'Fruits & Vegetables',
-	'Food', 'Meat & Chicken', 'Basic Food', 'Dairy & Breakfast', 'Bakery',
-	'Ice Cream', 'Fit & Form', 'Home Care', 'Home Life', 'Personal Care',
-	'Technology', 'Sexual Health', 'Baby', 'Clothing', 'Stationery', 'Pets',
-];
-
-const PHARMACY_CATS = [
-	'OTC Medications', 'Vitamins & Supplements', 'Prescription', 'First Aid',
-	'Mother & Baby', 'Sexual Health', 'Skincare', 'Dental Care', 'Eye Care',
-	'Diagnostics & Monitoring', 'Herbal & Natural', 'Personal Hygiene',
-];
-
-const BAKERY_CATS = [
-	'Cakes', 'Bread', 'Pastries', 'Small Chops', 'Pies & Rolls', 'Doughnuts',
-	'Cupcakes & Muffins', 'Cookies & Biscuits', 'Custom Orders', 'Other',
-];
-
-const DRINKS_CATS = [
-	'Soft Drinks', 'Water', 'Juices', 'Energy Drinks', 'Beer', 'Wine',
-	'Spirits', 'Mixers & Cocktails', 'Non-Alcoholic', 'Other',
-];
-
-const BUTCHER_CATS = [
-	'Beef', 'Chicken', 'Goat Meat', 'Turkey', 'Pork', 'Fish', 'Seafood',
-	'Gizzard & Offals', 'Processed Meat', 'Other',
-];
-
-const GAS_CATS = [
-	'Cooking Gas Refill', 'Gas Cylinders', 'Regulators & Hoses',
-	'Burners & Cookers', 'Accessories', 'Other',
-];
-
-function getCatList(vendorCategory: string | null): string[] {
-	if (vendorCategory === 'EMART') return EMART_CATS;
-	if (vendorCategory === 'PHARMACY') return PHARMACY_CATS;
-	if (vendorCategory === 'BAKERY') return BAKERY_CATS;
-	if (vendorCategory === 'DRINKS') return DRINKS_CATS;
-	if (vendorCategory === 'BUTCHER') return BUTCHER_CATS;
-	if (vendorCategory === 'GAS') return GAS_CATS;
-	return RESTAURANT_CATS;
-}
-
 const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
@@ -149,7 +107,7 @@ async function uploadImage(uri: string): Promise<string> {
 
 	const formData = new FormData();
 	formData.append('file', {
-		uri,
+		uri: await prepareForUpload(uri),
 		type: 'image/jpeg',
 		name: 'menu-item.jpg',
 	} as any);
@@ -181,7 +139,8 @@ export default function ManageMenuScreen() {
 	const insets = useSafeAreaInsets();
 	const { height: screenHeight } = useWindowDimensions();
 
-	const [vendorCategory, setVendorCategory] = useState<string | null>(null);
+	const [terms, setTerms] = useState<VendorTerminology>(DEFAULT_TERMINOLOGY);
+	const [categoryList, setCategoryList] = useState<string[]>(DEFAULT_CATEGORY_TAGS);
 	const [items, setItems] = useState<MenuItem[]>([]);
 	const positioner = useImagePositioner();
 	const [loading, setLoading] = useState(true);
@@ -190,7 +149,8 @@ export default function ManageMenuScreen() {
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
 	const [saving, setSaving] = useState(false);
 	const [catOpen, setCatOpen] = useState(false);
-	const categoryList = getCatList(vendorCategory);
+	const itemLower = terms.item.toLowerCase();
+	const sectionLower = terms.section.toLowerCase();
 
 	// Drink options sheet state
 	const [drinkSheetItem, setDrinkSheetItem] = useState<MenuItem | null>(null);
@@ -226,9 +186,11 @@ export default function ManageMenuScreen() {
 			]);
 			const data = (menuRes.data.data ?? []).map(normalizeMenuItem);
 			setItems(data);
-			setVendorCategory(profileRes.data.data?.category ?? null);
+			const profile = profileRes.data.data;
+			if (profile?.terminology) setTerms(profile.terminology);
+			if (profile?.categoryTags) setCategoryList(profile.categoryTags);
 		} catch {
-			Alert.alert('Error', 'Could not load menu items.');
+			Alert.alert('Error', 'Could not load your items.');
 		} finally {
 			setLoading(false);
 		}
@@ -356,7 +318,7 @@ export default function ManageMenuScreen() {
 	};
 
 	const handleDelete = (item: MenuItem) => {
-		Alert.alert('Delete item', `Remove "${item.name}" from your menu?`, [
+		Alert.alert('Delete item', `Remove "${item.name}" from your ${sectionLower}?`, [
 			{ text: 'Cancel', style: 'cancel' },
 			{
 				text: 'Delete',
@@ -604,7 +566,7 @@ export default function ManageMenuScreen() {
 				>
 					<Ionicons name="arrow-back" size={22} color={T.text} />
 				</TouchableOpacity>
-				<Text style={[styles.pageTitle, { color: T.text }]}>Menu Items</Text>
+				<Text style={[styles.pageTitle, { color: T.text }]}>{terms.itemPlural}</Text>
 				<TouchableOpacity
 					onPress={openAdd}
 					style={[styles.addBtn, { backgroundColor: T.primary }]}
@@ -631,10 +593,10 @@ export default function ManageMenuScreen() {
 				>
 					<Text style={{ fontSize: 40, marginBottom: 12 }}>🍽️</Text>
 					<Text style={[styles.emptyTitle, { color: T.text }]}>
-						No menu items yet
+						No {terms.itemPlural.toLowerCase()} yet
 					</Text>
 					<Text style={[styles.emptySub, { color: T.textSec }]}>
-						Tap Add to create your first item
+						Tap Add to create your first {itemLower}
 					</Text>
 				</View>
 			) : (
@@ -902,7 +864,7 @@ export default function ManageMenuScreen() {
 						{/* Sheet header */}
 						<View style={[styles.sheetHeader, { borderBottomColor: T.border }]}>
 							<Text style={[styles.sheetTitle, { color: T.text }]}>
-								{editing ? 'Edit Item' : 'New Item'}
+								{editing ? `Edit ${terms.item}` : `New ${terms.item}`}
 							</Text>
 							<TouchableOpacity onPress={closeSheet}>
 								<Ionicons name="close" size={22} color={T.textMuted} />
@@ -917,26 +879,50 @@ export default function ManageMenuScreen() {
 							keyboardShouldPersistTaps="handled"
 						>
 							{/* Image picker */}
-							<TouchableOpacity
-								onPress={pickImage}
-								style={[styles.imagePicker, { backgroundColor: T.bg, borderColor: T.border }]}
-							>
-								{form.image ? (
-									<PositionedImage uri={form.image} position={form.imagePosition} style={styles.imagePreview} />
-								) : (
+							{form.image ? (
+								<View style={{ marginBottom: 14 }}>
+									{/* Whole picture, at its own proportions */}
+									<TouchableOpacity
+										onPress={pickImage}
+										activeOpacity={0.9}
+										style={{ borderRadius: 4, borderWidth: 1, borderColor: T.border, overflow: 'hidden' }}
+									>
+										<FullImage uri={form.image} backgroundColor={T.bg} />
+										<View style={styles.changeChip}>
+											<Ionicons name="camera" size={14} color="#fff" />
+											<Text style={styles.changeChipText}>Change</Text>
+										</View>
+									</TouchableOpacity>
+									{/* How it will be cropped in lists */}
+									<View style={styles.listPreviewRow}>
+										<PositionedImage
+											uri={form.image}
+											position={form.imagePosition}
+											style={{ width: 56, height: 56, borderRadius: 4 }}
+										/>
+										<View style={{ flex: 1 }}>
+											<Text style={{ color: T.textSec, fontSize: 12 }}>
+												Customers see the whole photo on the item page. In lists it is shown like this.
+											</Text>
+											<TouchableOpacity onPress={repositionImage} style={{ marginTop: 4 }}>
+												<Text style={{ color: T.primary, fontSize: 12, fontWeight: '600' }}>Reposition photo</Text>
+											</TouchableOpacity>
+										</View>
+									</View>
+								</View>
+							) : (
+								<TouchableOpacity
+									onPress={pickImage}
+									style={[styles.imagePicker, { backgroundColor: T.bg, borderColor: T.border }]}
+								>
 									<View style={{ alignItems: 'center', gap: 4 }}>
 										<Ionicons name="camera-outline" size={28} color={T.textMuted} />
 										<Text style={[styles.imagePickerText, { color: T.textMuted }]}>
 											Tap to add photo
 										</Text>
 									</View>
-								)}
-							</TouchableOpacity>
-							{form.image ? (
-								<TouchableOpacity onPress={repositionImage} style={{ marginBottom: 12 }}>
-									<Text style={{ color: T.primary, fontSize: 12, fontWeight: '600' }}>Reposition photo</Text>
 								</TouchableOpacity>
-							) : null}
+							)}
 							{positioner.element}
 
 							<FormField
@@ -973,13 +959,13 @@ export default function ManageMenuScreen() {
 							/>
 
 							{/* Category picker */}
-							<Text style={[styles.fieldLabel, { color: T.textSec }]}>Category</Text>
+							<Text style={[styles.fieldLabel, { color: T.textSec }]}>{terms.tagLabel}</Text>
 							<TouchableOpacity
 								onPress={() => setCatOpen((o) => !o)}
 								style={[styles.catTrigger, { backgroundColor: T.bg, borderColor: T.border }]}
 							>
 								<Text style={[styles.catTriggerText, { color: form.category ? T.text : T.textMuted }]}>
-									{form.category || 'Select category'}
+									{form.category || `Select ${terms.tagLabel.toLowerCase()}`}
 								</Text>
 								<Ionicons name={catOpen ? 'chevron-up' : 'chevron-down'} size={14} color={T.textMuted} />
 							</TouchableOpacity>
@@ -1016,7 +1002,7 @@ export default function ManageMenuScreen() {
 							<View style={[styles.toggleRow, { borderColor: T.border, borderTopWidth: 0 }]}>
 								<View style={{ flex: 1 }}>
 									<Text style={[styles.toggleLabel, { color: T.text }]}>Featured</Text>
-									<Text style={[styles.toggleSub, { color: T.textSec }]}>Show at top of your menu</Text>
+									<Text style={[styles.toggleSub, { color: T.textSec }]}>{`Show at top of your ${sectionLower}`}</Text>
 								</View>
 								<Switch
 									value={form.isFeatured}
@@ -1036,7 +1022,7 @@ export default function ManageMenuScreen() {
 								{saving ? (
 									<ActivityIndicator color="#fff" />
 								) : (
-									<Text style={styles.saveBtnText}>{editing ? 'Save Changes' : 'Add Item'}</Text>
+									<Text style={styles.saveBtnText}>{editing ? 'Save Changes' : `Add ${terms.item}`}</Text>
 								)}
 							</TouchableOpacity>
 						</ScrollView>
@@ -1289,6 +1275,13 @@ const styles = StyleSheet.create({
 		overflow: 'hidden',
 	},
 	imagePreview: { width: '100%', height: '100%' },
+	changeChip: {
+		position: 'absolute', bottom: 8, right: 8,
+		flexDirection: 'row', alignItems: 'center', gap: 4,
+		borderRadius: 4, paddingVertical: 5, paddingHorizontal: 10, backgroundColor: 'rgba(0,0,0,0.6)',
+	},
+	changeChipText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+	listPreviewRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
 	imagePickerText: { fontSize: 12 },
 	fieldLabel: {
 		fontSize: 12,

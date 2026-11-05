@@ -100,7 +100,7 @@ export const runPayoutBatch = async (): Promise<void> => {
     // ── Vendor payouts (one batch + one Paystack transfer per vendor) ──────────
     const pendingVendorPayouts = await prisma.vendorPayout.findMany({
       where: { payoutStatus: PayoutStatus.PENDING },
-      include: { vendor: { include: { payoutAccount: true } } },
+      include: { vendor: { include: { payoutAccount: true, parent: { include: { payoutAccount: true } } } } },
     });
 
     // Group by vendor
@@ -114,7 +114,9 @@ export const runPayoutBatch = async (): Promise<void> => {
     for (const [vendorId, payouts] of payoutsByVendor) {
       const { vendor } = payouts[0];
 
-      if (!vendor.payoutAccount?.paystackRecipientCode) {
+      // A branch is paid into its main business's account.
+      const account = vendor.payoutAccount ?? vendor.parent?.payoutAccount;
+      if (!account?.paystackRecipientCode) {
         recordError('payout', `Vendor ${vendor.businessName} has no payout account — skipping`, undefined, { vendorId });
         continue;
       }
@@ -138,7 +140,7 @@ export const runPayoutBatch = async (): Promise<void> => {
 
       try {
         const { transferCode } = await initiateTransfer(
-          vendor.payoutAccount.paystackRecipientCode,
+          account.paystackRecipientCode,
           totalNet,
           `GoBuyMe Vendor Payout — ${vendor.businessName}`,
         );

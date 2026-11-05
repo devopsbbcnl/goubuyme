@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Image, View, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
 import { parsePosition } from '@/utils/imagePosition';
+import { optimizedUrl } from '@/utils/imageOptimize';
 
 interface Props {
   uri: string;
@@ -13,7 +14,9 @@ interface Props {
 
 // resizeMode="cover" with a movable crop. React Native's Image has no object-position,
 // so the covered size is worked out from the picture's own size and the frame's layout.
-export function PositionedImage({ uri, position, style, onError }: Props) {
+export function PositionedImage({ uri: rawUri, position, style, onError }: Props) {
+  // Cloudinary copies are served right-sized and in the best format for the device.
+  const uri = optimizedUrl(rawUri, 1200);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const [frame, setFrame] = useState<{ w: number; h: number } | null>(null);
 

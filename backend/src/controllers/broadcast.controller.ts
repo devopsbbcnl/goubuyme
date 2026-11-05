@@ -3,7 +3,7 @@ import { BroadcastAudience } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
-import { broadcastAudienceQuery } from '../validators/broadcast.validator';
+import { broadcastAudienceQuery, recipientSearchQuery } from '../validators/broadcast.validator';
 import * as broadcasts from '../services/broadcast.service';
 
 // GET /admin/broadcasts
@@ -18,7 +18,14 @@ export const listBroadcasts = catchAsync(async (req: AuthRequest, res: Response)
 export const previewBroadcast = catchAsync(async (req: AuthRequest, res: Response) => {
   const { error, value } = broadcastAudienceQuery.validate(req.query);
   if (error) return apiResponse.error(res, 'Choose an audience.', 400);
-  return apiResponse.success(res, 'Audience previewed.', await broadcasts.preview(value.audience as BroadcastAudience));
+  return apiResponse.success(res, 'Audience previewed.', await broadcasts.preview(value.audience as BroadcastAudience, value.targetUserId));
+});
+
+// GET /admin/broadcasts/recipients?q= — find one account to message
+export const searchBroadcastRecipients = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { error, value } = recipientSearchQuery.validate(req.query);
+  if (error) return apiResponse.error(res, 'Type at least 2 characters.', 400);
+  return apiResponse.success(res, 'Recipients found.', await broadcasts.searchRecipients(value.q));
 });
 
 // POST /admin/broadcasts

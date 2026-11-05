@@ -24,6 +24,7 @@ interface Rider {
   id: string; userId: string; name: string; phone: string | null; vehicleType: string;
   plateNumber: string | null; totalDeliveries: number; totalEarnings: number;
   rating: number; approvalStatus: RiderStatus; isOnline: boolean; createdAt: string;
+  fleetName?: string | null;
 }
 
 interface RiderDetail {
@@ -268,6 +269,7 @@ export default function RidersPage() {
                   <td style={{ padding: '13px 16px' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{r.name}</div>
                     <div style={{ fontSize: 11, color: T.textMuted }}>{fmtDate(r.createdAt)}</div>
+                    {r.fleetName && <div style={{ fontSize: 11, color: T.primary, fontWeight: 600 }}>Fleet: {r.fleetName}</div>}
                   </td>
                   <td style={{ padding: '13px 16px', fontSize: 12, color: T.textSec }}>{r.phone ?? '—'}</td>
                   <td style={{ padding: '13px 16px', fontSize: 13, color: T.textSec }}>{r.vehicleType}</td>

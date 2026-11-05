@@ -2,6 +2,7 @@ import axios, { AxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { requirePublicEnv } from './env';
 import { reportError } from './errorReporting';
+import { getActiveVendorId } from './vendorLocation';
 
 // Fails fast in production builds if the URL is missing, instead of silently
 // falling back to localhost (which on a device points at the phone itself).
@@ -36,6 +37,13 @@ api.interceptors.request.use(async (config) => {
 
   const token = await SecureStore.getItemAsync('accessToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+
+  // A multi-location vendor tells the server which location a vendor call is for. Only vendor
+  // endpoints get the header; the server ignores it on account-level routes (payouts, plan, branches).
+  if (config.url?.startsWith('/vendors/me')) {
+    const locationId = await getActiveVendorId();
+    if (locationId) config.headers['X-Vendor-Id'] = locationId;
+  }
   return config;
 });
 

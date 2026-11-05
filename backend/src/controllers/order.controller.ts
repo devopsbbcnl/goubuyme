@@ -14,6 +14,7 @@ import { notifyUser } from '../services/notification.service';
 import { sendSms } from '../services/sms.service';
 import { sendWebPush } from '../services/webPush.service';
 import { sendVendorNewOrderEmail } from '../services/email.service';
+import { vendorOrderContacts } from '../services/vendorRecipients';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { trackServerEvent } from '../services/analytics.service';
 import { availabilityInclude, computeAvailability, AvailabilityInput } from '../services/availability.service';
@@ -382,14 +383,20 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
     type: 'order',
     data: { orderId: order.id },
   };
-  notifyUser(vendor.user.id, vendorNotifyPayload).catch(() => {});
-  sendWebPush(vendor.user.id, { ...vendorNotifyPayload, requireInteraction: true }).catch(() => {});
-  if (vendor.user.phone) {
-    sendSms(vendor.user.phone, `GoBuyMe: New order #${order.orderNumber} (₦${totalAmount.toLocaleString()}). Open the app to accept.`).catch(() => {});
-  }
-  if (vendor.user.email) {
-    sendVendorNewOrderEmail(vendor.user.email, order.orderNumber, totalAmount).catch(() => {});
-  }
+  // A branch with its own manager alerts the manager's devices (and the owner too, unless they
+  // turned that off); everything else alerts the owner as before.
+  vendorOrderContacts(vendor.id).then((contacts) => {
+    for (const c of contacts) {
+      notifyUser(c.userId, vendorNotifyPayload).catch(() => {});
+      sendWebPush(c.userId, { ...vendorNotifyPayload, requireInteraction: true }).catch(() => {});
+      if (c.phone) {
+        sendSms(c.phone, `GoBuyMe: New order #${order.orderNumber} (₦${totalAmount.toLocaleString()}). Open the app to accept.`).catch(() => {});
+      }
+      if (c.email && !c.email.endsWith('.invalid')) {
+        sendVendorNewOrderEmail(c.email, order.orderNumber, totalAmount).catch(() => {});
+      }
+    }
+  }).catch(() => {});
 
   // First order = customer activation (idempotent — only the first order counts).
   void recordOnboardingEvent(req.user!.userId, 'CUSTOMER', 'FIRST_ORDER');

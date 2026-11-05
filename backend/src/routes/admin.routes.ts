@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { getAdminCompanies, updateCompanyStatus } from '../controllers/adminCompany.controller';
+import { getAdminVendorMenu } from '../controllers/adminVendorMenu.controller';
 import {
   getDashboardStats,
   getAdminSettings,
@@ -37,7 +39,7 @@ import {
 } from '../validators/adminOrder.validator';
 import { runOpsBriefingSchema } from '../validators/opsBriefing.validator';
 import { sendBroadcastSchema } from '../validators/broadcast.validator';
-import { listBroadcasts, previewBroadcast, sendBroadcast } from '../controllers/broadcast.controller';
+import { listBroadcasts, previewBroadcast, searchBroadcastRecipients, sendBroadcast } from '../controllers/broadcast.controller';
 import { listOpsBriefings, runOpsBriefingNow } from '../controllers/opsBriefing.controller';
 import {
   listAgents, updateAgent, listSuggestions, approveAgentSuggestion, rejectAgentSuggestion,
@@ -100,6 +102,7 @@ router.patch('/settings', ...superAdminAuth, updateAdminSettings);
 router.get('/vendors',                                          ...readAuth,       getAdminVendors);
 router.post('/vendors/create',                                  ...opsAuth,        adminCreateVendor);
 router.get('/vendors/:id',                                      ...readAuth,       getVendorDetail);
+router.get('/vendors/:id/menu',                                 ...readAuth,       getAdminVendorMenu);
 router.patch('/vendors/:id/status',                             ...opsAuth,        updateVendorStatus);
 router.patch('/vendors/:id/tier',                               ...superAdminAuth, updateVendorTier);
 router.patch('/vendors/:id/category',                           ...opsAuth,        updateVendorCategory);
@@ -111,6 +114,8 @@ router.post('/vendors/:id/regeocode',                           ...opsAuth,     
 router.delete('/vendors/:id',                                   ...superAdminAuth, deleteVendor);
 
 // Riders
+router.get('/companies',                     ...readAuth, getAdminCompanies);
+router.patch('/companies/:id/status',        ...opsAuth,  updateCompanyStatus);
 router.get('/riders',                        ...readAuth, getAdminRiders);
 router.post('/riders/create',                ...opsAuth,  adminCreateRider);
 router.get('/riders/:id',                    ...readAuth, getAdminRiderDetail);
@@ -148,6 +153,7 @@ router.get('/audit', ...readAuth, getAuditLogs);
 // Platform broadcasts: read-only for support, sending needs operations or above.
 router.get('/broadcasts',         ...readAuth, listBroadcasts);
 router.get('/broadcasts/preview', ...readAuth, previewBroadcast);
+router.get('/broadcasts/recipients', ...opsAuth, searchBroadcastRecipients);
 router.post('/broadcasts',        ...opsAuth, validate(sendBroadcastSchema), sendBroadcast);
 
 // Server logs (Winston files on disk) — super admin only

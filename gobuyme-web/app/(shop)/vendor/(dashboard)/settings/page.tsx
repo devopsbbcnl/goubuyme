@@ -659,7 +659,7 @@ function PayoutAccountSection() {
 
 // ── Danger Zone ────────────────────────────────────────────────────────────────
 
-function DangerZone() {
+function DangerZone({ canDelete = true }: { canDelete?: boolean }) {
   const { logout } = useAuth();
   const [confirming, setConfirming] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -679,13 +679,21 @@ function DangerZone() {
         </div>
       )}
 
-      <div className="divider" style={{ margin: '16px 0' }} />
-      <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
-        Deleting your account deactivates your vendor profile and revokes access immediately.
-      </p>
-      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => setShowDeleteModal(true)}>
-        Delete My Account
-      </button>
+      {canDelete ? (
+        <>
+          <div className="divider" style={{ margin: '16px 0' }} />
+          <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+            Deleting your account deactivates your vendor profile and revokes access immediately.
+          </p>
+          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => setShowDeleteModal(true)}>
+            Delete My Account
+          </button>
+        </>
+      ) : (
+        <p className="muted" style={{ fontSize: 12, marginTop: 14 }}>
+          Your login is managed by the business owner. Ask them if you need it changed or removed.
+        </p>
+      )}
 
       <DeleteAccountModal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} />
     </Section>
@@ -695,6 +703,12 @@ function DangerZone() {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function VendorSettingsPage() {
+  // A branch manager runs the branch but does not own the plan, payouts or the account itself.
+  const [isManager, setIsManager] = useState(false);
+  useEffect(() => {
+    api.get('/vendors/me').then(r => setIsManager(r.data.data?.accessLevel === 'BRANCH_MANAGER')).catch(() => {});
+  }, []);
+
   return (
     <div>
       <h1 className="t-page" style={{ marginBottom: 28 }}>Settings</h1>
@@ -704,9 +718,9 @@ export default function VendorSettingsPage() {
         <AppearanceSection />
         <NotificationsSection />
         <ChangePasswordSection />
-        <CommissionTierSection />
-        <PayoutAccountSection />
-        <div style={{ columnSpan: 'all' }}><DangerZone /></div>
+        {!isManager && <CommissionTierSection />}
+        {!isManager && <PayoutAccountSection />}
+        <div style={{ columnSpan: 'all' }}><DangerZone canDelete={!isManager} /></div>
       </div>
     </div>
   );

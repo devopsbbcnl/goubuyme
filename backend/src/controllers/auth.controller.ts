@@ -20,6 +20,10 @@ import { recordError } from '../utils/recordError';
 import { sendPhoneOtp, verifyPhoneOtp, PhoneVerificationError } from '../services/phoneVerification.service';
 import { issueEmailOtp, issueEmailOtpIfAllowed, checkEmailOtp, EmailOtpError } from '../services/emailOtp.service';
 import { deletedVendorName } from '../utils/deletedVendorName';
+import { RIDER_APPROVAL_SELECT, claimFleetInvite, effectiveRiderApproval } from '../services/fleet.service';
+import { BranchError, createBranchVendor } from '../services/branch.service';
+import { revokeManagerLogin } from '../services/branchAccess.service';
+import { recordSmoisAuthEvent } from '../services/smois/audit';
 
 const SALT_ROUNDS = 12;
 
@@ -53,12 +57,44 @@ const normalizeEmail = (email: string) => email.trim().toLowerCase();
 const findUserByEmail = (email: string) =>
   prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
 
+/**
+ * The approval standing the clients gate on, per role. A fleet rider's standing
+ * follows their company's (see fleet.service), and a logistics company has its own.
+ */
+const vendorStanding = (userId: string) =>
+  prisma.vendor.findFirst({
+    where: { OR: [{ userId, parentVendorId: null }, { managerUserId: userId }] },
+    select: { approvalStatus: true },
+  });
+
+const resolveApprovalStatus = async (userId: string, role: Role): Promise<string | undefined> => {
+  if (role === 'VENDOR') {
+    const vendor = await vendorStanding(userId);
+    return vendor?.approvalStatus;
+  }
+  if (role === 'RIDER') {
+    const rider = await prisma.rider.findUnique({ where: { userId }, select: RIDER_APPROVAL_SELECT });
+    return rider ? effectiveRiderApproval(rider) : undefined;
+  }
+  if (role === 'LOGISTICS_COMPANY') {
+    const company = await prisma.logisticsCompany.findUnique({ where: { userId }, select: { approvalStatus: true } });
+    return company?.approvalStatus;
+  }
+  return undefined;
+};
+
+interface BranchInput {
+  name: string; address: string; city: string; state?: string;
+  latitude?: number; longitude?: number; phone?: string;
+}
+
 export const register = catchAsync(async (req: Request, res: Response) => {
   const {
     name, phone, password, role,
     referralCode,
     commissionTier, businessName, category, address, city, state, latitude, longitude,
     vehicleType, plateNumber,
+    companyName, registrationNumber, branches,
   } = req.body;
   const email = normalizeEmail(req.body.email);
 
@@ -88,6 +124,14 @@ export const register = catchAsync(async (req: Request, res: Response) => {
     if (nameTaken) return apiResponse.error(res, 'A store with this business name already exists. Please choose a different name.', 409);
   }
 
+  if (role === 'LOGISTICS_COMPANY' && companyName) {
+    const nameTaken = await prisma.logisticsCompany.findFirst({
+      where: { companyName: { equals: companyName.trim(), mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (nameTaken) return apiResponse.error(res, 'A logistics company with this name already exists. Please choose a different name.', 409);
+  }
+
   const hashed = await bcrypt.hash(password, SALT_ROUNDS);
   const newReferralCode = generateReferralCode();
 
@@ -97,7 +141,9 @@ export const register = catchAsync(async (req: Request, res: Response) => {
     if (referrer) referredById = referrer.id;
   }
 
-  const user = await prisma.$transaction(async (tx) => {
+  let user: Awaited<ReturnType<typeof prisma.user.create>>;
+  try {
+  user = await prisma.$transaction(async (tx) => {
     const newUser = await tx.user.create({
       data: {
         name, email, password: hashed,
@@ -117,7 +163,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
         businessName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') +
         '-' +
         newUser.id.slice(0, 6);
-      await tx.vendor.create({
+      const mainVendor = await tx.vendor.create({
         data: {
           userId: newUser.id,
           businessName,
@@ -130,6 +176,26 @@ export const register = catchAsync(async (req: Request, res: Response) => {
           ...(longitude !== undefined ? { longitude } : {}),
           commissionTier: commissionTier as CommissionTier,
           isPharmacyFlagged: category === 'PHARMACY',
+        },
+      });
+
+      // Each branch is its own vendor (own menu, stock, hours and listing) owned by this account.
+      for (const b of (Array.isArray(branches) ? branches : []) as BranchInput[]) {
+        await createBranchVendor(tx, mainVendor, b);
+      }
+    }
+
+    if (role === 'LOGISTICS_COMPANY') {
+      await tx.logisticsCompany.create({
+        data: {
+          userId: newUser.id,
+          companyName: companyName.trim(),
+          ...(registrationNumber?.trim() ? { registrationNumber: registrationNumber.trim() } : {}),
+          address,
+          city,
+          ...(state?.trim() ? { state: state.trim() } : {}),
+          ...(latitude !== undefined ? { latitude } : {}),
+          ...(longitude !== undefined ? { longitude } : {}),
         },
       });
     }
@@ -155,6 +221,10 @@ export const register = catchAsync(async (req: Request, res: Response) => {
 
     return newUser;
   });
+  } catch (err) {
+    if (err instanceof BranchError) return apiResponse.error(res, err.message, err.status);
+    throw err;
+  }
 
   await issueEmailOtpIfAllowed(user.id, user.email, user.name);
 
@@ -179,7 +249,10 @@ export const verifyOtp = catchAsync(async (req: Request, res: Response) => {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, role: true, vendor: { select: { businessName: true } } },
+    select: {
+      id: true, name: true, email: true, role: true,
+      vendors: { where: { parentVendorId: null }, select: { businessName: true, category: true }, take: 1 },
+    },
   });
 
   await prisma.$transaction([
@@ -188,8 +261,14 @@ export const verifyOtp = catchAsync(async (req: Request, res: Response) => {
   ]);
 
   if (user) {
-    void sendWelcomeEmail(user.email, user.name, user.role, user.vendor?.businessName ?? undefined);
+    const mainVendor = user.vendors[0];
+    void sendWelcomeEmail(user.email, user.name, user.role, mainVendor?.businessName ?? undefined, mainVendor?.category);
     void recordOnboardingEvent(user.id, user.role, 'EMAIL_VERIFIED');
+    if (user.role === 'RIDER') {
+      await claimFleetInvite({ id: user.id, email: user.email }).catch((err) =>
+        recordError('auth', 'Fleet invite claim failed', err, { userId: user.id }),
+      );
+    }
   }
 
   return apiResponse.success(res, 'Email verified successfully.');
@@ -246,6 +325,7 @@ export const login = catchAsync(async (req: Request, res: Response) => {
     // Track failed login attempt
     const { trackSuspiciousActivity } = await import('../services/auto-blocker.service');
     await trackSuspiciousActivity(req.ip || '', 'failed_login', { email, reason: 'invalid_password' });
+    void recordSmoisAuthEvent(req, user, 'AUTH_LOGIN_FAILED', { reason: 'invalid_password' });
     return apiResponse.error(res, 'Incorrect password. Please try again.', 401);
   }
 
@@ -261,14 +341,9 @@ export const login = catchAsync(async (req: Request, res: Response) => {
 
   await prisma.user.update({ where: { id: user.id }, data: { refreshToken } });
 
-  let approvalStatus: string | undefined;
-  if (user.role === 'VENDOR') {
-    const vendor = await prisma.vendor.findUnique({ where: { userId: user.id }, select: { approvalStatus: true } });
-    approvalStatus = vendor?.approvalStatus;
-  } else if (user.role === 'RIDER') {
-    const rider = await prisma.rider.findUnique({ where: { userId: user.id }, select: { approvalStatus: true } });
-    approvalStatus = rider?.approvalStatus;
-  }
+  if (user.role === 'RIDER') await claimFleetInvite({ id: user.id, email: user.email });
+  const approvalStatus = await resolveApprovalStatus(user.id, user.role);
+  void recordSmoisAuthEvent(req, user, 'AUTH_LOGIN');
 
   return apiResponse.success(res, 'Login successful.', {
     user: { ...buildUserPayload(user), ...(approvalStatus !== undefined ? { approvalStatus } : {}) },
@@ -358,7 +433,7 @@ export const googleAuth = catchAsync(async (req: Request, res: Response) => {
 
   let approvalStatus: string | undefined;
   if (user.role === 'VENDOR') {
-    const vendor = await prisma.vendor.findUnique({ where: { userId: user.id }, select: { approvalStatus: true } });
+    const vendor = await vendorStanding(user.id);
     approvalStatus = vendor?.approvalStatus;
   }
 
@@ -372,14 +447,13 @@ export const googleAuth = catchAsync(async (req: Request, res: Response) => {
 export const activationStatus = catchAsync(async (req: AuthRequest, res: Response) => {
   const { userId, role } = req.user!;
 
-  if (role === 'VENDOR') {
-    const vendor = await prisma.vendor.findUnique({ where: { userId }, select: { approvalStatus: true } });
-    return apiResponse.success(res, 'Status fetched.', { approvalStatus: vendor?.approvalStatus ?? 'PENDING' });
-  }
-
-  if (role === 'RIDER') {
-    const rider = await prisma.rider.findUnique({ where: { userId }, select: { approvalStatus: true } });
-    return apiResponse.success(res, 'Status fetched.', { approvalStatus: rider?.approvalStatus ?? 'PENDING' });
+  if (role === 'VENDOR' || role === 'RIDER' || role === 'LOGISTICS_COMPANY') {
+    if (role === 'RIDER') {
+      const me = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      if (me) await claimFleetInvite({ id: userId, email: me.email });
+    }
+    const approvalStatus = await resolveApprovalStatus(userId, role as Role);
+    return apiResponse.success(res, 'Status fetched.', { approvalStatus: approvalStatus ?? 'PENDING' });
   }
 
   return apiResponse.success(res, 'Status fetched.', { approvalStatus: 'APPROVED' });
@@ -416,6 +490,7 @@ export const refresh = catchAsync(async (req: Request, res: Response) => {
 export const logout = catchAsync(async (req: AuthRequest, res: Response) => {
   if (req.user?.userId) {
     await prisma.user.update({ where: { id: req.user.userId }, data: { refreshToken: null } });
+    void recordSmoisAuthEvent(req, { id: req.user.userId, role: req.user.role }, 'AUTH_LOGOUT');
   }
   return apiResponse.success(res, 'Logged out successfully.');
 });
@@ -557,6 +632,7 @@ export const changePassword = catchAsync(async (req: AuthRequest, res: Response)
     prisma.emailOtp.update({ where: { id: otpId }, data: { used: true } }),
   ]);
 
+  void recordSmoisAuthEvent(req, { id: user.id, role: req.user!.role }, 'AUTH_PASSWORD_CHANGED');
   return apiResponse.success(res, 'Password changed successfully.');
 });
 
@@ -575,20 +651,43 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) return apiResponse.error(res, 'Incorrect password.', 401);
 
+  if (role === 'VENDOR') {
+    const managed = await prisma.vendor.findFirst({ where: { managerUserId: userId }, select: { id: true } });
+    if (managed) {
+      return apiResponse.error(res, 'Branch manager logins are managed by the business owner. Ask them to remove your access.', 403);
+    }
+  }
+
   let domainId: string | undefined;
-  let orderWhere: Record<string, string> | undefined;
-  let entity: 'Customer' | 'Vendor' | 'Rider' | undefined;
+  let orderWhere: Record<string, unknown> | undefined;
+  let ownedVendors: { id: string; businessName: string; parentVendorId?: string | null }[] = [];
+  let entity: 'Customer' | 'Vendor' | 'Rider' | 'LogisticsCompany' | undefined;
+  let companyName: string | undefined;
   let businessName: string | undefined;
 
   if (role === 'CUSTOMER') {
     const customer = await prisma.customer.findUnique({ where: { userId }, select: { id: true } });
     if (customer) { domainId = customer.id; orderWhere = { customerId: customer.id }; entity = 'Customer'; }
   } else if (role === 'VENDOR') {
-    const vendor = await prisma.vendor.findUnique({ where: { userId }, select: { id: true, businessName: true } });
-    if (vendor) { domainId = vendor.id; orderWhere = { vendorId: vendor.id }; entity = 'Vendor'; businessName = vendor.businessName; }
+    // The main business and every branch belong to this account and go together.
+    ownedVendors = await prisma.vendor.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, businessName: true, parentVendorId: true },
+    });
+    const main = ownedVendors.find((v) => !v.parentVendorId) ?? ownedVendors[0];
+    if (main) {
+      domainId = main.id;
+      orderWhere = { vendorId: { in: ownedVendors.map((v) => v.id) } };
+      entity = 'Vendor';
+      businessName = main.businessName;
+    }
   } else if (role === 'RIDER') {
     const rider = await prisma.rider.findUnique({ where: { userId }, select: { id: true } });
     if (rider) { domainId = rider.id; orderWhere = { riderId: rider.id }; entity = 'Rider'; }
+  } else if (role === 'LOGISTICS_COMPANY') {
+    const company = await prisma.logisticsCompany.findUnique({ where: { userId }, select: { id: true, companyName: true } });
+    if (company) { domainId = company.id; entity = 'LogisticsCompany'; companyName = company.companyName; }
   }
 
   if (orderWhere) {
@@ -621,12 +720,22 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
     // so suspending here removes them from customer-facing discovery without
     // touching every one of those query sites individually.
     if (role === 'VENDOR' && domainId) {
-      await tx.vendor.update({
-        where: { id: domainId },
-        data: { approvalStatus: 'SUSPENDED', businessName: deletedVendorName(businessName!, domainId) },
-      });
+      for (const v of ownedVendors) {
+        // A branch's manager login is the owner's to give, so it closes with the owner's account.
+        if (v.parentVendorId) await revokeManagerLogin(tx, user.id, v.id);
+        await tx.vendor.update({
+          where: { id: v.id },
+          data: { approvalStatus: 'SUSPENDED', isOpen: false, businessName: deletedVendorName(v.businessName, v.id) },
+        });
+      }
     } else if (role === 'RIDER' && domainId) {
       await tx.rider.update({ where: { id: domainId }, data: { approvalStatus: 'SUSPENDED' } });
+    } else if (role === 'LOGISTICS_COMPANY' && domainId) {
+      // Suspending the company also takes its fleet off the road (see fleet.service).
+      await tx.logisticsCompany.update({
+        where: { id: domainId },
+        data: { approvalStatus: 'SUSPENDED', companyName: deletedVendorName(companyName!, domainId) },
+      });
     }
 
     await tx.auditLog.create({

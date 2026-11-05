@@ -135,6 +135,8 @@ export default function VendorEarningsScreen() {
   const [saving, setSaving] = useState(false);
 
   const [tierInfo, setTierInfo] = useState<TierInfo | null>(null);
+  // A branch manager sees this branch's sales; the bank account and plan are the owner's.
+  const [isManager, setIsManager] = useState(false);
   const [showTierModal, setShowTierModal] = useState(false);
   const [switchingTier, setSwitchingTier] = useState(false);
 
@@ -165,6 +167,7 @@ export default function VendorEarningsScreen() {
       }
       if (profileRes.status === 'fulfilled') {
         const d = profileRes.value.data.data;
+        setIsManager(d.accessLevel === 'BRANCH_MANAGER');
         setTierInfo({ commissionTier: d.commissionTier, tierChangedAt: d.tierChangedAt ?? null });
       }
     } finally {
@@ -396,7 +399,16 @@ export default function VendorEarningsScreen() {
           )}
         </View>
 
+        {isManager && (
+          <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+            <Text style={{ fontSize: 13, color: T.textSec, lineHeight: 19 }}>
+              Payouts and the commission plan are handled by the business owner.
+            </Text>
+          </View>
+        )}
+
         {/* Payout Account */}
+        {!isManager && (
         <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
           <View style={styles.sectionRow}>
             <Text style={[styles.sectionTitle, { color: T.text }]}>Payout Account</Text>
@@ -492,9 +504,10 @@ export default function VendorEarningsScreen() {
             </View>
           )}
         </View>
+        )}
 
         {/* Commission Plan */}
-        {tierInfo && (
+        {tierInfo && !isManager && (
           <View style={{ paddingHorizontal: 20, marginTop: 24, marginBottom: 8 }}>
             <View style={styles.sectionRow}>
               <Text style={[styles.sectionTitle, { color: T.text }]}>Commission Plan</Text>

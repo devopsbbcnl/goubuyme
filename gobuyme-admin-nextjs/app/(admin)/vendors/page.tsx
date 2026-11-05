@@ -9,6 +9,7 @@ import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { AddVendorModal } from '@/components/vendor/AddVendorModal';
 import { Pagination } from '@/components/ui/Pagination';
 import { api } from '@/lib/api';
+import { VendorFullDetail, FullDetail } from '@/components/vendor/VendorFullDetail';
 
 type Status = 'APPROVED' | 'PENDING' | 'REJECTED' | 'SUSPENDED';
 type Tier = 'TIER_1' | 'TIER_2';
@@ -26,6 +27,9 @@ interface Vendor {
   id: string; userId: string; businessName: string; ownerName: string; category: string;
   city: string; totalOrders: number; totalRevenue: number;
   rating: number; approvalStatus: Status; commissionTier: Tier; createdAt: string;
+  // A branch is a full vendor listing owned by a main business.
+  isBranch?: boolean; parentVendorId?: string | null; parentName?: string | null;
+  branchLabel?: string | null; branchCount?: number; totalMenuItems?: number;
 }
 
 interface PlanChange {
@@ -37,7 +41,7 @@ interface PlanChange {
   actor: { name: string; email: string } | null;
 }
 
-interface VendorDetail {
+interface VendorDetail extends FullDetail {
   id: string; businessName: string; slug: string; description: string | null;
   logo: string | null; coverImage: string | null; category: string;
   address: string; city: string; state: string;
@@ -47,6 +51,7 @@ interface VendorDetail {
   openingTime: string | null; closingTime: string | null; avgDeliveryTime: number | null;
   createdAt: string; updatedAt: string;
   totalOrders: number; totalMenuItems: number; totalRevenue: number;
+  terminology?: { itemPlural: string };
   responseRate30d: number | null; noResponseIncidents30d: number;
   user: {
     name: string; email: string; phone: string | null;
@@ -428,6 +433,8 @@ export default function VendorsPage() {
                   <td style={{ padding: '13px 16px' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{v.businessName}</div>
                     <div style={{ fontSize: 11, color: T.textMuted }}>{v.id.slice(0, 8)}</div>
+                    {v.isBranch && <div style={{ fontSize: 11, color: T.primary, fontWeight: 600 }}>Branch of {v.parentName}</div>}
+                    {!v.isBranch && (v.branchCount ?? 0) > 0 && <div style={{ fontSize: 11, color: T.primary, fontWeight: 600 }}>{v.branchCount} branch{v.branchCount === 1 ? '' : 'es'}</div>}
                   </td>
                   <td style={{ padding: '13px 16px', fontSize: 13, color: T.textSec }}>{v.ownerName}</td>
                   <td style={{ padding: '13px 16px', fontSize: 13, color: T.textSec }}>{capFirst(v.category)}</td>
@@ -511,7 +518,7 @@ export default function VendorsPage() {
               {[
                 { label: 'Orders', value: detail.totalOrders },
                 { label: 'Revenue', value: fmtCurrency(detail.totalRevenue) },
-                { label: 'Menu Items', value: detail.totalMenuItems },
+                { label: detail.terminology?.itemPlural ?? 'Menu Items', value: detail.totalMenuItems },
                 { label: 'Rating', value: detail.rating > 0 ? `${detail.rating.toFixed(1)} (${detail.totalRatings})` : '—' },
                 { label: 'Response Rate (30d)', value: detail.responseRate30d != null ? `${Math.round(detail.responseRate30d * 100)}%` : '—' },
                 { label: 'No-Response Incidents (30d)', value: detail.noResponseIncidents30d },
@@ -619,6 +626,9 @@ export default function VendorsPage() {
                 <p style={{ fontSize: 13, color: T.textSec, margin: 0, lineHeight: 1.6 }}>{detail.description}</p>
               </div>
             )}
+
+            {/* Branches, full menu, hours, payouts, promotions, orders, flags */}
+            <VendorFullDetail detail={detail} T={T} onOpenVendor={openDetail} />
 
             {/* Document section */}
             <div>

@@ -176,7 +176,7 @@ async function collect(now: Date, s: DispatchSettings) {
     }),
     prisma.order.findMany({
       where: { status: OrderStatus.PREPARING, statusChangedAt: stalledWindow(s.preparingStallMinutes) },
-      select: { id: true, orderNumber: true, status: true, statusChangedAt: true, vendor: { select: { businessName: true, user: { select: { phone: true } } } } },
+      select: { id: true, orderNumber: true, status: true, statusChangedAt: true, vendor: { select: { businessName: true, contactPhone: true, manager: { select: { phone: true } }, user: { select: { phone: true } } } } },
       take: 100,
     }),
   ]);
@@ -190,7 +190,7 @@ async function collect(now: Date, s: DispatchSettings) {
     })),
     stalledPreparing: preparing.map((p) => ({
       id: p.id, orderNumber: p.orderNumber, status: p.status, since: p.statusChangedAt!,
-      contactName: p.vendor.businessName, phone: p.vendor.user.phone ?? null,
+      contactName: p.vendor.businessName, phone: p.vendor.contactPhone ?? p.vendor.manager?.phone ?? p.vendor.user.phone ?? null,
     })),
   };
 }

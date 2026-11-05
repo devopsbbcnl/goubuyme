@@ -257,6 +257,19 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=...
 
 ---
 
+## SMOIS — social media operations (admin module)
+
+Internal workspace for the social media department, inside the admin console (`/smois`).
+Backend: `/api/v1/admin/smois/*` (`routes/smois.routes.ts`, `controllers/smois/`, `services/smois/`).
+Spec: `SMOIS_Detailed_PRD_v1.0.docx` (kept out of git; ask the owner for a copy).
+
+- **Phase 1 is built:** accounts + assignments, content (brief + a version per platform account) with review/approval, calendar (drag to reschedule), publishing records, tasks (incl. recurring), activity log (CSV export), dashboard, in-app + email alerts.
+- **Not built (needs platform API credentials):** analytics sync and snapshots, KPIs, staff scorecards, weekly/monthly reports, unified inbox, campaigns, listening, AI. Accounts are `MANUAL`; publishing is a manual record. Never fake integrations or metrics.
+- **Access:** `Role.SOCIAL_MEDIA` = SMOIS-only staff. Everyone else needs a `SmoisMember` row (super admins implicit). Capabilities live in `services/smois/workflow.ts` `can()`; routes use `smoisAuth(capability)`.
+- **Rules to keep:** nobody approves their own submission (setting `allowSelfApproval`); material edits after approval return to review; managers only work on accounts they are currently assigned to.
+- **Audit:** SMOIS activity is `AuditLog` rows with entity `Smois*`, append-only via DB trigger (UPDATE/DELETE raise). Test cleanup must `ALTER TABLE audit_logs DISABLE TRIGGER USER` first.
+- Write new notifications through `notifyMany` (`controllers/smois/common.ts`); it handles in-app, push and the per-user email switch.
+
 ## Security notes
 
 - All routes use Helmet + CORS

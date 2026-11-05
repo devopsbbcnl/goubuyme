@@ -20,9 +20,16 @@ import { useGoogleSignIn } from '@/hooks/useGoogleSignIn';
 import GoogleIcon from '@/components/ui/GoogleIcon';
 import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
-type RoleParam = 'customer' | 'vendor' | 'rider';
+type RoleParam = 'customer' | 'vendor' | 'rider' | 'logistics_company';
+
+type BranchDraft = { name: string; address: string; city: string; phone: string };
+
+const MAX_SIGNUP_BRANCHES = 10;
 
 type RegisterErrors = {
+	companyName?: string;
+	registrationNumber?: string;
+	branches?: string;
 	name?: string;
 	email?: string;
 	phone?: string;
@@ -52,6 +59,10 @@ const ROLE_LABELS: Record<
 		sub: 'List your restaurant or store',
 	},
 	rider: { title: 'Join as a Rider', sub: 'Earn on your schedule' },
+	logistics_company: {
+		title: 'Register Your Company',
+		sub: 'Run a delivery fleet and manage your riders',
+	},
 };
 
 const CATEGORIES = [
@@ -76,6 +87,9 @@ const FIELD_LABELS: Record<string, keyof RegisterErrors> = {
 	vehicleType: 'vehicleType',
 	plateNumber: 'plateNumber',
 	referralCode: 'referralCode',
+	companyName: 'companyName',
+	registrationNumber: 'registrationNumber',
+	branches: 'branches',
 };
 
 function formatPhoneForApi(suffix: string): string {
@@ -93,6 +107,8 @@ function validationMessage(field: string, message: string) {
 	if (field === 'password') return 'Password must be at least 8 characters.';
 	if (field === 'name') return 'Enter your full name.';
 	if (field === 'businessName') return 'Enter your business name.';
+	if (field === 'companyName') return 'Enter your company name.';
+	if (field === 'branches') return 'Check your branch details: each needs a name, address and city.';
 	if (field === 'address') return 'Enter your street address.';
 	if (field === 'city') return 'Enter your city.';
 	if (field === 'vehicleType') return 'Enter your vehicle type.';
@@ -139,6 +155,10 @@ function getRegisterErrors(err: unknown): RegisterErrors {
 			email:
 				'An account already exists with this email. Try signing in instead.',
 		};
+	}
+
+	if (data?.message?.includes('logistics company with this name')) {
+		return { companyName: 'A logistics company with this name already exists. Please choose a different name.' };
 	}
 
 	if (data?.message?.includes('business name')) {
@@ -188,6 +208,19 @@ export default function RegisterScreen() {
 
 	const [vehicle, setVehicle] = useState('');
 	const [plateNumber, setPlateNumber] = useState('');
+
+	const [companyName, setCompanyName] = useState('');
+	const [regNumber, setRegNumber] = useState('');
+	const [branches, setBranches] = useState<BranchDraft[]>([]);
+	const addBranch = () =>
+		setBranches((prev) =>
+			prev.length >= MAX_SIGNUP_BRANCHES ? prev : [...prev, { name: '', address: '', city: city.trim(), phone: '' }],
+		);
+	const updateBranch = (index: number, patch: Partial<BranchDraft>) => {
+		setBranches((prev) => prev.map((b, i) => (i === index ? { ...b, ...patch } : b)));
+		clearError('branches');
+	};
+	const removeBranch = (index: number) => setBranches((prev) => prev.filter((_, i) => i !== index));
 	const [termsAccepted, setTermsAccepted] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [errors, setErrors] = useState<RegisterErrors>({});
@@ -246,6 +279,19 @@ export default function RegisterScreen() {
 			if (!address.trim()) next.address = 'Enter your street address.';
 			if (!city.trim()) next.city = 'Enter your city.';
 			if (!stateVal.trim()) next.state = 'Enter your state.';
+			const badBranch = branches.some(
+				(b) => b.name.trim().length < 2 || b.address.trim().length < 3 || b.city.trim().length < 2,
+			);
+			if (badBranch) next.branches = 'Each branch needs a name, address and city. Remove any you do not need.';
+			const badPhone = branches.some((b) => b.phone.trim() && !/^\+?[0-9]{10,15}$/.test(formatPhoneForApi(b.phone)));
+			if (badPhone) next.branches = 'Enter valid branch phone numbers, e.g. 8031234567, or leave them blank.';
+		}
+
+		if (role === 'logistics_company') {
+			if (companyName.trim().length < 2) next.companyName = 'Enter your company name.';
+			if (!address.trim()) next.address = 'Enter your office address.';
+			if (!city.trim()) next.city = 'Enter your city.';
+			if (!stateVal.trim()) next.state = 'Enter your state.';
 		}
 
 		if (role === 'rider') {
@@ -292,6 +338,48 @@ export default function RegisterScreen() {
 				if (address.trim() && city.trim()) {
 					const fullAddress = `${address.trim()}, ${city.trim()}, ${stateVal.trim()}`;
 					const geocodeResults = await forwardGeocode(fullAddress);
+					if (geocodeResults.length > 0) {
+						payload.latitude = geocodeResults[0].lat;
+						payload.longitude = geocodeResults[0].lng;
+					}
+				}
+			}
+
+			if (role === 'vendor' && branches.length > 0) {
+				// Geocode each branch so customers can later be matched to the nearest one.
+				// A failed lookup just leaves the branch without coordinates.
+				payload.branches = await Promise.all(
+					branches.map(async (b) => {
+						const entry: Record<string, unknown> = {
+							name: b.name.trim(),
+							address: b.address.trim(),
+							city: b.city.trim(),
+							state: stateVal.trim(),
+						};
+						const branchPhone = formatPhoneForApi(b.phone);
+						if (branchPhone) entry.phone = branchPhone;
+						try {
+							const hits = await forwardGeocode(`${b.address.trim()}, ${b.city.trim()}, ${stateVal.trim()}`);
+							if (hits.length > 0) {
+								entry.latitude = hits[0].lat;
+								entry.longitude = hits[0].lng;
+							}
+						} catch {
+							// leave coordinates off
+						}
+						return entry;
+					}),
+				);
+			}
+
+			if (role === 'logistics_company') {
+				payload.companyName = companyName.trim();
+				if (regNumber.trim()) payload.registrationNumber = regNumber.trim();
+				payload.address = address.trim();
+				payload.city = city.trim();
+				payload.state = stateVal.trim();
+				if (address.trim() && city.trim()) {
+					const geocodeResults = await forwardGeocode(`${address.trim()}, ${city.trim()}, ${stateVal.trim()}`);
 					if (geocodeResults.length > 0) {
 						payload.latitude = geocodeResults[0].lat;
 						payload.longitude = geocodeResults[0].lng;
@@ -549,6 +637,138 @@ export default function RegisterScreen() {
 				</>
 			)}
 
+			{role === 'vendor' && (
+				<>
+					<Text style={[styles.fieldLabel, { color: T.textSec, marginTop: 4 }]}>
+						Branches (optional)
+					</Text>
+					<Text style={[styles.hint, { color: T.textSec }]}>
+						The address above is your main location. Add other branches now, or manage them later from your dashboard.
+					</Text>
+					{branches.map((b, i) => (
+						<View key={i} style={[styles.branchCard, { backgroundColor: T.surface, borderColor: T.border }]}>
+							<View style={styles.branchHead}>
+								<Text style={[styles.branchTitle, { color: T.text }]}>Branch {i + 1}</Text>
+								<TouchableOpacity
+									onPress={() => removeBranch(i)}
+									hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+									accessibilityLabel={`Remove branch ${i + 1}`}
+								>
+									<Ionicons name="trash-outline" size={18} color={T.textMuted} />
+								</TouchableOpacity>
+							</View>
+							<AppInput
+								label="Branch Name"
+								value={b.name}
+								onChangeText={(v) => updateBranch(i, { name: v })}
+								placeholder="e.g. Rumuola branch"
+							/>
+							<AppInput
+								label="Street Address"
+								value={b.address}
+								onChangeText={(v) => updateBranch(i, { address: v })}
+								placeholder="5 Rumuola Road"
+							/>
+							<View style={styles.rowFields}>
+								<View style={{ flex: 1 }}>
+									<AppInput
+										label="City"
+										value={b.city}
+										onChangeText={(v) => updateBranch(i, { city: v })}
+										placeholder="Port Harcourt"
+									/>
+								</View>
+								<View style={{ flex: 1 }}>
+									<AppInput
+										label="Phone (optional)"
+										value={b.phone}
+										onChangeText={(v) => updateBranch(i, { phone: v })}
+										placeholder="8031234567"
+										keyboardType="phone-pad"
+										prefix="+234"
+									/>
+								</View>
+							</View>
+						</View>
+					))}
+					{!!errors.branches && (
+						<Text style={[styles.errorText, { color: '#E53E3E' }]}>{errors.branches}</Text>
+					)}
+					{branches.length < MAX_SIGNUP_BRANCHES && (
+						<TouchableOpacity
+							onPress={addBranch}
+							style={[styles.addBranchBtn, { borderColor: T.primary }]}
+							activeOpacity={0.8}
+						>
+							<Ionicons name="add" size={18} color={T.primary} />
+							<Text style={[styles.addBranchText, { color: T.primary }]}>Add a branch</Text>
+						</TouchableOpacity>
+					)}
+				</>
+			)}
+
+			{role === 'logistics_company' && (
+				<>
+					<AppInput
+						label="Company Name"
+						value={companyName}
+						onChangeText={(v) => {
+							setCompanyName(v);
+							clearError('companyName');
+						}}
+						placeholder="Swift Riders Logistics"
+						error={errors.companyName}
+					/>
+					<AppInput
+						label="CAC Registration Number (optional)"
+						value={regNumber}
+						onChangeText={(v) => {
+							setRegNumber(v);
+							clearError('registrationNumber');
+						}}
+						placeholder="RC 1234567"
+						autoCorrect={false}
+						error={errors.registrationNumber}
+					/>
+					<AppInput
+						label="Office Address"
+						value={address}
+						onChangeText={(v) => {
+							setAddress(v);
+							clearError('address');
+						}}
+						placeholder="12 Aba Road"
+						error={errors.address}
+					/>
+					<View style={styles.rowFields}>
+						<View style={{ flex: 1 }}>
+							<AppInput
+								label="City"
+								value={city}
+								onChangeText={(v) => {
+									setCity(v);
+									clearError('city');
+								}}
+								placeholder="Port Harcourt"
+								error={errors.city}
+							/>
+						</View>
+						<View style={{ flex: 1 }}>
+							<AppInput
+								label="State"
+								value={stateVal}
+								onChangeText={(v) => {
+									setStateVal(v);
+									clearError('state');
+								}}
+								placeholder="Rivers"
+								error={errors.state}
+							/>
+						</View>
+					</View>
+				</>
+			)}
+
 			{role === 'rider' && (
 				<>
 					<AppInput
@@ -781,6 +1001,32 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		fontFamily: 'PlusJakartaSans_500Medium',
 	},
+	hint: {
+		fontSize: 12,
+		lineHeight: 18,
+		marginBottom: 12,
+		fontFamily: 'PlusJakartaSans_400Regular',
+	},
+	branchCard: { borderWidth: 1, borderRadius: 4, padding: 14, marginBottom: 12 },
+	branchHead: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		marginBottom: 8,
+	},
+	branchTitle: { fontSize: 14, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold' },
+	addBranchBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 6,
+		borderWidth: 1.5,
+		borderStyle: 'dashed',
+		borderRadius: 4,
+		paddingVertical: 12,
+		marginBottom: 16,
+	},
+	addBranchText: { fontSize: 13, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold' },
 	loginLink: { alignItems: 'center', marginTop: 24 },
 	divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 },
 	line: { flex: 1, height: 1 },

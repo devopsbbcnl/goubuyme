@@ -8,6 +8,28 @@ import { reportError } from './errorReporting';
 // and reads server-side, and are sent automatically since this is same-origin.
 const api = axios.create({ baseURL: '/api/proxy', withCredentials: true });
 
+// A vendor account can own several locations (main business + branches). The selected one is kept
+// in localStorage and sent on vendor calls; the server falls back to the main business without it.
+export const ACTIVE_LOCATION_KEY = 'gbm_active_vendor';
+export const getActiveLocationId = (): string | null => {
+  try { return window.localStorage.getItem(ACTIVE_LOCATION_KEY); } catch { return null; }
+};
+export const setActiveLocationId = (id: string | null) => {
+  try {
+    if (id) window.localStorage.setItem(ACTIVE_LOCATION_KEY, id);
+    else window.localStorage.removeItem(ACTIVE_LOCATION_KEY);
+    window.dispatchEvent(new CustomEvent('gbm:location', { detail: id }));
+  } catch { /* storage unavailable: the choice just lasts until reload */ }
+};
+
+api.interceptors.request.use(config => {
+  if (typeof window !== 'undefined' && config.url?.startsWith('/vendors/me')) {
+    const id = getActiveLocationId();
+    if (id) config.headers.set('X-Vendor-Id', id);
+  }
+  return config;
+});
+
 let onUnauthorized: (() => void) | null = null;
 export const setUnauthorizedHandler = (fn: () => void) => { onUnauthorized = fn; };
 

@@ -35,7 +35,7 @@ export default function HowToPage() {
         'Download GoBuyMe and select "Vendor" role',
         'Complete profile with logo, cover, and description',
         'Upload KYC document (NIN, Driver\'s License, or Passport)',
-        'Add menu items with photos',
+        'Add your items with photos',
         'Wait for approval (1-2 business days)'
       ]
     },
@@ -327,8 +327,8 @@ function GettingStartedContent({ role, T }: { role: Role; T: Record<string, stri
           ]
         },
         {
-          title: 'Add Menu Items',
-          description: 'Create your menu with photos and prices',
+          title: 'Add Your Items',
+          description: 'List your menu or products with photos and prices',
           details: [
             'Add item name, description, and price',
             'Upload high-quality photos',
@@ -458,7 +458,7 @@ function FeaturesContent({ role, T }: { role: Role; T: Record<string, string> })
       title: 'Vendor Features',
       items: [
         { icon: '📊', title: 'Dashboard', description: 'View today\'s orders, revenue, and average order value at a glance' },
-        { icon: '🍽️', title: 'Menu Management', description: 'Full CRUD for menu items with photo uploads and option groups' },
+        { icon: '🍽️', title: 'Item Management', description: 'Add, edit and remove your items, with photo uploads and option groups' },
         { icon: '📦', title: 'Order Management', description: 'Accept, reject, and mark orders ready with status filters' },
         { icon: '📈', title: 'Earnings Tracking', description: 'View revenue breakdown by period with payout history' },
         { icon: '🎯', title: 'Promotions', description: 'Create promotional banners (TIER_2 only) for customer carousel' },
@@ -655,7 +655,7 @@ function TroubleshootingContent({ role, T }: { role: Role; T: Record<string, str
         { question: 'Can\'t upload photos?', answer: 'Check internet connection, verify file size (max 5MB), ensure JPG/PNG format' },
         { question: 'Payout not received?', answer: 'Check payout account is configured, verify bank details, check payout history' },
         { question: 'Account not active?', answer: 'Wait for admin approval (1-2 business days), check email for notification' },
-        { question: 'Menu items not saving?', answer: 'Ensure all required fields are filled, check photo upload completed' }
+        { question: 'Items not saving?', answer: 'Ensure all required fields are filled, check photo upload completed' }
       ]
     },
     rider: {

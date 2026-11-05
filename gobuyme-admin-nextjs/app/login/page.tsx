@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) router.replace('/dashboard');
+    if (!loading && user) router.replace(user.role === 'SOCIAL_MEDIA' ? '/smois' : '/dashboard');
   }, [loading, user, router]);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -24,8 +24,8 @@ export default function LoginPage() {
     setError('');
     setSubmitting(true);
     try {
-      await login(email, password);
-      router.replace('/dashboard');
+      const u = await login(email, password);
+      router.replace(u.role === 'SOCIAL_MEDIA' ? '/smois' : '/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

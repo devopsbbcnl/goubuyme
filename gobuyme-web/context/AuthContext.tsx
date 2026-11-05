@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import api, { setUnauthorizedHandler } from '@/services/api';
+import api, { setActiveLocationId, setUnauthorizedHandler } from '@/services/api';
 import { useRouter } from 'next/navigation';
 
 export interface AuthUser {
@@ -11,7 +11,7 @@ export interface AuthUser {
   phone?: string;
   avatar?: string;
   avatarPosition?: string | null;
-  role: 'customer' | 'vendor' | 'rider' | null;
+  role: 'customer' | 'vendor' | 'rider' | 'logistics_company' | null;
   approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 }
 
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // /auth/me doesn't include approvalStatus (only /auth/login computes it) —
         // fetch it separately for vendors/riders so the dashboard banner stays accurate.
-        if (base.role === 'vendor' || base.role === 'rider') {
+        if (base.role === 'vendor' || base.role === 'rider' || base.role === 'logistics_company') {
           try {
             const { data } = await api.get('/auth/activation-status');
             base.approvalStatus = data.data.approvalStatus;
@@ -74,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    setActiveLocationId(null);
     setUser(null);
     router.replace('/');
   };

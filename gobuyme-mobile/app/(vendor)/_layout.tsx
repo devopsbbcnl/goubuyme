@@ -7,11 +7,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 import { ApprovalBanner } from '@/components/ui/ApprovalBanner';
+import { useVendorTerminology } from '@/hooks/useVendorTerminology';
+import { useActiveVendorId } from '@/hooks/useVendorLocations';
 
 export default function VendorLayout() {
   const { user, updateApprovalStatus } = useAuth();
   const { theme: T } = useTheme();
   const insets = useSafeAreaInsets();
+  const terms = useVendorTerminology();
+  const activeLocationId = useActiveVendorId();
 
   useEffect(() => {
     if (!user) return;
@@ -38,6 +42,7 @@ export default function VendorLayout() {
       <StatusBar translucent backgroundColor="transparent" />
       {user?.approvalStatus !== 'APPROVED' && <ApprovalBanner role="vendor" />}
       <Tabs
+        key={activeLocationId ?? 'main'}
         screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: T.primary,
@@ -78,7 +83,7 @@ export default function VendorLayout() {
       <Tabs.Screen
         name="menu"
         options={{
-          title: 'Menu',
+          title: terms.section,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'restaurant' : 'restaurant-outline'} size={22} color={color} />
           ),
@@ -105,6 +110,7 @@ export default function VendorLayout() {
       <Tabs.Screen name="business-verification" options={{ href: null }} />
       <Tabs.Screen name="identity-document" options={{ href: null }} />
       <Tabs.Screen name="licenses" options={{ href: null }} />
+      <Tabs.Screen name="branches" options={{ href: null }} />
       </Tabs>
     </>
   );

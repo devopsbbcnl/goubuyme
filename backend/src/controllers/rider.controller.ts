@@ -12,9 +12,10 @@ import { isValidCoordinate, publishRiderLocation } from '../sockets/riderLocatio
 import { notifyUser } from '../services/notification.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { trackServerEvent } from '../services/analytics.service';
+import { RIDER_APPROVAL_SELECT, claimFleetInvite, effectiveRiderApproval } from '../services/fleet.service';
 
 const resolveRider = async (userId: string) =>
-  prisma.rider.findUnique({ where: { userId }, select: { id: true, approvalStatus: true } });
+  prisma.rider.findUnique({ where: { userId }, select: { id: true, ...RIDER_APPROVAL_SELECT } });
 
 function formatTimeAgo(date: Date): string {
   const diffMs = Date.now() - date.getTime();
@@ -28,9 +29,14 @@ function formatTimeAgo(date: Date): string {
 
 // GET /riders/me
 export const getMyRiderProfile = catchAsync(async (req: AuthRequest, res: Response) => {
+  // A rider invited to a fleet joins it the next time they open the app.
+  const me = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { email: true } });
+  if (me) await claimFleetInvite({ id: req.user!.userId, email: me.email });
+
   const rider = await prisma.rider.findUnique({
     where: { userId: req.user!.userId },
     include: {
+      company: { select: { id: true, companyName: true, approvalStatus: true } },
       user: { select: { name: true, email: true, phone: true, avatar: true, avatarPosition: true, isPhoneVerified: true } },
       payoutAccount: { select: { bankName: true, accountNumber: true, accountName: true } },
       document: { select: { guarantorName: true, guarantorPhone: true, guarantorAddress: true, status: true } },
@@ -42,7 +48,11 @@ export const getMyRiderProfile = catchAsync(async (req: AuthRequest, res: Respon
     where: { riderId: rider.id, status: OrderStatus.DELIVERED },
   });
 
-  return apiResponse.success(res, 'Rider profile fetched.', { ...rider, totalDeliveries });
+  return apiResponse.success(res, 'Rider profile fetched.', {
+    ...rider,
+    approvalStatus: effectiveRiderApproval(rider),
+    totalDeliveries,
+  });
 });
 
 // PATCH /riders/me  — update vehicle type / plate number
@@ -70,10 +80,10 @@ export const updateMyRiderProfile = catchAsync(async (req: AuthRequest, res: Res
 export const toggleOnlineStatus = catchAsync(async (req: AuthRequest, res: Response) => {
   const existing = await prisma.rider.findUnique({
     where: { userId: req.user!.userId },
-    select: { isOnline: true, approvalStatus: true },
+    select: { isOnline: true, ...RIDER_APPROVAL_SELECT },
   });
   if (!existing) return apiResponse.error(res, 'Rider not found.', 404);
-  if (!existing.isOnline && existing.approvalStatus !== 'APPROVED') {
+  if (!existing.isOnline && effectiveRiderApproval(existing) !== 'APPROVED') {
     return apiResponse.error(res, 'Your account must be approved before you can go online.', 403);
   }
 
@@ -187,7 +197,7 @@ export const getAvailableJobs = catchAsync(async (req: AuthRequest, res: Respons
 export const acceptJob = catchAsync(async (req: AuthRequest, res: Response) => {
   const rider = await resolveRider(req.user!.userId);
   if (!rider) return apiResponse.error(res, 'Rider not found.', 404);
-  if (rider.approvalStatus !== 'APPROVED') {
+  if (effectiveRiderApproval(rider) !== 'APPROVED') {
     return apiResponse.error(res, 'Your account must be approved before you can accept jobs.', 403);
   }
 

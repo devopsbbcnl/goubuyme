@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { pickImage as openImagePicker } from '@/utils/pickImage';
 import { PositionedImage } from '@/components/ui/PositionedImage';
+import { FullImage } from '@/components/ui/FullImage';
+import { prepareForUpload } from '@/utils/imageOptimize';
 import { useImagePositioner } from '@/components/ui/ImagePositioner';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +16,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 import { forwardGeocode, lastGeocodeStatus } from '@/services/geocoding';
 import { useCommissionRates, CommissionRates } from '@/hooks/useCommissionRates';
+import { useVendorTerminology } from '@/hooks/useVendorTerminology';
 import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 import { CenteredKeyboardModal } from '@/components/ui/CenteredKeyboardModal';
 
@@ -86,7 +89,7 @@ const planDetails = (rates: CommissionRates): Record<Tier, {
 async function uploadImage(uri: string): Promise<string> {
   if (!CLOUD_NAME || !UPLOAD_PRESET) throw new Error('Image upload is not configured. Contact support.');
   const form = new FormData();
-  form.append('file', { uri, type: 'image/jpeg', name: 'upload.jpg' } as any);
+  form.append('file', { uri: await prepareForUpload(uri), type: 'image/jpeg', name: 'upload.jpg' } as any);
   form.append('upload_preset', UPLOAD_PRESET);
   let res: Response;
   try {
@@ -154,6 +157,7 @@ export default function VendorCompleteProfileScreen() {
   const [openingTime, setOpeningTime] = useState('');
   const [closingTime, setClosingTime] = useState('');
   const [tier, setTier] = useState<Tier>('TIER_2');
+  const terms = useVendorTerminology();
   const [menuItems, setMenuItems] = useState<MenuItemDraft[]>([]);
   const [editingItem, setEditingItem] = useState<MenuItemDraft | null>(null);
   const [isNewItem, setIsNewItem] = useState(true);
@@ -468,15 +472,17 @@ export default function VendorCompleteProfileScreen() {
         </View>
 
         {/* Menu items */}
-        <SectionLabel label="MENU ITEMS" T={T} mt={28} />
+        <SectionLabel label={terms.itemPlural.toUpperCase()} T={T} mt={28} />
         <Text style={[styles.subText, { color: T.textSec }]}>
-          A well-stocked menu gets approved faster. Add items with options for dishes that come with choices — e.g. soups served with Poundo, Semo, Fufu, or Garri.
+          {terms.section === 'Menu'
+            ? 'A well-stocked menu gets approved faster. Add items with options for dishes that come with choices — e.g. soups served with Poundo, Semo, Fufu, or Garri.'
+            : `A well-stocked ${terms.section.toLowerCase()} gets approved faster. Add a few ${terms.itemPlural.toLowerCase()} with clear photos and prices.`}
         </Text>
 
         {menuItems.length === 0 ? (
           <View style={[styles.menuEmpty, { backgroundColor: T.surface, borderColor: T.border }]}>
             <Ionicons name="restaurant-outline" size={28} color={T.textMuted} />
-            <Text style={[styles.menuEmptyText, { color: T.textMuted }]}>No items added yet</Text>
+            <Text style={[styles.menuEmptyText, { color: T.textMuted }]}>{`No ${terms.itemPlural.toLowerCase()} added yet`}</Text>
           </View>
         ) : (
           <View style={styles.menuList}>
@@ -731,6 +737,7 @@ function AddMenuItemModal({
   T: any;
   bottomInset: number;
 }) {
+  const terms = useVendorTerminology();
   const [draft, setDraft] = useState<MenuItemDraft>(freshDraft());
   const [uploading, setUploading] = useState(false);
 
@@ -739,7 +746,8 @@ function AddMenuItemModal({
   }, [visible, initial?.id]);
 
   const pickPhoto = async () => {
-    const uri = await openImagePicker({ aspect: [1, 1], quality: 0.8 });
+    // No forced square crop: the whole photo is kept and previewed as it is.
+    const uri = await openImagePicker({ allowsEditing: false, quality: 0.9 });
     if (!uri) return;
     setDraft(prev => ({ ...prev, imageUri: uri }));
     setUploading(true);
@@ -827,7 +835,7 @@ function AddMenuItemModal({
         <View style={styles.itemModalSheet}>
           {/* Header */}
           <View style={[styles.modalHeader, { paddingHorizontal: 24, paddingBottom: 16 }]}>
-            <Text style={[styles.modalTitle, { color: T.text }]}>{isNew ? 'Add Menu Item' : 'Edit Item'}</Text>
+            <Text style={[styles.modalTitle, { color: T.text }]}>{isNew ? `Add ${terms.item}` : `Edit ${terms.item}`}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="close" size={22} color={T.textSec} />
             </TouchableOpacity>
@@ -843,10 +851,14 @@ function AddMenuItemModal({
             {/* Photo */}
             <TouchableOpacity
               onPress={pickPhoto}
-              style={[styles.itemPhoto, { backgroundColor: T.primaryTint, borderColor: T.border }]}
+              style={[
+                styles.itemPhoto,
+                { backgroundColor: T.primaryTint, borderColor: T.border },
+                draft.imageUri ? { height: undefined } : null,
+              ]}
             >
               {draft.imageUri ? (
-                <Image source={{ uri: draft.imageUri }} style={[StyleSheet.absoluteFill, { borderRadius: 8 }]} resizeMode="cover" />
+                <FullImage uri={draft.imageUri} backgroundColor={T.bg} style={{ borderRadius: 8 }} />
               ) : (
                 <View style={{ alignItems: 'center', gap: 6 }}>
                   <Ionicons name="camera-outline" size={28} color={T.textMuted} />
@@ -995,7 +1007,7 @@ function AddMenuItemModal({
               style={[styles.saveBtn, { backgroundColor: uploading ? T.surface3 : T.primary }]}
               activeOpacity={0.85}
             >
-              <Text style={styles.saveBtnText}>{isNew ? 'Add to Menu' : 'Save Changes'}</Text>
+              <Text style={styles.saveBtnText}>{isNew ? `Add to ${terms.section}` : 'Save Changes'}</Text>
             </TouchableOpacity>
           </View>
         </View>

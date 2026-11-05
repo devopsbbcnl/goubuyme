@@ -2,6 +2,7 @@ import { Resend } from 'resend';
 import logger from '../utils/logger';
 import { recordError } from '../utils/recordError';
 import { getPrimaryClientUrl } from '../utils/clientUrl';
+import { getVendorVocabulary } from '../config/vendorTerminology';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM ?? 'GoBuyMe <noreply@notifications.gobuyme.shop>';
@@ -150,8 +151,10 @@ function welcomeCustomer(name: string): string {
     </p>`);
 }
 
-function welcomeVendor(name: string, businessName: string, tier1Percent: number, tier2Percent: number): string {
+function welcomeVendor(name: string, businessName: string, tier1Percent: number, tier2Percent: number, vendorCategory?: string | null): string {
   const loginUrl = `${getPrimaryClientUrl()}/login`;
+  const { section, itemPlural } = getVendorVocabulary(vendorCategory).terminology;
+  const sectionLower = section.toLowerCase();
 
   return emailLayout(`
     <p style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111111;">Welcome to GoBuyMe, ${name}!</p>
@@ -162,7 +165,7 @@ function welcomeVendor(name: string, businessName: string, tier1Percent: number,
     <table cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #F0F0F0;">
       ${step(1, 'Complete your business profile', 'Add your logo, cover photo, opening hours, and a short description so customers know what to expect.')}
       ${step(2, 'Choose your commission plan', `Pick between the Growth Plan (${tier2Percent}% commission) and the Starter Plan (${tier1Percent}% commission). Both have no monthly fee — you can compare details after logging in.`)}
-      ${step(3, 'Add your menu', 'Upload your items with names, prices, and photos. A well-stocked menu gets approved faster.')}
+      ${step(3, `Add your ${sectionLower}`, `Upload your ${itemPlural.toLowerCase()} with names, prices, and photos. A well-stocked ${sectionLower} gets approved faster.`)}
       ${step(4, 'Wait for approval', 'Our team reviews every vendor before going live — usually within 1–2 business days. You\'ll receive an email once approved.')}
     </table>
 
@@ -211,8 +214,10 @@ export const sendVendorApprovalEmail = async (
   name: string,
   businessName: string,
   status: 'APPROVED' | 'REJECTED' | 'SUSPENDED',
+  vendorCategory?: string | null,
 ): Promise<void> => {
   const appUrl = process.env.VENDOR_APP_URL ?? 'https://gobuyme.shop/downloads';
+  const sectionLower = getVendorVocabulary(vendorCategory).terminology.section.toLowerCase();
 
   if (status === 'APPROVED') {
     const content = `
@@ -222,7 +227,7 @@ export const sendVendorApprovalEmail = async (
       </p>
       <table cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #F0F0F0;">
         ${step(1, 'Open your store', 'Log in to the vendor app and toggle your store open to start receiving orders.')}
-        ${step(2, 'Keep your menu up to date', 'Make sure item availability, prices, and photos are accurate for the best customer experience.')}
+        ${step(2, `Keep your ${sectionLower} up to date`, 'Make sure item availability, prices, and photos are accurate for the best customer experience.')}
         ${step(3, 'Check your earnings', 'Track daily earnings and payout history from the Earnings tab in your dashboard.')}
       </table>
       <p style="margin:28px 0 16px;font-size:15px;color:#555555;line-height:22px;">
@@ -240,7 +245,7 @@ export const sendVendorApprovalEmail = async (
         Hi ${name}, after reviewing your application we were unable to approve <strong>${businessName}</strong> at this time.
       </p>
       <p style="margin:0 0 24px;font-size:15px;color:#555555;line-height:22px;">
-        Common reasons include incomplete profile information, missing documents, or a menu that doesn't yet meet our standards.
+        Common reasons include incomplete profile information, missing documents, or a ${sectionLower} that doesn't yet meet our standards.
         You're welcome to update your details and reapply.
       </p>
       <p style="margin:0 0 0;font-size:14px;color:#555555;line-height:22px;">
@@ -321,6 +326,7 @@ export const sendWelcomeEmail = async (
   name: string,
   role: string,
   businessName?: string,
+  vendorCategory?: string | null,
 ): Promise<void> => {
   if (role === 'CUSTOMER') {
     await sendEmail(to, `Welcome to GoBuyMe, ${name}!`, welcomeCustomer(name));
@@ -329,8 +335,83 @@ export const sendWelcomeEmail = async (
     const settings = await getPlatformSettings().catch(() => null);
     const tier1Percent = settings?.tier1CommissionPercent ?? 3;
     const tier2Percent = settings?.tier2CommissionPercent ?? 7.5;
-    await sendEmail(to, 'Welcome to GoBuyMe – Complete your vendor setup', welcomeVendor(name, businessName ?? name, tier1Percent, tier2Percent));
+    await sendEmail(to, 'Welcome to GoBuyMe – Complete your vendor setup', welcomeVendor(name, businessName ?? name, tier1Percent, tier2Percent, vendorCategory));
   } else if (role === 'RIDER') {
     await sendEmail(to, 'Welcome to GoBuyMe – Complete your rider profile', welcomeRider(name));
+  } else if (role === 'LOGISTICS_COMPANY') {
+    const content = `
+      <p style="margin:0 0 8px;font-size:20px;font-weight:800;color:#111111;">Welcome to GoBuyMe, ${escapeHtml(name)}!</p>
+      <p style="margin:8px 0 0;font-size:15px;color:#555555;line-height:22px;">
+        Your logistics company is under review. We will email you as soon as it is approved, and then you can invite your riders by email from your dashboard.
+      </p>`;
+    await sendEmail(to, 'Welcome to GoBuyMe – your logistics company is under review', emailLayout(content));
   }
+};
+
+// ─── Logistics companies / fleets ──────────────────────────────────────────
+
+const escapeHtml = (v: string): string =>
+  v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+export const sendFleetInviteEmail = async (to: string, rawCompanyName: string): Promise<void> => {
+  const companyName = escapeHtml(rawCompanyName);
+  const appUrl = process.env.RIDER_APP_URL ?? 'https://gobuyme.shop/downloads';
+  const content = `
+    <p style="margin:0 0 8px;font-size:20px;font-weight:800;color:#111111;">${companyName} invited you to ride</p>
+    <p style="margin:8px 0 24px;font-size:15px;color:#555555;line-height:22px;">
+      ${companyName} has added you to their delivery fleet on GoBuyMe. Sign up or sign in as a rider with this email address
+      (${to}) and you will join their fleet automatically. The invite is valid for 14 days.
+    </p>
+    ${ctaButton(appUrl, 'Open GoBuyMe')}
+    <p style="margin:28px 0 0;font-size:14px;color:#555555;line-height:22px;">
+      Not expecting this? You can ignore this email. Questions: <a href="mailto:${SUPPORT_EMAIL}" style="color:#FF521B;text-decoration:none;">${SUPPORT_EMAIL}</a>.
+    </p>`;
+  const subjectName = rawCompanyName.replace(/\s+/g, ' ');
+  await sendEmail(to, `${subjectName} invited you to join their fleet on GoBuyMe`, emailLayout(content));
+};
+
+export const sendCompanyApprovalEmail = async (
+  to: string,
+  name: string,
+  status: 'APPROVED' | 'REJECTED' | 'SUSPENDED',
+): Promise<void> => {
+  name = escapeHtml(name);
+  const appUrl = process.env.RIDER_APP_URL ?? 'https://gobuyme.shop/downloads';
+  if (status === 'APPROVED') {
+    const content = `
+      <p style="margin:0 0 8px;font-size:20px;font-weight:800;color:#111111;">Your company is approved, ${name}!</p>
+      <p style="margin:8px 0 24px;font-size:15px;color:#555555;line-height:22px;">
+        Your logistics company is verified on GoBuyMe. Open your dashboard and invite your riders by email. They join your fleet
+        automatically when they sign up or sign in with the invited address.
+      </p>
+      ${ctaButton(appUrl, 'Open GoBuyMe')}`;
+    await sendEmail(to, `Your logistics company is approved on GoBuyMe`, emailLayout(content));
+  } else {
+    const verb = status === 'REJECTED' ? 'could not be approved' : 'has been suspended';
+    const content = `
+      <p style="margin:0 0 8px;font-size:20px;font-weight:800;color:#111111;">Update on your logistics company</p>
+      <p style="margin:8px 0 24px;font-size:15px;color:#555555;line-height:22px;">
+        Hi ${name}, your GoBuyMe logistics company account ${verb}. Your riders cannot take deliveries through your fleet while this stands.
+      </p>
+      <p style="margin:0;font-size:14px;color:#555555;line-height:22px;">
+        Questions or appeals: <a href="mailto:${SUPPORT_EMAIL}" style="color:#FF521B;text-decoration:none;">${SUPPORT_EMAIL}</a>.
+      </p>`;
+    await sendEmail(to, `Update on your GoBuyMe logistics company`, emailLayout(content));
+  }
+};
+
+// ─── SMOIS (social media workspace) alert ───────────────────────────────────
+
+export const sendSmoisAlertEmail = async (to: string, name: string, title: string, body: string, link?: string): Promise<void> => {
+  const admin = (process.env.ADMIN_URL ?? '').split(',')[0].trim().replace(/\/$/, '');
+  const button = link && admin
+    ? `<p style="margin:24px 0 0;"><a href="${admin}${encodeURI(link)}" style="display:inline-block;background:#FF521B;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:4px;">Open in the workspace</a></p>`
+    : '';
+  const content = `
+    <p style="margin:0 0 8px;font-size:16px;color:#333333;">Hi ${escapeHtml(name)},</p>
+    <p style="margin:0 0 6px;font-size:17px;font-weight:700;color:#111111;">${escapeHtml(title)}</p>
+    <p style="margin:0;font-size:15px;color:#555555;line-height:22px;">${escapeHtml(body)}</p>
+    ${button}
+    <p style="margin:24px 0 0;font-size:12px;color:#999999;">You get these because you have access to the GoBuyMe social media workspace. You can turn email alerts off from the bell menu there.</p>`;
+  await sendEmail(to, `Social media: ${title}`, emailLayout(content));
 };

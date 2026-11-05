@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
 	View,
 	Text,
@@ -33,28 +33,57 @@ const ROLES = [
 	},
 ];
 
+const RIDER_TYPES = [
+	{
+		id: 'rider',
+		icon: '🏍️',
+		label: 'I ride on my own',
+		sub: 'Deliver as a single rider',
+	},
+	{
+		id: 'logistics_company',
+		icon: '🚚',
+		label: 'I run a logistics company',
+		sub: 'Manage a fleet of riders',
+	},
+];
+
 export default function RoleSelectScreen() {
 	const { theme: T } = useTheme();
 	const insets = useSafeAreaInsets();
+	// Picking "I want to ride" asks one more question: solo rider or fleet owner.
+	const [riderStep, setRiderStep] = useState(false);
+	const options = riderStep ? RIDER_TYPES : ROLES;
 
 	return (
 		<ScrollView
 			style={{ flex: 1, backgroundColor: T.bg }}
 			contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}
 		>
+			{riderStep && (
+				<TouchableOpacity
+					onPress={() => setRiderStep(false)}
+					style={{ marginBottom: 12, alignSelf: 'flex-start' }}
+					accessibilityLabel="Back to roles"
+				>
+					<Ionicons name="chevron-back" size={22} color={T.text} />
+				</TouchableOpacity>
+			)}
 			<Text style={[styles.headline, { color: T.text }]}>
-				{'How would you\nlike to use GoBuyMe?'}
+				{riderStep ? 'How will you\nride with GoBuyMe?' : 'How would you\nlike to use GoBuyMe?'}
 			</Text>
 			<Text style={[styles.sub, { color: T.textSec }]}>
-				Pick your role to get started
+				{riderStep ? 'Choose the account that fits you' : 'Pick your role to get started'}
 			</Text>
 
 			<View style={styles.cards}>
-				{ROLES.map((r) => (
+				{options.map((r) => (
 					<TouchableOpacity
 						key={r.id}
 						onPress={() =>
-							router.push({ pathname: '/register', params: { role: r.id } })
+							!riderStep && r.id === 'rider'
+								? setRiderStep(true)
+								: router.push({ pathname: '/register', params: { role: r.id } })
 						}
 						activeOpacity={0.85}
 						style={[

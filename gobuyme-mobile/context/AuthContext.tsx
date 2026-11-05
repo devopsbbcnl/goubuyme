@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { setActiveVendorId } from '@/services/vendorLocation';
 
-export type UserRole = 'customer' | 'vendor' | 'rider' | null;
+export type UserRole = 'customer' | 'vendor' | 'rider' | 'logistics_company' | null;
 
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 
@@ -79,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       SecureStore.deleteItemAsync('refreshToken'),
       SecureStore.deleteItemAsync('userProfile'),
     ]);
+    await setActiveVendorId(null);
     setUser(null);
   };
 

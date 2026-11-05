@@ -2,21 +2,12 @@
 import { useState, useRef, CSSProperties, FormEvent, ReactNode } from 'react';
 import Image from 'next/image';
 import { useTheme } from '@/context/ThemeContext';
+import { cloudinaryUpload } from '@/lib/cloudinaryUpload';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
-const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
 type Step = 'login' | 'form' | 'done';
-
-async function cloudinaryUpload(file: File): Promise<string> {
-  const form = new FormData();
-  form.append('file', file);
-  form.append('upload_preset', UPLOAD_PRESET);
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: 'POST', body: form });
-  if (!res.ok) throw new Error('Upload failed');
-  return ((await res.json()) as { secure_url: string }).secure_url;
-}
+type ImageKey = 'nin' | 'selfie' | 'vehicle';
 
 async function apiCall(path: string, method: string, token: string, body?: unknown) {
   const res = await fetch(`${BASE}${path}`, {
@@ -62,6 +53,7 @@ export default function RiderSetupPage() {
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [failed, setFailed] = useState<Partial<Record<ImageKey, string>>>({});
 
   const ninRef = useRef<HTMLInputElement>(null);
   const selfieRef = useRef<HTMLInputElement>(null);
@@ -93,25 +85,43 @@ export default function RiderSetupPage() {
 
   const handleFileUpload = async (
     file: File,
+    key: ImageKey,
     setPreview: (url: string) => void,
     setUrl: (url: string) => void,
     setUploading: (v: boolean) => void,
   ) => {
     setPreview(URL.createObjectURL(file));
+    setUrl('');
+    setFailed(f => { const { [key]: _drop, ...rest } = f; return rest; });
     setUploading(true);
     try {
-      const url = await cloudinaryUpload(file);
-      setUrl(url);
-    } catch {
-      setPreview('');
-      alert('Image upload failed. Please check your connection and try again.');
+      setUrl(await cloudinaryUpload(file));
+    } catch (err) {
+      // Keep the thumbnail on screen, marked as failed, so it can't be mistaken for saved.
+      const msg = err instanceof Error ? err.message : 'Image upload failed.';
+      setFailed(f => ({ ...f, [key]: msg }));
+      setSaveError(msg);
     } finally {
       setUploading(false);
     }
   };
 
+  const clearImage = (key: ImageKey) => {
+    const setters: Record<ImageKey, [(v: string) => void, (v: string) => void]> = {
+      nin: [setNinImgPreview, setNinImgUrl], selfie: [setSelfiePreview, setSelfieUrl],
+      vehicle: [setVehicleImgPreview, setVehicleImgUrl],
+    };
+    setters[key][0](''); setters[key][1]('');
+    setFailed(f => { const { [key]: _drop, ...rest } = f; return rest; });
+    setSaveError('');
+  };
+
   const handleSubmit = async () => {
     if (!ninNumber.trim()) { setSaveError('Please enter your NIN.'); return; }
+    // A chosen image that never finished uploading would otherwise be silently dropped on submit.
+    const notUploaded = ([['NIN slip', ninImgPreview, ninImgUrl], ['selfie', selfiePreview, selfieUrl], ['vehicle photo', vehicleImgPreview, vehicleImgUrl]] as [string, string, string][])
+      .find(([, preview, url]) => preview && !url);
+    if (notUploaded) { setSaveError(`The ${notUploaded[0]} image did not upload. Click it to retry, or ✕ to remove it.`); return; }
     setSaveError('');
     setSaving(true);
     try {
@@ -216,30 +226,30 @@ export default function RiderSetupPage() {
 
         <label style={labelStyle(T)}>NIN Slip / ID Card Image</label>
         <ImgBox
-          preview={ninImgPreview} uploading={uploadingNin}
+          preview={ninImgPreview} uploading={uploadingNin} failed={failed.nin} onClear={() => clearImage('nin')}
           hint="Click to upload NIN slip" onClick={() => ninRef.current?.click()} T={T}
         />
         <input ref={ninRef} type="file" accept="image/*" style={{ display: 'none' }}
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setNinImgPreview, setNinImgUrl, setUploadingNin); e.target.value = ''; }} />
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'nin', setNinImgPreview, setNinImgUrl, setUploadingNin); e.target.value = ''; }} />
 
         <label style={{ ...labelStyle(T), marginTop: 18 }}>Selfie / Liveness Photo</label>
         <ImgBox
-          preview={selfiePreview} uploading={uploadingSelfie}
+          preview={selfiePreview} uploading={uploadingSelfie} failed={failed.selfie} onClear={() => clearImage('selfie')}
           hint="Click to upload a clear selfie" onClick={() => selfieRef.current?.click()} T={T}
         />
         <input ref={selfieRef} type="file" accept="image/*" style={{ display: 'none' }}
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setSelfiePreview, setSelfieUrl, setUploadingSelfie); e.target.value = ''; }} />
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'selfie', setSelfiePreview, setSelfieUrl, setUploadingSelfie); e.target.value = ''; }} />
 
         {/* ── VEHICLE ── */}
         <SectionLabel label="VEHICLE" T={T} mt={32} />
 
         <label style={labelStyle(T)}>Vehicle Photo</label>
         <ImgBox
-          preview={vehicleImgPreview} uploading={uploadingVehicle}
+          preview={vehicleImgPreview} uploading={uploadingVehicle} failed={failed.vehicle} onClear={() => clearImage('vehicle')}
           hint="Click to upload your vehicle photo" onClick={() => vehicleRef.current?.click()} T={T}
         />
         <input ref={vehicleRef} type="file" accept="image/*" style={{ display: 'none' }}
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setVehicleImgPreview, setVehicleImgUrl, setUploadingVehicle); e.target.value = ''; }} />
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'vehicle', setVehicleImgPreview, setVehicleImgUrl, setUploadingVehicle); e.target.value = ''; }} />
 
         {/* ── GUARANTOR ── */}
         <SectionLabel label="GUARANTOR" T={T} mt={32} />
@@ -325,8 +335,8 @@ function inputStyle(T: Record<string, string>): CSSProperties {
   return { width: '100%', boxSizing: 'border-box', background: '#fff', border: `1px solid ${T.border}`, borderRadius: 4, padding: '10px 14px', color: '#111', fontSize: 14, outline: 'none', fontFamily: 'inherit' };
 }
 
-function ImgBox({ preview, uploading, hint, onClick, T }: {
-  preview: string; uploading: boolean; hint: string; onClick: () => void; T: Record<string, string>;
+function ImgBox({ preview, uploading, failed, onClear, hint, onClick, T }: {
+  preview: string; uploading: boolean; failed?: string; onClear?: () => void; hint: string; onClick: () => void; T: Record<string, string>;
 }) {
   return (
     <div
@@ -345,10 +355,22 @@ function ImgBox({ preview, uploading, hint, onClick, T }: {
           <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>Uploading…</div>
         </div>
       )}
-      {preview && !uploading && (
+      {preview && !uploading && !failed && (
         <div style={{ position: 'absolute', bottom: 8, right: 8, background: '#FF521B', borderRadius: 4, padding: '3px 9px', fontSize: 11, fontWeight: 700, color: '#fff' }}>
           Change
         </div>
+      )}
+      {failed && !uploading && (
+        <div title={failed} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: 'rgba(226,59,59,0.92)', padding: '5px 8px', fontSize: 11, fontWeight: 700, color: '#fff', textAlign: 'center' }}>
+          Upload failed — click to retry
+        </div>
+      )}
+      {preview && !uploading && onClear && (
+        <button type="button" aria-label="Remove image"
+          onClick={e => { e.stopPropagation(); onClear(); }}
+          style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, lineHeight: 1 }}>
+          ✕
+        </button>
       )}
     </div>
   );

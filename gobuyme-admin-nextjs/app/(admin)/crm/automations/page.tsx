@@ -26,7 +26,7 @@ interface TriggerMeta { label: string; role: 'CUSTOMER' | 'VENDOR' }
 const TRIGGER_DEFAULTS: Record<Trigger, { days: number; name: string; title: string; body: string }> = {
   WIN_BACK: { days: 30, name: 'Win back lapsed customers', title: 'We miss you, {{name}}', body: 'It\'s been a while! Your favourite spots are open. Order today and get your food delivered fast.' },
   FIRST_ORDER_NUDGE: { days: 3, name: 'First order nudge', title: 'Ready for your first order, {{name}}?', body: 'Restaurants, groceries and pharmacy near you, delivered in minutes. Place your first order today.' },
-  VENDOR_INACTIVE: { days: 7, name: 'Quiet vendor check-in', title: 'Let\'s get orders coming in, {{name}}', body: 'You haven\'t had orders in a while. Check your store is open, your menu is up to date and your prices are current.' },
+  VENDOR_INACTIVE: { days: 7, name: 'Quiet vendor check-in', title: 'Let\'s get orders coming in, {{name}}', body: 'You haven\'t had orders in a while. Check your store is open, your items are up to date and your prices are current.' },
 };
 
 export default function AutomationsPage() {
