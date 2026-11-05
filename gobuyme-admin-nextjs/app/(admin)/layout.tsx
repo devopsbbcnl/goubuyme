@@ -19,6 +19,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!loading && !user) router.replace('/login');
   }, [loading, user, router]);
 
+  // Social media staff only have the SMOIS workspace; keep them there.
+  useEffect(() => {
+    if (!loading && user?.role === 'SOCIAL_MEDIA' && !pathname.startsWith('/smois')) router.replace('/smois');
+  }, [loading, user, pathname, router]);
+
   // Close the mobile drawer automatically whenever the route changes.
   useEffect(() => {
     setSidebarOpen(false);

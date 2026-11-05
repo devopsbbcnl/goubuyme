@@ -42,6 +42,7 @@ import { startAnalyticsRetentionJob } from './jobs/analyticsRetentionJob';
 import { startOpsBriefingJob } from './jobs/opsBriefingJob';
 import { startDispatchWatcherJob } from './jobs/dispatchWatcherJob';
 import { startTicketTriagerJob } from './jobs/ticketTriagerJob';
+import { startSmoisJobs } from "./jobs/smoisJob";
 import { errorHandler } from './middleware/error.middleware';
 import { globalLimiter, publicSettingsLimiter } from './middleware/rateLimiter.middleware';
 import { maintenanceGuard } from './middleware/maintenance.middleware';
@@ -56,6 +57,7 @@ import riderRoutes from './routes/rider.routes';
 import companyRoutes from './routes/company.routes';
 import adminRoutes from './routes/admin.routes';
 import crmRoutes from './routes/crm.routes';
+import smoisRoutes from "./routes/smois.routes";
 import marketingRoutes from './routes/marketing.routes';
 import leadRoutes from './routes/lead.routes';
 import offerRoutes from './routes/offer.routes';
@@ -189,6 +191,7 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/riders', riderRoutes);
 app.use('/api/v1/company', companyRoutes);
 app.use('/api/v1/admin/crm', crmRoutes);
+app.use('/api/v1/admin/smois', smoisRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/offers', offerRoutes);
 app.use('/api/v1/support', supportRoutes);
@@ -244,6 +247,7 @@ const start = async () => {
     startOpsBriefingJob();
     startDispatchWatcherJob();
     startTicketTriagerJob();
+    startSmoisJobs();
   } else {
     logger.info(`Worker ${process.env.NODE_APP_INSTANCE}: scheduled jobs run on worker 0 only`);
   }

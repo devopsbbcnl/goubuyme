@@ -12,7 +12,7 @@ interface AdminUser {
 interface AuthContextType {
   user: AdminUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AdminUser>;
   logout: () => Promise<void>;
 }
 
@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<AdminUser> => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -44,11 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!res.ok) throw new Error(data.message ?? 'Login failed');
 
     const u = data.data.user as AdminUser;
-    const ADMIN_ROLES = ['SUPER_ADMIN', 'OPERATIONS_ADMIN', 'SUPPORT_ADMIN'];
+    const ADMIN_ROLES = ['SUPER_ADMIN', 'OPERATIONS_ADMIN', 'SUPPORT_ADMIN', 'SOCIAL_MEDIA'];
     if (!ADMIN_ROLES.includes(u.role)) {
       throw new Error('Access denied. Admin account required.');
     }
     setUser(u);
+    return u;
   };
 
   const logout = async () => {

@@ -21,6 +21,16 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/campaigns': 'Marketing · Campaigns',
   '/crm/segments': 'Marketing · Segments',
   '/crm/automations': 'Marketing · Automations',
+  '/smois': 'Social Media · Overview',
+  '/smois/accounts': 'Social Media · Accounts',
+  '/smois/content': 'Social Media · Content',
+  '/smois/calendar': 'Social Media · Calendar',
+  '/smois/approvals': 'Social Media · Approvals',
+  '/smois/publishing': 'Social Media · Publishing',
+  '/smois/tasks': 'Social Media · Tasks',
+  '/smois/team': 'Social Media · Team',
+  '/smois/activity': 'Social Media · Activity Log',
+  '/smois/settings': 'Social Media · Settings',
   '/payouts':   'Payouts & Commissions',
   '/error-logs': 'Error Logs',
   '/audit':     'Audit Logs',
@@ -33,12 +43,14 @@ const ROLE_COLOR: Record<string, string> = {
   SUPER_ADMIN:       '#FF521B',
   OPERATIONS_ADMIN:  '#3B82F6',
   SUPPORT_ADMIN:     '#10B981',
+  SOCIAL_MEDIA:      '#8B5CF6',
 };
 
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN:       'Super Admin',
   OPERATIONS_ADMIN:  'Operations',
   SUPPORT_ADMIN:     'Support',
+  SOCIAL_MEDIA:      'Social media',
 };
 
 type VendorItem = { id: string; businessName: string; city: string; createdAt: string };
@@ -83,6 +95,7 @@ export function TopBar({ pathname, onMenuClick }: { pathname: string; onMenuClic
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (user?.role === 'SOCIAL_MEDIA') return; // none of these lists are open to social media staff
     Promise.allSettled([
       api.get<{ data: VendorItem[] }>('/admin/vendors?status=PENDING&limit=5'),
       api.get<{ data: RiderItem[]  }>('/admin/riders?status=PENDING&limit=5'),

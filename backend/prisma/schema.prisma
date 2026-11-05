@@ -39,6 +39,7 @@ model User {
   passwordResetExpiresAt DateTime?
   passwordResetToken     String?
   auditLogs              AuditLog[]
+  smoisMember            SmoisMember?
   customer               Customer?
   rider                  Rider?
   referredBy             User?               @relation("Referrals", fields: [referredById], references: [id])
@@ -1158,6 +1159,8 @@ enum Role {
   SUPER_ADMIN
   OPERATIONS_ADMIN
   SUPPORT_ADMIN
+  /// Social media department staff (SMOIS). Admin console access limited to /admin/smois.
+  SOCIAL_MEDIA
 }
 
 /// One row per user per onboarding transition (first occurrence wins, enforced
@@ -1895,4 +1898,484 @@ model FleetInvite {
   @@unique([companyId, email])
   @@index([email])
   @@map("fleet_invites")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SMOIS — Social Media Operations & Intelligence System (internal admin module).
+// Phase 1: accounts, assignments, content + approval, calendar, publishing
+// records, tasks. Metrics/analytics arrive with the platform integrations
+// (Phase 2); nothing here fabricates platform data. The activity trail reuses
+// AuditLog (entity "Smois*"), made append-only by a DB trigger.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum SmoisRole {
+  MANAGEMENT
+  MANAGER
+  REVIEWER
+  VIEWER
+}
+
+enum SmoisPlatform {
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  X
+  TIKTOK
+  YOUTUBE
+  WHATSAPP
+  PINTEREST
+  THREADS
+  OTHER
+}
+
+enum SmoisConnectionStatus {
+  /// Registered and tracked by hand, with no API link (the only state in Phase 1).
+  MANUAL
+  CONNECTED
+  EXPIRED
+  DISCONNECTED
+  ERROR
+}
+
+enum SmoisAssignmentKind {
+  PRIMARY
+  SECONDARY
+  TEMPORARY
+}
+
+enum SmoisContentStatus {
+  IDEA
+  PLANNED
+  BRIEFED
+  IN_PRODUCTION
+  SUBMITTED
+  REVISION_REQUESTED
+  RESUBMITTED
+  APPROVED
+  REJECTED
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  PUBLISH_FAILED
+  ARCHIVED
+  CANCELLED
+}
+
+enum SmoisReviewDecision {
+  APPROVED
+  REJECTED
+  REVISION_REQUESTED
+}
+
+enum SmoisTaskType {
+  CONTENT_CREATION
+  GRAPHIC_DESIGN
+  VIDEO_PRODUCTION
+  PUBLISHING
+  COMMUNITY_MANAGEMENT
+  CAMPAIGN_EXECUTION
+  AUDIENCE_ENGAGEMENT
+  ANALYTICS_REVIEW
+  REPORTING
+  COMPETITOR_RESEARCH
+  SOCIAL_LISTENING
+  BRAND_MONITORING
+  GENERAL
+}
+
+enum SmoisTaskStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  SUBMITTED
+  UNDER_REVIEW
+  REVISION_REQUIRED
+  APPROVED
+  COMPLETED
+  CANCELLED
+}
+
+enum SmoisTaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum SmoisRecurrence {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+/// A person with SMOIS access. Super admins have implicit full access and need no row;
+/// everyone else (including operations/support admins) only gets in through a row here.
+model SmoisMember {
+  id                  String    @id @default(uuid())
+  userId              String    @unique
+  role                SmoisRole
+  isActive            Boolean   @default(true)
+  jobTitle            String?
+  responsibilities    String?
+  supervisorId        String?
+  assignedToDeptAt    DateTime  @default(now())
+  /// Per-person switches (defaults come from the role; super admins can change them).
+  canApprove          Boolean   @default(false)
+  canPublish          Boolean   @default(false)
+  canEmergencyPublish Boolean   @default(false)
+  canConnectAccounts  Boolean   @default(false)
+  revokedAt           DateTime?
+  createdById         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user        User                 @relation(fields: [userId], references: [id])
+  supervisor  SmoisMember?         @relation("SmoisSupervisor", fields: [supervisorId], references: [id])
+  reports     SmoisMember[]        @relation("SmoisSupervisor")
+  assignments SmoisAssignment[]
+  tasksOwned  SmoisTask[]          @relation("SmoisTaskAssignee")
+  supporting  SmoisTaskSupporter[]
+
+  @@index([role, isActive])
+  @@map("smois_members")
+}
+
+/// A company-owned social account. One record shared by every manager, never per employee.
+model SmoisAccount {
+  id               String                @id @default(uuid())
+  platform         SmoisPlatform
+  name             String
+  handle           String?
+  profileImageUrl  String?
+  url              String?
+  category         String?
+  accountType      String?
+  /// Company-side owner (a department/brand or named custodian), not an employee login.
+  ownerLabel       String?
+  connectionStatus SmoisConnectionStatus @default(MANUAL)
+  apiAuthStatus    String                @default("NOT_CONNECTED")
+  connectedAt      DateTime?
+  lastSyncAt       DateTime?
+  description      String?
+  notes            String?
+  archivedAt       DateTime?
+  createdById      String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  assignments SmoisAssignment[]
+  variants    SmoisVariant[]
+  tasks       SmoisTask[]
+
+  @@unique([platform, handle])
+  @@index([platform, archivedAt])
+  @@map("smois_accounts")
+}
+
+/// Who works on which account, with history. Ending an assignment keeps the row.
+model SmoisAssignment {
+  id           String              @id @default(uuid())
+  accountId    String
+  memberId     String
+  kind         SmoisAssignmentKind @default(SECONDARY)
+  startsAt     DateTime            @default(now())
+  endsAt       DateTime?
+  assignedById String?
+  reason       String?
+  endedReason  String?
+  createdAt    DateTime            @default(now())
+
+  account SmoisAccount @relation(fields: [accountId], references: [id])
+  member  SmoisMember  @relation(fields: [memberId], references: [id])
+
+  @@index([accountId, endsAt])
+  @@index([memberId, endsAt])
+  @@map("smois_assignments")
+}
+
+model SmoisCategory {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  contents SmoisContent[]
+
+  @@map("smois_categories")
+}
+
+/// The master brief. Platform-specific copy lives in variants, which are what get reviewed and published.
+model SmoisContent {
+  id          String    @id @default(uuid())
+  number      Int       @unique @default(autoincrement())
+  title       String
+  description String?
+  objective   String?
+  categoryId  String?
+  audience    String?
+  format      String    @default("TEXT")
+  keywords    String[]
+  creatorId   String
+  reviewerId  String?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  category SmoisCategory? @relation(fields: [categoryId], references: [id])
+  variants SmoisVariant[]
+
+  @@index([creatorId])
+  @@index([archivedAt, createdAt])
+  @@map("smois_contents")
+}
+
+model SmoisVariant {
+  id                 String             @id @default(uuid())
+  contentId          String
+  accountId          String
+  status             SmoisContentStatus @default(PLANNED)
+  caption            String             @default("")
+  hashtags           String[]
+  mentions           String[]
+  mediaUrls          Json               @default("[]")
+  linkUrl            String?
+  plannedAt          DateTime?
+  scheduledAt        DateTime?
+  version            Int                @default(1)
+  creatorId          String
+  /// Whoever last submitted it: the person who cannot also approve it.
+  submittedById      String?
+  submittedAt        DateTime?
+  assignedReviewerId String?
+  approvedById       String?
+  approvedAt         DateTime?
+  publishedAt        DateTime?
+  publishedUrl       String?
+  /// Who triggered publication and by which mechanism (MANUAL until an integration exists).
+  publishedById      String?
+  publishMechanism   String?
+  emergencyBypass    Boolean            @default(false)
+  lastReminderAt     DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  content  SmoisContent          @relation(fields: [contentId], references: [id])
+  account  SmoisAccount          @relation(fields: [accountId], references: [id])
+  versions SmoisVariantVersion[]
+  reviews  SmoisReview[]
+  comments SmoisComment[]
+  attempts SmoisPublishAttempt[]
+
+  @@index([accountId, status])
+  @@index([status, scheduledAt])
+  @@index([contentId])
+  @@index([creatorId])
+  @@index([publishedAt])
+  @@map("smois_variants")
+}
+
+/// Immutable snapshot taken whenever copy changes, so history is never overwritten.
+model SmoisVariantVersion {
+  id        String    @id @default(uuid())
+  variantId String
+  version   Int
+  caption   String
+  hashtags  String[]
+  mentions  String[]
+  mediaUrls Json
+  linkUrl   String?
+  plannedAt DateTime?
+  editorId  String
+  reason    String?
+  createdAt DateTime  @default(now())
+
+  variant SmoisVariant @relation(fields: [variantId], references: [id])
+
+  @@unique([variantId, version])
+  @@map("smois_variant_versions")
+}
+
+model SmoisReview {
+  id              String              @id @default(uuid())
+  variantId       String
+  reviewerId      String
+  decision        SmoisReviewDecision
+  comments        String?
+  rejectionReason String?
+  versionReviewed Int
+  emergencyBypass Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+
+  variant SmoisVariant @relation(fields: [variantId], references: [id])
+
+  @@index([variantId, createdAt])
+  @@index([reviewerId, createdAt])
+  @@map("smois_reviews")
+}
+
+model SmoisComment {
+  id        String   @id @default(uuid())
+  variantId String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  variant SmoisVariant @relation(fields: [variantId], references: [id])
+
+  @@index([variantId, createdAt])
+  @@map("smois_comments")
+}
+
+/// Every publish outcome, including failures. mechanism is MANUAL until an integration executes jobs.
+model SmoisPublishAttempt {
+  id            String   @id @default(uuid())
+  variantId     String
+  success       Boolean
+  mechanism     String   @default("MANUAL")
+  initiatedById String
+  errorCode     String?
+  errorMessage  String?
+  publishedUrl  String?
+  retryCount    Int      @default(0)
+  recovery      String?
+  createdAt     DateTime @default(now())
+
+  variant SmoisVariant @relation(fields: [variantId], references: [id])
+
+  @@index([variantId, createdAt])
+  @@map("smois_publish_attempts")
+}
+
+model SmoisTask {
+  id                  String            @id @default(uuid())
+  number              Int               @unique @default(autoincrement())
+  title               String
+  description         String?
+  type                SmoisTaskType     @default(GENERAL)
+  priority            SmoisTaskPriority @default(NORMAL)
+  status              SmoisTaskStatus   @default(PENDING)
+  assigneeId          String?
+  createdById         String
+  accountId           String?
+  startsAt            DateTime?
+  deadline            DateTime?
+  expectedDeliverable String?
+  completionCriteria  String?
+  completedAt         DateTime?
+  ruleId              String?
+  /// The recurrence period this occurrence stands for (e.g. "2026-11-05"), keeping generation idempotent.
+  occurrenceKey       String?
+  reminderSentAt      DateTime?
+  overdueNotifiedAt   DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  assignee   SmoisMember?         @relation("SmoisTaskAssignee", fields: [assigneeId], references: [id])
+  account    SmoisAccount?        @relation(fields: [accountId], references: [id])
+  rule       SmoisRecurringRule?  @relation(fields: [ruleId], references: [id])
+  supporters SmoisTaskSupporter[]
+  evidence   SmoisTaskEvidence[]
+  comments   SmoisTaskComment[]
+  history    SmoisTaskHistory[]
+
+  @@unique([ruleId, occurrenceKey])
+  @@index([assigneeId, status])
+  @@index([status, deadline])
+  @@map("smois_tasks")
+}
+
+model SmoisTaskSupporter {
+  taskId   String
+  memberId String
+
+  task   SmoisTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  member SmoisMember @relation(fields: [memberId], references: [id])
+
+  @@id([taskId, memberId])
+  @@map("smois_task_supporters")
+}
+
+model SmoisTaskEvidence {
+  id        String   @id @default(uuid())
+  taskId    String
+  /// POST_URL | GRAPHIC | REPORT | SCREENSHOT | VIDEO | DOCUMENT | INTERACTION | OTHER
+  kind      String
+  url       String?
+  note      String?
+  addedById String
+  createdAt DateTime @default(now())
+
+  task SmoisTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("smois_task_evidence")
+}
+
+model SmoisTaskComment {
+  id        String   @id @default(uuid())
+  taskId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  task SmoisTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("smois_task_comments")
+}
+
+model SmoisTaskHistory {
+  id          String           @id @default(uuid())
+  taskId      String
+  fromStatus  SmoisTaskStatus?
+  toStatus    SmoisTaskStatus
+  changedById String?
+  note        String?
+  createdAt   DateTime         @default(now())
+
+  task SmoisTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("smois_task_history")
+}
+
+/// Generates one SmoisTask per period (daily/weekly/monthly) for an assignee.
+model SmoisRecurringRule {
+  id                  String            @id @default(uuid())
+  title               String
+  description         String?
+  type                SmoisTaskType     @default(GENERAL)
+  priority            SmoisTaskPriority @default(NORMAL)
+  recurrence          SmoisRecurrence
+  /// 0-6 (Sun-Sat) for WEEKLY.
+  dayOfWeek           Int?
+  /// 1-28 for MONTHLY.
+  dayOfMonth          Int?
+  /// Hours after the occurrence starts that it is due.
+  dueAfterHours       Int               @default(24)
+  assigneeId          String?
+  accountId           String?
+  expectedDeliverable String?
+  isActive            Boolean           @default(true)
+  createdById         String
+  lastGeneratedKey    String?
+  createdAt           DateTime          @default(now())
+
+  tasks SmoisTask[]
+
+  @@map("smois_recurring_rules")
+}
+
+/// Single-row workflow configuration (id is always "default").
+model SmoisSettings {
+  id                    String   @id @default("default")
+  requireApproval       Boolean  @default(true)
+  allowSelfApproval     Boolean  @default(false)
+  minPostGapMinutes     Int      @default(30)
+  approvalReminderHours Int      @default(24)
+  updatedById           String?
+  updatedAt             DateTime @updatedAt
+
+  @@map("smois_settings")
 }
