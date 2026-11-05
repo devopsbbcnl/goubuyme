@@ -12,6 +12,7 @@ const any = smoisAuth();
 
 // Identity & shared pickers
 router.get('/me',                      ...any, core.getMe);
+router.patch('/me/preferences',        ...any, core.updatePreferences);
 router.get('/people',                  ...any, core.listPeople);
 router.get('/notifications',           ...any, core.listNotifications);
 router.post('/notifications/read',     ...any, core.markNotificationsRead);

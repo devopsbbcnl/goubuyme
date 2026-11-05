@@ -21,10 +21,11 @@ const KINDS: readonly SmoisAssignmentKind[] = ['PRIMARY', 'SECONDARY', 'TEMPORAR
 // GET /me
 export const getMe = handle(async (req, res) => {
   const a = access(req);
-  const [user, unread, member] = await Promise.all([
+  const [user, unread, member, pref] = await Promise.all([
     prisma.user.findUnique({ where: { id: a.userId }, select: { id: true, name: true, email: true, role: true } }),
     prisma.notification.count({ where: { userId: a.userId, type: 'smois', isRead: false } }),
     a.memberId ? prisma.smoisMember.findUnique({ where: { id: a.memberId }, select: { jobTitle: true } }) : null,
+    prisma.smoisPreference.findUnique({ where: { userId: a.userId }, select: { emailAlerts: true } }),
   ]);
   const caps = Object.fromEntries(
     (['createContent', 'approve', 'publish', 'manageTasks', 'completeTasks', 'manageAccounts', 'manageTeam', 'configure', 'viewAll', 'viewActivity'] as const)
@@ -32,8 +33,16 @@ export const getMe = handle(async (req, res) => {
   );
   return apiResponse.success(res, 'SMOIS access.', {
     user, level: a.level, memberId: a.memberId, jobTitle: member?.jobTitle ?? null,
-    canEmergencyPublish: a.level === 'SUPER' || a.canEmergencyPublish, unreadNotifications: unread, can: caps,
+    canEmergencyPublish: a.level === 'SUPER' || a.canEmergencyPublish, unreadNotifications: unread, emailAlerts: pref?.emailAlerts ?? true, can: caps,
   });
+});
+
+// PATCH /me/preferences { emailAlerts }
+export const updatePreferences = handle(async (req, res) => {
+  const userId = access(req).userId;
+  if (typeof req.body?.emailAlerts !== 'boolean') fail(400, 'emailAlerts must be true or false.');
+  const p = await prisma.smoisPreference.upsert({ where: { userId }, create: { userId, emailAlerts: req.body.emailAlerts }, update: { emailAlerts: req.body.emailAlerts }, select: { emailAlerts: true } });
+  return apiResponse.success(res, 'Preferences saved.', p);
 });
 
 // GET /people: the minimum every member needs to pick colleagues (assignees, reviewers).

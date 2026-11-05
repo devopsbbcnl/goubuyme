@@ -25,6 +25,8 @@ export default function CalendarPage() {
   const [platform, setPlatform] = useState('');
   const [accountId, setAccountId] = useState('');
   const [open, setOpen] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState('');
 
   // Monday-first grid covering the month.
   const gridStart = useMemo(() => { const s = new Date(cursor); const dow = (s.getDay() + 6) % 7; s.setDate(s.getDate() - dow); return s; }, [cursor]);
@@ -43,13 +45,25 @@ export default function CalendarPage() {
   const conflicted = useMemo(() => new Set((data?.conflicts ?? []).flatMap((c) => c.variantIds)), [data]);
   const byId = useMemo(() => new Map((data?.items ?? []).map((i) => [i.id, i])), [data]);
 
+  // Drag a post to another day: keeps its time of day, and the server checks who may reschedule what.
+  const movable = (status: string) => !['PUBLISHED', 'CANCELLED', 'ARCHIVED', 'REJECTED', 'PUBLISHING'].includes(status);
+  const moveTo = async (variantId: string, day: Date) => {
+    const item = data?.items.find((i) => i.id === variantId);
+    if (!item?.at || !movable(item.status)) return;
+    const from = new Date(item.at);
+    const next = new Date(day.getFullYear(), day.getMonth(), day.getDate(), from.getHours(), from.getMinutes());
+    if (ymd(next) === ymd(from)) return;
+    setMoveError('');
+    try { await api.post(`/admin/smois/variants/${variantId}/plan`, { plannedAt: next.toISOString() }); reload(); } catch (e) { setMoveError((e as Error).message); }
+  };
+
   const days = Array.from({ length: 42 }, (_, n) => { const d = new Date(gridStart); d.setDate(d.getDate() + n); return d; });
   const today = ymd(new Date());
   const colorFor = (status: string) => tones[STATUS_TONE[status] ?? 'neutral'];
 
   return (
     <div>
-      <PageHeader title="Content calendar" sub="Planned, scheduled and published posts across every account. Red outlines mark conflicts; empty weekdays are publishing gaps." />
+      <PageHeader title="Content calendar" sub="Planned, scheduled and published posts across every account. Red outlines mark conflicts; empty weekdays are publishing gaps. Drag a post to another day to reschedule it." />
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
         <Btn small onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}>‹</Btn>
         <div style={{ fontWeight: 800, color: T.text, minWidth: 140, textAlign: 'center' }}>{cursor.toLocaleDateString('en-NG', { month: 'long', year: 'numeric' })}</div>
@@ -61,6 +75,7 @@ export default function CalendarPage() {
       </div>
 
       {error && <Notice kind="error">{error}</Notice>}
+      {moveError && <Notice kind="error">{moveError}</Notice>}
       {data && data.conflicts.length > 0 && (
         <Card title={`${data.conflicts.length} scheduling ${data.conflicts.length === 1 ? 'conflict' : 'conflicts'}`} style={{ marginBottom: 14, borderColor: T.error }}>
           {data.conflicts.slice(0, 8).map((c, n) => {
@@ -85,13 +100,17 @@ export default function CalendarPage() {
               const weekday = d.getDay() !== 0 && d.getDay() !== 6;
               const gap = inMonth && weekday && list.length === 0 && k >= today;
               return (
-                <div key={k} style={{ minHeight: 98, padding: 6, borderRight: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`, background: k === today ? T.primaryTint : 'transparent', opacity: inMonth ? 1 : 0.4 }}>
+                <div key={k}
+                  onDragOver={(e) => { e.preventDefault(); if (dragOver !== k) setDragOver(k); }}
+                  onDragLeave={() => setDragOver((cur) => (cur === k ? null : cur))}
+                  onDrop={(e) => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData('text/plain'); if (id) moveTo(id, d); }}
+                  style={{ minHeight: 98, padding: 6, borderRight: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}`, background: dragOver === k ? T.infoBg : k === today ? T.primaryTint : 'transparent', opacity: inMonth ? 1 : 0.4 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: k === today ? T.primary : T.textSec, display: 'flex', justifyContent: 'space-between' }}>
                     {d.getDate()}{gap && <span title="No posts planned" style={{ color: T.textMuted, fontWeight: 600 }}>gap</span>}
                   </div>
                   {list.slice(0, 3).map((i) => (
-                    <div key={i.id} onClick={() => setOpen(i.content.id)} title={`${i.content.title} · ${i.account.name} · ${pretty(i.status)}`} style={{
-                      marginTop: 4, padding: '3px 5px', borderRadius: 3, fontSize: 10.5, fontWeight: 600, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    <div key={i.id} draggable={movable(i.status)} onDragStart={(e) => e.dataTransfer.setData('text/plain', i.id)} onClick={() => setOpen(i.content.id)} title={`${i.content.title} · ${i.account.name} · ${pretty(i.status)}${movable(i.status) ? ' · drag to another day to reschedule' : ''}`} style={{
+                      marginTop: 4, padding: '3px 5px', borderRadius: 3, fontSize: 10.5, fontWeight: 600, cursor: movable(i.status) ? 'grab' : 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       background: colorFor(i.status).bg, color: colorFor(i.status).c, outline: conflicted.has(i.id) ? `1.5px solid ${T.error}` : 'none',
                     }}>
                       {new Date(i.at!).toLocaleTimeString('en-NG', { hour: 'numeric', minute: '2-digit' })} {i.content.title}

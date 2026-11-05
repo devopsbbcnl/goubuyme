@@ -12,7 +12,7 @@ interface Item {
   user: { id: string; name: string; role: string } | null;
 }
 
-const ENTITIES = ['SmoisContent', 'SmoisTask', 'SmoisAccount', 'SmoisMember', 'SmoisSettings', 'SmoisCategory', 'SmoisActivity'];
+const ENTITIES = ['SmoisContent', 'SmoisTask', 'SmoisAccount', 'SmoisMember', 'SmoisAuth', 'SmoisSettings', 'SmoisCategory', 'SmoisActivity'];
 
 export default function ActivityPage() {
   const { theme: T } = useTheme();

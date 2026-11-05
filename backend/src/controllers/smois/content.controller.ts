@@ -386,7 +386,7 @@ export const commentOnVariant = handle(async (req, res) => {
   const a = access(req);
   const body = reqStr(req.body?.body, 'Comment', 2000);
   const c = await prisma.smoisComment.create({ data: { variantId: v.id, authorId: a.userId, body } });
-  await notifyMany([v.creatorId, v.submittedById, v.assignedReviewerId], { title: 'New comment', body: `On "${v.content.title}": ${body.slice(0, 120)}`, data: { link: `/smois/content?open=${v.contentId}` } }, a.userId);
+  await notifyMany([v.creatorId, v.submittedById, v.assignedReviewerId], { title: 'New comment', body: `On "${v.content.title}": ${body.slice(0, 120)}`, data: { link: `/smois/content?open=${v.contentId}` }, email: false }, a.userId);
   return apiResponse.success(res, 'Comment added.', c, 201);
 });
 
@@ -449,7 +449,7 @@ export const recordPublish = handle(async (req, res) => {
   if (bypass) {
     await notifyMany(await managementUserIds(), { title: 'Emergency publish', body: `${v.account.name}: "${v.content.title}" went out without approval. Reason: ${emergencyReason}`, data: { link: '/smois/publishing' } }, a.userId);
   } else {
-    await notifyMany([v.creatorId], { title: 'Published', body: `"${v.content.title}" was published on ${v.account.name}.`, data: { link: '/smois/publishing' } }, a.userId);
+    await notifyMany([v.creatorId], { title: 'Published', body: `"${v.content.title}" was published on ${v.account.name}.`, data: { link: '/smois/publishing' }, email: false }, a.userId);
   }
   return apiResponse.success(res, 'Recorded as published.');
 });

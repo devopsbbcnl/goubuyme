@@ -228,7 +228,7 @@ export const commentOnTask = handle(async (req, res) => {
   const a = access(req);
   if (!involved(req, t) && !can(a, 'viewAll')) fail(403, 'This task is not yours.');
   const c = await prisma.smoisTaskComment.create({ data: { taskId: t.id, authorId: a.userId, body: reqStr(req.body?.body, 'Comment', 2000) } });
-  await notifyMany([t.createdById, t.assignee?.userId, ...t.supporters.map((s) => s.member.userId)], { title: 'Task comment', body: `${t.title}: ${c.body.slice(0, 120)}`, data: { link: `/smois/tasks?open=${t.id}` } }, a.userId);
+  await notifyMany([t.createdById, t.assignee?.userId, ...t.supporters.map((s) => s.member.userId)], { title: 'Task comment', body: `${t.title}: ${c.body.slice(0, 120)}`, data: { link: `/smois/tasks?open=${t.id}` }, email: false }, a.userId);
   return apiResponse.success(res, 'Comment added.', c, 201);
 });
 

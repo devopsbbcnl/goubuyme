@@ -3,6 +3,7 @@ import { RequestHandler, Response } from 'express';
 import prisma from '../../config/db';
 import { apiResponse } from '../../utils/apiResponse';
 import { notifyUser } from '../../services/notification.service';
+import { sendSmoisAlertEmail } from '../../services/email.service';
 import { SmoisRequest } from '../../middleware/smois.middleware';
 import { SmoisAccess } from '../../services/smois/workflow';
 import logger from '../../utils/logger';
@@ -77,16 +78,32 @@ export const nameMap = async (ids: (string | null | undefined)[]): Promise<Map<s
   return new Map(users.map((u) => [u.id, u.name]));
 };
 
-/** In-app (+ push when the person has a device) notification to several people, skipping the actor. */
+/**
+ * In-app (+ push when the person has a device) notification to several people, skipping the actor.
+ * An email copy goes to everyone who hasn't switched email alerts off, unless `email: false` (chatty events).
+ */
 export const notifyMany = async (
   userIds: (string | null | undefined)[],
-  payload: { title: string; body: string; data?: Record<string, unknown> },
+  payload: { title: string; body: string; data?: Record<string, unknown>; email?: boolean },
   exceptUserId?: string,
 ): Promise<void> => {
   const targets = [...new Set(userIds.filter((x): x is string => !!x && x !== exceptUserId))];
+  if (!targets.length) return;
   await Promise.all(targets.map((id) =>
-    notifyUser(id, { ...payload, type: 'smois' }).catch((err) => logger.warn(`SMOIS notify failed for ${id}: ${(err as Error).message}`)),
+    notifyUser(id, { title: payload.title, body: payload.body, data: payload.data, type: 'smois' }).catch((err) => logger.warn(`SMOIS notify failed for ${id}: ${(err as Error).message}`)),
   ));
+  if (payload.email === false) return;
+  try {
+    const [users, prefs] = await Promise.all([
+      prisma.user.findMany({ where: { id: { in: targets }, isActive: true }, select: { id: true, name: true, email: true } }),
+      prisma.smoisPreference.findMany({ where: { userId: { in: targets } }, select: { userId: true, emailAlerts: true } }),
+    ]);
+    const off = new Set(prefs.filter((p) => !p.emailAlerts).map((p) => p.userId));
+    const link = typeof payload.data?.link === 'string' ? payload.data.link : undefined;
+    await Promise.all(users.filter((u) => !off.has(u.id)).map((u) => sendSmoisAlertEmail(u.email, u.name, payload.title, payload.body, link)));
+  } catch (err) {
+    logger.warn(`SMOIS email alerts failed: ${(err as Error).message}`);
+  }
 };
 
 /** Active people who can approve (reviewers, management, super admins). */

@@ -399,3 +399,19 @@ export const sendCompanyApprovalEmail = async (
     await sendEmail(to, `Update on your GoBuyMe logistics company`, emailLayout(content));
   }
 };
+
+// ─── SMOIS (social media workspace) alert ───────────────────────────────────
+
+export const sendSmoisAlertEmail = async (to: string, name: string, title: string, body: string, link?: string): Promise<void> => {
+  const admin = (process.env.ADMIN_URL ?? '').split(',')[0].trim().replace(/\/$/, '');
+  const button = link && admin
+    ? `<p style="margin:24px 0 0;"><a href="${admin}${encodeURI(link)}" style="display:inline-block;background:#FF521B;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:4px;">Open in the workspace</a></p>`
+    : '';
+  const content = `
+    <p style="margin:0 0 8px;font-size:16px;color:#333333;">Hi ${escapeHtml(name)},</p>
+    <p style="margin:0 0 6px;font-size:17px;font-weight:700;color:#111111;">${escapeHtml(title)}</p>
+    <p style="margin:0;font-size:15px;color:#555555;line-height:22px;">${escapeHtml(body)}</p>
+    ${button}
+    <p style="margin:24px 0 0;font-size:12px;color:#999999;">You get these because you have access to the GoBuyMe social media workspace. You can turn email alerts off from the bell menu there.</p>`;
+  await sendEmail(to, `Social media: ${title}`, emailLayout(content));
+};

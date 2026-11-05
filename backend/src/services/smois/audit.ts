@@ -45,3 +45,28 @@ export const smoisAudit = async (req: SmoisRequest | null, input: AuditInput, db
     logger.error(`SMOIS audit write failed (${input.action} ${input.entity}/${input.entityId}): ${(err as Error).message}`);
   }
 };
+
+/** Roles that can be SMOIS users without a membership row (super admins) or only through one (SOCIAL_MEDIA). */
+const AUTH_TRACKED_ROLES = ['SUPER_ADMIN', 'OPERATIONS_ADMIN', 'SUPPORT_ADMIN', 'SOCIAL_MEDIA'];
+
+/**
+ * Sign-in, sign-out and password events for people who use the social media workspace (PRD 26.2).
+ * Best effort and silent for everyone else: never throws, never slows or breaks authentication.
+ */
+export const recordSmoisAuthEvent = async (
+  req: { ip?: string; headers?: Record<string, unknown> } | null,
+  user: { id: string; role: string },
+  action: 'AUTH_LOGIN' | 'AUTH_LOGIN_FAILED' | 'AUTH_LOGOUT' | 'AUTH_PASSWORD_CHANGED',
+  meta: Record<string, unknown> = {},
+): Promise<void> => {
+  try {
+    if (!AUTH_TRACKED_ROLES.includes(user.role)) return;
+    if (user.role !== 'SUPER_ADMIN' && user.role !== 'SOCIAL_MEDIA') {
+      const m = await prisma.smoisMember.findUnique({ where: { userId: user.id }, select: { isActive: true } });
+      if (!m) return;
+    }
+    await smoisAudit(req as SmoisRequest | null, { action, entity: 'SmoisAuth', entityId: user.id, userId: user.id, success: action !== 'AUTH_LOGIN_FAILED', meta });
+  } catch (err) {
+    logger.warn(`SMOIS auth event skipped: ${(err as Error).message}`);
+  }
+};

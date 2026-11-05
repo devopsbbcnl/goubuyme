@@ -94,6 +94,30 @@ export function TopBar({ pathname, onMenuClick }: { pathname: string; onMenuClic
   const [recentOrders, setRecentOrders]     = useState<OrderItem[]>([]);
   const dropRef = useRef<HTMLDivElement>(null);
 
+  // Social media workspace alerts (only for people who have access; a 403 just means none).
+  type SmoisNote = { id: string; title: string; body: string; isRead: boolean; createdAt: string; meta: { link?: string } | null };
+  const [smoisNotes, setSmoisNotes] = useState<{ items: SmoisNote[]; unread: number } | null>(null);
+  const [emailAlerts, setEmailAlerts] = useState(true);
+  const loadSmoisNotes = () => {
+    fetch('/api/proxy/admin/smois/notifications').then(r => (r.ok ? r.json() : null)).then(j => setSmoisNotes(j?.data ?? null)).catch(() => {});
+  };
+  useEffect(() => {
+    if (!user) return;
+    fetch('/api/proxy/admin/smois/me').then(r => (r.ok ? r.json() : null)).then(j => { if (j?.data) setEmailAlerts(j.data.emailAlerts !== false); }).catch(() => {});
+    loadSmoisNotes();
+    const t = setInterval(loadSmoisNotes, 60_000);
+    return () => clearInterval(t);
+  }, [user]);
+  const markSmoisRead = async () => {
+    await fetch('/api/proxy/admin/smois/notifications/read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {});
+    loadSmoisNotes();
+  };
+  const toggleEmailAlerts = async () => {
+    const next = !emailAlerts;
+    setEmailAlerts(next);
+    await fetch('/api/proxy/admin/smois/me/preferences', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emailAlerts: next }) }).catch(() => setEmailAlerts(!next));
+  };
+
   useEffect(() => {
     if (user?.role === 'SOCIAL_MEDIA') return; // none of these lists are open to social media staff
     Promise.allSettled([
@@ -116,10 +140,12 @@ export function TopBar({ pathname, onMenuClick }: { pathname: string; onMenuClic
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const totalBadge   = pendingVendors.length + pendingRiders.length;
+  const smoisUnread  = smoisNotes?.unread ?? 0;
+  const totalBadge   = pendingVendors.length + pendingRiders.length + smoisUnread;
   const hasApprovals = pendingVendors.length > 0 || pendingRiders.length > 0;
   const hasOrders    = recentOrders.length > 0;
-  const isEmpty      = !hasApprovals && !hasOrders;
+  const hasSmois     = (smoisNotes?.items.length ?? 0) > 0;
+  const isEmpty      = !hasApprovals && !hasOrders && !hasSmois;
 
   return (
     <header style={{
@@ -198,6 +224,20 @@ export function TopBar({ pathname, onMenuClick }: { pathname: string; onMenuClic
               ) : (
                 <div style={{ maxHeight: 380, overflowY: 'auto' }}>
 
+                  {hasSmois && (
+                    <>
+                      <div style={{ padding: '10px 16px 6px', fontSize: 10, fontWeight: 700, color: T.textSec, letterSpacing: '0.5px', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>SOCIAL MEDIA</span>
+                        {smoisUnread > 0 && <button onClick={markSmoisRead} style={{ background: 'none', border: 'none', color: T.primary, fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: 0 }}>Mark all read</button>}
+                      </div>
+                      {smoisNotes!.items.slice(0, 8).map(n => (
+                        <Link key={n.id} href={n.meta?.link ?? '/smois'} style={{ textDecoration: 'none' }} onClick={() => setOpen(false)}>
+                          <NotifRow icon="📱" title={n.title} sub={`${n.body.slice(0, 90)} · ${timeAgo(n.createdAt)}`} dot={!n.isRead} T={T} />
+                        </Link>
+                      ))}
+                    </>
+                  )}
+
                   {hasApprovals && (
                     <>
                       <div style={{ padding: '10px 16px 6px', fontSize: 10, fontWeight: 700, color: T.textSec, letterSpacing: '0.5px' }}>
@@ -252,6 +292,13 @@ export function TopBar({ pathname, onMenuClick }: { pathname: string; onMenuClic
                     </>
                   )}
                 </div>
+              )}
+
+              {smoisNotes && (
+                <label style={{ padding: '10px 16px', borderTop: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: T.textSec, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={emailAlerts} onChange={toggleEmailAlerts} />
+                  Email me social media alerts
+                </label>
               )}
 
               {!isEmpty && (

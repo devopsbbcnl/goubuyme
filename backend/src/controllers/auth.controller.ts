@@ -23,6 +23,7 @@ import { deletedVendorName } from '../utils/deletedVendorName';
 import { RIDER_APPROVAL_SELECT, claimFleetInvite, effectiveRiderApproval } from '../services/fleet.service';
 import { BranchError, createBranchVendor } from '../services/branch.service';
 import { revokeManagerLogin } from '../services/branchAccess.service';
+import { recordSmoisAuthEvent } from '../services/smois/audit';
 
 const SALT_ROUNDS = 12;
 
@@ -324,6 +325,7 @@ export const login = catchAsync(async (req: Request, res: Response) => {
     // Track failed login attempt
     const { trackSuspiciousActivity } = await import('../services/auto-blocker.service');
     await trackSuspiciousActivity(req.ip || '', 'failed_login', { email, reason: 'invalid_password' });
+    void recordSmoisAuthEvent(req, user, 'AUTH_LOGIN_FAILED', { reason: 'invalid_password' });
     return apiResponse.error(res, 'Incorrect password. Please try again.', 401);
   }
 
@@ -341,6 +343,7 @@ export const login = catchAsync(async (req: Request, res: Response) => {
 
   if (user.role === 'RIDER') await claimFleetInvite({ id: user.id, email: user.email });
   const approvalStatus = await resolveApprovalStatus(user.id, user.role);
+  void recordSmoisAuthEvent(req, user, 'AUTH_LOGIN');
 
   return apiResponse.success(res, 'Login successful.', {
     user: { ...buildUserPayload(user), ...(approvalStatus !== undefined ? { approvalStatus } : {}) },
@@ -487,6 +490,7 @@ export const refresh = catchAsync(async (req: Request, res: Response) => {
 export const logout = catchAsync(async (req: AuthRequest, res: Response) => {
   if (req.user?.userId) {
     await prisma.user.update({ where: { id: req.user.userId }, data: { refreshToken: null } });
+    void recordSmoisAuthEvent(req, { id: req.user.userId, role: req.user.role }, 'AUTH_LOGOUT');
   }
   return apiResponse.success(res, 'Logged out successfully.');
 });
@@ -628,6 +632,7 @@ export const changePassword = catchAsync(async (req: AuthRequest, res: Response)
     prisma.emailOtp.update({ where: { id: otpId }, data: { used: true } }),
   ]);
 
+  void recordSmoisAuthEvent(req, { id: user.id, role: req.user!.role }, 'AUTH_PASSWORD_CHANGED');
   return apiResponse.success(res, 'Password changed successfully.');
 });
 

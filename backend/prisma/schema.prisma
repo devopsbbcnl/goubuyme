@@ -2379,3 +2379,13 @@ model SmoisSettings {
 
   @@map("smois_settings")
 }
+
+/// Per-person SMOIS switches that every user can have, including super admins (who have no SmoisMember row).
+model SmoisPreference {
+  userId      String   @id
+  /// Email copy of SMOIS alerts. In-app alerts are always on.
+  emailAlerts Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+
+  @@map("smois_preferences")
+}
