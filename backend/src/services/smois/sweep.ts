@@ -5,6 +5,9 @@ import prisma from '../../config/db';
 import { approverUserIds, getSettings, managementUserIds, notifyMany } from '../../controllers/smois/common';
 import { occurrenceDue, TASK_DONE } from './workflow';
 import { smoisAudit } from './audit';
+import { claimJobRun } from '../../utils/jobLock';
+import { lastFinishedPeriodStart } from '../../controllers/smois/report.controller';
+import { lagosYmd } from '../../controllers/smois/common';
 
 export const generateRecurringTasks = async (now = new Date()): Promise<number> => {
   const rules = await prisma.smoisRecurringRule.findMany({ where: { isActive: true } });
@@ -85,5 +88,31 @@ export const sweepDuePublishing = async (now = new Date()): Promise<void> => {
   for (const v of due) {
     await prisma.smoisVariant.update({ where: { id: v.id }, data: { lastReminderAt: now } });
     await notifyMany([v.creatorId, ...mgmt], { title: 'Scheduled post is due', body: `"${v.content.title}" on ${v.account.name} was due. Post it on the platform and record it as published.`, data: { link: '/smois/publishing?status=SCHEDULED' } });
+  }
+};
+
+/**
+ * Weekly reports are due on Monday for the week just ended; the monthly department report on the 1st.
+ * One reminder per period (claimed in JobLock so several workers can't double-send), only to people who haven't filed.
+ */
+export const sweepReportsDue = async (now = new Date()): Promise<void> => {
+  const today = lagosYmd(now);
+  const dow = (new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7; // Monday = 0
+  const dom = Number(today.slice(8, 10));
+
+  if (dow === 0) {
+    const week = lastFinishedPeriodStart('WEEKLY_MANAGER', today);
+    if (await claimJobRun('smois-weekly-due:' + week)) {
+      const members = await prisma.smoisMember.findMany({ where: { isActive: true, role: { in: ['MANAGER', 'MANAGEMENT'] } }, select: { userId: true } });
+      const filed = await prisma.smoisReport.findMany({ where: { type: 'WEEKLY_MANAGER', periodStart: new Date(week + 'T00:00:00Z'), status: { in: ['SUBMITTED', 'APPROVED'] } }, select: { authorId: true } });
+      const done = new Set(filed.map((f) => f.authorId));
+      await notifyMany(members.map((m) => m.userId).filter((id) => !done.has(id)), { title: 'Weekly report due', body: 'Your report for the week starting ' + week + ' is due. The figures are pre-filled; add your commentary.', data: { link: '/smois/reports' } });
+    }
+  }
+  if (dom === 1) {
+    const month = lastFinishedPeriodStart('MONTHLY_DEPARTMENT', today);
+    if (await claimJobRun('smois-monthly-due:' + month)) {
+      await notifyMany(await managementUserIds(), { title: 'Monthly report due', body: 'The department report for the month starting ' + month + ' is ready to generate.', data: { link: '/smois/reports' } });
+    }
   }
 };

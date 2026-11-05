@@ -34,7 +34,13 @@ export type Capability =
   | 'manageTeam'
   | 'configure'
   | 'viewAll'          // department-wide visibility (staff, all tasks, all activity)
-  | 'viewActivity';    // the activity log (scoped to own for non-management)
+  | 'viewActivity'     // the activity log (scoped to own for non-management)
+  | 'viewAnalytics'    // account metrics (managers: only their assigned accounts)
+  | 'recordMetrics'    // enter account and post readings
+  | 'correctMetrics'   // change a recorded reading (management only, with a reason)
+  | 'manageTargets'    // set KPI targets
+  | 'viewPerformance'  // everyone's performance and evaluations
+  | 'reviewReports';   // approve or return reports
 
 export const can = (a: SmoisAccess, cap: Capability): boolean => {
   const L = a.level;
@@ -49,6 +55,12 @@ export const can = (a: SmoisAccess, cap: Capability): boolean => {
     case 'configure': return L === 'SUPER';
     case 'viewAll': return L === 'SUPER' || L === 'MANAGEMENT' || L === 'VIEWER';
     case 'viewActivity': return L !== 'VIEWER' && L !== 'REVIEWER';
+    case 'viewAnalytics': return L === 'SUPER' || L === 'MANAGEMENT' || L === 'MANAGER' || L === 'VIEWER';
+    case 'recordMetrics': return L === 'SUPER' || L === 'MANAGEMENT' || L === 'MANAGER';
+    case 'correctMetrics':
+    case 'manageTargets':
+    case 'viewPerformance':
+    case 'reviewReports': return L === 'SUPER' || L === 'MANAGEMENT';
     default: return false;
   }
 };

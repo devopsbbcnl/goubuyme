@@ -59,7 +59,7 @@ need to be scaffolded as Next.js pages using the same pattern as `vendors/page.t
 - [ ] `/settings`  — form fields for platform config (fees, rates)
 
 ## Social media workspace (SMOIS)
-`app/(admin)/smois/*` (overview, accounts, content, calendar, approvals, publishing, tasks, team, activity, settings),
+`app/(admin)/smois/*` (overview, accounts, content, calendar, approvals, publishing, tasks, analytics, targets, performance, reports, integrations, team, activity, settings),
 shared UI in `components/smois/ui.tsx` and `ContentDetail.tsx`. The Sidebar shows a SOCIAL MEDIA section only to
 people with access (probed via `/admin/smois/me`); `SOCIAL_MEDIA` staff see nothing else and are redirected to `/smois`.
 The TopBar bell shows their alerts and the email-alerts switch. Access is enforced by the backend, not by hiding menus.

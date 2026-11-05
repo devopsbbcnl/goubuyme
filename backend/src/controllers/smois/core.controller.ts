@@ -28,7 +28,7 @@ export const getMe = handle(async (req, res) => {
     prisma.smoisPreference.findUnique({ where: { userId: a.userId }, select: { emailAlerts: true } }),
   ]);
   const caps = Object.fromEntries(
-    (['createContent', 'approve', 'publish', 'manageTasks', 'completeTasks', 'manageAccounts', 'manageTeam', 'configure', 'viewAll', 'viewActivity'] as const)
+    (['createContent', 'approve', 'publish', 'manageTasks', 'completeTasks', 'manageAccounts', 'manageTeam', 'configure', 'viewAll', 'viewActivity', 'viewAnalytics', 'recordMetrics', 'correctMetrics', 'manageTargets', 'viewPerformance', 'reviewReports'] as const)
       .map((c) => [c, can(a, c)]),
   );
   return apiResponse.success(res, 'SMOIS access.', {

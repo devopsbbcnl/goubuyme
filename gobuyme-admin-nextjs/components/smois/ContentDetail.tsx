@@ -32,7 +32,7 @@ export function ContentDetail({ id, onClose, onChanged }: { id: string; onClose:
   const { theme: T } = useTheme();
   const { data, reload, loading } = useLoad(() => api.get<{ data: Detail }>(`/admin/smois/content/${id}`).then((r) => r.data), [id]);
   const [vid, setVid] = useState<string | null>(null);
-  const [tab, setTab] = useState<'copy' | 'reviews' | 'versions' | 'comments' | 'attempts'>('copy');
+  const [tab, setTab] = useState<'copy' | 'reviews' | 'versions' | 'comments' | 'attempts' | 'results'>('copy');
   const v = data?.variants.find((x) => x.id === vid) ?? data?.variants[0];
 
   const changed = () => { reload(); onChanged?.(); window.dispatchEvent(new Event('gbm:pending-counts-updated')); };
@@ -72,7 +72,7 @@ export function ContentDetail({ id, onClose, onChanged }: { id: string; onClose:
   );
 }
 
-function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detail: Detail; tab: string; setTab: (t: 'copy' | 'reviews' | 'versions' | 'comments' | 'attempts') => void; onChanged: () => void }) {
+function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detail: Detail; tab: string; setTab: (t: 'copy' | 'reviews' | 'versions' | 'comments' | 'attempts' | 'results') => void; onChanged: () => void }) {
   const { theme: T } = useTheme();
   const { me } = useSmois();
   const { busy, error, setError, run } = useAction();
@@ -149,6 +149,7 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
       <Tabs value={tab as 'copy'} onChange={setTab} items={[
         { id: 'copy', label: 'Copy' }, { id: 'reviews', label: `Reviews (${v.reviews.length})` }, { id: 'versions', label: `Versions (${v.versions.length})` },
         { id: 'comments', label: `Comments (${v.comments.length})` }, { id: 'attempts', label: `Publishing (${v.attempts.length})` },
+        ...(v.status === 'PUBLISHED' && me?.can.viewAnalytics ? [{ id: 'results' as const, label: 'Results' }] : []),
       ]} />
 
       {tab === 'copy' && (
@@ -205,6 +206,8 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
       ))}
 
       {tab === 'comments' && <Comments v={v} onChanged={onChanged} />}
+
+      {tab === 'results' && <PostResults variantId={v.id} />}
 
       {tab === 'attempts' && (v.attempts.length === 0 ? <Empty>Nothing recorded yet.</Empty> : v.attempts.map((a) => (
         <div key={a.id} style={{ padding: '10px 0', borderTop: `1px solid ${T.border}`, fontSize: 12 }}>
@@ -303,6 +306,42 @@ function FailForm({ busy, onCancel, onSubmit }: { busy: boolean; onCancel: () =>
       <Field label="What went wrong"><Input value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="e.g. Platform rejected the image" /></Field>
       <Field label="Error code (optional)"><Input value={code} onChange={(e) => setCode(e.target.value)} /></Field>
       <div style={{ display: 'flex', gap: 8 }}><Btn kind="danger" disabled={busy || !msg.trim()} onClick={() => onSubmit({ ...(code.trim() ? { errorCode: code.trim() } : {}), errorMessage: msg.trim() })}>Record failure</Btn><Btn onClick={onCancel}>Cancel</Btn></div>
+    </div>
+  );
+}
+
+interface PostReading { id: string; recordedAt: string; reach: number | null; impressions: number | null; likes: number | null; comments: number | null; shares: number | null; saves: number | null; clicks: number | null; videoViews: number | null; note: string | null; enteredByName: string | null }
+const READING_FIELDS: [string, string][] = [['reach', 'Reach'], ['impressions', 'Impressions'], ['likes', 'Likes'], ['comments', 'Comments'], ['shares', 'Shares'], ['saves', 'Saves'], ['clicks', 'Link clicks'], ['videoViews', 'Video views']];
+
+/** Results of a published post: readings a person copied from the platform, newest first. */
+function PostResults({ variantId }: { variantId: string }) {
+  const { theme: T } = useTheme();
+  const { me } = useSmois();
+  const { data, reload } = useLoad(() => api.get<{ data: PostReading[] }>(`/admin/smois/metrics/posts?variantId=${variantId}`).then((r) => r.data), [variantId]);
+  const [f, setF] = useState<Record<string, string>>({ note: '' });
+  const { busy, error, run } = useAction();
+  const show = (v: number | null) => (v === null ? 'Not recorded' : v.toLocaleString());
+  return (
+    <div>
+      <Notice kind="info">Copy the figures the platform shows for this post. Leave a box empty if you don&apos;t have it. Engagement counts likes, comments, shares and saves; link clicks and video views are separate. Record again later to build a history (early, day 7, final).</Notice>
+      {data && data.length === 0 && <Empty>No results recorded yet.</Empty>}
+      {data?.map((r, i) => (
+        <div key={r.id} style={{ padding: '9px 0', borderTop: `1px solid ${T.border}`, fontSize: 12 }}>
+          <b style={{ color: T.text }}>{fmtDateTime(r.recordedAt)}</b> <span style={{ color: T.textMuted }}>by {r.enteredByName}{i === 0 ? ' · latest' : ''}</span>
+          <div style={{ color: T.textSec, marginTop: 3 }}>{READING_FIELDS.map(([k, l]) => `${l} ${show((r as unknown as Record<string, number | null>)[k])}`).join(' · ')}</div>
+          {r.note && <div style={{ color: T.textMuted }}>{r.note}</div>}
+        </div>
+      ))}
+      {me?.can.recordMetrics && (
+        <div style={{ marginTop: 14, background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4, padding: 14 }}>
+          {error && <Notice kind="error">{error}</Notice>}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
+            {READING_FIELDS.map(([k, l]) => <Field key={k} label={l}><Input type="number" min={0} value={f[k] ?? ''} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></Field>)}
+          </div>
+          <Field label="Note"><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
+          <Btn kind="primary" disabled={busy} onClick={() => run(async () => { await api.post('/admin/smois/metrics/posts', { variantId, ...f }); setF({ note: '' }); reload(); })}>{busy ? 'Saving…' : 'Record results'}</Btn>
+        </div>
+      )}
     </div>
   );
 }

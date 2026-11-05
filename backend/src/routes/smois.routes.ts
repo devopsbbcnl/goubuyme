@@ -6,6 +6,9 @@ import * as core from '../controllers/smois/core.controller';
 import * as content from '../controllers/smois/content.controller';
 import * as tasks from '../controllers/smois/task.controller';
 import * as dash from '../controllers/smois/dashboard.controller';
+import * as analytics from '../controllers/smois/analytics.controller';
+import * as perf from '../controllers/smois/performance.controller';
+import * as reports from '../controllers/smois/report.controller';
 
 const router = Router();
 const any = smoisAuth();
@@ -74,6 +77,35 @@ router.post('/tasks/:id/comments',     ...any, tasks.commentOnTask);
 router.get('/recurring',               ...smoisAuth('manageTasks'), tasks.listRules);
 router.post('/recurring',              ...smoisAuth('manageTasks'), tasks.createRule);
 router.patch('/recurring/:id',         ...smoisAuth('manageTasks'), tasks.updateRule);
+
+// Analytics (manually recorded readings until a platform is connected)
+router.get('/metrics/dictionary',              ...any, analytics.getDictionary);
+router.get('/analytics/overview',              ...smoisAuth('viewAnalytics'), analytics.getOverview);
+router.get('/metrics/snapshots',               ...smoisAuth('viewAnalytics'), analytics.listSnapshots);
+router.post('/metrics/snapshots',               ...smoisAuth('recordMetrics'), analytics.recordSnapshot);
+router.put('/metrics/snapshots/:id',           ...smoisAuth('correctMetrics'), analytics.correctSnapshot);
+router.get('/metrics/posts',                   ...smoisAuth('viewAnalytics'), analytics.listPostMetrics);
+router.post('/metrics/posts',                   ...smoisAuth('recordMetrics'), analytics.recordPostMetric);
+router.get('/integrations',                    ...any, analytics.getIntegrations);
+
+// Targets, performance, evaluations
+router.get('/targets',                         ...any, perf.listTargets);
+router.post('/targets',                         ...smoisAuth('manageTargets'), perf.createTarget);
+router.patch('/targets/:id',                     ...smoisAuth('manageTargets'), perf.updateTarget);
+router.get('/performance',                     ...smoisAuth('viewPerformance'), perf.listPerformance);
+router.get('/performance/me',                  ...any, perf.getMyPerformance);
+router.get('/performance/:memberId',           ...any, perf.getPerformance);
+router.post('/evaluations',                     ...smoisAuth('viewPerformance'), perf.createEvaluation);
+
+// Reports
+router.get('/reports',                         ...any, reports.listReports);
+router.post('/reports/draft',                   ...any, reports.createDraft);
+router.get('/reports/:id',                     ...any, reports.getReport);
+router.patch('/reports/:id',                     ...any, reports.updateReport);
+router.post('/reports/:id/refresh',             ...any, reports.refreshReport);
+router.post('/reports/:id/submit',              ...any, reports.submitReport);
+router.post('/reports/:id/review',              ...smoisAuth('reviewReports'), reports.reviewReport);
+router.get('/reports/:id/export',              ...any, reports.exportReport);
 
 // Activity trail (read-only: there is deliberately no write or delete endpoint)
 router.get('/activity',                ...smoisAuth('viewActivity'), dash.listActivity);

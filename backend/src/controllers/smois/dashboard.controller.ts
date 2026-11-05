@@ -5,7 +5,8 @@ import { apiResponse } from '../../utils/apiResponse';
 import { PERIOD_KEYS, PeriodKey, resolvePeriod } from '../../services/smois/period';
 import { TASK_DONE, can } from '../../services/smois/workflow';
 import { smoisAudit } from '../../services/smois/audit';
-import { access, date, fail, handle, nameMap, oneOf } from './common';
+import { access, date, fail, handle, lagosYmd, nameMap, oneOf, visibleAccountIds } from './common';
+import { accountSummaries, rollup } from '../../services/smois/insights';
 
 // GET /dashboard?period=month&from&to&platform&accountId&employeeId(userId)&categoryId&scope=mine
 export const getDashboard = handle(async (req, res) => {
@@ -68,6 +69,18 @@ export const getDashboard = handle(async (req, res) => {
     prisma.smoisVariant.groupBy({ by: ['status'], where: { OR: [{ creatorId: a.userId }, { submittedById: a.userId }] }, _count: true }),
   ]);
 
+  // Audience figures come only from readings people recorded; they are labelled as such and never estimated.
+  let audience: ReturnType<typeof rollup> | null = null;
+  if (can(a, 'viewAnalytics')) {
+    const visible = await visibleAccountIds(a, { platform: q.platform, accountId: q.accountId });
+    const toYmd = lagosYmd(period.to); const today = lagosYmd(now);
+    if (visible.length) audience = rollup(await accountSummaries(visible, lagosYmd(period.from), toYmd, today < toYmd ? today : toYmd));
+  }
+  const reportsSubmitted = await Promise.all([
+    prisma.smoisReport.count({ where: { type: 'WEEKLY_MANAGER', status: { in: ['SUBMITTED', 'APPROVED'] }, periodStart: inPeriod, ...(mine ? { authorId: a.userId } : {}) } }),
+    prisma.smoisReport.count({ where: { type: 'MONTHLY_DEPARTMENT', status: { in: ['SUBMITTED', 'APPROVED'] }, periodStart: inPeriod } }),
+  ]);
+
   return apiResponse.success(res, 'Dashboard.', {
     scope: mine ? 'mine' : 'department',
     period: { key: period.key, label: period.label, from: period.from, to: period.to },
@@ -77,6 +90,8 @@ export const getDashboard = handle(async (req, res) => {
       byConnection: byConnection.map((r) => ({ status: r.connectionStatus, count: r._count })),
       apiConnected: byConnection.filter((r) => r.connectionStatus === 'CONNECTED').reduce((s, r) => s + r._count, 0),
     },
+    audience: audience && { ...audience, source: 'Manually entered readings', dataStatus: 'MANUAL' },
+    reports: { weeklySubmitted: reportsSubmitted[0], monthlySubmitted: reportsSubmitted[1] },
     content: { created, awaitingApproval: awaiting, approved, scheduled, published, failedPublications: failed, rejected, overdueDeadlines: dueNotPublished },
     staff: { activeManagers: managers, tasks: { assigned, completed, pending, overdue, awaitingReview } },
     upcoming,
@@ -87,10 +102,9 @@ export const getDashboard = handle(async (req, res) => {
       status: 'Verified: counted from recorded activity',
       asOf: now,
       unavailable: [
-        { metric: 'Followers, reach, impressions, engagement, website clicks', reason: 'Needs authorized platform API connections (Phase 2). No figures are estimated or entered by hand.' },
+        { metric: 'Platform-verified figures', reason: 'Audience figures above are readings entered by hand. They become verified once an account is connected through its platform API.' },
         { metric: 'Inbox volume and response times', reason: 'Unified inbox ships in Phase 3.' },
         { metric: 'Campaign performance', reason: 'Campaign management ships in Phase 3.' },
-        { metric: 'Weekly and monthly report submissions', reason: 'Reporting ships in Phase 2.' },
       ],
     },
   });

@@ -2066,6 +2066,7 @@ model SmoisAccount {
   assignments SmoisAssignment[]
   variants    SmoisVariant[]
   tasks       SmoisTask[]
+  snapshots   SmoisMetricSnapshot[]
 
   @@unique([platform, handle])
   @@index([platform, archivedAt])
@@ -2166,6 +2167,7 @@ model SmoisVariant {
   reviews  SmoisReview[]
   comments SmoisComment[]
   attempts SmoisPublishAttempt[]
+  postMetrics SmoisPostMetric[]
 
   @@index([accountId, status])
   @@index([status, scheduledAt])
@@ -2388,4 +2390,137 @@ model SmoisPreference {
   updatedAt   DateTime @updatedAt
 
   @@map("smois_preferences")
+}
+
+// ── SMOIS phase 2: analytics, targets, performance, reports ────────────────
+
+enum SmoisReportType {
+  WEEKLY_MANAGER
+  MONTHLY_DEPARTMENT
+  QUARTERLY_DEPARTMENT
+  ANNUAL_DEPARTMENT
+}
+
+enum SmoisReportStatus {
+  DRAFT
+  SUBMITTED
+  CLARIFICATION_REQUESTED
+  APPROVED
+}
+
+/// One account on one day. followers is a running total; the other figures cover that day.
+/// dataStatus says where it came from; until integrations exist everything is MANUAL.
+model SmoisMetricSnapshot {
+  id               String   @id @default(uuid())
+  accountId        String
+  snapshotDate     DateTime @db.Date
+  followers        Int?
+  reach            Int?
+  impressions      Int?
+  engagement       Int?
+  profileVisits    Int?
+  videoViews       Int?
+  websiteClicks    Int?
+  dataStatus       String   @default("MANUAL")
+  source           String   @default("Entered by hand")
+  metricVersion    String   @default("v1")
+  note             String?
+  enteredById      String
+  retrievedAt      DateTime @default(now())
+  correctedById    String?
+  correctedAt      DateTime?
+  correctionReason String?
+  createdAt        DateTime @default(now())
+
+  account SmoisAccount @relation(fields: [accountId], references: [id])
+
+  @@unique([accountId, snapshotDate])
+  @@index([snapshotDate])
+  @@map("smois_metric_snapshots")
+}
+
+/// A reading of one published post. Several can exist over time (early, day 7, final).
+model SmoisPostMetric {
+  id          String   @id @default(uuid())
+  variantId   String
+  recordedAt  DateTime @default(now())
+  reach       Int?
+  impressions Int?
+  likes       Int?
+  comments    Int?
+  shares      Int?
+  saves       Int?
+  clicks      Int?
+  videoViews  Int?
+  dataStatus  String   @default("MANUAL")
+  note        String?
+  enteredById String
+
+  variant SmoisVariant @relation(fields: [variantId], references: [id])
+
+  @@index([variantId, recordedAt])
+  @@map("smois_post_metrics")
+}
+
+model SmoisTarget {
+  id          String        @id @default(uuid())
+  name        String
+  metric      String
+  targetValue Float
+  /// DEPARTMENT | PLATFORM | ACCOUNT | EMPLOYEE
+  scope       String
+  platform    SmoisPlatform?
+  accountId   String?
+  memberId    String?
+  startsAt    DateTime
+  endsAt      DateTime
+  supervisorId String?
+  notes       String?
+  isActive    Boolean       @default(true)
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([scope, isActive])
+  @@index([memberId])
+  @@map("smois_targets")
+}
+
+/// Management's written assessment of a person for a period. Never edited or deleted, only added to.
+model SmoisEvaluation {
+  id          String   @id @default(uuid())
+  memberId    String
+  periodStart DateTime
+  periodEnd   DateTime
+  feedback    String
+  rating      Int?
+  reviewerId  String
+  createdAt   DateTime @default(now())
+
+  @@index([memberId, createdAt])
+  @@map("smois_evaluations")
+}
+
+model SmoisReport {
+  id           String            @id @default(uuid())
+  type         SmoisReportType
+  periodStart  DateTime
+  periodEnd    DateTime
+  authorId     String
+  status       SmoisReportStatus @default(DRAFT)
+  /// Figures counted from SMOIS records when the draft was generated (frozen once submitted).
+  data         Json
+  /// Words written by the author.
+  commentary   Json              @default("{}")
+  submittedAt  DateTime?
+  reviewedById String?
+  reviewedAt   DateTime?
+  reviewNote   String?
+  dueNotifiedAt DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([authorId, type, periodStart])
+  @@index([type, status])
+  @@map("smois_reports")
 }
