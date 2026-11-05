@@ -86,6 +86,8 @@ function ReportDetail({ id, onClose, onChanged }: { id: string; onClose: () => v
   const [c, setC] = useState<Record<string, string>>({});
   const [note, setNote] = useState('');
   const [info, setInfo] = useState('');
+  const [aiNote, setAiNote] = useState('');
+  const aiStatus = useLoad(() => api.get<{ data: { enabled: boolean; available: boolean } }>('/admin/smois/ai/status').then((r) => r.data), []);
   useEffect(() => { if (data) setC(data.commentary ?? {}); }, [data]);
   if (!data) return <Modal open onClose={onClose} title="Report"><Empty>Loading…</Empty></Modal>;
 
@@ -94,6 +96,14 @@ function ReportDetail({ id, onClose, onChanged }: { id: string; onClose: () => v
   const canReview = !!me?.can.reviewReports && data.status === 'SUBMITTED' && !mineReport;
   const done = (msg: string) => { setInfo(msg); reload(); onChanged(); };
   const save = () => run(async () => { await api.patch(`/admin/smois/reports/${id}`, { commentary: c }); done('Saved.'); });
+  const aiDraft = () => run(async () => {
+    setAiNote('');
+    const r = await api.post<{ data: Record<string, string> & { verificationNote: string | null } }>('/admin/smois/ai/report-commentary', { reportId: id });
+    const next = { ...c };
+    for (const [k] of COMMENTARY) if (r.data[k] && !(c[k] ?? '').trim()) next[k] = r.data[k]; // never overwrite what the author already wrote
+    setC(next);
+    setAiNote('AI draft added to empty fields only. Read it, correct it and add what only you know, then save. ' + (r.data.verificationNote ?? ''));
+  });
   const submit = () => run(async () => { await api.patch(`/admin/smois/reports/${id}`, { commentary: c }); await api.post(`/admin/smois/reports/${id}/submit`, {}); done('Submitted for review.'); });
   const decide = (decision: string) => run(async () => { await api.post(`/admin/smois/reports/${id}/review`, { decision, note }); setNote(''); done(decision === 'APPROVED' ? 'Approved and archived.' : 'Returned to the author.'); });
 
@@ -109,6 +119,7 @@ function ReportDetail({ id, onClose, onChanged }: { id: string; onClose: () => v
       <div style={{ padding: 20 }}>
         {error && <Notice kind="error">{error}</Notice>}
         {info && <Notice kind="success">{info}</Notice>}
+        {aiNote && <Notice kind="warn">{aiNote}</Notice>}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
           <Pill tone={TONE[data.status]}>{pretty(data.status)}</Pill>
           <span style={{ fontSize: 12, color: T.textSec }}>Prepared by <b style={{ color: T.text }}>{data.authorName}</b>{data.submittedAt && ` · submitted ${fmtDateTime(data.submittedAt)}`}{data.reviewedByName && ` · reviewed by ${data.reviewedByName}`}</span>
@@ -125,7 +136,7 @@ function ReportDetail({ id, onClose, onChanged }: { id: string; onClose: () => v
         ))}
         {!editable && Object.values(c).every((v) => !v) && <Empty>No commentary was written.</Empty>}
 
-        {editable && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><Btn onClick={save} disabled={busy}>Save draft</Btn><Btn onClick={() => run(async () => { await api.post(`/admin/smois/reports/${id}/refresh`, {}); done('Figures refreshed.'); })} disabled={busy}>Refresh figures</Btn><Btn kind="primary" onClick={submit} disabled={busy}>Submit for review</Btn></div>}
+        {editable && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><Btn onClick={save} disabled={busy}>Save draft</Btn><Btn onClick={() => run(async () => { await api.post(`/admin/smois/reports/${id}/refresh`, {}); done('Figures refreshed.'); })} disabled={busy}>Refresh figures</Btn>{aiStatus.data?.enabled && aiStatus.data.available && <Btn onClick={aiDraft} disabled={busy}>✨ Draft commentary with AI</Btn>}<Btn kind="primary" onClick={submit} disabled={busy}>Submit for review</Btn></div>}
         {canReview && (
           <Card title="Review" style={{ marginTop: 12 }}>
             <Field label="Note (required when asking for clarification)"><Input value={note} onChange={(e) => setNote(e.target.value)} /></Field>

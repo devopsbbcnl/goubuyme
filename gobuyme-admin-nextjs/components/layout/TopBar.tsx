@@ -39,6 +39,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/smois/media': 'Social Media · Media Library',
   '/smois/listening': 'Social Media · Listening',
   '/smois/competitors': 'Social Media · Competitors',
+  '/smois/assistant': 'Social Media · Insights & AI',
   '/smois/team': 'Social Media · Team',
   '/smois/activity': 'Social Media · Activity Log',
   '/smois/settings': 'Social Media · Settings',

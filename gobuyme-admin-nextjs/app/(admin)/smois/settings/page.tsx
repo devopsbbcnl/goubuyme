@@ -4,7 +4,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { api } from '@/lib/api';
 import { Btn, Card, Empty, Field, Input, Notice, PageHeader, Pill, useAction, useLoad } from '@/components/smois/ui';
 
-interface Settings { requireApproval: boolean; allowSelfApproval: boolean; minPostGapMinutes: number; approvalReminderHours: number; slaHighMinutes: number; slaStandardMinutes: number; slaGeneralMinutes: number; businessStartHour: number; businessEndHour: number; businessDays: number[] }
+interface Settings { requireApproval: boolean; allowSelfApproval: boolean; minPostGapMinutes: number; approvalReminderHours: number; slaHighMinutes: number; slaStandardMinutes: number; slaGeneralMinutes: number; businessStartHour: number; businessEndHour: number; businessDays: number[]; aiEnabled: boolean; aiDailyLimit: number }
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 interface Cat { id: string; name: string; isActive: boolean }
 
@@ -13,6 +13,7 @@ export default function SmoisSettingsPage() {
   const settings = useLoad(() => api.get<{ data: Settings }>('/admin/smois/settings').then((r) => r.data), []);
   const cats = useLoad(() => api.get<{ data: Cat[] }>('/admin/smois/categories').then((r) => r.data), []);
   const [s, setS] = useState<Settings | null>(null);
+  const usage = useLoad(() => api.get<{ data: { successful: number; figuresFlaggedAsUnverified: number; byPerson: { name: string; count: number }[] } }>('/admin/smois/ai/usage').then((r) => r.data), []);
   const [newCat, setNewCat] = useState('');
   const { busy, error, run } = useAction();
   const [saved, setSaved] = useState(false);
@@ -41,6 +42,14 @@ export default function SmoisSettingsPage() {
             <Field label="Minimum gap between posts on one account (minutes)"><Input type="number" min={0} max={1440} value={s.minPostGapMinutes} onChange={(e) => setS({ ...s, minPostGapMinutes: Number(e.target.value) })} /></Field>
             <Field label="Remind reviewers after (hours waiting)"><Input type="number" min={1} max={168} value={s.approvalReminderHours} onChange={(e) => setS({ ...s, approvalReminderHours: Number(e.target.value) })} /></Field>
             <Btn kind="primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : saved ? 'Saved ✓' : 'Save settings'}</Btn>
+          </Card>
+
+          <Card title="AI assistance">
+            <div style={{ fontSize: 12, color: T.textSec, marginBottom: 12, lineHeight: 1.6 }}>Content help, questions about your data, report drafts and sentiment suggestions. Everything it produces is a draft for a person to check. Each person has a daily limit. Only who used which feature is recorded: never the question or the answer.</div>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13, marginBottom: 12 }}><input type="checkbox" checked={s.aiEnabled} onChange={(e) => setS({ ...s, aiEnabled: e.target.checked })} /><b>Allow AI assistance</b></label>
+            <Field label="Requests per person per day"><Input type="number" min={1} max={500} value={s.aiDailyLimit} onChange={(e) => setS({ ...s, aiDailyLimit: Number(e.target.value) })} /></Field>
+            {usage.data && <div style={{ fontSize: 12, color: T.textSec, marginBottom: 10 }}>Last 30 days: {usage.data.successful} successful requests; {usage.data.figuresFlaggedAsUnverified} figure(s) were flagged as not in the data.{usage.data.byPerson.slice(0, 4).map((p) => ` ${p.name} ${p.count}`).join(' ·')}</div>}
+            <Btn kind="primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : saved ? 'Saved ✓' : 'Save'}</Btn>
           </Card>
 
           <Card title="Inbox response targets">

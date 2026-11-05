@@ -88,6 +88,7 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
   const [reason, setReason] = useState('');
   const [upErr, setUpErr] = useState('');
   const [picking, setPicking] = useState(false);
+  const aiStatus = useLoad(() => api.get<{ data: { enabled: boolean; available: boolean; remainingToday: number } }>('/admin/smois/ai/status').then((r) => r.data), []);
 
   useEffect(() => { setError(''); setInfo(''); }, [panel, tab, setError]);
 
@@ -163,6 +164,10 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
             {v.publishedUrl && <> · <a href={v.publishedUrl} target="_blank" rel="noreferrer" style={{ color: T.primary, fontWeight: 700 }}>View post ↗</a></>}
           </div>
           {v.warnings.length > 0 && <Notice kind="warn">{v.warnings.map((w) => <div key={w}>• {w}</div>)}</Notice>}
+          {v.actions.edit && aiStatus.data?.enabled && aiStatus.data.available && (
+            <AiAssistPanel platform={v.account.platform} format={detail.format} objective={detail.objective ?? ''} text={caption} remaining={aiStatus.data.remainingToday} onUsed={aiStatus.reload}
+              onUse={(kind, text) => { if (kind === 'HASHTAGS') setHashtags(text); else setCaption(text); }} />
+          )}
           <Field label={`Caption (${charCount})`}><TextArea rows={6} value={caption} disabled={!v.actions.edit} onChange={(e) => setCaption(e.target.value)} /></Field>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             <Field label="Hashtags"><Input value={hashtags} disabled={!v.actions.edit} onChange={(e) => setHashtags(e.target.value)} placeholder="#GoBuyMe #food" /></Field>
@@ -375,5 +380,50 @@ function LibraryPicker({ onClose, onPick }: { onClose: () => void; onPick: (url:
         )}
       </div>
     </Modal>
+  );
+}
+
+const AI_KINDS: [string, string][] = [['CAPTIONS', 'Suggest captions'], ['HASHTAGS', 'Suggest hashtags'], ['REWRITE', 'Rewrite this'], ['GRAMMAR', 'Fix spelling and grammar'], ['IDEAS', 'Post ideas']];
+interface AiSuggestion { text: string; note: string; warnings: string[] }
+
+/** Drafts only: nothing is applied until you press "Use", and nothing is saved until you save the post. */
+function AiAssistPanel({ platform, format, objective, text, remaining, onUse, onUsed }: { platform: string; format: string; objective: string; text: string; remaining: number; onUse: (kind: string, text: string) => void; onUsed: () => void }) {
+  const { theme: T } = useTheme();
+  const [open, setOpen] = useState(false);
+  const [tone, setTone] = useState('');
+  const [out, setOut] = useState<{ kind: string; items: AiSuggestion[]; note: string | null } | null>(null);
+  const { busy, error, setError, run } = useAction();
+  const go = (kind: string) => run(async () => {
+    setError('');
+    const r = await api.post<{ data: { suggestions: AiSuggestion[]; verificationNote: string | null } }>('/admin/smois/ai/content', { kind, platform, format, objective, tone, text, category: '' });
+    setOut({ kind, items: r.data.suggestions, note: r.data.verificationNote }); onUsed();
+  });
+  return (
+    <div style={{ border: `1px dashed ${T.border}`, borderRadius: 4, padding: 12, marginBottom: 14, background: T.surface2 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <b style={{ fontSize: 13, color: T.text }}>✨ AI writing help <span style={{ fontWeight: 500, color: T.textMuted, fontSize: 11 }}>{remaining} requests left today</span></b>
+        <Btn small onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Open'}</Btn>
+      </div>
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          <Notice kind="info">Drafts to adapt, not finished copy. They only use what you give them (your text and the approved wording in the library). Check every price, date and claim before using one.</Notice>
+          {error && <Notice kind="error">{error}</Notice>}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            <div style={{ width: 200 }}><Input value={tone} onChange={(e) => setTone(e.target.value)} placeholder="Tone (e.g. friendly)" /></div>
+            {AI_KINDS.map(([k, l]) => <Btn key={k} small disabled={busy || (['REWRITE', 'GRAMMAR'].includes(k) && !text.trim())} onClick={() => go(k)}>{l}</Btn>)}
+          </div>
+          {busy && <div style={{ fontSize: 12, color: T.textSec }}>Working…</div>}
+          {out?.note && <Notice kind="warn">{out.note}</Notice>}
+          {out?.items.map((s, i) => (
+            <div key={i} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: 10, marginTop: 8 }}>
+              <div style={{ fontSize: 13, color: T.text, whiteSpace: 'pre-wrap' }}>{s.text}</div>
+              {s.note && <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>{s.note}</div>}
+              {s.warnings.map((w) => <div key={w} style={{ fontSize: 11, color: T.warning, marginTop: 2 }}>⚠ {w}</div>)}
+              {out.kind !== 'IDEAS' && out.kind !== 'BRIEF' && <div style={{ marginTop: 6 }}><Btn small onClick={() => onUse(out.kind, s.text)}>{out.kind === 'HASHTAGS' ? 'Use these hashtags' : 'Use as the caption'}</Btn></div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

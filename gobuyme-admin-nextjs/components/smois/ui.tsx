@@ -278,21 +278,31 @@ export function Stat({ label, value, sub, delta }: { label: string; value: React
 }
 
 /** Minimal SVG line chart. Gaps (null) break the line, so unrecorded days are visibly empty. */
-export function LineChart({ points, height = 140 }: { points: { label: string; value: number | null }[]; height?: number }) {
+export function LineChart({ points, height = 140, projectedFrom }: { points: { label: string; value: number | null; t?: number }[]; height?: number; projectedFrom?: number }) {
   const { theme: T } = useTheme();
   const vals = points.map((p) => p.value).filter((v): v is number => v !== null);
   if (vals.length < 2) return <Empty>Not enough readings to draw a trend yet.</Empty>;
   const W = 600; const H = height; const pad = 6;
   const min = Math.min(...vals); const max = Math.max(...vals); const span = max - min || 1;
-  const x = (i: number) => pad + (i / Math.max(1, points.length - 1)) * (W - pad * 2);
+  // Space points by their date when every point has one, so a long gap looks like a long gap.
+  const timed = points.every((p) => typeof p.t === 'number');
+  const t0 = timed ? (points[0].t as number) : 0; const t1 = timed ? (points[points.length - 1].t as number) : 1;
+  const x = (i: number) => pad + (timed ? ((points[i].t as number) - t0) / Math.max(1, t1 - t0) : i / Math.max(1, points.length - 1)) * (W - pad * 2);
   const y = (v: number) => H - pad - ((v - min) / span) * (H - pad * 2 - 14);
-  let d = ''; let pen = false;
-  points.forEach((p, i) => { if (p.value === null) { pen = false; return; } d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)} `; pen = true; });
+  const path = (from: number, to: number) => {
+    let d = ''; let pen = false;
+    for (let i = from; i <= to; i++) { const p = points[i]; if (p.value === null) { pen = false; continue; } d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)} `; pen = true; }
+    return d;
+  };
+  const split = projectedFrom !== undefined && projectedFrom > 0 && projectedFrom < points.length ? projectedFrom : null;
+  const d = path(0, split === null ? points.length - 1 : split - 1);
+  const dProjected = split === null ? '' : path(split - 1, points.length - 1);
   const last = [...points].reverse().find((p) => p.value !== null);
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" role="img" aria-label="Follower trend">
         <path d={d} fill="none" stroke={T.primary} strokeWidth={2} vectorEffect="non-scaling-stroke" />
+        {dProjected && <path d={dProjected} fill="none" stroke={T.primary} strokeWidth={2} strokeDasharray="6 5" opacity={0.7} vectorEffect="non-scaling-stroke" />}
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: T.textSec }}>
         <span>{points[0].label} · low {min.toLocaleString()}</span><span>high {max.toLocaleString()} · latest {last?.value?.toLocaleString()}</span>

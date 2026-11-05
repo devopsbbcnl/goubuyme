@@ -114,6 +114,8 @@ export default function SmoisOverview() {
             {scope === 'department' && <Kpi label="Active managers" value={data.staff.activeManagers} href="/smois/team" />}
           </Grid>
 
+          {me?.can.reviewReports && <TopSuggestions />}
+
           {data.engagement && (
             <>
               <Heading>Community · {data.period.label}</Heading>
@@ -182,5 +184,24 @@ export default function SmoisOverview() {
         </>
       )}
     </div>
+  );
+}
+
+function TopSuggestions() {
+  const { theme: T } = useTheme();
+  const { data } = useLoad(() => api.get<{ data: { findings: { key: string; severity: string; title: string; evidence: string; link: string }[] } }>('/admin/smois/insights/workflow').then((r) => r.data), []);
+  if (!data || data.findings.length === 0) return null;
+  return (
+    <Card title="Worth a look" style={{ marginBottom: 20 }}>
+      {data.findings.slice(0, 3).map((f) => (
+        <Link key={f.key} href={f.link} style={{ textDecoration: 'none' }}>
+          <div style={{ padding: '8px 0', borderTop: `1px solid ${T.border}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}><Pill tone={f.severity === 'HIGH' ? 'bad' : f.severity === 'MEDIUM' ? 'warn' : 'neutral'}>{pretty(f.severity)}</Pill> {f.title}</div>
+            <div style={{ fontSize: 12, color: T.textSec, marginTop: 2 }}>{f.evidence}</div>
+          </div>
+        </Link>
+      ))}
+      <Link href="/smois/assistant" style={{ fontSize: 12, color: T.primary, fontWeight: 700, textDecoration: 'none' }}>All suggestions →</Link>
+    </Card>
   );
 }

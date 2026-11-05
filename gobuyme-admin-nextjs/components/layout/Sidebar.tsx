@@ -63,6 +63,7 @@ const SMOIS_NAV: SmoisNavItem[] = [
   { href: '/smois/media',      label: 'Media Library', icon: '🖼️' },
   { href: '/smois/listening',  label: 'Listening',    icon: '👂', cap: 'viewAnalytics' },
   { href: '/smois/competitors', label: 'Competitors', icon: '🔭', cap: 'viewAnalytics' },
+  { href: '/smois/assistant',  label: 'Insights & AI', icon: '✨', cap: 'viewAnalytics' },
   { href: '/smois/tasks',      label: 'Social Tasks', icon: '📌', badge: 'tasks' },
   { href: '/smois/analytics',  label: 'Analytics',    icon: '📊', cap: 'viewAnalytics' },
   { href: '/smois/targets',    label: 'Targets',      icon: '🎯' },

@@ -13,7 +13,7 @@ interface Overview {
   series: { date: string; positive: number; neutral: number; negative: number; uncertain: number }[];
   alerts: { negativeLast24h: number; negativeUnhandled: number; spike: boolean; spikeThreshold: number; avgDailyNegative: number }; note: string; sentimentNote: string;
 }
-interface Mention { id: string; text: string; sentiment: string; platform: string | null; authorName: string | null; url: string | null; reach: number | null; occurredAt: string; handled: boolean; note: string | null; loggedByName: string | null; handledByName: string | null; keyword: { term: string; kind: string } | null }
+interface Mention { id: string; sentimentSource?: string; text: string; sentiment: string; platform: string | null; authorName: string | null; url: string | null; reach: number | null; occurredAt: string; handled: boolean; note: string | null; loggedByName: string | null; handledByName: string | null; keyword: { term: string; kind: string } | null }
 interface Keyword { id: string; term: string; kind: string; isActive: boolean; _count: { mentions: number } }
 
 export default function ListeningPage() {
@@ -70,6 +70,10 @@ function Mentions({ canEdit, onChanged }: { canEdit: boolean; onChanged: () => v
   const qs = new URLSearchParams({ page: String(page), ...(sentiment ? { sentiment } : {}), ...(handled ? { handled } : {}) });
   const { data, loading, error, reload } = useLoad(() => api.get<{ data: { items: Mention[]; pagination: { pages: number } } }>(`/admin/smois/mentions?${qs}`).then((r) => r.data), [qs.toString()]);
   const { run } = useAction();
+  const suggest = (m: Mention) => run(async () => {
+    const r = await api.post<{ data: { sentiment: string; confidence: string; reason: string } }>('/admin/smois/ai/sentiment', { mentionId: m.id });
+    if (window.confirm('AI suggests: ' + pretty(r.data.sentiment) + ' (' + r.data.confidence.toLowerCase() + ' confidence)\n' + r.data.reason + '\n\nApply this label? It will be recorded as AI-assisted and reviewed by you.')) { await api.patch('/admin/smois/mentions/' + m.id, { sentiment: r.data.sentiment, aiAssisted: true }); reload(); onChanged(); }
+  });
   const patch = (id: string, body: object) => run(async () => { await api.patch(`/admin/smois/mentions/${id}`, body); reload(); onChanged(); });
   return (
     <div>
@@ -86,7 +90,7 @@ function Mentions({ canEdit, onChanged }: { canEdit: boolean; onChanged: () => v
                 <Td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDateTime(m.occurredAt)}</Td>
                 <Td style={{ maxWidth: 360 }}>{m.text}<div style={{ fontSize: 11, color: T.textMuted }}>{m.authorName ?? 'Unknown'}{m.keyword ? ` · ${m.keyword.term}` : ''}{m.reach !== null ? ` · reach ${m.reach.toLocaleString()}` : ''} · logged by {m.loggedByName}{m.url && <> · <a href={m.url} target="_blank" rel="noreferrer" style={{ color: T.primary }}>link ↗</a></>}</div></Td>
                 <Td>{m.platform ? <PlatformTag platform={m.platform} /> : '—'}</Td>
-                <Td>{canEdit ? <Select value={m.sentiment} onChange={(e) => patch(m.id, { sentiment: e.target.value })}>{SENT.map((s) => <option key={s} value={s}>{pretty(s)}</option>)}</Select> : <Pill tone={TONE[m.sentiment]}>{pretty(m.sentiment)}</Pill>}</Td>
+                <Td>{canEdit ? <Select value={m.sentiment} onChange={(e) => patch(m.id, { sentiment: e.target.value })}>{SENT.map((s) => <option key={s} value={s}>{pretty(s)}</option>)}</Select> : <Pill tone={TONE[m.sentiment]}>{pretty(m.sentiment)}</Pill>}{m.sentimentSource === 'AI_ASSISTED' && <div style={{ fontSize: 10, color: T.textMuted }}>AI-assisted, reviewed</div>}{canEdit && <div style={{ marginTop: 4 }}><Btn small kind="ghost" onClick={() => suggest(m)}>✨ Suggest</Btn></div>}</Td>
                 <Td>{m.handled ? <Pill tone="good">Handled</Pill> : <Pill>Open</Pill>}{m.note && <div style={{ fontSize: 11, color: T.textMuted }}>{m.note}</div>}</Td>
                 <Td>{canEdit && <Btn small onClick={() => { const note = m.handled ? m.note : window.prompt('What was done? (optional)') ?? ''; patch(m.id, { handled: !m.handled, note }); }}>{m.handled ? 'Reopen' : 'Mark handled'}</Btn>}</Td>
               </tr>

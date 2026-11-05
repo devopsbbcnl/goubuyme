@@ -63,7 +63,8 @@ export const forecastFollowers = (all: Reading[], targetDate: string): Forecast 
   if (!fit) return { ok: false, reason: 'The readings are too uneven to fit a trend.' };
   const x = (parseYmd(targetDate).getTime() - base) / DAY;
   const projected = fit.intercept + fit.slope * x;
-  const half = 1.96 * fit.residualSd * (1 + horizon / Math.max(1, spanDays));
+  // Even a perfectly straight run of readings does not make the future certain, so the band never shrinks below 0.5% of the projection.
+  const half = Math.max(1.96 * fit.residualSd * (1 + horizon / Math.max(1, spanDays)), Math.abs(projected) * 0.005);
   const confidence = fit.r2 >= 0.9 && pts.length >= 10 ? 'HIGH' : fit.r2 >= 0.7 ? 'MEDIUM' : 'LOW';
   return {
     ok: true, label: 'ESTIMATE', targetDate,
