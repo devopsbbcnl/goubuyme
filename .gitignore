@@ -2,11 +2,9 @@
 node_modules/
 /vendor/
 
-# Environment files
+# Environment files (any variant: .env.production, .env.staging, ...)
 .env
-.env.local
-.env.*.local
-.env.example
+.env.*
 
 # Claude Code local settings (may contain credentials)
 .claude/settings.local.json
@@ -40,8 +38,45 @@ gobuyme-mobile/android/build/
 gobuyme-mobile/ios/Pods/
 gobuyme-mobile/ios/build/
 
-# Documentation
+# Documentation and working documents
 *.md
 .gstack/
+*.docx
+*.doc
+*.xlsx
+*.xls
+*.pptx
+*.ppt
 
-gobuyme-production-2026-10-12-fcm.aab
+# Secrets, keys and signing material: never commit these
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.jks
+*.keystore
+!gobuyme-mobile/android/app/debug.keystore
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist
+service-account*.json
+*-service-account*.json
+*firebase-adminsdk*.json
+credentials.json
+secrets/
+.secrets/
+
+# Database dumps and backups (can hold personal data)
+*.dump
+*.sqlite
+*.sqlite3
+*.bak
+backups/
+
+# Build artifacts: app bundles/binaries and compiler caches
+*.aab
+*.apk
+*.ipa
+*.tsbuildinfo
+gobuyme-mobile/builds/
