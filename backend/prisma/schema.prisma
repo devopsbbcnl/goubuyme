@@ -2385,6 +2385,9 @@ model SmoisSettings {
   businessStartHour     Int      @default(8)
   businessEndHour       Int      @default(18)
   businessDays          Int[]    @default([1, 2, 3, 4, 5])
+  /// AI assistance is off until a super admin switches it on.
+  aiEnabled             Boolean  @default(false)
+  aiDailyLimit          Int      @default(30)
   updatedById           String?
   updatedAt             DateTime @updatedAt
 
@@ -2486,6 +2489,8 @@ model SmoisTarget {
   supervisorId String?
   notes       String?
   isActive    Boolean       @default(true)
+  /// The last status management was told about, so a change is announced once.
+  lastNotifiedStatus String?
   createdById String
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -2856,4 +2861,21 @@ model SmoisCompetitorSnapshot {
 
   @@unique([competitorId, observedOn])
   @@map("smois_competitor_snapshots")
+}
+
+/// One row per AI request: who asked, which feature, and how it went. The question and the answer are not stored.
+model SmoisAiRequest {
+  id              String   @id @default(uuid())
+  userId          String
+  feature         String
+  model           String?
+  /// OK | UNAVAILABLE | DISABLED | LIMIT | ERROR
+  status          String
+  unverifiedCount Int      @default(0)
+  durationMs      Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([feature, createdAt])
+  @@map("smois_ai_requests")
 }

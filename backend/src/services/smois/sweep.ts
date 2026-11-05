@@ -5,6 +5,8 @@ import prisma from '../../config/db';
 import { approverUserIds, getSettings, managementUserIds, notifyMany } from '../../controllers/smois/common';
 import { occurrenceDue, TASK_DONE } from './workflow';
 import { negativeSpike } from './community';
+import { detectAnomaly } from './predict';
+import { targetActual } from './insights';
 import { smoisAudit } from './audit';
 import { claimJobRun } from '../../utils/jobLock';
 import { lastFinishedPeriodStart } from '../../controllers/smois/report.controller';
@@ -158,4 +160,42 @@ export const sweepReputation = async (now = new Date()): Promise<void> => {
   if (!spike.spike) return;
   if (!(await claimJobRun('smois-negative-spike:' + lagosYmd(now)))) return;
   await notifyMany(await managementUserIds(), { title: 'Reputation alert', body: last + ' negative mentions in the last 24 hours (usual: about ' + spike.avgDaily + ' a day). Mentions are logged by staff, so check the listening page.', data: { link: '/smois/listening' } });
+};
+
+/** Tell people when a target becomes at risk, is achieved or exceeded, or is missed. Each change is announced once. */
+export const sweepTargetStatus = async (now = new Date()): Promise<void> => {
+  const targets = await prisma.smoisTarget.findMany({ where: { isActive: true, startsAt: { lte: now }, endsAt: { gte: new Date(now.getTime() - 3 * 86_400_000) } }, take: 200 });
+  if (!targets.length) return;
+  const mgmt = await managementUserIds();
+  for (const t of targets) {
+    const p = await targetActual(t, now);
+    if (p.status === t.lastNotifiedStatus) continue;
+    await prisma.smoisTarget.update({ where: { id: t.id }, data: { lastNotifiedStatus: p.status } });
+    if (!['AT_RISK', 'ACHIEVED', 'EXCEEDED', 'MISSED'].includes(p.status)) continue; // quiet states just reset the memory
+    const member = t.memberId ? await prisma.smoisMember.findUnique({ where: { id: t.memberId }, select: { userId: true } }) : null;
+    const label = p.status === 'AT_RISK' ? 'at risk' : p.status.toLowerCase();
+    await notifyMany([member?.userId, t.supervisorId, ...mgmt], { title: 'Target ' + label, body: t.name + (p.percent !== null ? ' (' + p.percent + '% of the goal)' : ''), data: { link: '/smois/targets' }, email: p.status !== 'AT_RISK' });
+  }
+};
+
+/** A reading far outside an account's recent pattern: tell management and the people assigned to it, once a day. */
+export const sweepUnusualPerformance = async (now = new Date()): Promise<void> => {
+  const today = lagosYmd(now);
+  const since = new Date(now.getTime() - 20 * 86_400_000);
+  const accounts = await prisma.smoisAccount.findMany({
+    where: { archivedAt: null }, select: { id: true, name: true, assignments: { where: { OR: [{ endsAt: null }, { endsAt: { gt: now } }] }, select: { member: { select: { userId: true } } } }, snapshots: { where: { snapshotDate: { gte: since } }, orderBy: { snapshotDate: 'asc' }, select: { snapshotDate: true, reach: true, engagement: true } } },
+  });
+  const mgmt = await managementUserIds();
+  for (const a of accounts) {
+    const latest = a.snapshots[a.snapshots.length - 1];
+    if (!latest || (now.getTime() - latest.snapshotDate.getTime()) / 86_400_000 > 2.5) continue; // only react to fresh readings
+    for (const metric of ['reach', 'engagement'] as const) {
+      const series = a.snapshots.map((s) => s[metric]).filter((v): v is number => v !== null);
+      const r = detectAnomaly(series);
+      if (!r.flagged) continue;
+      if (!(await claimJobRun('smois-anomaly:' + a.id + ':' + metric + ':' + today))) continue;
+      await smoisAudit(null, { action: 'UNUSUAL_PERFORMANCE', entity: 'SmoisAccount', entityId: a.id, userId: null, meta: { metric, last: r.last, mean: r.mean, pctChange: r.pctChange } });
+      await notifyMany([...a.assignments.map((x) => x.member.userId), ...mgmt], { title: 'Unusual ' + metric + ' on ' + a.name, body: 'Latest reading ' + r.last + ' is ' + r.reason + ' (usual about ' + r.mean + '). Readings are entered by staff, so check the figure first.', data: { link: '/smois/analytics' }, email: false });
+    }
+  }
 };

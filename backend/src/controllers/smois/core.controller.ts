@@ -432,11 +432,17 @@ export const updateSettings = handle(async (req, res) => {
   const hoursStart = (data.businessStartHour as number | undefined) ?? before.businessStartHour;
   const hoursEnd = (data.businessEndHour as number | undefined) ?? before.businessEndHour;
   if (hoursEnd <= hoursStart) fail(400, 'Closing hour must be after the opening hour.');
+  if ('aiEnabled' in b) data.aiEnabled = !!b.aiEnabled;
+  if ('aiDailyLimit' in b) {
+    const n = Number(b.aiDailyLimit);
+    if (!Number.isInteger(n) || n < 1 || n > 500) fail(400, 'The daily AI limit must be between 1 and 500.');
+    data.aiDailyLimit = n;
+  }
   const u = await prisma.smoisSettings.update({ where: { id: 'default' }, data });
   await smoisAudit(req, {
     action: 'SETTINGS_CHANGED', entity: 'SmoisSettings', entityId: 'default',
     before: { requireApproval: before.requireApproval, allowSelfApproval: before.allowSelfApproval, minPostGapMinutes: before.minPostGapMinutes, approvalReminderHours: before.approvalReminderHours },
-    after: { requireApproval: u.requireApproval, allowSelfApproval: u.allowSelfApproval, minPostGapMinutes: u.minPostGapMinutes, approvalReminderHours: u.approvalReminderHours, sla: [u.slaHighMinutes, u.slaStandardMinutes, u.slaGeneralMinutes], hours: [u.businessStartHour, u.businessEndHour, u.businessDays] },
+    after: { requireApproval: u.requireApproval, allowSelfApproval: u.allowSelfApproval, minPostGapMinutes: u.minPostGapMinutes, approvalReminderHours: u.approvalReminderHours, sla: [u.slaHighMinutes, u.slaStandardMinutes, u.slaGeneralMinutes], hours: [u.businessStartHour, u.businessEndHour, u.businessDays], ai: [u.aiEnabled, u.aiDailyLimit] },
   });
   return apiResponse.success(res, 'Settings saved.', u);
 });

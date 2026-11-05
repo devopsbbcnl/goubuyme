@@ -245,3 +245,59 @@ export const targetActual = async (t: SmoisTarget, now = new Date()): Promise<Ta
 
 export { topAndBottom, groupPerformance } from './analytics';
 export type { RankedPost } from './analytics';
+
+// ── Workflow health (feeds the improvement suggestions) ─────────────────────
+
+import { WorkflowMetrics } from './improve';
+import { bandLabelOf } from './predict';
+
+export const collectWorkflowMetrics = async (days = 30, now = new Date()): Promise<WorkflowMetrics> => {
+  const since = new Date(now.getTime() - days * 86_400_000);
+  const week = new Date(now.getTime() - 7 * 86_400_000);
+  const [reviews, inReview, published, failed, openTasks, overdueTasks, doneTasks, convs, accounts, expiring, expired] = await Promise.all([
+    prisma.smoisReview.findMany({ where: { createdAt: { gte: since }, emergencyBypass: false }, select: { decision: true, createdAt: true, variant: { select: { submittedAt: true } } } }),
+    prisma.smoisVariant.findMany({ where: { status: { in: ['SUBMITTED', 'RESUBMITTED'] } }, select: { submittedAt: true } }),
+    prisma.smoisVariant.count({ where: { status: 'PUBLISHED', publishedAt: { gte: since } } }),
+    prisma.smoisPublishAttempt.count({ where: { success: false, createdAt: { gte: since } } }),
+    prisma.smoisTask.count({ where: { status: { notIn: TASK_DONE } } }),
+    prisma.smoisTask.count({ where: { status: { notIn: TASK_DONE }, deadline: { lt: now } } }),
+    prisma.smoisTask.findMany({ where: { status: 'COMPLETED', completedAt: { gte: since } }, select: { completedAt: true, deadline: true } }),
+    prisma.smoisConversation.findMany({ where: { receivedAt: { gte: since } }, select: { receivedAt: true, firstResponseAt: true, slaDueAt: true } }),
+    prisma.smoisAccount.findMany({ where: { archivedAt: null }, select: { id: true, name: true, assignments: { where: { OR: [{ endsAt: null }, { endsAt: { gt: now } }] }, select: { startsAt: true } }, variants: { where: { status: 'PUBLISHED' }, select: { publishedAt: true }, orderBy: { publishedAt: 'desc' }, take: 1 }, snapshots: { where: { snapshotDate: { gte: week } }, select: { id: true }, take: 1 } } }),
+    prisma.smoisAsset.count({ where: { archivedAt: null, approvalStatus: 'APPROVED', expiresAt: { gt: now, lte: new Date(now.getTime() + 14 * 86_400_000) } } }),
+    prisma.smoisAsset.count({ where: { archivedAt: null, approvalStatus: 'APPROVED', expiresAt: { lte: now } } }),
+  ]);
+
+  const decided = reviews.filter((r) => r.variant.submittedAt && r.createdAt >= r.variant.submittedAt);
+  const hours = decided.map((r) => (r.createdAt.getTime() - (r.variant.submittedAt as Date).getTime()) / 3_600_000);
+  const queueAges = inReview.map((v) => (v.submittedAt ? (now.getTime() - v.submittedAt.getTime()) / 3_600_000 : 0));
+  const rate = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : null);
+  const answered = convs.filter((c) => c.firstResponseAt && c.slaDueAt);
+  const missed = (c: { firstResponseAt: Date | null; slaDueAt: Date | null }) => !!c.firstResponseAt && !!c.slaDueAt && c.firstResponseAt > c.slaDueAt;
+  const bands = new Map<string, { received: number; missed: number }>();
+  for (const c of answered) {
+    const band = bandLabelOf(new Date(c.receivedAt.getTime() + 3_600_000).getUTCHours());
+    const b = bands.get(band) ?? { received: 0, missed: 0 };
+    b.received++; if (missed(c)) b.missed++;
+    bands.set(band, b);
+  }
+  const assigned = accounts.filter((a) => a.assignments.length > 0);
+  const quiet = assigned
+    .map((a) => ({ name: a.name, last: a.variants[0]?.publishedAt ?? null, since: a.assignments.reduce((m, x) => (x.startsAt < m ? x.startsAt : m), a.assignments[0].startsAt) }))
+    .map((a) => ({ name: a.name, days: Math.floor((now.getTime() - (a.last ?? a.since).getTime()) / 86_400_000), assignedDays: Math.floor((now.getTime() - a.since.getTime()) / 86_400_000) }))
+    .filter((a) => a.days >= 7 && a.assignedDays >= 7);
+
+  return {
+    approvals: {
+      reviewed: reviews.length, avgHours: hours.length ? Math.round((hours.reduce((a, b) => a + b, 0) / hours.length) * 10) / 10 : null,
+      queueNow: inReview.length, oldestHours: queueAges.length ? Math.round(Math.max(...queueAges)) : null,
+      revisionRatePct: rate(reviews.filter((r) => r.decision === 'REVISION_REQUESTED').length, reviews.length), rejectRatePct: rate(reviews.filter((r) => r.decision === 'REJECTED').length, reviews.length),
+    },
+    publishing: { published, failed },
+    tasks: { open: openTasks, overdue: overdueTasks, completed: doneTasks.length, completedLate: doneTasks.filter((t) => t.deadline && t.completedAt && t.completedAt > t.deadline).length },
+    inbox: { answered: answered.length, missedTarget: answered.filter(missed).length, byBand: [...bands.entries()].map(([band, v]) => ({ band, ...v })) },
+    coverage: { accounts: accounts.length, withoutAssignee: accounts.filter((a) => a.assignments.length === 0).length, assignedButQuiet: quiet.map((q) => ({ name: q.name, days: q.days })), staleReadings: accounts.filter((a) => a.snapshots.length === 0).length },
+    assets: { expiringSoon: expiring, expired },
+    windowDays: days,
+  };
+};

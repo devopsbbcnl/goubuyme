@@ -91,7 +91,11 @@ export const updateMention = handle(async (req, res) => {
   if (!m) return fail(404, 'Mention not found.');
   const b = (req.body ?? {}) as Record<string, unknown>;
   const data: Prisma.SmoisMentionUncheckedUpdateInput = {};
-  if ('sentiment' in b) data.sentiment = oneOf(b.sentiment, SENTIMENTS, 'Sentiment');
+  if ('sentiment' in b) {
+    data.sentiment = oneOf(b.sentiment, SENTIMENTS, 'Sentiment');
+    // Whoever applies the label owns it; the source says whether an AI suggested it.
+    data.sentimentSource = b.aiAssisted ? 'AI_ASSISTED' : 'MANUAL';
+  }
   if ('note' in b) data.note = str(b.note, 500);
   if ('handled' in b) { data.handled = !!b.handled; data.handledById = b.handled ? access(req).userId : null; }
   const u = await prisma.smoisMention.update({ where: { id: m.id }, data, select: mentionSelect });

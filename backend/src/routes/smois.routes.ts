@@ -13,6 +13,7 @@ import * as inbox from '../controllers/smois/inbox.controller';
 import * as campaigns from '../controllers/smois/campaign.controller';
 import * as assets from '../controllers/smois/asset.controller';
 import * as monitoring from '../controllers/smois/monitoring.controller';
+import * as ai from '../controllers/smois/ai.controller';
 
 const router = Router();
 const any = smoisAuth();
@@ -162,6 +163,17 @@ router.post('/competitors',                   ...smoisAuth('manageListening'), m
 router.patch('/competitors/:id',               ...smoisAuth('manageListening'), monitoring.updateCompetitor);
 router.get('/competitors/:id/snapshots',     ...smoisAuth('viewAnalytics'), monitoring.listCompetitorSnapshots);
 router.post('/competitors/:id/snapshots',     ...smoisAuth('recordMetrics'), monitoring.addCompetitorSnapshot);
+
+// AI assistance (drafts only) and predictive insights
+router.get('/ai/status',                     ...any, ai.getAiStatus);
+router.post('/ai/content',                    ...smoisAuth('createContent'), ai.aiContent);
+router.post('/ai/ask',                        ...smoisAuth('viewAnalytics'), ai.aiAsk);
+router.post('/ai/report-commentary',          ...smoisAuth('createContent'), ai.aiReportCommentary);
+router.post('/ai/sentiment',                  ...smoisAuth('handleInbox'), ai.aiSentiment);
+router.get('/ai/usage',                      ...smoisAuth('configure'), ai.aiUsage);
+router.get('/insights/forecast',             ...smoisAuth('viewAnalytics'), ai.getForecast);
+router.get('/insights/posting-times',        ...smoisAuth('viewAnalytics'), ai.getPostingTimes);
+router.get('/insights/workflow',             ...smoisAuth('reviewReports'), ai.getWorkflowInsights);
 
 // Activity trail (read-only: there is deliberately no write or delete endpoint)
 router.get('/activity',                ...smoisAuth('viewActivity'), dash.listActivity);
