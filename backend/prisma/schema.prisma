@@ -43,13 +43,20 @@ model User {
   rider                  Rider?
   referredBy             User?               @relation("Referrals", fields: [referredById], references: [id])
   referrals              User[]              @relation("Referrals")
-  vendor                 Vendor?
+  /// The account's main business (never a branch). Backed by Vendor.mainOwnerId, which is unique.
+  vendor                 Vendor?             @relation("MainVendor")
+  /// Every location the account owns: the main business plus its branches.
+  vendors                Vendor[]            @relation("OwnedVendors")
+  /// The branch this account is the manager of, if it is a branch-manager login.
+  managedVendor          Vendor?             @relation("BranchManager")
   offerRedemptions       OfferRedemption[]
   onboardingEvents       OnboardingEvent[]
   creditTransactions     CreditTransaction[]
   phoneOtps              PhoneOtp[]
+  logisticsCompany       LogisticsCompany?
   pushSubscriptions      PushSubscription[]
-  broadcasts             Broadcast[]
+  broadcasts             Broadcast[]         @relation("BroadcastAuthor")
+  broadcastsReceived     Broadcast[]         @relation("BroadcastTarget")
   vendorPlanChanges      VendorPlanChange[]
   crmNotesAbout          CrmNote[]           @relation("CrmNoteSubject")
   crmNotesAuthored       CrmNote[]           @relation("CrmNoteAuthor")
@@ -112,7 +119,12 @@ model Customer {
 
 model Vendor {
   id                   String                      @id @default(uuid())
-  userId               String                      @unique
+  /// Owning account. A branch carries its parent's owner, so one login manages every location.
+  userId               String
+  /// Equals userId on a main business and is null on a branch. Unique, so an account can have only
+  /// one main business. Kept in sync by a database trigger (see the vendor_main_owner migration).
+  mainOwnerId          String?                     @unique
+  mainOwner            User?                       @relation("MainVendor", fields: [mainOwnerId], references: [id], onDelete: Cascade)
   businessName         String                      @unique
   slug                 String                      @unique
   description          String?
@@ -159,8 +171,24 @@ model Vendor {
   temporaryClosures    VendorTemporaryClosure[]
   incidents            VendorIncident[]
   planChanges          VendorPlanChange[]
-  user                 User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Set on a branch: the main vendor it belongs to. Null on a main business.
+  parentVendorId       String?
+  parent               Vendor?                     @relation("VendorBranches", fields: [parentVendorId], references: [id], onDelete: Cascade)
+  branches             Vendor[]                    @relation("VendorBranches")
+  /// Branch name without the parent prefix, e.g. "Rumuola". businessName is "<parent> - <label>".
+  branchLabel          String?
+  /// Public contact number for this location (a branch's own line; mains use the owner's phone).
+  contactPhone         String?
+  /// Login for the branch manager: a separate account the owner creates and hands over, so the
+  /// branch runs on its own devices with its own push notifications. Null = run by the owner.
+  managerUserId        String?                     @unique
+  manager              User?                       @relation("BranchManager", fields: [managerUserId], references: [id], onDelete: SetNull)
+  /// With a manager in place, should the owner still receive this branch's order alerts too?
+  notifyOwnerOfOrders  Boolean                     @default(true)
+  user                 User                        @relation("OwnedVendors", fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([parentVendorId])
   @@index([approvalStatus])
   @@index([city])
   @@index([category])
@@ -205,31 +233,37 @@ model VendorTemporaryClosure {
 }
 
 model Rider {
-  id             String         @id @default(uuid())
-  userId         String         @unique
-  vehicleType    String
-  plateNumber    String?
-  isAvailable    Boolean        @default(false)
-  isOnline       Boolean        @default(false)
-  latitude       Float?
-  longitude      Float?
-  approvalStatus ApprovalStatus @default(PENDING)
-  rating         Float          @default(0)
-  totalRatings   Int            @default(0)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  address        String?
-  city           String?
-  state          String?
-  earnings       Earning[]
-  deliveries     Order[]
-  payoutAccount  PayoutAccount?
-  document       RiderDocument?
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  conversations  Conversation[]
+  id                 String            @id @default(uuid())
+  userId             String            @unique
+  vehicleType        String
+  plateNumber        String?
+  isAvailable        Boolean           @default(false)
+  isOnline           Boolean           @default(false)
+  latitude           Float?
+  longitude          Float?
+  approvalStatus     ApprovalStatus    @default(PENDING)
+  rating             Float             @default(0)
+  totalRatings       Int               @default(0)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  address            String?
+  city               String?
+  state              String?
+  earnings           Earning[]
+  deliveries         Order[]
+  payoutAccount      PayoutAccount?
+  document           RiderDocument?
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations      Conversation[]
+  /// Fleet this rider rides for, if any. While set, the rider's standing follows the company's (see services/fleet.service.ts).
+  companyId          String?
+  company            LogisticsCompany? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  /// True when joining a fleet is what approved this rider; leaving the fleet then returns them to PENDING.
+  approvedViaCompany Boolean           @default(false)
 
   @@index([approvalStatus])
   @@index([isAvailable])
+  @@index([companyId])
   @@map("riders")
 }
 
@@ -1120,6 +1154,7 @@ enum Role {
   CUSTOMER
   VENDOR
   RIDER
+  LOGISTICS_COMPANY
   SUPER_ADMIN
   OPERATIONS_ADMIN
   SUPPORT_ADMIN
@@ -1789,6 +1824,8 @@ model Broadcast {
   id             String            @id @default(uuid())
   authorId       String
   audience       BroadcastAudience
+  /// Set only when audience is USER: the one account the message was addressed to.
+  targetUserId   String?
   title          String
   body           String
   /// Accounts that were sent the message (each gets an in-app Notification row).
@@ -1796,9 +1833,11 @@ model Broadcast {
   /// Of those, how many had a push token or web subscription to be buzzed on.
   pushCount      Int
   createdAt      DateTime          @default(now())
-  author         User              @relation(fields: [authorId], references: [id])
+  author         User              @relation("BroadcastAuthor", fields: [authorId], references: [id])
+  targetUser     User?             @relation("BroadcastTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
+  @@index([targetUserId])
   @@map("broadcasts")
 }
 
@@ -1807,4 +1846,53 @@ enum BroadcastAudience {
   CUSTOMERS
   VENDORS
   RIDERS
+  /// One specific account (see Broadcast.targetUserId).
+  USER
+}
+
+/// A logistics company that runs a fleet of riders. The owner signs in with the
+/// LOGISTICS_COMPANY role and manages the fleet from their own dashboard.
+model LogisticsCompany {
+  id                 String         @id @default(uuid())
+  userId             String         @unique
+  companyName        String         @unique
+  registrationNumber String?
+  address            String
+  city               String
+  state              String         @default("Rivers")
+  latitude           Float?
+  longitude          Float?
+  approvalStatus     ApprovalStatus @default(PENDING)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  riders             Rider[]
+  invites            FleetInvite[]
+
+  @@index([approvalStatus])
+  @@map("logistics_companies")
+}
+
+enum FleetInviteStatus {
+  INVITED
+  CLAIMED
+  REVOKED
+}
+
+/// An email invited to join a company's fleet. Claimed automatically when a rider
+/// with that (verified) email signs in.
+model FleetInvite {
+  id        String            @id @default(uuid())
+  companyId String
+  /// Lower-cased invite target.
+  email     String
+  status    FleetInviteStatus @default(INVITED)
+  expiresAt DateTime
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  company   LogisticsCompany  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, email])
+  @@index([email])
+  @@map("fleet_invites")
 }

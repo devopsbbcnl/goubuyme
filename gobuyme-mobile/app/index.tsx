@@ -7,6 +7,7 @@ const ROLE_ROUTE = {
   customer: '/(customer)',
   vendor: '/(vendor)',
   rider: '/(rider)',
+  logistics_company: '/(company)',
 } as const;
 
 type PendingOtp = { userId: string; email: string; role: string };
@@ -33,7 +34,7 @@ export default function Index() {
   }
 
   if (user && role && ROLE_ROUTE[role as keyof typeof ROLE_ROUTE]) {
-    return <Redirect href={ROLE_ROUTE[role as keyof typeof ROLE_ROUTE]} />;
+    return <Redirect href={ROLE_ROUTE[role as keyof typeof ROLE_ROUTE] as never} />;
   }
 
   return <Redirect href="/splash" />;

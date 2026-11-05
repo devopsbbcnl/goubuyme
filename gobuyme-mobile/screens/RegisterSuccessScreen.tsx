@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 
-type RoleParam = 'customer' | 'vendor' | 'rider';
+type RoleParam = 'customer' | 'vendor' | 'rider' | 'logistics_company';
 
 const SUCCESS_MESSAGES: Record<RoleParam, { heading: string; body: string }> = {
   customer: {
@@ -19,6 +19,10 @@ const SUCCESS_MESSAGES: Record<RoleParam, { heading: string; body: string }> = {
   rider: {
     heading: 'Let\'s ride!',
     body: 'Welcome to GoBuyMe. Login and complete your rider profile to see available jobs and be visible to users.',
+  },
+  logistics_company: {
+    heading: 'Welcome aboard!',
+    body: 'Your logistics company is registered. Once it is approved you can invite your riders by email and manage your fleet from your dashboard.',
   },
 };
 

@@ -17,14 +17,24 @@ import {
   getActiveVendorPromotions, searchMenuItems, unifiedSearch, browseItems, getMenuItemById, getSimilarMenuItems,
   getPublicCommissionRates,
 } from '../controllers/vendor.controller';
+import {
+  listMyBranches, createBranch, updateBranch, deleteBranch,
+  createBranchLogin, updateBranchLogin, resetBranchLoginPassword, revokeBranchLogin,
+} from '../controllers/branch.controller';
 import { verifyToken } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import { requireMfa } from '../middleware/mfa.middleware';
+import { requireOwner, vendorContext } from '../middleware/vendorContext';
 
 const router = Router();
 
 // Protected vendor-only routes (must be declared before /:id to avoid wildcard capture)
-const vendorAuth = [verifyToken, requireRole('VENDOR')];
+// `vendorAuth` acts on whichever of the owner's locations the x-vendor-id header selects (default:
+// the main business). `mainAuth` ignores the header: branch management, payout account, plan tier
+// and verification documents always belong to the main business and are shared by its branches.
+const mainAuth = [verifyToken, requireRole('VENDOR'), requireOwner];
+const locationAuth = [verifyToken, requireRole('VENDOR'), vendorContext];
+const vendorAuth = locationAuth;
 router.get('/me',                          ...vendorAuth, getMyVendorProfile);
 router.patch('/me',                        ...vendorAuth, updateMyVendorProfile);
 router.patch('/me/status',                 ...vendorAuth, toggleStoreStatus);
@@ -34,6 +44,14 @@ router.put('/me/business-hours',           ...vendorAuth, setBusinessHours);
 router.get('/me/temporary-closures',       ...vendorAuth, listTemporaryClosures);
 router.post('/me/temporary-closures',      ...vendorAuth, createTemporaryClosure);
 router.delete('/me/temporary-closures/:id', ...vendorAuth, deleteTemporaryClosure);
+router.get('/me/branches',                  ...mainAuth, listMyBranches);
+router.post('/me/branches',                 ...mainAuth, createBranch);
+router.patch('/me/branches/:id',            ...mainAuth, updateBranch);
+router.delete('/me/branches/:id',           ...mainAuth, deleteBranch);
+router.post('/me/branches/:id/login',                 ...mainAuth, createBranchLogin);
+router.patch('/me/branches/:id/login',                ...mainAuth, updateBranchLogin);
+router.post('/me/branches/:id/login/reset-password',  ...mainAuth, resetBranchLoginPassword);
+router.delete('/me/branches/:id/login',               ...mainAuth, revokeBranchLogin);
 router.get('/me/stats',                    ...vendorAuth, getVendorDashboardStats);
 router.get('/me/orders',                   ...vendorAuth, getMyOrders);
 router.get('/me/orders/:orderId',          ...vendorAuth, getMyOrderById);
@@ -41,16 +59,16 @@ router.patch('/me/orders/:orderId/status', ...vendorAuth, updateMyOrderStatus);
 router.patch('/me/orders/:orderId/view',   ...vendorAuth, markOrderViewed);
 router.post('/me/push-subscriptions',      ...vendorAuth, registerPushSubscription);
 router.get('/me/earnings',                 ...vendorAuth, getMyEarnings);
-router.get('/me/payout-account',           ...vendorAuth, getPayoutAccount);
-router.post('/me/payout-account',          ...vendorAuth, requireMfa, savePayoutAccount);
-router.patch('/me/tier',                   ...vendorAuth, switchMyTier);
-router.get('/me/document',                         ...vendorAuth, getMyDocument);
-router.post('/me/document',                        ...vendorAuth, submitDocument);
-router.get('/me/business-verification',            ...vendorAuth, getMyBusinessVerification);
-router.post('/me/business-verification',           ...vendorAuth, submitBusinessVerification);
-router.get('/me/licenses',                         ...vendorAuth, getMyLicenses);
-router.post('/me/licenses',                        ...vendorAuth, submitLicense);
-router.delete('/me/licenses/:id',                  ...vendorAuth, deleteLicense);
+router.get('/me/payout-account',           ...mainAuth, getPayoutAccount);
+router.post('/me/payout-account',          ...mainAuth, requireMfa, savePayoutAccount);
+router.patch('/me/tier',                   ...mainAuth, switchMyTier);
+router.get('/me/document',                         ...mainAuth, getMyDocument);
+router.post('/me/document',                        ...mainAuth, submitDocument);
+router.get('/me/business-verification',            ...mainAuth, getMyBusinessVerification);
+router.post('/me/business-verification',           ...mainAuth, submitBusinessVerification);
+router.get('/me/licenses',                         ...mainAuth, getMyLicenses);
+router.post('/me/licenses',                        ...mainAuth, submitLicense);
+router.delete('/me/licenses/:id',                  ...mainAuth, deleteLicense);
 
 // Menu CRUD
 router.get('/me/menu',                                          ...vendorAuth, getMyMenuItems);

@@ -16,12 +16,21 @@ const cookieOpts = {
   path: '/',
 };
 
-async function callBackend(path: string, method: string, search: string, body: string | undefined, token: string | undefined) {
+async function callBackend(
+  path: string,
+  method: string,
+  search: string,
+  body: string | undefined,
+  token: string | undefined,
+  locationId?: string | null,
+) {
   return fetch(`${BACKEND}/${path}${search}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // Which of a vendor's locations (main business or branch) this call is for.
+      ...(locationId ? { 'X-Vendor-Id': locationId } : {}),
     },
     ...(body !== undefined ? { body } : {}),
     // Never auto-follow redirects: fetch rewrites a redirected POST into a bodyless
@@ -71,7 +80,8 @@ async function proxyRequest(req: NextRequest, pathSegments: string[]) {
   const body = isBodyMethod ? await req.text() : undefined;
 
   const token = req.cookies.get('gbm_access')?.value;
-  let upstream = await callBackend(path, req.method, search, body, token);
+  const locationId = req.headers.get('x-vendor-id');
+  let upstream = await callBackend(path, req.method, search, body, token, locationId);
 
   // Access token missing or expired — try a silent refresh once, for any endpoint.
   let refreshedAccess: string | undefined;
@@ -83,7 +93,7 @@ async function proxyRequest(req: NextRequest, pathSegments: string[]) {
       if (refreshed) {
         refreshedAccess = refreshed.accessToken;
         refreshedRefresh = refreshed.refreshToken;
-        upstream = await callBackend(path, req.method, search, body, refreshedAccess);
+        upstream = await callBackend(path, req.method, search, body, refreshedAccess, locationId);
       }
     }
   }

@@ -14,6 +14,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
     if (!loading && user) {
       if (user.role === 'vendor') router.replace('/vendor');
       else if (user.role === 'rider') router.replace('/rider');
+      else if (user.role === 'logistics_company') router.replace('/company');
     }
   }, [user, loading, router]);
 

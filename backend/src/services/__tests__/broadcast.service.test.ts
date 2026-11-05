@@ -36,6 +36,16 @@ describe('audienceWhere', () => {
   it('narrows to one role', () => {
     expect((audienceWhere('RIDERS').role as { in: string[] }).in).toEqual(['RIDER']);
   });
+
+  it('narrows a single-user message to that one active account', () => {
+    expect(audienceWhere('USER', 'u1')).toEqual({
+      role: { in: ['CUSTOMER', 'VENDOR', 'RIDER'] }, isActive: true, deletedAt: null, id: 'u1',
+    });
+  });
+
+  it('matches nobody when a single-user message has no target', () => {
+    expect(audienceWhere('USER')).toMatchObject({ id: '' });
+  });
 });
 
 describe('send', () => {
@@ -69,5 +79,35 @@ describe('send', () => {
     expect(db.notification.createMany).toHaveBeenCalledTimes(1);
     expect(db.notification.createMany.mock.calls[0][0].data).toHaveLength(2);
     expect(mockSendPushToMany).toHaveBeenCalledWith(['ExponentPushToken[a]'], expect.objectContaining({ type: 'broadcast' }));
+  });
+
+  describe('to one user', () => {
+    const one = { title: 'About your order', body: 'We refunded it', audience: 'USER' as const, targetUserId: 'u9' };
+
+    it('needs a target user', async () => {
+      await expect(send('admin1', { ...one, targetUserId: undefined })).rejects.toBeInstanceOf(BroadcastError);
+      expect(db.broadcast.create).not.toHaveBeenCalled();
+    });
+
+    it('says so when the user cannot be messaged', async () => {
+      db.user.count.mockResolvedValue(0);
+      await expect(send('admin1', one)).rejects.toThrow('That user cannot be messaged');
+      expect(db.broadcast.create).not.toHaveBeenCalled();
+    });
+
+    it('records the target and notifies only that account', async () => {
+      db.user.count.mockResolvedValueOnce(1).mockResolvedValueOnce(1);
+      db.broadcast.create.mockResolvedValue({ id: 'b2' });
+      db.user.findMany.mockResolvedValue([{ id: 'u9', pushToken: 'ExponentPushToken[z]', pushSubscriptions: [] }]);
+
+      await send('admin1', one);
+      await new Promise(r => setImmediate(r));
+
+      expect(db.broadcast.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ audience: 'USER', targetUserId: 'u9', recipientCount: 1 }),
+      });
+      expect(db.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: 'u9' }) }));
+      expect(db.notification.createMany.mock.calls[0][0].data).toEqual([expect.objectContaining({ userId: 'u9' })]);
+    });
   });
 });

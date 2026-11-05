@@ -19,6 +19,8 @@ import { deletedVendorName } from '../utils/deletedVendorName';
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
+import { getVendorVocabulary } from '../config/vendorTerminology';
+import { syncBranchesWithParent } from '../services/branch.service';
 
 const LOG_DIR = path.join(__dirname, '../../logs');
 
@@ -200,8 +202,10 @@ export const getAdminVendors = catchAsync(async (req: Request, res: Response) =>
         id: true, userId: true, businessName: true, category: true, city: true,
         rating: true, approvalStatus: true, verificationBadge: true,
         commissionTier: true, createdAt: true,
+        parentVendorId: true, branchLabel: true,
+        parent: { select: { id: true, businessName: true } },
         user: { select: { name: true } },
-        _count: { select: { orders: true } },
+        _count: { select: { orders: true, branches: true, menuItems: true } },
       },
       orderBy: { createdAt: 'desc' },
       skip: (pageNum - 1) * limitNum,
@@ -234,6 +238,13 @@ export const getAdminVendors = catchAsync(async (req: Request, res: Response) =>
     createdAt: v.createdAt,
     totalOrders: v._count.orders,
     totalRevenue: revenueMap.get(v.id) ?? 0,
+    totalMenuItems: v._count.menuItems,
+    // Branch fields: a branch is a full vendor listing owned by a main business.
+    isBranch: v.parentVendorId !== null,
+    parentVendorId: v.parentVendorId,
+    parentName: v.parent?.businessName ?? null,
+    branchLabel: v.branchLabel,
+    branchCount: v._count.branches,
   }));
 
   return apiResponse.paginated(res, 'Vendors fetched.', data, {
@@ -253,10 +264,16 @@ export const updateVendorStatus = catchAsync(async (req: AuthRequest, res: Respo
   const vendor = await prisma.vendor.update({
     where: { id },
     data: { approvalStatus: status as ApprovalStatus },
-    select: { id: true, userId: true, businessName: true, approvalStatus: true, user: { select: { email: true, name: true } } },
+    select: { id: true, userId: true, parentVendorId: true, businessName: true, category: true, approvalStatus: true, user: { select: { email: true, name: true } } },
   });
 
-  if (status === 'APPROVED') {
+  // A decision on a main business covers its branches too. A decision on one branch stays on
+  // that branch, so an admin can still act on a single location.
+  if (!vendor.parentVendorId) {
+    await syncBranchesWithParent(vendor.id, { approvalStatus: status as ApprovalStatus });
+  }
+
+  if (status === 'APPROVED' && !vendor.parentVendorId) {
     void recordOnboardingEvent(vendor.userId, 'VENDOR', 'APPROVED');
   }
 
@@ -275,6 +292,7 @@ export const updateVendorStatus = catchAsync(async (req: AuthRequest, res: Respo
       vendor.user.name,
       vendor.businessName,
       status as 'APPROVED' | 'REJECTED' | 'SUSPENDED',
+      vendor.category,
     ).catch(err => recordError('admin', 'Vendor approval email failed', err, { vendorId: id, status }));
   }
 
@@ -300,6 +318,7 @@ export const getAdminRiders = catchAsync(async (req: Request, res: Response) => 
         id: true, userId: true, vehicleType: true, plateNumber: true,
         isOnline: true, approvalStatus: true, rating: true, createdAt: true,
         user: { select: { name: true, phone: true } },
+        company: { select: { companyName: true } },
         _count: { select: { deliveries: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -328,6 +347,7 @@ export const getAdminRiders = catchAsync(async (req: Request, res: Response) => 
     plateNumber: r.plateNumber,
     isOnline: r.isOnline,
     approvalStatus: r.approvalStatus,
+    fleetName: r.company?.companyName ?? null,
     rating: r.rating,
     createdAt: r.createdAt,
     totalDeliveries: r._count.deliveries,
@@ -885,10 +905,12 @@ export const processManualPayout = catchAsync(async (req: AuthRequest, res: Resp
   if (isVendor) {
     const vendor = await prisma.vendor.findUnique({
       where: { id: entityId },
-      select: { id: true, businessName: true, userId: true, payoutAccount: true },
+      select: { id: true, businessName: true, userId: true, payoutAccount: true, parent: { select: { payoutAccount: true } } },
     });
     if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
-    if (!vendor.payoutAccount?.paystackRecipientCode) {
+    // A branch is paid into its main business's account.
+    const account = vendor.payoutAccount ?? vendor.parent?.payoutAccount;
+    if (!account?.paystackRecipientCode) {
       return apiResponse.error(res, 'Vendor has no payout account registered.', 400);
     }
 
@@ -914,7 +936,7 @@ export const processManualPayout = catchAsync(async (req: AuthRequest, res: Resp
     });
 
     const { transferCode } = await initiateTransfer(
-      vendor.payoutAccount.paystackRecipientCode,
+      account.paystackRecipientCode,
       amount,
       `GoBuyMe Vendor Payout — ${vendor.businessName}`,
     );
@@ -1164,9 +1186,38 @@ export const getVendorDetail = catchAsync(async (req: Request, res: Response) =>
     where: { id },
     select: {
       id: true, businessName: true, slug: true, description: true,
-      logo: true, coverImage: true, category: true,
+      logo: true, logoPosition: true, coverImage: true, coverPosition: true, category: true, subcategory: true,
       address: true, city: true, state: true,
       latitude: true, longitude: true,
+      timezone: true, availabilityOverride: true, autoApprove: true, isPharmacyFlagged: true,
+      isFeatured: true, featuredUntil: true, displayOrder: true, tierChangedAt: true,
+      parentVendorId: true, branchLabel: true, contactPhone: true, notifyOwnerOfOrders: true,
+      manager: { select: { id: true, name: true, email: true, phone: true, isActive: true, createdAt: true } },
+      parent: { select: { id: true, businessName: true, approvalStatus: true } },
+      branches: {
+        select: {
+          id: true, businessName: true, branchLabel: true, address: true, city: true,
+          approvalStatus: true, isOpen: true, rating: true,
+          manager: { select: { name: true, email: true, isActive: true } },
+          _count: { select: { orders: true, menuItems: true } },
+        },
+        orderBy: { createdAt: 'asc' as const },
+      },
+      businessHours: {
+        select: { id: true, dayOfWeek: true, openTime: true, closeTime: true },
+        orderBy: [{ dayOfWeek: 'asc' as const }, { openTime: 'asc' as const }],
+      },
+      temporaryClosures: {
+        select: { id: true, startAt: true, endAt: true, reason: true },
+        orderBy: { startAt: 'desc' as const },
+        take: 20,
+      },
+      vendorPromotions: {
+        select: { id: true, title: true, imageUrl: true, code: true, isActive: true, createdAt: true },
+        orderBy: { createdAt: 'desc' as const },
+        take: 20,
+      },
+      payoutAccount: { select: { bankName: true, accountNumber: true, accountName: true, paystackRecipientCode: true } },
       isOpen: true, approvalStatus: true, commissionTier: true, verificationBadge: true,
       rating: true, totalRatings: true,
       openingTime: true, closingTime: true, avgDeliveryTime: true,
@@ -1231,10 +1282,54 @@ export const getVendorDetail = catchAsync(async (req: Request, res: Response) =>
   const responseRateTotal = confirmedCount + incidentCount;
   const responseRate = responseRateTotal > 0 ? confirmedCount / responseRateTotal : null;
 
+  const [recentOrders, payoutRows, incidents, menuAgg] = await Promise.all([
+    prisma.order.findMany({
+      where: { vendorId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 15,
+      select: {
+        id: true, orderNumber: true, status: true, paymentStatus: true, subtotal: true, totalAmount: true, createdAt: true,
+        customer: { select: { user: { select: { name: true } } } },
+      },
+    }),
+    prisma.vendorPayout.groupBy({ by: ['payoutStatus'], where: { vendorId: id }, _sum: { netAmount: true }, _count: { _all: true } }),
+    prisma.vendorIncident.findMany({ where: { vendorId: id }, orderBy: { createdAt: 'desc' }, take: 20 }),
+    prisma.menuItem.aggregate({ where: { vendorId: id }, _count: { _all: true }, _sum: { stockQuantity: true } }),
+  ]);
+  const [availableItems, outOfStockItems] = await Promise.all([
+    prisma.menuItem.count({ where: { vendorId: id, isAvailable: true, stockQuantity: { gt: 0 } } }),
+    prisma.menuItem.count({ where: { vendorId: id, stockQuantity: { lte: 0 } } }),
+  ]);
+
+  // The bank account number is masked: staff need to recognise it, not to be able to copy it.
+  const payoutAccount = vendor.payoutAccount
+    ? {
+        bankName: vendor.payoutAccount.bankName,
+        accountName: vendor.payoutAccount.accountName,
+        accountNumberMasked: `******${vendor.payoutAccount.accountNumber.slice(-4)}`,
+        hasTransferRecipient: !!vendor.payoutAccount.paystackRecipientCode,
+      }
+    : null;
+
   return apiResponse.success(res, 'Vendor detail fetched.', {
     ...vendor,
+    payoutAccount,
+    isBranch: vendor.parentVendorId !== null,
+    recentOrders: recentOrders.map((o) => ({
+      id: o.id, orderNumber: o.orderNumber, status: o.status, paymentStatus: o.paymentStatus,
+      subtotal: o.subtotal, totalAmount: o.totalAmount, createdAt: o.createdAt, customer: o.customer.user.name,
+    })),
+    payoutSummary: payoutRows.map((r) => ({ status: r.payoutStatus, count: r._count._all, netAmount: r._sum.netAmount ?? 0 })),
+    incidents,
+    menuSummary: {
+      total: menuAgg._count._all,
+      available: availableItems,
+      outOfStock: outOfStockItems,
+      totalStockUnits: menuAgg._sum.stockQuantity ?? 0,
+    },
     totalOrders: vendor._count.orders,
     totalMenuItems: vendor._count.menuItems,
+    terminology: getVendorVocabulary(vendor.category).terminology,
     totalRevenue: revenueAgg._sum.totalAmount ?? 0,
     responseRate30d: responseRate,
     noResponseIncidents30d: incidentCount,

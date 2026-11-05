@@ -26,7 +26,7 @@ export const setupOrderSocket = (socket: Socket): void => {
 
       const isParty =
         (identity.customerId && order.customerId === identity.customerId) ||
-        (identity.vendorId && order.vendorId === identity.vendorId) ||
+        identity.vendorIds.includes(order.vendorId) ||
         (identity.riderId && order.riderId === identity.riderId);
       if (!isParty) {
         logger.warn(`Socket ${socket.id} (user ${identity.userId}) denied join for order:${orderId}`);

@@ -55,6 +55,7 @@ export function HomeClient() {
     if (!loading && user) {
       if (user.role === 'vendor') { router.replace('/vendor'); return; }
       if (user.role === 'rider') { router.replace('/rider'); return; }
+      if (user.role === 'logistics_company') { router.replace('/company'); return; }
     }
   }, [user, loading, router]);
 

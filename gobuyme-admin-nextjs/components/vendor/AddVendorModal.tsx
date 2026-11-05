@@ -4,12 +4,12 @@ import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
 import { useTheme } from '@/context/ThemeContext';
 
-const CLOUD_NAME    = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME    ?? '';
-const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
+import { cloudinaryUpload } from '@/lib/cloudinaryUpload';
 
 // NIN/BVN are deliberately not collected from vendors (NDPA data minimisation).
 type DocType = 'DRIVERS_LICENSE' | 'PASSPORT';
 type Tier    = 'TIER_1' | 'TIER_2';
+type ImageKey = 'logo' | 'cover' | 'front' | 'back' | 'selfie';
 type Step    = 1 | 2 | 3;
 
 const CATEGORIES = [
@@ -27,14 +27,6 @@ const DOC_META: Record<DocType, { label: string; numberLabel: string; placeholde
   PASSPORT:        { label: 'Passport',          numberLabel: 'Passport Number', placeholder: 'e.g. A12345678', backRequired: false },
 };
 
-async function cloudinaryUpload(file: File): Promise<string> {
-  const form = new FormData();
-  form.append('file', file);
-  form.append('upload_preset', UPLOAD_PRESET);
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: 'POST', body: form });
-  if (!res.ok) throw new Error('Upload failed');
-  return ((await res.json()) as { secure_url: string }).secure_url;
-}
 
 interface Props { open: boolean; onClose: () => void; onCreated: () => void; }
 
@@ -80,6 +72,7 @@ export function AddVendorModal({ open, onClose, onCreated }: Props) {
 
   const [error,   setError]   = useState('');
   const [saving,  setSaving]  = useState(false);
+  const [failed,  setFailed]  = useState<Partial<Record<ImageKey, string>>>({});
 
   const logoRef    = useRef<HTMLInputElement>(null);
   const coverRef   = useRef<HTMLInputElement>(null);
@@ -96,6 +89,7 @@ export function AddVendorModal({ open, onClose, onCreated }: Props) {
     setDocType(null); setDocNumber('');
     setDocFrontUrl(''); setDocFrontPreview(''); setDocBackUrl(''); setDocBackPreview('');
     setSelfieUrl(''); setSelfiePreview('');
+    setFailed({});
     setError(''); setSaving(false);
   }
 
@@ -103,20 +97,50 @@ export function AddVendorModal({ open, onClose, onCreated }: Props) {
 
   async function handleFileUpload(
     file: File,
+    key: ImageKey,
     setPreview: (v: string) => void,
     setUrl: (v: string) => void,
     setUploading: (v: boolean) => void,
   ) {
     setPreview(URL.createObjectURL(file));
+    setUrl('');
+    setFailed(f => { const { [key]: _drop, ...rest } = f; return rest; });
     setUploading(true);
     try {
       setUrl(await cloudinaryUpload(file));
-    } catch {
-      setPreview('');
-      setError('Image upload failed. Please try again.');
+    } catch (err) {
+      // Keep the thumbnail on screen, marked as failed, so it can't be mistaken for saved.
+      const msg = err instanceof Error ? err.message : 'Image upload failed.';
+      setFailed(f => ({ ...f, [key]: msg }));
+      setError(msg);
     } finally {
       setUploading(false);
     }
+  }
+
+  function clearImage(key: ImageKey) {
+    const setters: Record<ImageKey, [(v: string) => void, (v: string) => void]> = {
+      logo: [setLogoPreview, setLogoUrl], cover: [setCoverPreview, setCoverUrl],
+      front: [setDocFrontPreview, setDocFrontUrl], back: [setDocBackPreview, setDocBackUrl],
+      selfie: [setSelfiePreview, setSelfieUrl],
+    };
+    setters[key][0](''); setters[key][1]('');
+    setFailed(f => { const { [key]: _drop, ...rest } = f; return rest; });
+    setError('');
+  }
+
+  // A chosen image that never finished uploading would otherwise be silently dropped on submit.
+  function validateUploads(): string | null {
+    const chosen: [string, string, string][] = [
+      ['logo', logoPreview, logoUrl], ['cover photo', coverPreview, coverUrl],
+      ...(docType ? [
+        ['document front', docFrontPreview, docFrontUrl],
+        ['document back', docBackPreview, docBackUrl],
+        ['selfie', selfiePreview, selfieUrl],
+      ] as [string, string, string][] : []),
+    ];
+    const bad = chosen.find(([, preview, url]) => preview && !url);
+    return bad ? `The ${bad[0]} image did not upload. Click it to retry, or ✕ to remove it.` : null;
   }
 
   function validateStep1(): string | null {
@@ -156,7 +180,7 @@ export function AddVendorModal({ open, onClose, onCreated }: Props) {
 
   async function handleSubmit() {
     setError('');
-    const err = validateStep3(); if (err) { setError(err); return; }
+    const err = validateStep3() ?? validateUploads(); if (err) { setError(err); return; }
     setSaving(true);
     try {
       await api.post('/admin/vendors/create', {
@@ -329,18 +353,18 @@ export function AddVendorModal({ open, onClose, onCreated }: Props) {
             {/* Logo + Cover uploads */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Field label="Store Logo (optional)" T={T}>
-                <ImgBox preview={logoPreview} uploading={uploadingLogo}
+                <ImgBox preview={logoPreview} uploading={uploadingLogo} failed={failed.logo} onClear={() => clearImage('logo')}
                   hint="Click to upload" aspect="square"
                   onClick={() => logoRef.current?.click()} T={T} />
                 <input ref={logoRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setLogoPreview, setLogoUrl, setUploadingLogo); e.target.value = ''; }} />
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'logo', setLogoPreview, setLogoUrl, setUploadingLogo); e.target.value = ''; }} />
               </Field>
               <Field label="Cover Photo (optional)" T={T}>
-                <ImgBox preview={coverPreview} uploading={uploadingCover}
+                <ImgBox preview={coverPreview} uploading={uploadingCover} failed={failed.cover} onClear={() => clearImage('cover')}
                   hint="Click to upload" aspect="wide"
                   onClick={() => coverRef.current?.click()} T={T} />
                 <input ref={coverRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setCoverPreview, setCoverUrl, setUploadingCover); e.target.value = ''; }} />
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'cover', setCoverPreview, setCoverUrl, setUploadingCover); e.target.value = ''; }} />
               </Field>
             </div>
           </div>
@@ -377,30 +401,30 @@ export function AddVendorModal({ open, onClose, onCreated }: Props) {
                 </Field>
                 <div style={{ display: 'grid', gridTemplateColumns: DOC_META[docType].backRequired ? '1fr 1fr' : '1fr', gap: 10 }}>
                   <Field label={DOC_META[docType].backRequired ? 'Front Image *' : 'Document Image *'} T={T}>
-                    <ImgBox preview={docFrontPreview} uploading={uploadingFront}
+                    <ImgBox preview={docFrontPreview} uploading={uploadingFront} failed={failed.front} onClear={() => clearImage('front')}
                       hint="Click to upload" aspect="doc"
                       onClick={() => frontRef.current?.click()} T={T} />
                     <input ref={frontRef} type="file" accept="image/*" style={{ display: 'none' }}
-                      onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setDocFrontPreview, setDocFrontUrl, setUploadingFront); e.target.value = ''; }} />
+                      onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'front', setDocFrontPreview, setDocFrontUrl, setUploadingFront); e.target.value = ''; }} />
                   </Field>
                   {DOC_META[docType].backRequired && (
                     <Field label="Back Image" T={T}>
-                      <ImgBox preview={docBackPreview} uploading={uploadingBack}
+                      <ImgBox preview={docBackPreview} uploading={uploadingBack} failed={failed.back} onClear={() => clearImage('back')}
                         hint="Click to upload" aspect="doc"
                         onClick={() => backRef.current?.click()} T={T} />
                       <input ref={backRef} type="file" accept="image/*" style={{ display: 'none' }}
-                        onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setDocBackPreview, setDocBackUrl, setUploadingBack); e.target.value = ''; }} />
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'back', setDocBackPreview, setDocBackUrl, setUploadingBack); e.target.value = ''; }} />
                     </Field>
                   )}
                 </div>
                 <Row>
                   <Field label="Selfie (optional)" T={T}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <ImgBox preview={selfiePreview} uploading={uploadingSelfie}
+                      <ImgBox preview={selfiePreview} uploading={uploadingSelfie} failed={failed.selfie} onClear={() => clearImage('selfie')}
                         hint="Click to upload" aspect="selfie"
                         onClick={() => selfieRef.current?.click()} T={T} />
                       <input ref={selfieRef} type="file" accept="image/*" style={{ display: 'none' }}
-                        onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setSelfiePreview, setSelfieUrl, setUploadingSelfie); e.target.value = ''; }} />
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'selfie', setSelfiePreview, setSelfieUrl, setUploadingSelfie); e.target.value = ''; }} />
                     </div>
                   </Field>
                 </Row>
@@ -477,8 +501,8 @@ function FInput({ type = 'text', value, onChange, placeholder, T }: {
   );
 }
 
-function ImgBox({ preview, uploading, hint, aspect, onClick, T }: {
-  preview: string; uploading: boolean; hint: string;
+function ImgBox({ preview, uploading, failed, onClear, hint, aspect, onClick, T }: {
+  preview: string; uploading: boolean; failed?: string; onClear?: () => void; hint: string;
   aspect: 'square' | 'wide' | 'doc' | 'selfie';
   onClick: () => void; T: Record<string, string>;
 }) {
@@ -500,11 +524,25 @@ function ImgBox({ preview, uploading, hint, aspect, onClick, T }: {
           <span style={{ fontSize: 11, fontWeight: 600, color: '#fff' }}>Uploading…</span>
         </div>
       )}
-      {preview && !uploading && (
+      {preview && !uploading && !failed && (
         <div style={{ position: 'absolute', bottom: 6, right: 6, background: '#FF521B',
           borderRadius: 4, padding: '2px 7px', fontSize: 10, fontWeight: 700, color: '#fff' }}>
           Change
         </div>
+      )}
+      {failed && !uploading && (
+        <div title={failed} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: 'rgba(226,59,59,0.92)',
+          padding: '4px 8px', fontSize: 10, fontWeight: 700, color: '#fff', textAlign: 'center' }}>
+          Upload failed — click to retry
+        </div>
+      )}
+      {preview && !uploading && onClear && (
+        <button type="button" aria-label="Remove image"
+          onClick={e => { e.stopPropagation(); onClear(); }}
+          style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%',
+            background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, lineHeight: 1 }}>
+          ✕
+        </button>
       )}
     </div>
   );

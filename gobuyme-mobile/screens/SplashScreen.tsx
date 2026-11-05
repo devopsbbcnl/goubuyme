@@ -9,6 +9,7 @@ const ROLE_ROUTE = {
   customer: '/(customer)',
   vendor: '/(vendor)',
   rider: '/(rider)',
+  logistics_company: '/(company)',
 } as const;
 
 const Footer = ({ color }: { color: string }) => (
@@ -22,7 +23,7 @@ export default function SplashScreen() {
   useEffect(() => {
     if (loading) return;
     const target = user && role && ROLE_ROUTE[role] ? ROLE_ROUTE[role] : '/onboarding';
-    const timer = setTimeout(() => router.replace(target), 3000);
+    const timer = setTimeout(() => router.replace(target as never), 3000);
     return () => clearTimeout(timer);
   }, [loading, role, user]);
 

@@ -13,6 +13,7 @@ import { shadows } from '@/theme';
 import api from '@/services/api';
 import { track } from '@/services/analytics';
 import { PhoneVerifiedBadge } from '@/components/ui/PhoneVerifiedBadge';
+import { DEFAULT_TERMINOLOGY, VendorTerminology } from '@/utils/vendorTerminology';
 
 type VerificationBadge = 'UNVERIFIED' | 'ID_VERIFIED' | 'BUSINESS_VERIFIED' | 'PREMIUM_VERIFIED';
 
@@ -34,6 +35,9 @@ interface VendorDetail {
   avgDeliveryTime: number | null;
   verificationBadge: VerificationBadge;
   phoneVerified?: boolean;
+  terminology?: VendorTerminology;
+  /** Other locations of the same business, each its own store with its own menu and hours. */
+  otherLocations?: { id: string; businessName: string; branchLabel: string | null; address: string; city: string; isOpen: boolean; parentVendorId: string | null }[];
 }
 
 const BADGE_META: Record<string, { label: string; color: string; icon: string }> = {
@@ -87,6 +91,7 @@ export default function VendorDetailScreen() {
   const [favoriteSaving, setFavoriteSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const terms: VendorTerminology = vendor?.terminology ?? DEFAULT_TERMINOLOGY;
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -280,6 +285,32 @@ export default function VendorDetailScreen() {
           </View>
         </View>
 
+        {/* Other locations of this business: each is a separate store, so switching changes the menu */}
+        {!!vendor.otherLocations?.length && (
+          <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', color: T.textSec, marginBottom: 8, fontFamily: 'PlusJakartaSans_700Bold' }}>
+              Other locations
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              {vendor.otherLocations.map(l => (
+                <TouchableOpacity
+                  key={l.id}
+                  activeOpacity={0.8}
+                  onPress={() => router.push({ pathname: '/vendor/[id]', params: { id: l.id } })}
+                  style={{ borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, borderRadius: 4, paddingVertical: 10, paddingHorizontal: 12, maxWidth: 220 }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: T.text, fontFamily: 'PlusJakartaSans_700Bold' }} numberOfLines={1}>
+                    {l.branchLabel ?? l.businessName}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: T.textSec, fontFamily: 'PlusJakartaSans_400Regular' }} numberOfLines={1}>
+                    {l.address} · {l.isOpen ? 'Open' : 'Closed'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Tabs */}
         <View style={[styles.tabRow, { borderBottomColor: T.border }]}>
           {(['menu', 'info'] as const).map(tab => (
@@ -292,7 +323,7 @@ export default function VendorDetailScreen() {
               ]}
             >
               <Text style={[styles.tabLabel, { color: activeTab === tab ? T.primary : T.textSec }]}>
-                {tab === 'menu' ? 'Menu' : 'Info'}
+                {tab === 'menu' ? terms.customerSection : 'Info'}
               </Text>
             </TouchableOpacity>
           ))}
@@ -304,7 +335,7 @@ export default function VendorDetailScreen() {
             {menuItems.length === 0 ? (
               <View style={[styles.emptyMenu, { backgroundColor: T.surface, borderColor: T.border }]}>
                 <Text style={{ fontSize: 32, marginBottom: 8 }}>🍽️</Text>
-                <Text style={[{ fontSize: 14, color: T.textSec }]}>No menu items available</Text>
+                <Text style={[{ fontSize: 14, color: T.textSec }]}>{`No ${terms.itemPlural.toLowerCase()} available`}</Text>
               </View>
             ) : (
               menuItems.map(item => {

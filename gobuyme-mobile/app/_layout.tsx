@@ -86,6 +86,7 @@ function AppContent() {
       <Stack.Screen name="(customer)" />
       <Stack.Screen name="(vendor)" />
       <Stack.Screen name="(rider)" />
+      <Stack.Screen name="(company)" />
     </Stack>
     </>
   );

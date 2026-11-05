@@ -18,7 +18,8 @@ export const setupSockets = (io: Server): void => {
     // Personal rooms come from the verified identity, never from client input.
     if (identity) {
       socket.join(`user:${identity.userId}`);
-      if (identity.vendorId) socket.join(`vendor:${identity.vendorId}`);
+      // One login receives live orders for every location it owns.
+      for (const vendorId of identity.vendorIds) socket.join(`vendor:${vendorId}`);
     }
 
     setupOrderSocket(socket);

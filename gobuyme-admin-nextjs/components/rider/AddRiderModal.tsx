@@ -4,19 +4,10 @@ import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
 import { useTheme } from '@/context/ThemeContext';
 
-const CLOUD_NAME    = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME    ?? '';
-const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
+import { cloudinaryUpload } from '@/lib/cloudinaryUpload';
 
 type Step = 1 | 2;
-
-async function cloudinaryUpload(file: File): Promise<string> {
-  const form = new FormData();
-  form.append('file', file);
-  form.append('upload_preset', UPLOAD_PRESET);
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: 'POST', body: form });
-  if (!res.ok) throw new Error('Upload failed');
-  return ((await res.json()) as { secure_url: string }).secure_url;
-}
+type ImageKey = 'nin' | 'selfie' | 'vehicle';
 
 interface Props { open: boolean; onClose: () => void; onCreated: () => void; }
 
@@ -49,6 +40,7 @@ export function AddRiderModal({ open, onClose, onCreated }: Props) {
 
   const [error,  setError]  = useState('');
   const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState<Partial<Record<ImageKey, string>>>({});
 
   const ninRef     = useRef<HTMLInputElement>(null);
   const selfieRef  = useRef<HTMLInputElement>(null);
@@ -63,6 +55,7 @@ export function AddRiderModal({ open, onClose, onCreated }: Props) {
     setSelfieUrl(''); setSelfiePreview('');
     setVehicleImgUrl(''); setVehicleImgPreview('');
     setGuarantorName(''); setGuarantorPhone(''); setGuarantorAddress('');
+    setFailed({});
     setError(''); setSaving(false);
   }
 
@@ -70,20 +63,46 @@ export function AddRiderModal({ open, onClose, onCreated }: Props) {
 
   async function handleFileUpload(
     file: File,
+    key: ImageKey,
     setPreview: (v: string) => void,
     setUrl: (v: string) => void,
     setUploading: (v: boolean) => void,
   ) {
     setPreview(URL.createObjectURL(file));
+    setUrl('');
+    setFailed(f => { const { [key]: _drop, ...rest } = f; return rest; });
     setUploading(true);
     try {
       setUrl(await cloudinaryUpload(file));
-    } catch {
-      setPreview('');
-      setError('Image upload failed. Please try again.');
+    } catch (err) {
+      // Keep the thumbnail on screen, marked as failed, so it can't be mistaken for saved.
+      const msg = err instanceof Error ? err.message : 'Image upload failed.';
+      setFailed(f => ({ ...f, [key]: msg }));
+      setError(msg);
     } finally {
       setUploading(false);
     }
+  }
+
+  function clearImage(key: ImageKey) {
+    const setters: Record<ImageKey, [(v: string) => void, (v: string) => void]> = {
+      nin: [setNinImgPreview, setNinImgUrl], selfie: [setSelfiePreview, setSelfieUrl],
+      vehicle: [setVehicleImgPreview, setVehicleImgUrl],
+    };
+    setters[key][0](''); setters[key][1]('');
+    setFailed(f => { const { [key]: _drop, ...rest } = f; return rest; });
+    setError('');
+  }
+
+  // A chosen image that never finished uploading would otherwise be silently dropped on submit.
+  function validateUploads(): string | null {
+    const chosen: [string, string, string][] = [
+      ['NIN slip', ninImgPreview, ninImgUrl],
+      ['selfie', selfiePreview, selfieUrl],
+      ['vehicle photo', vehicleImgPreview, vehicleImgUrl],
+    ];
+    const bad = chosen.find(([, preview, url]) => preview && !url);
+    return bad ? `The ${bad[0]} image did not upload. Click it to retry, or ✕ to remove it.` : null;
   }
 
   function validateStep1(): string | null {
@@ -104,6 +123,8 @@ export function AddRiderModal({ open, onClose, onCreated }: Props) {
 
   async function handleSubmit() {
     setError('');
+    const uploadErr = validateUploads();
+    if (uploadErr) { setError(uploadErr); return; }
     setSaving(true);
     try {
       await api.post('/admin/riders/create', {
@@ -217,22 +238,22 @@ export function AddRiderModal({ open, onClose, onCreated }: Props) {
             {/* Photo uploads */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               <Field label="NIN Slip / ID Card" T={T}>
-                <ImgBox preview={ninImgPreview} uploading={uploadingNin}
+                <ImgBox preview={ninImgPreview} uploading={uploadingNin} failed={failed.nin} onClear={() => clearImage('nin')}
                   hint="Click to upload" onClick={() => ninRef.current?.click()} T={T} />
                 <input ref={ninRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setNinImgPreview, setNinImgUrl, setUploadingNin); e.target.value = ''; }} />
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'nin', setNinImgPreview, setNinImgUrl, setUploadingNin); e.target.value = ''; }} />
               </Field>
               <Field label="Selfie / Liveness" T={T}>
-                <ImgBox preview={selfiePreview} uploading={uploadingSelfie}
+                <ImgBox preview={selfiePreview} uploading={uploadingSelfie} failed={failed.selfie} onClear={() => clearImage('selfie')}
                   hint="Click to upload" onClick={() => selfieRef.current?.click()} T={T} />
                 <input ref={selfieRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setSelfiePreview, setSelfieUrl, setUploadingSelfie); e.target.value = ''; }} />
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'selfie', setSelfiePreview, setSelfieUrl, setUploadingSelfie); e.target.value = ''; }} />
               </Field>
               <Field label="Vehicle Photo" T={T}>
-                <ImgBox preview={vehicleImgPreview} uploading={uploadingVehicle}
+                <ImgBox preview={vehicleImgPreview} uploading={uploadingVehicle} failed={failed.vehicle} onClear={() => clearImage('vehicle')}
                   hint="Click to upload" onClick={() => vehicleRef.current?.click()} T={T} />
                 <input ref={vehicleRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setVehicleImgPreview, setVehicleImgUrl, setUploadingVehicle); e.target.value = ''; }} />
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'vehicle', setVehicleImgPreview, setVehicleImgUrl, setUploadingVehicle); e.target.value = ''; }} />
               </Field>
             </div>
 
@@ -327,8 +348,8 @@ function FInput({ type = 'text', value, onChange, placeholder, T }: {
   );
 }
 
-function ImgBox({ preview, uploading, hint, onClick, T }: {
-  preview: string; uploading: boolean; hint: string; onClick: () => void; T: Record<string, string>;
+function ImgBox({ preview, uploading, failed, onClear, hint, onClick, T }: {
+  preview: string; uploading: boolean; failed?: string; onClear?: () => void; hint: string; onClick: () => void; T: Record<string, string>;
 }) {
   return (
     <div onClick={onClick} style={{ height: 90, borderRadius: 4, border: `1px dashed ${T.border}`,
@@ -347,11 +368,25 @@ function ImgBox({ preview, uploading, hint, onClick, T }: {
           <span style={{ fontSize: 11, fontWeight: 600, color: '#fff' }}>Uploading…</span>
         </div>
       )}
-      {preview && !uploading && (
+      {preview && !uploading && !failed && (
         <div style={{ position: 'absolute', bottom: 5, right: 5, background: '#FF521B',
           borderRadius: 4, padding: '2px 6px', fontSize: 10, fontWeight: 700, color: '#fff' }}>
           Change
         </div>
+      )}
+      {failed && !uploading && (
+        <div title={failed} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: 'rgba(226,59,59,0.92)',
+          padding: '3px 6px', fontSize: 10, fontWeight: 700, color: '#fff', textAlign: 'center' }}>
+          Upload failed — click to retry
+        </div>
+      )}
+      {preview && !uploading && onClear && (
+        <button type="button" aria-label="Remove image"
+          onClick={e => { e.stopPropagation(); onClear(); }}
+          style={{ position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: '50%',
+            background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10, lineHeight: 1 }}>
+          ✕
+        </button>
       )}
     </div>
   );

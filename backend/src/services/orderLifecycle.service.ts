@@ -4,6 +4,8 @@ import { getIO } from '../config/socket';
 import { issueCredit } from './storeCredit.service';
 import { notifyUser } from './notification.service';
 import { haversineDistance } from './distance.service';
+import { RIDER_APPROVAL_SELECT, effectiveRiderApproval } from './fleet.service';
+import { vendorOrderContacts } from './vendorRecipients';
 import {
   ACTIVE_DELIVERY_STATUSES,
   ADMIN_CANCELLABLE,
@@ -223,11 +225,15 @@ export async function adminCancelOrder(orderId: string, actor: OrderActor, reaso
     type: 'order',
     data: { orderId: cancelled.id },
   }).catch(() => {});
-  notifyUser(cancelled.vendorUserId, {
-    title: 'Order cancelled by GoBuyMe',
-    body: `Order #${cancelled.orderNumber} was cancelled by GoBuyMe support. No action is needed.`,
-    type: 'order',
-    data: { orderId: cancelled.id },
+  vendorOrderContacts(cancelled.vendorId).then((contacts) => {
+    for (const c of contacts) {
+      notifyUser(c.userId, {
+        title: 'Order cancelled by GoBuyMe',
+        body: `Order #${cancelled.orderNumber} was cancelled by GoBuyMe support. No action is needed.`,
+        type: 'order',
+        data: { orderId: cancelled.id },
+      }).catch(() => {});
+    }
   }).catch(() => {});
   if (cancelled.riderUserId) {
     notifyUser(cancelled.riderUserId, {
@@ -295,10 +301,10 @@ export async function assignRider(orderId: string, riderId: string, actor: Order
 
     const rider = await tx.rider.findUnique({
       where: { id: riderId },
-      select: { id: true, approvalStatus: true, userId: true, user: { select: { isActive: true, name: true } } },
+      select: { id: true, ...RIDER_APPROVAL_SELECT, userId: true, user: { select: { isActive: true, name: true } } },
     });
     if (!rider) throw new OrderActionError('Rider not found.', 404);
-    if (rider.approvalStatus !== 'APPROVED' || !rider.user.isActive) {
+    if (effectiveRiderApproval(rider) !== 'APPROVED' || !rider.user.isActive) {
       throw new OrderActionError('Only approved, active riders can be assigned.', 400);
     }
     const busy = await tx.order.findFirst({

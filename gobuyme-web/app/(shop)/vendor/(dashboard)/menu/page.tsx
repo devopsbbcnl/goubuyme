@@ -6,7 +6,9 @@ import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
 import ImageRepositionModal from '@/components/ui/ImageRepositionModal';
 import { positionStyle } from '@/lib/imagePosition';
+import { resizeForUpload } from '@/lib/imageResize';
 import api from '@/services/api';
+import { DEFAULT_CATEGORY_TAGS, DEFAULT_TERMINOLOGY, VendorTerminology } from '@/lib/vendorTerminology';
 
 const CLOUD_NAME   = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
 const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
@@ -223,6 +225,8 @@ export default function VendorMenuPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [statFilter, setStatFilter] = useState<StatFilter>('all');
+  const [terms, setTerms] = useState<VendorTerminology>(DEFAULT_TERMINOLOGY);
+  const [tagOptions, setTagOptions] = useState<string[]>(DEFAULT_CATEGORY_TAGS);
 
   // Add/edit modal
   const [modal, setModal] = useState(false);
@@ -255,6 +259,13 @@ export default function VendorMenuPage() {
       .then(r => setItems((r.data.data ?? []).map(normalize)))
       .catch(() => {})
       .finally(() => setLoading(false));
+    api.get('/vendors/me')
+      .then(r => {
+        const p = r.data.data;
+        if (p?.terminology) setTerms(p.terminology);
+        if (p?.categoryTags) setTagOptions(p.categoryTags);
+      })
+      .catch(() => {});
   }, []);
 
   // ── Image upload ──────────────────────────────────────────────────────────
@@ -263,7 +274,7 @@ export default function VendorMenuPage() {
     setUploading(true);
     try {
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('file', await resizeForUpload(file));
       fd.append('upload_preset', UPLOAD_PRESET);
       fd.append('folder', 'menu-items');
       const res = await fetch(
@@ -523,8 +534,8 @@ export default function VendorMenuPage() {
   return (
     <div>
       <div className="between" style={{ marginBottom: 24 }}>
-        <h1 className="t-page">Menu</h1>
-        <button className="btn btn-primary" onClick={() => openModal()}>+ Add Item</button>
+        <h1 className="t-page">{terms.section}</h1>
+        <button className="btn btn-primary" onClick={() => openModal()}>+ Add {terms.item}</button>
       </div>
 
       {loading ? (
@@ -563,9 +574,9 @@ export default function VendorMenuPage() {
       ) : items.length === 0 ? (
         <div className="empty">
           <div className="emoji">🍽️</div>
-          <h3>No menu items</h3>
-          <p>Add your first item to get started.</p>
-          <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => openModal()}>+ Add Item</button>
+          <h3>No {terms.itemPlural.toLowerCase()}</h3>
+          <p>Add your first {terms.item.toLowerCase()} to get started.</p>
+          <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => openModal()}>+ Add {terms.item}</button>
         </div>
       ) : filteredItems.length === 0 ? (
         <div className="empty">
@@ -598,30 +609,48 @@ export default function VendorMenuPage() {
       {modal && (
         <div className="modal-overlay" onClick={() => setModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-head"><h3>{editing ? 'Edit Item' : 'Add Menu Item'}</h3><button onClick={() => setModal(false)}>✕</button></div>
+            <div className="modal-head"><h3>{editing ? `Edit ${terms.item}` : `Add ${terms.item}`}</h3><button onClick={() => setModal(false)}>✕</button></div>
             <div className="modal-body">
               {/* image upload */}
               <div className="form-group">
                 <label className="label">Item Image</label>
                 {/* preview */}
-                <div style={{ width: '100%', height: 150, borderRadius: 4, border: '1.5px dashed var(--line)', background: 'var(--surface2)', overflow: 'hidden', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                  {uploading ? (
-                    <span className="spin" style={{ borderColor: 'var(--line)', borderTopColor: 'var(--brand)', width: 28, height: 28 }} />
-                  ) : form.image ? (
-                    <>
-                      <Image src={form.image} alt="preview" fill sizes="400px" style={{ objectFit: 'cover', ...positionStyle(form.imagePosition) }} />
+                {form.image ? (
+                  <div style={{ marginBottom: 8 }}>
+                    {/* Whole picture at its own proportions — no cropping */}
+                    <div style={{ position: 'relative', borderRadius: 4, border: '1px solid var(--line)', background: 'var(--surface2)', overflow: 'hidden', display: 'flex', justifyContent: 'center' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={form.image} alt="preview" style={{ display: 'block', maxWidth: '100%', maxHeight: 300, width: 'auto', height: 'auto', objectFit: 'contain', opacity: uploading ? 0.4 : 1 }} />
+                      {uploading && (
+                        <span className="spin" style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -14, marginLeft: -14, borderColor: 'var(--line)', borderTopColor: 'var(--brand)', width: 28, height: 28 }} />
+                      )}
                       <button
                         onClick={() => setForm(f => ({ ...f, image: '', imagePosition: '' }))}
                         style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       >✕</button>
-                    </>
-                  ) : (
-                    <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
-                      <div style={{ fontSize: 30, marginBottom: 4 }}>🖼️</div>
-                      <div style={{ fontSize: 12 }}>No image selected</div>
                     </div>
-                  )}
-                </div>
+                    {/* How it is cropped in lists */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                      <div style={{ position: 'relative', width: 56, height: 56, borderRadius: 4, overflow: 'hidden', flexShrink: 0, background: 'var(--surface2)' }}>
+                        <Image src={form.image} alt="" fill sizes="56px" style={{ objectFit: 'cover', ...positionStyle(form.imagePosition) }} />
+                      </div>
+                      <p style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5, margin: 0 }}>
+                        Customers see the whole photo on the item page. In lists it is shown like this — use Reposition to change it.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ width: '100%', height: 150, borderRadius: 4, border: '1.5px dashed var(--line)', background: 'var(--surface2)', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {uploading ? (
+                      <span className="spin" style={{ borderColor: 'var(--line)', borderTopColor: 'var(--brand)', width: 28, height: 28 }} />
+                    ) : (
+                      <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
+                        <div style={{ fontSize: 30, marginBottom: 4 }}>🖼️</div>
+                        <div style={{ fontSize: 12 }}>No image selected</div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {/* upload buttons */}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={uploading} onClick={() => fileInputRef.current?.click()}>
@@ -641,7 +670,15 @@ export default function VendorMenuPage() {
               <div className="form-group"><label className="label">Name *</label><input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
               <div className="form-group"><label className="label">Price (₦) *</label><input className="input" type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} /></div>
               <div className="form-group"><label className="label">Stock Quantity *</label><input className="input" type="number" min={0} value={form.stockQuantity} onChange={e => setForm(f => ({ ...f, stockQuantity: e.target.value.replace(/[^0-9]/g, '') }))} placeholder="e.g. 20" /></div>
-              <div className="form-group"><label className="label">Category Tag</label><input className="input" value={form.categoryTag} onChange={e => setForm(f => ({ ...f, categoryTag: e.target.value }))} placeholder="e.g. Starters, Mains, Grills, Drinks" /></div>
+              <div className="form-group">
+                <label className="label">{terms.tagLabel}</label>
+                <select className="input" value={form.categoryTag} onChange={e => setForm(f => ({ ...f, categoryTag: e.target.value }))}>
+                  <option value="">Select {terms.tagLabel.toLowerCase()}</option>
+                  {/* keep a legacy free-text tag selectable when editing an older item */}
+                  {form.categoryTag && !tagOptions.includes(form.categoryTag) && <option value={form.categoryTag}>{form.categoryTag}</option>}
+                  {tagOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
               <div className="form-group">
                 <label className="label">Description</label>
                 <textarea className="textarea" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe this item — include keywords customers might search for (e.g. ingredients, style, brand, flavour)" />

@@ -6,6 +6,7 @@ const ROLE_ROUTE: Record<string, string> = {
   customer: '/(customer)',
   vendor: '/(vendor)',
   rider: '/(rider)',
+  logistics_company: '/(company)',
 };
 
 // Where a freshly signed-in user lands. Shared by password and Google sign-in so

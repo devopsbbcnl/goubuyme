@@ -29,6 +29,7 @@ const NAV: NavItem[] = [
   { href: '/app-usage',  label: 'App Usage',     icon: '📊', pendingKey: null },
   { href: '/vendors',    label: 'Vendors',       icon: '🏪', pendingKey: 'vendors' },
   { href: '/riders',     label: 'Riders',        icon: '🏍️', pendingKey: 'riders' },
+  { href: '/companies',  label: 'Logistics',     icon: '🚚', pendingKey: null },
   { href: '/orders',     label: 'Orders',        icon: '📦', pendingKey: null },
   { href: '/customers',  label: 'Customers',     icon: '👥', pendingKey: null },
   { href: '/crm',        label: 'CRM Overview',  icon: '🧩', pendingKey: null, exact: true },

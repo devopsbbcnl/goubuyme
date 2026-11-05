@@ -1,4 +1,4 @@
-import { PositionedImage } from '@/components/ui/PositionedImage';
+import { FullImage } from '@/components/ui/FullImage';
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
@@ -157,15 +157,15 @@ export default function MenuItemDetailScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
 
         {/* Hero image */}
-        <View style={{ position: 'relative', height: 300 }}>
+        <View style={{ position: 'relative' }}>
           {item.image ? (
-            <PositionedImage uri={item.image} position={item.imagePosition} style={styles.hero} />
+            // The whole picture at its own proportions — lists crop, the item page doesn't.
+            <FullImage uri={item.image} maxHeight={460} minHeight={240} backgroundColor={T.surface2} />
           ) : (
             <View style={[styles.hero, { backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center' }]}>
               <Ionicons name="restaurant-outline" size={80} color={T.textMuted} />
             </View>
           )}
-          <View style={styles.heroGrad} />
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={20} color="#fff" />
           </TouchableOpacity>
@@ -373,7 +373,6 @@ export default function MenuItemDetailScreen() {
 
 const styles = StyleSheet.create({
   hero:             { width: '100%', height: 300 },
-  heroGrad:         { ...StyleSheet.absoluteFillObject, height: 300, backgroundColor: 'rgba(0,0,0,0.20)' },
   backBtn:          { position: 'absolute', top: 48, left: 16, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
   content:          { padding: 20, gap: 4 },
   badgeRow:         { flexDirection: 'row', gap: 8, marginBottom: 8 },

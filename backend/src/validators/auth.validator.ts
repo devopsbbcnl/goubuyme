@@ -17,7 +17,7 @@ export const registerSchema = Joi.object({
   email: Joi.string().email().required(),
   phone: Joi.string().pattern(/^\+?[0-9]{10,15}$/).optional().allow(''),
   password: strongPassword,
-  role: Joi.string().valid('CUSTOMER', 'VENDOR', 'RIDER').required(),
+  role: Joi.string().valid('CUSTOMER', 'VENDOR', 'RIDER', 'LOGISTICS_COMPANY').required(),
   referralCode: Joi.string().optional(),
   commissionTier: Joi.when('role', {
     is: 'VENDOR',
@@ -35,28 +35,57 @@ export const registerSchema = Joi.object({
     otherwise: Joi.forbidden(),
   }),
   address: Joi.when('role', {
-    is: Joi.valid('VENDOR', 'RIDER'),
+    is: Joi.valid('VENDOR', 'RIDER', 'LOGISTICS_COMPANY'),
     then: Joi.string().required(),
     otherwise: Joi.forbidden(),
   }),
   city: Joi.when('role', {
-    is: Joi.valid('VENDOR', 'RIDER'),
+    is: Joi.valid('VENDOR', 'RIDER', 'LOGISTICS_COMPANY'),
     then: Joi.string().required(),
     otherwise: Joi.forbidden(),
   }),
   state: Joi.when('role', {
-    is: Joi.valid('VENDOR', 'RIDER'),
+    is: Joi.valid('VENDOR', 'RIDER', 'LOGISTICS_COMPANY'),
     then: Joi.string().required(),
     otherwise: Joi.forbidden(),
   }),
   latitude: Joi.when('role', {
-    is: Joi.valid('VENDOR', 'RIDER'),
+    is: Joi.valid('VENDOR', 'RIDER', 'LOGISTICS_COMPANY'),
     then: Joi.number().optional(),
     otherwise: Joi.forbidden(),
   }),
   longitude: Joi.when('role', {
-    is: Joi.valid('VENDOR', 'RIDER'),
+    is: Joi.valid('VENDOR', 'RIDER', 'LOGISTICS_COMPANY'),
     then: Joi.number().optional(),
+    otherwise: Joi.forbidden(),
+  }),
+  companyName: Joi.when('role', {
+    is: 'LOGISTICS_COMPANY',
+    then: Joi.string().trim().min(2).max(150).required(),
+    otherwise: Joi.forbidden(),
+  }),
+  registrationNumber: Joi.when('role', {
+    is: 'LOGISTICS_COMPANY',
+    then: Joi.string().trim().max(60).optional().allow(''),
+    otherwise: Joi.forbidden(),
+  }),
+  // Extra locations a vendor adds at signup. The vendor's own address is the main one.
+  branches: Joi.when('role', {
+    is: 'VENDOR',
+    then: Joi.array()
+      .items(
+        Joi.object({
+          name: Joi.string().trim().min(2).max(100).required(),
+          address: Joi.string().trim().min(3).max(250).required(),
+          city: Joi.string().trim().min(2).max(100).required(),
+          state: Joi.string().trim().max(100).optional().allow(''),
+          latitude: Joi.number().min(-90).max(90).optional(),
+          longitude: Joi.number().min(-180).max(180).optional(),
+          phone: Joi.string().pattern(/^\+?[0-9]{10,15}$/).optional().allow(''),
+        }),
+      )
+      .max(10)
+      .optional(),
     otherwise: Joi.forbidden(),
   }),
   vehicleType: Joi.when('role', {

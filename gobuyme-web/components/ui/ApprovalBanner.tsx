@@ -1,11 +1,12 @@
 'use client';
 
-const COPY: Record<'vendor' | 'rider', string> = {
+const COPY: Record<'vendor' | 'rider' | 'company', string> = {
   vendor: "Your account is pending verification. You won't appear in the store until approved.",
   rider: "Your account is pending verification. You can't receive delivery jobs until approved.",
+  company: "Your company is pending verification. You can't invite riders until it is approved.",
 };
 
-export function ApprovalBanner({ role }: { role: 'vendor' | 'rider' }) {
+export function ApprovalBanner({ role }: { role: 'vendor' | 'rider' | 'company' }) {
   return (
     <div
       style={{

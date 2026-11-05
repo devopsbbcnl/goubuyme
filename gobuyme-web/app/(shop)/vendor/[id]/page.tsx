@@ -6,9 +6,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/components/ui/Toast';
 import Image from 'next/image';
+import Link from 'next/link';
 import api from '@/services/api';
 import { track } from '@/services/analytics';
 import { PhoneVerifiedBadge } from '@/components/ui/PhoneVerification';
+import { DEFAULT_TERMINOLOGY, VendorTerminology } from '@/lib/vendorTerminology';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -30,8 +32,11 @@ interface VendorDetail {
   avgDeliveryTime?: number;
   verificationBadge?: string;
   phoneVerified?: boolean;
+  /** Other locations of the same business. Each is its own store with its own menu and hours. */
+  otherLocations?: { id: string; businessName: string; branchLabel: string | null; address: string; city: string; isOpen: boolean }[];
   commissionTier?: string;
   availability?: Availability;
+  terminology?: VendorTerminology;
 }
 
 interface Availability {
@@ -342,6 +347,21 @@ export default function VendorDetailPage() {
           </div>
         </div>
 
+        {/* Other locations of this business: each is a separate store, so switching changes the menu */}
+        {!!vendor.otherLocations?.length && (
+          <div style={{ margin: '0 0 16px' }}>
+            <div className="muted" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Other locations</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {vendor.otherLocations.map(l => (
+                <Link key={l.id} href={`/vendor/${l.id}`} className="card" style={{ padding: '10px 14px', minWidth: 160, maxWidth: 260, textDecoration: 'none', color: 'inherit' }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.branchLabel ?? l.businessName}</div>
+                  <div className="muted" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.address} · {l.isOpen ? 'Open' : 'Closed'}</div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Closed banner — precise, server-computed reason */}
         {!vendor.isOpen && (
           <div style={{ background: '#FEE', color: 'var(--error)', border: '1px solid #F5C2C2', borderRadius: 'var(--r-md, 10px)', padding: '10px 14px', margin: '0 0 16px', fontSize: 13, fontWeight: 600, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -370,7 +390,7 @@ export default function VendorDetailPage() {
             <div className="empty">
               <div className="emoji">🍽️</div>
               <h3>No items</h3>
-              <p>This vendor hasn't added menu items yet.</p>
+              <p>This vendor hasn&apos;t added any {(vendor.terminology ?? DEFAULT_TERMINOLOGY).itemPlural.toLowerCase()} yet.</p>
             </div>
           ) : (
             <div className="menu-grid">

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useVendorTerminology } from '@/hooks/useVendorTerminology';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,6 +34,7 @@ interface VendorProfile {
 	totalRatings: number;
 	approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 	user: { name: string; email: string; phone: string | null; isPhoneVerified?: boolean };
+	accessLevel?: 'OWNER' | 'BRANCH_MANAGER';
 }
 
 type MenuRow = {
@@ -41,6 +43,15 @@ type MenuRow = {
 	sub: string | null;
 	route?: string;
 };
+
+// Areas that belong to the business owner. A branch manager's login does not see them (the server
+// refuses them too).
+const OWNER_ONLY_ROUTES = [
+	'/(vendor)/identity-document',
+	'/(vendor)/business-verification',
+	'/(vendor)/licenses',
+	'/(vendor)/branches',
+];
 
 const MENU_ROWS: MenuRow[] = [
 	{
@@ -79,6 +90,12 @@ const MENU_ROWS: MenuRow[] = [
 		sub: 'NAFDAC, pharmacy & more',
 		route: '/(vendor)/licenses',
 	},
+	{
+		icon: '📍',
+		label: 'Branches',
+		sub: 'Add and manage your locations',
+		route: '/(vendor)/branches',
+	},
 	{ icon: '🔔', label: 'Notifications', sub: 'Inbox & alerts', route: '/(vendor)/notifications' },
 	{ icon: '⚙️', label: 'Settings', sub: 'Theme, language & more', route: '/(vendor)/settings' },
 	{ icon: '🚪', label: 'Sign Out', sub: null },
@@ -95,6 +112,7 @@ export default function VendorProfileScreen() {
 	const { theme: T } = useTheme();
 	const insets = useSafeAreaInsets();
 	const { user, logout } = useAuth();
+	const terms = useVendorTerminology();
 	const [profile, setProfile] = useState<VendorProfile | null>(null);
 	const [loading, setLoading] = useState(true);
 
@@ -291,7 +309,9 @@ export default function VendorProfileScreen() {
 
 				{/* Menu rows */}
 				<View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-					{MENU_ROWS.map((row, i) => (
+					{MENU_ROWS.filter(
+						(r) => profile?.accessLevel !== 'BRANCH_MANAGER' || !OWNER_ONLY_ROUTES.includes(r.route ?? ''),
+					).map((row, i, rows) => (
 						<TouchableOpacity
 							key={row.label}
 							onPress={() => handleRow(row)}
@@ -299,7 +319,7 @@ export default function VendorProfileScreen() {
 								styles.menuRow,
 								{
 									borderBottomColor: T.border,
-									borderBottomWidth: i < MENU_ROWS.length - 1 ? 1 : 0,
+									borderBottomWidth: i < rows.length - 1 ? 1 : 0,
 								},
 							]}
 							activeOpacity={0.7}
@@ -312,11 +332,11 @@ export default function VendorProfileScreen() {
 										{ color: row.label === 'Sign Out' ? T.error : T.text },
 									]}
 								>
-									{row.label}
+									{row.route === '/(vendor)/menu' ? terms.itemPlural : row.label}
 								</Text>
 								{row.sub && (
 									<Text style={[styles.menuSub, { color: T.textSec }]}>
-										{row.sub}
+										{row.route === '/(vendor)/menu' ? `Add and manage your ${terms.itemPlural.toLowerCase()}` : row.sub}
 									</Text>
 								)}
 							</View>

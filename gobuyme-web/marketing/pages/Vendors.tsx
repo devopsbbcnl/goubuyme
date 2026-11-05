@@ -17,7 +17,7 @@ const perks = [
   { icon: "💸", title: "Daily payouts", body: "Cash settles to your bank every morning. No weekly waits." },
   { icon: "📈", title: "Built-in marketing", body: "Promo engine, loyalty stamps & in-app placements that move units." },
   { icon: "📊", title: "Live dashboard", body: "See orders, top items & customer repeat rate in real time." },
-  { icon: "🛵", title: "Our riders, your menu", body: "We dispatch — you cook. No fleet headache." },
+  { icon: "🛵", title: "Our riders, your store", body: "We dispatch — you cook. No fleet headache." },
   { icon: "🧾", title: "Smart tax reports", body: "VAT-ready exports your accountant will actually thank you for." },
 ];
 
@@ -162,7 +162,7 @@ const Vendors = () => {
             {[
               { n: "01", t: "Apply", b: "Drop your details. Takes 2 mins." },
               { n: "02", t: "Verify", b: "We confirm your kitchen / store." },
-              { n: "03", t: "Upload menu", b: "Or we'll do it for you, free." },
+              { n: "03", t: "Upload your items", b: "Or we'll do it for you, free." },
               { n: "04", t: "Go live", b: "Orders start hitting your tablet." },
             ].map((s) => (
               <div key={s.n} className="rounded-3xl border-2 border-ink bg-background p-6 shadow-pop-sm">

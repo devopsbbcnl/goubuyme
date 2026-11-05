@@ -20,6 +20,9 @@ import {
   AvailabilityInput,
 } from '../services/availability.service';
 import { parseTimeToMinutes } from '../services/storeHours.service';
+import { getVendorVocabulary } from '../config/vendorTerminology';
+import { actingVendorWhere } from '../middleware/vendorContext';
+import { branchBusinessName, syncBranchesWithParent } from '../services/branch.service';
 
 // GET /vendors/commission-rates (public) — live tier rates for client display
 export const getPublicCommissionRates = catchAsync(async (_req: Request, res: Response) => {
@@ -61,6 +64,7 @@ const vendorSelect = {
   totalRatings: true, openingTime: true, closingTime: true,
   avgDeliveryTime: true, commissionTier: true, verificationBadge: true,
   isFeatured: true, featuredUntil: true, displayOrder: true,
+  parentVendorId: true, branchLabel: true, contactPhone: true,
 };
 
 export const getVendors = catchAsync(async (req: Request, res: Response) => {
@@ -140,13 +144,30 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
 export const getVendorById = catchAsync(async (req: Request, res: Response) => {
   const vendor = await prisma.vendor.findFirst({
     where: { id: req.params.id, approvalStatus: ApprovalStatus.APPROVED },
-    select: { ...vendorSelect, ...availabilityInclude, user: { select: { isPhoneVerified: true } } },
+    select: { ...vendorSelect, ...availabilityInclude, address: true, user: { select: { isPhoneVerified: true } } },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
   const availability = computeAvailability(vendor as unknown as AvailabilityInput);
+
+  // Every location is its own store with its own menu and hours; this just lets customers hop
+  // between them. Only approved siblings (and the main business) are listed.
+  const rootId = vendor.parentVendorId ?? vendor.id;
+  const otherLocations = await prisma.vendor.findMany({
+    where: {
+      OR: [{ id: rootId }, { parentVendorId: rootId }],
+      id: { not: vendor.id },
+      approvalStatus: ApprovalStatus.APPROVED,
+    },
+    select: { id: true, businessName: true, branchLabel: true, address: true, city: true, isOpen: true, parentVendorId: true },
+    orderBy: [{ parentVendorId: { sort: 'asc', nulls: 'first' } }, { createdAt: 'asc' }],
+  });
+
   // Flattened so the public payload exposes only the badge, never owner details.
   const { user, ...publicVendor } = vendor;
-  return apiResponse.success(res, 'Vendor fetched.', { ...publicVendor, phoneVerified: user.isPhoneVerified, availability });
+  return apiResponse.success(res, 'Vendor fetched.', {
+    ...publicVendor, phoneVerified: user.isPhoneVerified, availability, otherLocations,
+    ...getVendorVocabulary(publicVendor.category),
+  });
 });
 
 export const getVendorMenu = catchAsync(async (req: Request, res: Response) => {
@@ -174,14 +195,14 @@ export const getVendorMenu = catchAsync(async (req: Request, res: Response) => {
     orderBy: [{ isFeatured: 'desc' }, { category: 'asc' }, { name: 'asc' }],
   });
 
-  return apiResponse.success(res, 'Menu fetched.', items);
+  return apiResponse.success(res, 'Items fetched.', items);
 });
 
 // ─── Protected vendor-only handlers ───────────────────────────────────────────
 
 export const getMyVendorProfile = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     include: {
       user: { select: { name: true, email: true, phone: true, avatar: true, avatarPosition: true, isPhoneVerified: true } },
       payoutAccount: { select: { bankName: true, accountNumber: true, accountName: true } },
@@ -198,7 +219,26 @@ export const getMyVendorProfile = catchAsync(async (req: AuthRequest, res: Respo
   });
   if (!vendor) return apiResponse.error(res, 'Vendor profile not found.', 404);
   const availability = computeAvailability(vendor as unknown as AvailabilityInput);
-  return apiResponse.success(res, 'Vendor profile fetched.', { ...vendor, availability });
+
+  // A branch's `user` is the owner who runs the whole business. A branch manager must see their
+  // own details there, never the owner's email or phone.
+  let user = vendor.user;
+  if (req.isBranchManager) {
+    const me = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { name: true, email: true, phone: true, avatar: true, avatarPosition: true, isPhoneVerified: true },
+    });
+    if (me) user = me;
+  }
+
+  return apiResponse.success(res, 'Vendor profile fetched.', {
+    ...vendor,
+    user,
+    // The apps hide owner-only areas (locations, payouts, plan, verification) for branch managers.
+    accessLevel: req.isBranchManager ? 'BRANCH_MANAGER' : 'OWNER',
+    availability,
+    ...getVendorVocabulary(vendor.category),
+  });
 });
 
 export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -208,16 +248,19 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
   if (logoPosition === false || coverPosition === false) {
     return apiResponse.error(res, 'Image position must look like "50% 30%".', 400);
   }
+  if (businessName && req.isBranchManager) {
+    return apiResponse.error(res, 'Only the business owner can rename a branch.', 403);
+  }
   if (businessName) {
     const conflict = await prisma.vendor.findFirst({
-      where: { businessName: { equals: businessName.trim(), mode: 'insensitive' }, NOT: { userId: req.user!.userId } },
+      where: { businessName: { equals: businessName.trim(), mode: 'insensitive' }, NOT: actingVendorWhere(req) },
       select: { id: true },
     });
     if (conflict) return apiResponse.error(res, 'A store with this business name already exists. Please choose a different name.', 409);
   }
 
-  const currentVendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const currentVendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { address: true, city: true, state: true, latitude: true, longitude: true, logo: true, coverImage: true },
   });
   if (!currentVendor) return apiResponse.error(res, 'Vendor profile not found.', 404);
@@ -255,11 +298,26 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
     }
   }
 
+  const targetId = await resolveVendorId(req);
+  if (!targetId) return apiResponse.error(res, 'Vendor not found.', 404);
   const vendor = await prisma.vendor.update({
-    where: { userId: req.user!.userId },
+    where: { id: targetId },
     data,
     select: vendorSelect,
   });
+
+  if (businessName && !vendor.parentVendorId) {
+    const branches = await prisma.vendor.findMany({
+      where: { parentVendorId: vendor.id, branchLabel: { not: null } },
+      select: { id: true, branchLabel: true },
+    });
+    for (const b of branches) {
+      await prisma.vendor.update({
+        where: { id: b.id },
+        data: { businessName: branchBusinessName(vendor.businessName, b.branchLabel!) },
+      });
+    }
+  }
 
   // The auto open/close cron only ever reads VendorBusinessHours, not these legacy
   // scalar fields — mirror a valid opening/closing pair into an every-day schedule so
@@ -291,8 +349,8 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
   }
 
   // Mark profile complete once both storefront images are in place.
-  const imgCheck = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const imgCheck = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { logo: true, coverImage: true },
   });
   if (imgCheck?.logo && imgCheck?.coverImage) {
@@ -307,8 +365,8 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
 // FORCE_CLOSED). To go back to schedule-driven behaviour the vendor picks the
 // AUTO mode via PATCH /vendors/me/availability.
 export const toggleStoreStatus = catchAsync(async (req: AuthRequest, res: Response) => {
-  const existing = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const existing = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true, isOpen: true },
   });
   if (!existing) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -332,8 +390,8 @@ const OVERRIDE_VALUES = ['AUTO', 'FORCE_OPEN', 'FORCE_CLOSED'] as const;
 
 // GET /vendors/me/availability — current status + config for the vendor UI.
 export const getMyAvailability = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: {
       id: true,
       ...availabilityInclude,
@@ -378,8 +436,8 @@ export const updateAvailabilityMode = catchAsync(async (req: AuthRequest, res: R
     return apiResponse.error(res, 'Provide mode and/or timezone.', 400);
   }
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -411,8 +469,8 @@ export const setBusinessHours = catchAsync(async (req: AuthRequest, res: Respons
     }
   }
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -442,8 +500,8 @@ export const setBusinessHours = catchAsync(async (req: AuthRequest, res: Respons
 
 // GET /vendors/me/temporary-closures — active + upcoming closures.
 export const listTemporaryClosures = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -476,8 +534,8 @@ export const createTemporaryClosure = catchAsync(async (req: AuthRequest, res: R
     return apiResponse.error(res, 'reason must be a string.', 400);
   }
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -492,8 +550,8 @@ export const createTemporaryClosure = catchAsync(async (req: AuthRequest, res: R
 
 // DELETE /vendors/me/temporary-closures/:id — cancel a closure early.
 export const deleteTemporaryClosure = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -508,8 +566,8 @@ export const deleteTemporaryClosure = catchAsync(async (req: AuthRequest, res: R
 });
 
 export const getVendorDashboardStats = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true, rating: true, isOpen: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -551,8 +609,8 @@ export const getVendorDashboardStats = catchAsync(async (req: AuthRequest, res: 
 });
 
 export const getMyOrders = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true, commissionTier: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -606,8 +664,8 @@ export const getMyOrders = catchAsync(async (req: AuthRequest, res: Response) =>
 });
 
 export const getMyOrderById = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true, commissionTier: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -652,8 +710,8 @@ export const getMyOrderById = catchAsync(async (req: AuthRequest, res: Response)
 });
 
 export const updateMyOrderStatus = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -734,8 +792,8 @@ export const updateMyOrderStatus = catchAsync(async (req: AuthRequest, res: Resp
 // sending reminders (a vendor who's looked at the order isn't "unresponsive" anymore, even if
 // they haven't accepted/rejected it yet).
 export const markOrderViewed = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -772,8 +830,8 @@ export const registerPushSubscription = catchAsync(async (req: AuthRequest, res:
 });
 
 export const getMyEarnings = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -820,13 +878,13 @@ const menuItemSelect = {
   optionGroups: { select: optionGroupSelect, orderBy: { createdAt: 'asc' as const } },
 };
 
-const resolveVendorId = async (userId: string): Promise<string | null> => {
-  const v = await prisma.vendor.findUnique({ where: { userId }, select: { id: true } });
+const resolveVendorId = async (req: AuthRequest): Promise<string | null> => {
+  const v = await prisma.vendor.findFirst({ where: actingVendorWhere(req), select: { id: true } });
   return v?.id ?? null;
 };
 
 export const getMyMenuItems = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
 
   const items = await prisma.menuItem.findMany({
@@ -834,11 +892,11 @@ export const getMyMenuItems = catchAsync(async (req: AuthRequest, res: Response)
     select: menuItemSelect,
     orderBy: [{ isFeatured: 'desc' }, { category: 'asc' }, { name: 'asc' }],
   });
-  return apiResponse.success(res, 'Menu items fetched.', items);
+  return apiResponse.success(res, 'Items fetched.', items);
 });
 
 export const createMenuItem = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
 
   const { name, description, price, image, category, isAvailable, isFeatured, stockQuantity, optionGroups } = req.body as {
@@ -889,18 +947,18 @@ export const createMenuItem = catchAsync(async (req: AuthRequest, res: Response)
     },
     select: menuItemSelect,
   });
-  return apiResponse.success(res, 'Menu item created.', item, 201);
+  return apiResponse.success(res, 'Item created.', item, 201);
 });
 
 export const updateMenuItem = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
 
   const exists = await prisma.menuItem.findFirst({
     where: { id: req.params.itemId, vendorId },
     select: { id: true, image: true },
   });
-  if (!exists) return apiResponse.error(res, 'Menu item not found.', 404);
+  if (!exists) return apiResponse.error(res, 'Item not found.', 404);
 
   const { name, description, price, image, category, isAvailable, isFeatured, stockQuantity } = req.body as {
     name?: string; description?: string | null; price?: number; image?: string | null;
@@ -928,18 +986,18 @@ export const updateMenuItem = catchAsync(async (req: AuthRequest, res: Response)
     },
     select: menuItemSelect,
   });
-  return apiResponse.success(res, 'Menu item updated.', item);
+  return apiResponse.success(res, 'Item updated.', item);
 });
 
 export const deleteMenuItem = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
 
   const exists = await prisma.menuItem.findFirst({
     where: { id: req.params.itemId, vendorId },
     select: { id: true },
   });
-  if (!exists) return apiResponse.error(res, 'Menu item not found.', 404);
+  if (!exists) return apiResponse.error(res, 'Item not found.', 404);
 
   const inOrders = await prisma.orderItem.count({ where: { menuItemId: req.params.itemId } });
   if (inOrders > 0) {
@@ -947,7 +1005,7 @@ export const deleteMenuItem = catchAsync(async (req: AuthRequest, res: Response)
   }
 
   await prisma.menuItem.delete({ where: { id: req.params.itemId } });
-  return apiResponse.success(res, 'Menu item deleted.');
+  return apiResponse.success(res, 'Item deleted.');
 });
 
 // ─── Drink options ────────────────────────────────────────────────────────────
@@ -956,9 +1014,9 @@ const ownsItem = async (vendorId: string, itemId: string) =>
   prisma.menuItem.findFirst({ where: { id: itemId, vendorId }, select: { id: true } });
 
 export const getMenuItemDrinkOptions = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
-  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Item not found.', 404);
 
   const options = await prisma.menuItemDrinkOption.findMany({
     where: { menuItemId: req.params.itemId },
@@ -969,9 +1027,9 @@ export const getMenuItemDrinkOptions = catchAsync(async (req: AuthRequest, res: 
 });
 
 export const createMenuItemDrinkOption = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
-  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Item not found.', 404);
 
   const { name, price } = req.body as { name?: string; price?: number };
   if (!name?.trim()) return apiResponse.error(res, 'Drink name is required.', 400);
@@ -985,9 +1043,9 @@ export const createMenuItemDrinkOption = catchAsync(async (req: AuthRequest, res
 });
 
 export const updateMenuItemDrinkOption = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
-  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Item not found.', 404);
 
   const exists = await prisma.menuItemDrinkOption.findFirst({
     where: { id: req.params.optionId, menuItemId: req.params.itemId },
@@ -1009,9 +1067,9 @@ export const updateMenuItemDrinkOption = catchAsync(async (req: AuthRequest, res
 });
 
 export const deleteMenuItemDrinkOption = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
-  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Item not found.', 404);
 
   const exists = await prisma.menuItemDrinkOption.findFirst({
     where: { id: req.params.optionId, menuItemId: req.params.itemId },
@@ -1026,9 +1084,9 @@ export const deleteMenuItemDrinkOption = catchAsync(async (req: AuthRequest, res
 // ─── Option groups ─────────────────────────────────────────────────────────────
 
 export const getMenuItemOptionGroups = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
-  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Item not found.', 404);
 
   const groups = await prisma.menuItemOptionGroup.findMany({
     where: { menuItemId: req.params.itemId },
@@ -1039,9 +1097,9 @@ export const getMenuItemOptionGroups = catchAsync(async (req: AuthRequest, res: 
 });
 
 export const createMenuItemOptionGroup = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
-  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Item not found.', 404);
 
   const { name, required } = req.body as { name?: string; required?: boolean };
   if (!name?.trim()) return apiResponse.error(res, 'Group name is required.', 400);
@@ -1054,9 +1112,9 @@ export const createMenuItemOptionGroup = catchAsync(async (req: AuthRequest, res
 });
 
 export const deleteMenuItemOptionGroup = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
-  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Item not found.', 404);
 
   const exists = await prisma.menuItemOptionGroup.findFirst({
     where: { id: req.params.groupId, menuItemId: req.params.itemId },
@@ -1069,9 +1127,9 @@ export const deleteMenuItemOptionGroup = catchAsync(async (req: AuthRequest, res
 });
 
 export const createMenuItemOptionItem = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
-  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Item not found.', 404);
 
   const group = await prisma.menuItemOptionGroup.findFirst({
     where: { id: req.params.groupId, menuItemId: req.params.itemId },
@@ -1090,9 +1148,9 @@ export const createMenuItemOptionItem = catchAsync(async (req: AuthRequest, res:
 });
 
 export const updateMenuItemOptionItem = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
-  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Item not found.', 404);
 
   const exists = await prisma.menuItemOptionItem.findFirst({
     where: { id: req.params.optItemId, optionGroupId: req.params.groupId },
@@ -1110,9 +1168,9 @@ export const updateMenuItemOptionItem = catchAsync(async (req: AuthRequest, res:
 });
 
 export const deleteMenuItemOptionItem = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendorId = await resolveVendorId(req.user!.userId);
+  const vendorId = await resolveVendorId(req);
   if (!vendorId) return apiResponse.error(res, 'Vendor not found.', 404);
-  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Menu item not found.', 404);
+  if (!await ownsItem(vendorId, req.params.itemId)) return apiResponse.error(res, 'Item not found.', 404);
 
   const exists = await prisma.menuItemOptionItem.findFirst({
     where: { id: req.params.optItemId, optionGroupId: req.params.groupId },
@@ -1126,8 +1184,8 @@ export const deleteMenuItemOptionItem = catchAsync(async (req: AuthRequest, res:
 
 // GET /vendors/me/payout-account
 export const getPayoutAccount = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true, payoutAccount: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1155,8 +1213,8 @@ export const switchMyTier = catchAsync(async (req: AuthRequest, res: Response) =
     return apiResponse.error(res, 'Invalid tier. Must be TIER_1 or TIER_2.', 400);
   }
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true, commissionTier: true, tierChangedAt: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1197,7 +1255,7 @@ export const switchMyTier = catchAsync(async (req: AuthRequest, res: Response) =
     // Deactivate all promotions when downgrading to TIER_1
     ...(tier === CommissionTier.TIER_1
       ? [prisma.vendorPromotion.updateMany({
-          where: { vendorId: vendor.id, isActive: true },
+          where: { OR: [{ vendorId: vendor.id }, { vendor: { parentVendorId: vendor.id } }], isActive: true },
           data: { isActive: false },
         })]
       : []),
@@ -1211,6 +1269,7 @@ export const switchMyTier = catchAsync(async (req: AuthRequest, res: Response) =
       },
     }),
   ]);
+  await syncBranchesWithParent(vendor.id, { commissionTier: tier as CommissionTier });
 
   return apiResponse.success(res, 'Commission tier updated.', updated);
 });
@@ -1222,8 +1281,8 @@ export const savePayoutAccount = catchAsync(async (req: AuthRequest, res: Respon
     return apiResponse.error(res, 'bankName, bankCode, accountNumber and accountName are required.', 400);
   }
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true, businessName: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1267,8 +1326,8 @@ const VALID_DOC_TYPES = ['DRIVERS_LICENSE', 'PASSPORT'] as const;
 
 // GET /vendors/me/document
 export const getMyDocument = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1287,8 +1346,8 @@ export const submitDocument = catchAsync(async (req: AuthRequest, res: Response)
   if (!number?.trim()) return apiResponse.error(res, 'Document number is required.', 400);
   if (!imageUrl?.trim()) return apiResponse.error(res, 'Document image URL is required.', 400);
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1332,8 +1391,8 @@ export const submitDocument = catchAsync(async (req: AuthRequest, res: Response)
 
 // GET /vendors/me/promotions
 export const getMyPromotions = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1347,8 +1406,8 @@ export const getMyPromotions = catchAsync(async (req: AuthRequest, res: Response
 
 // POST /vendors/me/promotions
 export const createPromotion = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true, commissionTier: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1373,8 +1432,8 @@ export const createPromotion = catchAsync(async (req: AuthRequest, res: Response
 
 // PATCH /vendors/me/promotions/:id/position
 export const updatePromotionPosition = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1398,8 +1457,8 @@ export const updatePromotionPosition = catchAsync(async (req: AuthRequest, res: 
 
 // PATCH /vendors/me/promotions/:id/toggle
 export const togglePromotion = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true, commissionTier: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1430,8 +1489,8 @@ export const togglePromotion = catchAsync(async (req: AuthRequest, res: Response
 
 // DELETE /vendors/me/promotions/:id
 export const deletePromotion = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1449,8 +1508,8 @@ export const deletePromotion = catchAsync(async (req: AuthRequest, res: Response
 
 // GET /vendors/me/business-verification
 export const getMyBusinessVerification = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1467,8 +1526,8 @@ export const submitBusinessVerification = catchAsync(async (req: AuthRequest, re
     return apiResponse.error(res, 'At least cacNumber or cacImageUrl is required.', 400);
   }
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1503,8 +1562,8 @@ const VALID_LICENSE_TYPES = Object.values(LicenseType);
 
 // GET /vendors/me/licenses
 export const getMyLicenses = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1526,8 +1585,8 @@ export const submitLicense = catchAsync(async (req: AuthRequest, res: Response) 
   if (!licenseNumber?.trim()) return apiResponse.error(res, 'License number is required.', 400);
   if (!imageUrl?.trim()) return apiResponse.error(res, 'License image URL is required.', 400);
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1551,8 +1610,8 @@ export const submitLicense = catchAsync(async (req: AuthRequest, res: Response) 
 
 // DELETE /vendors/me/licenses/:id
 export const deleteLicense = catchAsync(async (req: AuthRequest, res: Response) => {
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: req.user!.userId },
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1670,7 +1729,7 @@ export const searchMenuItems = catchAsync(async (req: Request, res: Response) =>
     take: 60,
   });
 
-  return apiResponse.success(res, 'Menu items fetched.', items);
+  return apiResponse.success(res, 'Items fetched.', items);
 });
 
 // GET /vendors/menu-items/:id  (public — single menu item detail with vendor info)

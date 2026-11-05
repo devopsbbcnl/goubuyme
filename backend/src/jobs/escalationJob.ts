@@ -7,6 +7,7 @@ import { notifyUser } from '../services/notification.service';
 import { localTimeInZone } from '../services/storeHours.service';
 import logger from '../utils/logger';
 import { recordError } from '../utils/recordError';
+import { vendorOrderContacts } from '../services/vendorRecipients';
 
 // Vendor order-response escalation: reminder → urgent → auto-cancel-with-refund. Runs every
 // 10s (node-cron's 5-field syntax can't express seconds, so a plain interval is a better fit
@@ -66,11 +67,15 @@ async function autoCancelForNoResponse(order: {
     data: { orderId: order.id },
   }).catch(() => {});
 
-  notifyUser(order.vendor.userId, {
-    title: 'Order auto-cancelled',
-    body: `Order #${order.orderNumber} was auto-cancelled after 10 minutes of no response. This affects your response-rate score.`,
-    type: 'order',
-    data: { orderId: order.id },
+  vendorOrderContacts(order.vendorId).then((contacts) => {
+    for (const c of contacts) {
+      notifyUser(c.userId, {
+        title: 'Order auto-cancelled',
+        body: `Order #${order.orderNumber} was auto-cancelled after 10 minutes of no response. This affects your response-rate score.`,
+        type: 'order',
+        data: { orderId: order.id },
+      }).catch(() => {});
+    }
   }).catch(() => {});
 }
 
@@ -96,7 +101,10 @@ export const startEscalationJob = (): void => {
         if (!isWithinBusinessHours(order.vendor.timezone)) continue;
 
         const elapsedMinutes = (Date.now() - order.vendorNotifiedAt.getTime()) / 60_000;
-        const vendorPhone = order.vendor.user.phone;
+        // Reminders go to the branch manager's phone when the branch has one (and the owner's, unless
+        // switched off), otherwise to the owner.
+        const contacts = await vendorOrderContacts(order.vendorId).catch(() => []);
+        const phones = [...new Set(contacts.map((c) => c.phone).filter((p): p is string => !!p))];
 
         if (elapsedMinutes >= AUTO_CANCEL_MINUTES) {
           await autoCancelForNoResponse(order as any).catch((err) =>
@@ -106,7 +114,7 @@ export const startEscalationJob = (): void => {
         }
 
         if (elapsedMinutes >= URGENT_MINUTES && !order.urgentSentAt) {
-          if (vendorPhone) {
+          for (const vendorPhone of phones) {
             // WhatsApp first — it's cheaper than SMS. Only fall back to SMS if WhatsApp
             // isn't configured or the send actually fails (unread/undelivered WhatsApp).
             const delivered = await sendWhatsappMessage(vendorPhone, 'urgent_order_alert', [order.orderNumber]);
@@ -116,7 +124,7 @@ export const startEscalationJob = (): void => {
           }
           await prisma.order.update({ where: { id: order.id }, data: { urgentSentAt: new Date() } });
         } else if (elapsedMinutes >= REMINDER_MINUTES && !order.reminderSentAt) {
-          if (vendorPhone) {
+          for (const vendorPhone of phones) {
             const delivered = await sendWhatsappMessage(vendorPhone, 'order_reminder_alert', [order.orderNumber]);
             if (!delivered) {
               sendSms(vendorPhone, `GoBuyMe reminder: Order #${order.orderNumber} is still waiting for you to accept.`).catch(() => {});

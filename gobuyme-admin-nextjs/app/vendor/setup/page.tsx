@@ -108,8 +108,9 @@ export default function VendorSetupPage() {
   const [closingTime, setClosingTime] = useState('');
   const [tier, setTier] = useState<Tier>('TIER_2');
 
-  // Menu
+  // Menu (wording follows the vendor's category, e.g. "Products" for a bakery)
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [terms, setTerms] = useState({ section: 'Menu', item: 'Menu item', itemPlural: 'Menu items' });
 
   // Modals
   const [planModal, setPlanModal] = useState<Tier | null>(null);
@@ -138,6 +139,9 @@ export default function VendorSetupPage() {
       if (user.role !== 'VENDOR') throw new Error('This page is only for vendor accounts.');
       sessionStorage.setItem('vendor_setup_token', accessToken);
       setToken(accessToken);
+      apiCall('/vendors/me', 'GET', accessToken)
+        .then(r => { if (r?.data?.terminology) setTerms(r.data.terminology); })
+        .catch(() => {});
       setStep('form');
     } catch (err) {
       setLoginError(err instanceof Error ? err.message : 'Login failed');
@@ -389,14 +393,14 @@ export default function VendorSetupPage() {
 <div style={{ marginBottom: 28 }} />
 
         {/* ── MENU ITEMS ── */}
-        <SectionLabel label="MENU ITEMS" T={T} />
+        <SectionLabel label={terms.itemPlural.toUpperCase()} T={T} />
         <div style={{ fontSize: 13, color: '#444', marginBottom: 14 }}>
-          A well-stocked menu gets approved faster. Add a few items with names and prices.
+          A well-stocked {terms.section.toLowerCase()} gets approved faster. Add a few {terms.itemPlural.toLowerCase()} with names and prices.
         </div>
 
         {menuItems.length === 0 ? (
           <div style={{ height: 80, border: `1px dashed ${T.border}`, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', marginBottom: 10 }}>
-            <span style={{ fontSize: 13, color: '#888' }}>No items added yet</span>
+            <span style={{ fontSize: 13, color: '#888' }}>No {terms.itemPlural.toLowerCase()} added yet</span>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
@@ -405,7 +409,7 @@ export default function VendorSetupPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
                   <input
                     value={item.name} onChange={e => updateItem(item.id, 'name', e.target.value)}
-                    placeholder="Item name (e.g. Jollof Rice)"
+                    placeholder={`${terms.item} name`}
                     style={{ background: '#f0ede6', border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 12px', color: '#111', fontSize: 13, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
                   />
                   <div style={{ display: 'flex', alignItems: 'center', background: '#f0ede6', border: `1px solid ${T.border}`, borderRadius: 4, padding: '0 10px' }}>
@@ -428,7 +432,7 @@ export default function VendorSetupPage() {
 
         <button onClick={addMenuItem}
           style={{ width: '100%', padding: '10px', borderRadius: 4, border: '1px dashed #FF521B', background: 'transparent', color: '#FF521B', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', marginBottom: 36 }}>
-          + Add Menu Item
+          + Add {terms.item}
         </button>
 
         {saveError && <ErrorBanner msg={saveError} />}

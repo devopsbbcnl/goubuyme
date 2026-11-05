@@ -8,7 +8,13 @@ export const registerPushToken = catchAsync(async (req: AuthRequest, res: Respon
   const { token } = req.body;
   if (!token) return apiResponse.error(res, 'Push token required.', 400);
 
-  await prisma.user.update({ where: { id: req.user!.userId }, data: { pushToken: token } });
+  // A device belongs to one account at a time. If another account (for example the owner, on a phone
+  // a branch manager now signs in on) still holds this token, release it so alerts for one login
+  // never land on someone else's device.
+  await prisma.$transaction([
+    prisma.user.updateMany({ where: { pushToken: token, id: { not: req.user!.userId } }, data: { pushToken: null } }),
+    prisma.user.update({ where: { id: req.user!.userId }, data: { pushToken: token } }),
+  ]);
   return apiResponse.success(res, 'Push token registered.');
 });
 

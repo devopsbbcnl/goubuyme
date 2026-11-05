@@ -10,7 +10,8 @@ export interface SocketIdentity {
   userId: string;
   role: string;
   customerId?: string;
-  vendorId?: string;
+  /** Every location the account owns (main business plus branches). */
+  vendorIds: string[];
   riderId?: string;
 }
 
@@ -43,7 +44,8 @@ export const socketAuth = async (socket: Socket, next: (err?: ExtendedError) => 
       select: {
         id: true, role: true, isActive: true, deletedAt: true,
         customer: { select: { id: true } },
-        vendor: { select: { id: true } },
+        vendors: { select: { id: true } },
+        managedVendor: { select: { id: true } },
         rider: { select: { id: true } },
       },
     });
@@ -53,7 +55,8 @@ export const socketAuth = async (socket: Socket, next: (err?: ExtendedError) => 
       userId: user.id,
       role: user.role,
       customerId: user.customer?.id,
-      vendorId: user.vendor?.id,
+      // An owner hears every location they own; a branch manager hears only their branch.
+      vendorIds: [...user.vendors.map((v) => v.id), ...(user.managedVendor ? [user.managedVendor.id] : [])],
       riderId: user.rider?.id,
     };
     socket.data.identity = identity;

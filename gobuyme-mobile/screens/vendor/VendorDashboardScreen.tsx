@@ -13,6 +13,7 @@ import { shadows } from '@/theme';
 import api from '@/services/api';
 import { connectSockets } from '@/services/socketService';
 import { PhoneVerifyBanner } from '@/components/ui/PhoneVerifyBanner';
+import { LocationSwitcher } from '@/components/vendor/LocationSwitcher';
 import { useAuth } from '@/context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCommissionRates } from '@/hooks/useCommissionRates';
@@ -346,7 +347,7 @@ export default function VendorDashboardScreen() {
         <View style={styles.header}>
           <View>
             <Text style={[styles.greeting, { color: T.textSec }]}>Good day 👋</Text>
-            <Text style={[styles.storeName, { color: T.text }]}>{storeName}</Text>
+            <LocationSwitcher fallbackName={storeName} />
           </View>
           <View style={styles.headerRight}>
             <NotificationBell route="/(vendor)/notifications" />
