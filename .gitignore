@@ -81,3 +81,4 @@ backups/
 *.ipa
 *.tsbuildinfo
 gobuyme-mobile/builds/
+rollup-banner/

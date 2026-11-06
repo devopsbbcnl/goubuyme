@@ -12,6 +12,7 @@ import * as reports from '../controllers/smois/report.controller';
 import * as inbox from '../controllers/smois/inbox.controller';
 import * as campaigns from '../controllers/smois/campaign.controller';
 import * as assets from '../controllers/smois/asset.controller';
+import * as connections from '../controllers/smois/connection.controller';
 import * as monitoring from '../controllers/smois/monitoring.controller';
 import * as ai from '../controllers/smois/ai.controller';
 
@@ -91,6 +92,10 @@ router.post('/metrics/snapshots',               ...smoisAuth('recordMetrics'), a
 router.put('/metrics/snapshots/:id',           ...smoisAuth('correctMetrics'), analytics.correctSnapshot);
 router.get('/metrics/posts',                   ...smoisAuth('viewAnalytics'), analytics.listPostMetrics);
 router.post('/metrics/posts',                   ...smoisAuth('recordMetrics'), analytics.recordPostMetric);
+router.get('/connections',                     ...any, connections.getConnections);
+router.post('/connections/:accountId/connect',    ...smoisAuth('manageAccounts'), connections.startConnect);
+router.post('/connections/:accountId/sync',       ...smoisAuth('manageAccounts'), connections.syncNow);
+router.post('/connections/:accountId/disconnect', ...smoisAuth('manageAccounts'), connections.disconnectAccount);
 router.get('/integrations',                    ...any, analytics.getIntegrations);
 
 // Targets, performance, evaluations

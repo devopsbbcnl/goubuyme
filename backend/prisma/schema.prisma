@@ -2063,11 +2063,12 @@ model SmoisAccount {
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
-  assignments SmoisAssignment[]
-  variants    SmoisVariant[]
-  tasks       SmoisTask[]
-  snapshots   SmoisMetricSnapshot[]
+  assignments   SmoisAssignment[]
+  variants      SmoisVariant[]
+  tasks         SmoisTask[]
+  snapshots     SmoisMetricSnapshot[]
   conversations SmoisConversation[]
+  integration   SmoisIntegration?
 
   @@unique([platform, handle])
   @@index([platform, archivedAt])
@@ -2124,10 +2125,10 @@ model SmoisContent {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  campaignId  String?
-  category SmoisCategory? @relation(fields: [categoryId], references: [id])
-  campaign SmoisCampaign? @relation(fields: [campaignId], references: [id])
-  variants SmoisVariant[]
+  campaignId String?
+  category   SmoisCategory? @relation(fields: [categoryId], references: [id])
+  campaign   SmoisCampaign? @relation(fields: [campaignId], references: [id])
+  variants   SmoisVariant[]
 
   @@index([creatorId])
   @@index([archivedAt, createdAt])
@@ -2164,12 +2165,12 @@ model SmoisVariant {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  content  SmoisContent          @relation(fields: [contentId], references: [id])
-  account  SmoisAccount          @relation(fields: [accountId], references: [id])
-  versions SmoisVariantVersion[]
-  reviews  SmoisReview[]
-  comments SmoisComment[]
-  attempts SmoisPublishAttempt[]
+  content     SmoisContent          @relation(fields: [contentId], references: [id])
+  account     SmoisAccount          @relation(fields: [accountId], references: [id])
+  versions    SmoisVariantVersion[]
+  reviews     SmoisReview[]
+  comments    SmoisComment[]
+  attempts    SmoisPublishAttempt[]
   postMetrics SmoisPostMetric[]
 
   @@index([accountId, status])
@@ -2423,9 +2424,9 @@ enum SmoisReportStatus {
 /// One account on one day. followers is a running total; the other figures cover that day.
 /// dataStatus says where it came from; until integrations exist everything is MANUAL.
 model SmoisMetricSnapshot {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   accountId        String
-  snapshotDate     DateTime @db.Date
+  snapshotDate     DateTime  @db.Date
   followers        Int?
   reach            Int?
   impressions      Int?
@@ -2433,16 +2434,16 @@ model SmoisMetricSnapshot {
   profileVisits    Int?
   videoViews       Int?
   websiteClicks    Int?
-  dataStatus       String   @default("MANUAL")
-  source           String   @default("Entered by hand")
-  metricVersion    String   @default("v1")
+  dataStatus       String    @default("MANUAL")
+  source           String    @default("Entered by hand")
+  metricVersion    String    @default("v1")
   note             String?
   enteredById      String
-  retrievedAt      DateTime @default(now())
+  retrievedAt      DateTime  @default(now())
   correctedById    String?
   correctedAt      DateTime?
   correctionReason String?
-  createdAt        DateTime @default(now())
+  createdAt        DateTime  @default(now())
 
   account SmoisAccount @relation(fields: [accountId], references: [id])
 
@@ -2475,25 +2476,25 @@ model SmoisPostMetric {
 }
 
 model SmoisTarget {
-  id          String        @id @default(uuid())
-  name        String
-  metric      String
-  targetValue Float
+  id                 String         @id @default(uuid())
+  name               String
+  metric             String
+  targetValue        Float
   /// DEPARTMENT | PLATFORM | ACCOUNT | EMPLOYEE
-  scope       String
-  platform    SmoisPlatform?
-  accountId   String?
-  memberId    String?
-  startsAt    DateTime
-  endsAt      DateTime
-  supervisorId String?
-  notes       String?
-  isActive    Boolean       @default(true)
+  scope              String
+  platform           SmoisPlatform?
+  accountId          String?
+  memberId           String?
+  startsAt           DateTime
+  endsAt             DateTime
+  supervisorId       String?
+  notes              String?
+  isActive           Boolean        @default(true)
   /// The last status management was told about, so a change is announced once.
   lastNotifiedStatus String?
-  createdById String
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdById        String
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   @@index([scope, isActive])
   @@index([memberId])
@@ -2516,23 +2517,23 @@ model SmoisEvaluation {
 }
 
 model SmoisReport {
-  id           String            @id @default(uuid())
-  type         SmoisReportType
-  periodStart  DateTime
-  periodEnd    DateTime
-  authorId     String
-  status       SmoisReportStatus @default(DRAFT)
+  id            String            @id @default(uuid())
+  type          SmoisReportType
+  periodStart   DateTime
+  periodEnd     DateTime
+  authorId      String
+  status        SmoisReportStatus @default(DRAFT)
   /// Figures counted from SMOIS records when the draft was generated (frozen once submitted).
-  data         Json
+  data          Json
   /// Words written by the author.
-  commentary   Json              @default("{}")
-  submittedAt  DateTime?
-  reviewedById String?
-  reviewedAt   DateTime?
-  reviewNote   String?
+  commentary    Json              @default("{}")
+  submittedAt   DateTime?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  reviewNote    String?
   dueNotifiedAt DateTime?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@unique([authorId, type, periodStart])
   @@index([type, status])
@@ -2638,6 +2639,8 @@ model SmoisConversation {
   escalationNote      String?
   slaBreachNotifiedAt DateTime?
   loggedById          String
+  /// The platform's own id for this interaction (set when it arrives through a connection), so it is never logged twice.
+  externalId          String?
   lastActivityAt      DateTime                @default(now())
   createdAt           DateTime                @default(now())
 
@@ -2645,6 +2648,7 @@ model SmoisConversation {
   contact  SmoisContact?  @relation(fields: [contactId], references: [id])
   messages SmoisMessage[]
 
+  @@unique([accountId, externalId])
   @@index([status, priority])
   @@index([assignedMemberId, status])
   @@index([accountId, receivedAt])
@@ -2878,4 +2882,75 @@ model SmoisAiRequest {
   @@index([userId, createdAt])
   @@index([feature, createdAt])
   @@map("smois_ai_requests")
+}
+
+// ── Platform connections (scaffolding): tokens are encrypted at rest and never leave the server ──
+
+/// One connection per account. Status: PENDING | CONNECTED | EXPIRED | REVOKED | ERROR.
+model SmoisIntegration {
+  id               String    @id @default(uuid())
+  accountId        String    @unique
+  provider         String
+  status           String    @default("PENDING")
+  externalId       String?
+  externalName     String?
+  scopes           String[]
+  accessTokenEnc   String?
+  refreshTokenEnc  String?
+  tokenExpiresAt   DateTime?
+  connectedById    String?
+  connectedAt      DateTime?
+  lastSyncAt       DateTime?
+  nextSyncAt       DateTime?
+  lastError        String?
+  lastErrorAt      DateTime?
+  rateLimitedUntil DateTime?
+  expiryNotifiedAt DateTime?
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  account SmoisAccount   @relation(fields: [accountId], references: [id])
+  jobs    SmoisSyncJob[]
+
+  @@index([status, nextSyncAt])
+  @@map("smois_integrations")
+}
+
+/// One row per synchronisation run (PRD 28.5): what ran, how it ended, how much it processed.
+model SmoisSyncJob {
+  id               String    @id @default(uuid())
+  integrationId    String
+  accountId        String
+  /// RUNNING | OK | PARTIAL | FAILED | RETRY
+  status           String    @default("RUNNING")
+  /// SCHEDULE | MANUAL | RETRY
+  trigger          String    @default("SCHEDULE")
+  requestedById    String?
+  startedAt        DateTime  @default(now())
+  finishedAt       DateTime?
+  recordsProcessed Int       @default(0)
+  recordsSkipped   Int       @default(0)
+  attempt          Int       @default(1)
+  nextRetryAt      DateTime?
+  error            String?
+
+  integration SmoisIntegration @relation(fields: [integrationId], references: [id])
+
+  @@index([integrationId, startedAt])
+  @@index([status, nextRetryAt])
+  @@map("smois_sync_jobs")
+}
+
+/// Webhook deliveries already handled, so a repeated delivery does nothing twice.
+model SmoisWebhookEvent {
+  id          String    @id @default(uuid())
+  provider    String
+  eventKey    String
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  outcome     String?
+
+  @@unique([provider, eventKey])
+  @@map("smois_webhook_events")
 }
