@@ -12,7 +12,7 @@ export interface SmoisMe {
   memberId: string | null;
   canEmergencyPublish: boolean;
   unreadNotifications: number;
-  can: Record<'createContent' | 'approve' | 'publish' | 'manageTasks' | 'completeTasks' | 'manageAccounts' | 'manageTeam' | 'configure' | 'viewAll' | 'viewActivity', boolean>;
+  can: Record<'createContent' | 'approve' | 'publish' | 'manageTasks' | 'completeTasks' | 'manageAccounts' | 'manageTeam' | 'configure' | 'viewAll' | 'viewActivity' | 'viewAnalytics' | 'recordMetrics' | 'correctMetrics' | 'manageTargets' | 'viewPerformance' | 'reviewReports' | 'handleInbox' | 'manageCampaigns' | 'viewCampaigns' | 'manageListening', boolean>;
 }
 export interface Person { memberId: string | null; userId: string; name: string; role: string; canApprove: boolean; canPublish: boolean }
 
@@ -201,16 +201,16 @@ export function Table({ head, children }: { head: string[]; children: ReactNode 
     <div style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 4, background: T.surface }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
-          <tr>{head.map((h) => <th key={h} style={{ textAlign: 'left', padding: '10px 12px', fontSize: 11, fontWeight: 700, color: T.textSec, textTransform: 'uppercase', letterSpacing: 0.4, borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }}>{h}</th>)}</tr>
+          <tr>{head.map((h, i) => <th key={`${h}-${i}`} style={{ textAlign: 'left', padding: '10px 12px', fontSize: 11, fontWeight: 700, color: T.textSec, textTransform: 'uppercase', letterSpacing: 0.4, borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }}>{h}</th>)}</tr>
         </thead>
         <tbody>{children}</tbody>
       </table>
     </div>
   );
 }
-export function Td({ children, style, onClick }: { children?: ReactNode; style?: CSSProperties; onClick?: () => void }) {
+export function Td({ children, style, onClick, title }: { children?: ReactNode; style?: CSSProperties; onClick?: () => void; title?: string }) {
   const { theme: T } = useTheme();
-  return <td onClick={onClick} style={{ padding: '10px 12px', borderBottom: `1px solid ${T.border}`, color: T.text, verticalAlign: 'top', ...style }}>{children}</td>;
+  return <td onClick={onClick} title={title} style={{ padding: '10px 12px', borderBottom: `1px solid ${T.border}`, color: T.text, verticalAlign: 'top', ...style }}>{children}</td>;
 }
 
 export function Pager({ page, pages, onPage }: { page: number; pages: number; onPage: (p: number) => void }) {
@@ -250,4 +250,81 @@ export function useLoad<T>(loader: () => Promise<T>, deps: unknown[]) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick]);
   return { data, loading, error, reload: () => setTick((t) => t + 1) };
+}
+
+// ── Phase 2 helpers ──────────────────────────────────────────────────────────
+
+/** A figure that may not have been recorded: shows "Not recorded", never a misleading 0. */
+export const num = (v: number | null | undefined, suffix = '') =>
+  v === null || v === undefined ? 'Not recorded' : `${v.toLocaleString('en-NG', { maximumFractionDigits: 2 })}${suffix}`;
+
+/** Change versus the previous period; says "no comparison" when there is nothing honest to compare. */
+export function Delta({ pct }: { pct: number | null | undefined }) {
+  const { theme: T } = useTheme();
+  if (pct === null || pct === undefined) return <span style={{ fontSize: 11, color: T.textMuted }}>no comparison</span>;
+  const up = pct > 0; const flat = pct === 0;
+  return <span style={{ fontSize: 11, fontWeight: 700, color: flat ? T.textSec : up ? T.success : T.error }}>{flat ? '–' : up ? '▲' : '▼'} {Math.abs(pct)}%</span>;
+}
+
+export function Stat({ label, value, sub, delta }: { label: string; value: ReactNode; sub?: ReactNode; delta?: number | null }) {
+  const { theme: T } = useTheme();
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: '14px 16px' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: T.textSec, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 800, color: T.text, marginTop: 6 }}>{value}</div>
+      <div style={{ marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', minHeight: 16 }}>{delta !== undefined && <Delta pct={delta} />}{sub && <span style={{ fontSize: 11, color: T.textSec }}>{sub}</span>}</div>
+    </div>
+  );
+}
+
+/** Minimal SVG line chart. Gaps (null) break the line, so unrecorded days are visibly empty. */
+export function LineChart({ points, height = 140, projectedFrom }: { points: { label: string; value: number | null; t?: number }[]; height?: number; projectedFrom?: number }) {
+  const { theme: T } = useTheme();
+  const vals = points.map((p) => p.value).filter((v): v is number => v !== null);
+  if (vals.length < 2) return <Empty>Not enough readings to draw a trend yet.</Empty>;
+  const W = 600; const H = height; const pad = 6;
+  const min = Math.min(...vals); const max = Math.max(...vals); const span = max - min || 1;
+  // Space points by their date when every point has one, so a long gap looks like a long gap.
+  const timed = points.every((p) => typeof p.t === 'number');
+  const t0 = timed ? (points[0].t as number) : 0; const t1 = timed ? (points[points.length - 1].t as number) : 1;
+  const x = (i: number) => pad + (timed ? ((points[i].t as number) - t0) / Math.max(1, t1 - t0) : i / Math.max(1, points.length - 1)) * (W - pad * 2);
+  const y = (v: number) => H - pad - ((v - min) / span) * (H - pad * 2 - 14);
+  const path = (from: number, to: number) => {
+    let d = ''; let pen = false;
+    for (let i = from; i <= to; i++) { const p = points[i]; if (p.value === null) { pen = false; continue; } d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)} `; pen = true; }
+    return d;
+  };
+  const split = projectedFrom !== undefined && projectedFrom > 0 && projectedFrom < points.length ? projectedFrom : null;
+  const d = path(0, split === null ? points.length - 1 : split - 1);
+  const dProjected = split === null ? '' : path(split - 1, points.length - 1);
+  const last = [...points].reverse().find((p) => p.value !== null);
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" role="img" aria-label="Follower trend">
+        <path d={d} fill="none" stroke={T.primary} strokeWidth={2} vectorEffect="non-scaling-stroke" />
+        {dProjected && <path d={dProjected} fill="none" stroke={T.primary} strokeWidth={2} strokeDasharray="6 5" opacity={0.7} vectorEffect="non-scaling-stroke" />}
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: T.textSec }}>
+        <span>{points[0].label} · low {min.toLocaleString()}</span><span>high {max.toLocaleString()} · latest {last?.value?.toLocaleString()}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Image preview that degrades gracefully. The site only loads images from approved hosts (Cloudinary and a few
+ * others), so a link pasted from elsewhere still works as a link but cannot be previewed here.
+ */
+export function Thumb({ src, alt, style }: { src: string; alt: string; style?: CSSProperties }) {
+  const { theme: T } = useTheme();
+  const [bad, setBad] = useState(false);
+  if (bad) {
+    return (
+      <span title="This image is hosted somewhere the admin site does not preview. The link still works." style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: T.textMuted, fontSize: 11, textAlign: 'center', padding: 6 }}>
+        <span style={{ fontSize: 26 }}>🖼️</span>No preview
+      </span>
+    );
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={alt} onError={() => setBad(true)} style={style} />;
 }

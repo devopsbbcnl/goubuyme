@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
 import { cloudinaryUpload } from '@/lib/cloudinaryUpload';
 import {
-  Btn, Empty, Field, Input, Notice, Pill, PlatformTag, Select, StatusPill, Tabs, TextArea,
+  Btn, Empty, Field, Input, Notice, Pill, PlatformTag, Select, StatusPill, Tabs, TextArea, Thumb,
   fmtDateTime, fromLocalInput, pretty, toLocalInput, useAction, useLoad, useSmois,
 } from './ui';
 
@@ -32,7 +32,7 @@ export function ContentDetail({ id, onClose, onChanged }: { id: string; onClose:
   const { theme: T } = useTheme();
   const { data, reload, loading } = useLoad(() => api.get<{ data: Detail }>(`/admin/smois/content/${id}`).then((r) => r.data), [id]);
   const [vid, setVid] = useState<string | null>(null);
-  const [tab, setTab] = useState<'copy' | 'reviews' | 'versions' | 'comments' | 'attempts'>('copy');
+  const [tab, setTab] = useState<'copy' | 'reviews' | 'versions' | 'comments' | 'attempts' | 'results'>('copy');
   const v = data?.variants.find((x) => x.id === vid) ?? data?.variants[0];
 
   const changed = () => { reload(); onChanged?.(); window.dispatchEvent(new Event('gbm:pending-counts-updated')); };
@@ -72,7 +72,7 @@ export function ContentDetail({ id, onClose, onChanged }: { id: string; onClose:
   );
 }
 
-function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detail: Detail; tab: string; setTab: (t: 'copy' | 'reviews' | 'versions' | 'comments' | 'attempts') => void; onChanged: () => void }) {
+function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detail: Detail; tab: string; setTab: (t: 'copy' | 'reviews' | 'versions' | 'comments' | 'attempts' | 'results') => void; onChanged: () => void }) {
   const { theme: T } = useTheme();
   const { me } = useSmois();
   const { busy, error, setError, run } = useAction();
@@ -87,6 +87,8 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
   const [planned, setPlanned] = useState(v.plannedAt ? toLocalInput(v.plannedAt) : '');
   const [reason, setReason] = useState('');
   const [upErr, setUpErr] = useState('');
+  const [picking, setPicking] = useState(false);
+  const aiStatus = useLoad(() => api.get<{ data: { enabled: boolean; available: boolean; remainingToday: number } }>('/admin/smois/ai/status').then((r) => r.data), []);
 
   useEffect(() => { setError(''); setInfo(''); }, [panel, tab, setError]);
 
@@ -149,6 +151,7 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
       <Tabs value={tab as 'copy'} onChange={setTab} items={[
         { id: 'copy', label: 'Copy' }, { id: 'reviews', label: `Reviews (${v.reviews.length})` }, { id: 'versions', label: `Versions (${v.versions.length})` },
         { id: 'comments', label: `Comments (${v.comments.length})` }, { id: 'attempts', label: `Publishing (${v.attempts.length})` },
+        ...(v.status === 'PUBLISHED' && me?.can.viewAnalytics ? [{ id: 'results' as const, label: 'Results' }] : []),
       ]} />
 
       {tab === 'copy' && (
@@ -161,6 +164,10 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
             {v.publishedUrl && <> · <a href={v.publishedUrl} target="_blank" rel="noreferrer" style={{ color: T.primary, fontWeight: 700 }}>View post ↗</a></>}
           </div>
           {v.warnings.length > 0 && <Notice kind="warn">{v.warnings.map((w) => <div key={w}>• {w}</div>)}</Notice>}
+          {v.actions.edit && aiStatus.data?.enabled && aiStatus.data.available && (
+            <AiAssistPanel platform={v.account.platform} format={detail.format} objective={detail.objective ?? ''} text={caption} remaining={aiStatus.data.remainingToday} onUsed={aiStatus.reload}
+              onUse={(kind, text) => { if (kind === 'HASHTAGS') setHashtags(text); else setCaption(text); }} />
+          )}
           <Field label={`Caption (${charCount})`}><TextArea rows={6} value={caption} disabled={!v.actions.edit} onChange={(e) => setCaption(e.target.value)} /></Field>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             <Field label="Hashtags"><Input value={hashtags} disabled={!v.actions.edit} onChange={(e) => setHashtags(e.target.value)} placeholder="#GoBuyMe #food" /></Field>
@@ -170,14 +177,13 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
           </div>
           <Field label="Media (one link per line)">
             <TextArea rows={3} value={media} disabled={!v.actions.edit} onChange={(e) => setMedia(e.target.value)} placeholder="https://…" />
-            {v.actions.edit && <div style={{ marginTop: 6 }}><input type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0])} style={{ fontSize: 12, color: T.textSec }} /></div>}
+            {v.actions.edit && <div style={{ marginTop: 6, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}><input type="file" accept="image/*" onChange={(e) => upload(e.target.files?.[0])} style={{ fontSize: 12, color: T.textSec }} /><Btn small onClick={() => setPicking(true)}>Choose from the library</Btn></div>}
             {upErr && <div style={{ fontSize: 11, color: T.error, marginTop: 4 }}>{upErr}</div>}
           </Field>
           {v.mediaUrls.length > 0 && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
             {v.mediaUrls.map((m) => /\.(mp4|mov|webm)(\?|$)/i.test(m.url)
               ? <a key={m.url} href={m.url} target="_blank" rel="noreferrer" style={{ color: T.primary, fontSize: 12 }}>🎬 {m.url.slice(-30)}</a>
-              // eslint-disable-next-line @next/next/no-img-element
-              : <img key={m.url} src={m.url} alt="" style={{ height: 72, borderRadius: 4, border: `1px solid ${T.border}` }} />)}
+              : <Thumb key={m.url} src={m.url} alt="" style={{ height: 72, borderRadius: 4, border: `1px solid ${T.border}` }} />)}
           </div>}
           {v.actions.edit && (
             <>
@@ -188,6 +194,8 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
           )}
         </>
       )}
+
+      {picking && <LibraryPicker onClose={() => setPicking(false)} onPick={(url) => { setMedia((m) => (m ? `${m}\n${url}` : url)); setPicking(false); }} />}
 
       {tab === 'reviews' && (v.reviews.length === 0 ? <Empty>No reviews yet.</Empty> : v.reviews.map((r) => (
         <div key={r.id} style={{ padding: '10px 0', borderTop: `1px solid ${T.border}`, fontSize: 12 }}>
@@ -205,6 +213,8 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
       ))}
 
       {tab === 'comments' && <Comments v={v} onChanged={onChanged} />}
+
+      {tab === 'results' && <PostResults variantId={v.id} />}
 
       {tab === 'attempts' && (v.attempts.length === 0 ? <Empty>Nothing recorded yet.</Empty> : v.attempts.map((a) => (
         <div key={a.id} style={{ padding: '10px 0', borderTop: `1px solid ${T.border}`, fontSize: 12 }}>
@@ -303,6 +313,117 @@ function FailForm({ busy, onCancel, onSubmit }: { busy: boolean; onCancel: () =>
       <Field label="What went wrong"><Input value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="e.g. Platform rejected the image" /></Field>
       <Field label="Error code (optional)"><Input value={code} onChange={(e) => setCode(e.target.value)} /></Field>
       <div style={{ display: 'flex', gap: 8 }}><Btn kind="danger" disabled={busy || !msg.trim()} onClick={() => onSubmit({ ...(code.trim() ? { errorCode: code.trim() } : {}), errorMessage: msg.trim() })}>Record failure</Btn><Btn onClick={onCancel}>Cancel</Btn></div>
+    </div>
+  );
+}
+
+interface PostReading { id: string; recordedAt: string; reach: number | null; impressions: number | null; likes: number | null; comments: number | null; shares: number | null; saves: number | null; clicks: number | null; videoViews: number | null; note: string | null; enteredByName: string | null }
+const READING_FIELDS: [string, string][] = [['reach', 'Reach'], ['impressions', 'Impressions'], ['likes', 'Likes'], ['comments', 'Comments'], ['shares', 'Shares'], ['saves', 'Saves'], ['clicks', 'Link clicks'], ['videoViews', 'Video views']];
+
+/** Results of a published post: readings a person copied from the platform, newest first. */
+function PostResults({ variantId }: { variantId: string }) {
+  const { theme: T } = useTheme();
+  const { me } = useSmois();
+  const { data, reload } = useLoad(() => api.get<{ data: PostReading[] }>(`/admin/smois/metrics/posts?variantId=${variantId}`).then((r) => r.data), [variantId]);
+  const [f, setF] = useState<Record<string, string>>({ note: '' });
+  const { busy, error, run } = useAction();
+  const show = (v: number | null) => (v === null ? 'Not recorded' : v.toLocaleString());
+  return (
+    <div>
+      <Notice kind="info">Copy the figures the platform shows for this post. Leave a box empty if you don&apos;t have it. Engagement counts likes, comments, shares and saves; link clicks and video views are separate. Record again later to build a history (early, day 7, final).</Notice>
+      {data && data.length === 0 && <Empty>No results recorded yet.</Empty>}
+      {data?.map((r, i) => (
+        <div key={r.id} style={{ padding: '9px 0', borderTop: `1px solid ${T.border}`, fontSize: 12 }}>
+          <b style={{ color: T.text }}>{fmtDateTime(r.recordedAt)}</b> <span style={{ color: T.textMuted }}>by {r.enteredByName}{i === 0 ? ' · latest' : ''}</span>
+          <div style={{ color: T.textSec, marginTop: 3 }}>{READING_FIELDS.map(([k, l]) => `${l} ${show((r as unknown as Record<string, number | null>)[k])}`).join(' · ')}</div>
+          {r.note && <div style={{ color: T.textMuted }}>{r.note}</div>}
+        </div>
+      ))}
+      {me?.can.recordMetrics && (
+        <div style={{ marginTop: 14, background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4, padding: 14 }}>
+          {error && <Notice kind="error">{error}</Notice>}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
+            {READING_FIELDS.map(([k, l]) => <Field key={k} label={l}><Input type="number" min={0} value={f[k] ?? ''} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></Field>)}
+          </div>
+          <Field label="Note"><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
+          <Btn kind="primary" disabled={busy} onClick={() => run(async () => { await api.post('/admin/smois/metrics/posts', { variantId, ...f }); setF({ note: '' }); reload(); })}>{busy ? 'Saving…' : 'Record results'}</Btn>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface LibAsset { id: string; name: string; url: string; fileType: string; category: string; usageRestrictions: string | null }
+
+/** Only approved, in-date assets are offered; the server also refuses expired or rejected ones. */
+function LibraryPicker({ onClose, onPick }: { onClose: () => void; onPick: (url: string) => void }) {
+  const { theme: T } = useTheme();
+  const [q, setQ] = useState('');
+  const { data } = useLoad(() => api.get<{ data: { items: LibAsset[] } }>(`/admin/smois/assets?usable=1${q ? `&q=${encodeURIComponent(q)}` : ''}`).then((r) => r.data.items), [q]);
+  return (
+    <Modal open onClose={onClose} title="Choose from the media library" width={720}>
+      <div style={{ padding: 20 }}>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or tag" />
+        {!data ? <Empty>Loading…</Empty> : data.length === 0 ? <Empty>No approved assets match. Add and approve assets in the Media Library.</Empty> : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginTop: 12 }}>
+            {data.map((a) => (
+              <div key={a.id} onClick={() => onPick(a.url)} style={{ cursor: 'pointer', border: `1px solid ${T.border}`, borderRadius: 4, background: T.surface }}>
+                <div style={{ height: 90, background: T.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {a.fileType === 'IMAGE'
+                    ? <Thumb src={a.url} alt={a.name} style={{ maxWidth: '100%', maxHeight: '100%' }} />
+                    : <span style={{ fontSize: 26 }}>{a.fileType === 'VIDEO' ? '🎬' : '📄'}</span>}
+                </div>
+                <div style={{ padding: 8, fontSize: 12, color: T.text }}>{a.name}{a.usageRestrictions && <div style={{ color: T.warning, fontSize: 10 }}>{a.usageRestrictions}</div>}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+const AI_KINDS: [string, string][] = [['CAPTIONS', 'Suggest captions'], ['HASHTAGS', 'Suggest hashtags'], ['REWRITE', 'Rewrite this'], ['GRAMMAR', 'Fix spelling and grammar'], ['IDEAS', 'Post ideas']];
+interface AiSuggestion { text: string; note: string; warnings: string[] }
+
+/** Drafts only: nothing is applied until you press "Use", and nothing is saved until you save the post. */
+function AiAssistPanel({ platform, format, objective, text, remaining, onUse, onUsed }: { platform: string; format: string; objective: string; text: string; remaining: number; onUse: (kind: string, text: string) => void; onUsed: () => void }) {
+  const { theme: T } = useTheme();
+  const [open, setOpen] = useState(false);
+  const [tone, setTone] = useState('');
+  const [out, setOut] = useState<{ kind: string; items: AiSuggestion[]; note: string | null } | null>(null);
+  const { busy, error, setError, run } = useAction();
+  const go = (kind: string) => run(async () => {
+    setError('');
+    const r = await api.post<{ data: { suggestions: AiSuggestion[]; verificationNote: string | null } }>('/admin/smois/ai/content', { kind, platform, format, objective, tone, text, category: '' });
+    setOut({ kind, items: r.data.suggestions, note: r.data.verificationNote }); onUsed();
+  });
+  return (
+    <div style={{ border: `1px dashed ${T.border}`, borderRadius: 4, padding: 12, marginBottom: 14, background: T.surface2 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <b style={{ fontSize: 13, color: T.text }}>✨ AI writing help <span style={{ fontWeight: 500, color: T.textMuted, fontSize: 11 }}>{remaining} requests left today</span></b>
+        <Btn small onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Open'}</Btn>
+      </div>
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          <Notice kind="info">Drafts to adapt, not finished copy. They only use what you give them (your text and the approved wording in the library). Check every price, date and claim before using one.</Notice>
+          {error && <Notice kind="error">{error}</Notice>}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            <div style={{ width: 200 }}><Input value={tone} onChange={(e) => setTone(e.target.value)} placeholder="Tone (e.g. friendly)" /></div>
+            {AI_KINDS.map(([k, l]) => <Btn key={k} small disabled={busy || (['REWRITE', 'GRAMMAR'].includes(k) && !text.trim())} onClick={() => go(k)}>{l}</Btn>)}
+          </div>
+          {busy && <div style={{ fontSize: 12, color: T.textSec }}>Working…</div>}
+          {out?.note && <Notice kind="warn">{out.note}</Notice>}
+          {out?.items.map((s, i) => (
+            <div key={i} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: 10, marginTop: 8 }}>
+              <div style={{ fontSize: 13, color: T.text, whiteSpace: 'pre-wrap' }}>{s.text}</div>
+              {s.note && <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>{s.note}</div>}
+              {s.warnings.map((w) => <div key={w} style={{ fontSize: 11, color: T.warning, marginTop: 2 }}>⚠ {w}</div>)}
+              {out.kind !== 'IDEAS' && out.kind !== 'BRIEF' && <div style={{ marginTop: 6 }}><Btn small onClick={() => onUse(out.kind, s.text)}>{out.kind === 'HASHTAGS' ? 'Use these hashtags' : 'Use as the caption'}</Btn></div>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

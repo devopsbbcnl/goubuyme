@@ -28,7 +28,7 @@ export const getMe = handle(async (req, res) => {
     prisma.smoisPreference.findUnique({ where: { userId: a.userId }, select: { emailAlerts: true } }),
   ]);
   const caps = Object.fromEntries(
-    (['createContent', 'approve', 'publish', 'manageTasks', 'completeTasks', 'manageAccounts', 'manageTeam', 'configure', 'viewAll', 'viewActivity'] as const)
+    (['createContent', 'approve', 'publish', 'manageTasks', 'completeTasks', 'manageAccounts', 'manageTeam', 'configure', 'viewAll', 'viewActivity', 'viewAnalytics', 'recordMetrics', 'correctMetrics', 'manageTargets', 'viewPerformance', 'reviewReports', 'handleInbox', 'manageCampaigns', 'viewCampaigns', 'manageListening'] as const)
       .map((c) => [c, can(a, c)]),
   );
   return apiResponse.success(res, 'SMOIS access.', {
@@ -415,11 +415,34 @@ export const updateSettings = handle(async (req, res) => {
     if (!Number.isInteger(n) || n < 1 || n > 168) fail(400, 'Reminder delay must be 1–168 hours.');
     data.approvalReminderHours = n;
   }
+  for (const [k, lo, hi, label] of [['slaHighMinutes', 5, 1440, 'High-priority target'], ['slaStandardMinutes', 5, 2880, 'Standard target'], ['slaGeneralMinutes', 30, 10080, 'General target'], ['businessStartHour', 0, 23, 'Opening hour'], ['businessEndHour', 1, 24, 'Closing hour']] as const) {
+    if (k in b) {
+      const n = Number(b[k]);
+      if (!Number.isInteger(n) || n < lo || n > hi) fail(400, label + ' must be between ' + lo + ' and ' + hi + '.');
+      (data as Record<string, number>)[k] = n;
+    }
+  }
+  if ('businessDays' in b) {
+    const raw = Array.isArray(b.businessDays) ? (b.businessDays as unknown[]).map(Number) : [];
+    if (!raw.length) fail(400, 'Choose at least one business day.');
+    if (raw.some((d) => !Number.isInteger(d) || d < 0 || d > 6)) fail(400, 'Business days are 0 (Sunday) to 6 (Saturday).');
+    const days = [...new Set(raw)].sort();
+    data.businessDays = days;
+  }
+  const hoursStart = (data.businessStartHour as number | undefined) ?? before.businessStartHour;
+  const hoursEnd = (data.businessEndHour as number | undefined) ?? before.businessEndHour;
+  if (hoursEnd <= hoursStart) fail(400, 'Closing hour must be after the opening hour.');
+  if ('aiEnabled' in b) data.aiEnabled = !!b.aiEnabled;
+  if ('aiDailyLimit' in b) {
+    const n = Number(b.aiDailyLimit);
+    if (!Number.isInteger(n) || n < 1 || n > 500) fail(400, 'The daily AI limit must be between 1 and 500.');
+    data.aiDailyLimit = n;
+  }
   const u = await prisma.smoisSettings.update({ where: { id: 'default' }, data });
   await smoisAudit(req, {
     action: 'SETTINGS_CHANGED', entity: 'SmoisSettings', entityId: 'default',
     before: { requireApproval: before.requireApproval, allowSelfApproval: before.allowSelfApproval, minPostGapMinutes: before.minPostGapMinutes, approvalReminderHours: before.approvalReminderHours },
-    after: { requireApproval: u.requireApproval, allowSelfApproval: u.allowSelfApproval, minPostGapMinutes: u.minPostGapMinutes, approvalReminderHours: u.approvalReminderHours },
+    after: { requireApproval: u.requireApproval, allowSelfApproval: u.allowSelfApproval, minPostGapMinutes: u.minPostGapMinutes, approvalReminderHours: u.approvalReminderHours, sla: [u.slaHighMinutes, u.slaStandardMinutes, u.slaGeneralMinutes], hours: [u.businessStartHour, u.businessEndHour, u.businessDays], ai: [u.aiEnabled, u.aiDailyLimit] },
   });
   return apiResponse.success(res, 'Settings saved.', u);
 });

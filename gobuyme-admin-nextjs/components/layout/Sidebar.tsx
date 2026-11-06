@@ -49,7 +49,7 @@ const NAV: NavItem[] = [
   { href: '/settings',   label: 'Settings',      icon: '⚙️', pendingKey: null },
 ];
 
-type SmoisNavItem = { href: string; label: string; icon: string; cap?: string; badge?: 'approvals' | 'tasks'; exact?: boolean };
+type SmoisNavItem = { href: string; label: string; icon: string; cap?: string; badge?: 'approvals' | 'tasks' | 'inbox'; exact?: boolean };
 const SMOIS_NAV: SmoisNavItem[] = [
   { href: '/smois',            label: 'Overview',     icon: '📱', exact: true },
   { href: '/smois/accounts',   label: 'Accounts',     icon: '🔗' },
@@ -57,7 +57,19 @@ const SMOIS_NAV: SmoisNavItem[] = [
   { href: '/smois/calendar',   label: 'Calendar',     icon: '🗓️' },
   { href: '/smois/approvals',  label: 'Approvals',    icon: '✔️', badge: 'approvals' },
   { href: '/smois/publishing', label: 'Publishing',   icon: '🚀' },
+  { href: '/smois/inbox',      label: 'Social Inbox', icon: '💬', cap: 'handleInbox', badge: 'inbox' },
+  { href: '/smois/contacts',   label: 'Contacts',     icon: '📇', cap: 'handleInbox' },
+  { href: '/smois/campaigns',  label: 'Campaigns',    icon: '📣', cap: 'viewCampaigns' },
+  { href: '/smois/media',      label: 'Media Library', icon: '🖼️' },
+  { href: '/smois/listening',  label: 'Listening',    icon: '👂', cap: 'viewAnalytics' },
+  { href: '/smois/competitors', label: 'Competitors', icon: '🔭', cap: 'viewAnalytics' },
+  { href: '/smois/assistant',  label: 'Insights & AI', icon: '✨', cap: 'viewAnalytics' },
   { href: '/smois/tasks',      label: 'Social Tasks', icon: '📌', badge: 'tasks' },
+  { href: '/smois/analytics',  label: 'Analytics',    icon: '📊', cap: 'viewAnalytics' },
+  { href: '/smois/targets',    label: 'Targets',      icon: '🎯' },
+  { href: '/smois/performance', label: 'Performance', icon: '🏅' },
+  { href: '/smois/reports',    label: 'Reports',      icon: '🧾' },
+  { href: '/smois/integrations', label: 'Integrations', icon: '🔌', cap: 'viewAll' },
   { href: '/smois/team',       label: 'Social Team',  icon: '🧑‍🤝‍🧑', cap: 'viewAll' },
   { href: '/smois/activity',   label: 'Activity Log', icon: '🕘', cap: 'viewActivity' },
   { href: '/smois/settings',   label: 'Social Settings', icon: '🎛️', cap: 'configure' },
@@ -80,7 +92,7 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
   const [smois, setSmois] = useState<{ can: Record<string, boolean> } | null>(null);
-  const [smoisCounts, setSmoisCounts] = useState({ approvals: 0, tasks: 0 });
+  const [smoisCounts, setSmoisCounts] = useState({ approvals: 0, tasks: 0, inbox: 0 });
   const [pending, setPending] = useState<{ vendors: number; riders: number; errorLogs: number; tickets: number; tasks: number; agents: number }>({ vendors: 0, riders: 0, errorLogs: 0, tickets: 0, tasks: 0, agents: 0 });
 
   // Probe SMOIS access quietly (a 403 just means this person has none) and keep its badges fresh.
@@ -93,11 +105,12 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
       if (!live) return;
       if (!me?.data) { setSmois(null); return; }
       setSmois(me.data);
-      const [ap, tk] = await Promise.all([
+      const [ap, tk, ib] = await Promise.all([
         me.data.can.approve ? get('/approvals?view=queue') : null,
         get('/tasks?view=mine'),
+        me.data.can.handleInbox ? get('/inbox/summary?period=today') : null,
       ]);
-      if (live) setSmoisCounts({ approvals: ap?.data?.filter((v: { canReview: boolean }) => v.canReview).length ?? 0, tasks: tk?.data?.counts?.overdue ?? 0 });
+      if (live) setSmoisCounts({ approvals: ap?.data?.filter((v: { canReview: boolean }) => v.canReview).length ?? 0, tasks: tk?.data?.counts?.overdue ?? 0, inbox: ib?.data?.now?.overdue ?? 0 });
     };
     load();
     const t = setInterval(load, 60_000);

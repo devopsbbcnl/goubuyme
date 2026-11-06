@@ -5,7 +5,9 @@ import { apiResponse } from '../../utils/apiResponse';
 import { PERIOD_KEYS, PeriodKey, resolvePeriod } from '../../services/smois/period';
 import { TASK_DONE, can } from '../../services/smois/workflow';
 import { smoisAudit } from '../../services/smois/audit';
-import { access, date, fail, handle, nameMap, oneOf } from './common';
+import { access, date, fail, handle, lagosYmd, nameMap, oneOf, visibleAccountIds } from './common';
+import { accountSummaries, loadSlaConfig, rollup } from '../../services/smois/insights';
+import { responseMinutes } from '../../services/smois/community';
 
 // GET /dashboard?period=month&from&to&platform&accountId&employeeId(userId)&categoryId&scope=mine
 export const getDashboard = handle(async (req, res) => {
@@ -68,6 +70,55 @@ export const getDashboard = handle(async (req, res) => {
     prisma.smoisVariant.groupBy({ by: ['status'], where: { OR: [{ creatorId: a.userId }, { submittedById: a.userId }] }, _count: true }),
   ]);
 
+  // Audience figures come only from readings people recorded; they are labelled as such and never estimated.
+  let audience: ReturnType<typeof rollup> | null = null;
+  if (can(a, 'viewAnalytics')) {
+    const visible = await visibleAccountIds(a, { platform: q.platform, accountId: q.accountId });
+    const toYmd = lagosYmd(period.to); const today = lagosYmd(now);
+    if (visible.length) audience = rollup(await accountSummaries(visible, lagosYmd(period.from), toYmd, today < toYmd ? today : toYmd));
+  }
+  const reportsSubmitted = await Promise.all([
+    prisma.smoisReport.count({ where: { type: 'WEEKLY_MANAGER', status: { in: ['SUBMITTED', 'APPROVED'] }, periodStart: inPeriod, ...(mine ? { authorId: a.userId } : {}) } }),
+    prisma.smoisReport.count({ where: { type: 'MONTHLY_DEPARTMENT', status: { in: ['SUBMITTED', 'APPROVED'] }, periodStart: inPeriod } }),
+  ]);
+
+  // Engagement and campaign overview (counted from what staff logged).
+  let engagement: Record<string, unknown> | null = null;
+  if (can(a, 'handleInbox')) {
+    const ids = (await visibleAccountIds(a)).map((x) => x.id);
+    const own: Prisma.SmoisConversationWhereInput = { accountId: { in: ids }, ...(mine ? { assignedMemberId: a.memberId ?? '__none__' } : {}) };
+    const range = { gte: period.from, lte: period.to };
+    const openStatuses = ['NEW', 'OPEN', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_FOR_CUSTOMER', 'ESCALATED'] as const;
+    const [incoming, byType, unanswered, complaints, resolvedN, answered, cfg] = await Promise.all([
+      prisma.smoisConversation.count({ where: { ...own, receivedAt: range } }),
+      prisma.smoisConversation.groupBy({ by: ['type'], where: { ...own, receivedAt: range }, _count: true }),
+      prisma.smoisConversation.count({ where: { ...own, status: { in: [...openStatuses] }, firstResponseAt: null } }),
+      prisma.smoisConversation.count({ where: { ...own, status: { in: [...openStatuses] }, escalationType: { in: ['SERIOUS_COMPLAINT', 'SENSITIVE_CUSTOMER'] } } }),
+      prisma.smoisConversation.count({ where: { ...own, resolvedAt: range } }),
+      prisma.smoisConversation.findMany({ where: { ...own, receivedAt: range, firstResponseAt: { not: null } }, select: { receivedAt: true, firstResponseAt: true, slaDueAt: true, priority: true } }),
+      loadSlaConfig(),
+    ]);
+    const mins = answered.map((r) => responseMinutes(r.receivedAt, r.firstResponseAt as Date, r.priority, cfg));
+    engagement = {
+      incoming, comments: byType.filter((t) => ['COMMENT', 'REPLY'].includes(t.type)).reduce((s, t) => s + t._count, 0),
+      messages: byType.filter((t) => ['DIRECT_MESSAGE', 'ENQUIRY'].includes(t.type)).reduce((s, t) => s + t._count, 0),
+      mentions: byType.filter((t) => ['MENTION', 'STORY_INTERACTION'].includes(t.type)).reduce((s, t) => s + t._count, 0),
+      unanswered, openComplaints: complaints, resolved: resolvedN,
+      avgResponseMinutes: mins.length ? Math.round(mins.reduce((x, y) => x + y, 0) / mins.length) : null,
+      withinTargetPct: answered.length ? Math.round((answered.filter((r) => r.slaDueAt && r.firstResponseAt && r.firstResponseAt <= r.slaDueAt).length / answered.length) * 100) : null,
+      source: 'Conversations staff logged from the platform accounts',
+    };
+  }
+  let campaignsOverview: Record<string, number> | null = null;
+  if (can(a, 'viewCampaigns')) {
+    const [activeC, completedC, upcomingC] = await Promise.all([
+      prisma.smoisCampaign.count({ where: { status: { in: ['ACTIVE', 'PAUSED'] } } }),
+      prisma.smoisCampaign.count({ where: { status: 'COMPLETED', endsAt: inPeriod } }),
+      prisma.smoisCampaign.count({ where: { status: { notIn: ['CANCELLED', 'ARCHIVED', 'COMPLETED'] }, startsAt: { gt: now } } }),
+    ]);
+    campaignsOverview = { active: activeC, completedInPeriod: completedC, upcoming: upcomingC };
+  }
+
   return apiResponse.success(res, 'Dashboard.', {
     scope: mine ? 'mine' : 'department',
     period: { key: period.key, label: period.label, from: period.from, to: period.to },
@@ -77,6 +128,9 @@ export const getDashboard = handle(async (req, res) => {
       byConnection: byConnection.map((r) => ({ status: r.connectionStatus, count: r._count })),
       apiConnected: byConnection.filter((r) => r.connectionStatus === 'CONNECTED').reduce((s, r) => s + r._count, 0),
     },
+    audience: audience && { ...audience, source: 'Manually entered readings', dataStatus: 'MANUAL' },
+    reports: { weeklySubmitted: reportsSubmitted[0], monthlySubmitted: reportsSubmitted[1] },
+    engagement, campaigns: campaignsOverview,
     content: { created, awaitingApproval: awaiting, approved, scheduled, published, failedPublications: failed, rejected, overdueDeadlines: dueNotPublished },
     staff: { activeManagers: managers, tasks: { assigned, completed, pending, overdue, awaitingReview } },
     upcoming,
@@ -87,10 +141,8 @@ export const getDashboard = handle(async (req, res) => {
       status: 'Verified: counted from recorded activity',
       asOf: now,
       unavailable: [
-        { metric: 'Followers, reach, impressions, engagement, website clicks', reason: 'Needs authorized platform API connections (Phase 2). No figures are estimated or entered by hand.' },
-        { metric: 'Inbox volume and response times', reason: 'Unified inbox ships in Phase 3.' },
-        { metric: 'Campaign performance', reason: 'Campaign management ships in Phase 3.' },
-        { metric: 'Weekly and monthly report submissions', reason: 'Reporting ships in Phase 2.' },
+        { metric: 'Platform-verified figures', reason: 'Audience figures above are readings entered by hand. They become verified once an account is connected through its platform API.' },
+        { metric: 'Live platform feeds', reason: 'Inbox conversations, mentions and competitor figures are logged by staff. Nothing is pulled from the platforms automatically yet.' },
       ],
     },
   });
@@ -160,7 +212,7 @@ export const exportActivity = handle(async (req, res) => {
 // GET /timeline/:entity/:id: chronological history for one account, content item, task or person
 export const getTimeline = handle(async (req, res) => {
   const a = access(req);
-  const entity = oneOf(req.params.entity, ['SmoisAccount', 'SmoisContent', 'SmoisTask', 'SmoisMember'] as const, 'Resource');
+  const entity = oneOf(req.params.entity, ['SmoisAccount', 'SmoisContent', 'SmoisTask', 'SmoisMember', 'SmoisConversation', 'SmoisCampaign', 'SmoisAsset', 'SmoisMention'] as const, 'Resource');
   if (!can(a, 'viewActivity')) fail(403, 'Forbidden. Insufficient permissions.');
   const items = await prisma.auditLog.findMany({
     where: { entity, entityId: req.params.id, ...(can(a, 'viewAll') && a.level !== 'VIEWER' ? {} : { userId: a.userId }) },

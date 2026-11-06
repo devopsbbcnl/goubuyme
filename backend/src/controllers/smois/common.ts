@@ -1,5 +1,6 @@
 // Shared helpers for the SMOIS controllers.
 import { RequestHandler, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../../config/db';
 import { apiResponse } from '../../utils/apiResponse';
 import { notifyUser } from '../../services/notification.service';
@@ -132,4 +133,43 @@ export const isAssignedToAccount = async (memberId: string | null, accountId: st
     select: { id: true },
   });
   return !!a;
+};
+
+// ── Reporting periods ───────────────────────────────────────────────────────
+
+import { PERIOD_KEYS, resolvePeriod } from '../../services/smois/period';
+
+/** Calendar date in Lagos for an instant, as YYYY-MM-DD. */
+export const lagosYmd = (d: Date): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+
+/** period / from / to query parameters -> instants plus the Lagos dates snapshots are keyed by. */
+export const readPeriod = (q: Record<string, string>, fallback: (typeof PERIOD_KEYS)[number] = 'month') => {
+  const key = q.period ? oneOf(q.period, PERIOD_KEYS, 'Period') : fallback;
+  const p = resolvePeriod(key, new Date(), { from: date(q.from, 'From'), to: date(q.to, 'To') });
+  if (p.from > p.to) fail(400, 'The start date is after the end date.');
+  const toYmd = lagosYmd(p.to);
+  const today = lagosYmd(new Date());
+  return { ...p, fromYmd: lagosYmd(p.from), toYmd, asOfYmd: today < toYmd ? today : toYmd };
+};
+
+/** Accounts a person may see figures for: everything for management/viewers, only assigned accounts for managers. */
+export const visibleAccountIds = async (a: SmoisAccess, filters: { platform?: string; accountId?: string } = {}) => {
+  const where: Prisma.SmoisAccountWhereInput = { archivedAt: null, ...(filters.platform ? { platform: filters.platform as never } : {}), ...(filters.accountId ? { id: filters.accountId } : {}) };
+  if (a.level === 'MANAGER') {
+    const now = new Date();
+    where.assignments = { some: { memberId: a.memberId ?? '__none__', startsAt: { lte: now }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] } };
+  }
+  return prisma.smoisAccount.findMany({ where, select: { id: true, name: true, platform: true }, orderBy: [{ platform: 'asc' }, { name: 'asc' }] });
+};
+
+/** Refuse media that comes from a library asset which has expired or been rejected. Links not in the library are left alone. */
+export const assertAssetsUsable = async (urls: string[]): Promise<void> => {
+  if (!urls.length) return;
+  const assets = await prisma.smoisAsset.findMany({ where: { url: { in: urls } }, select: { name: true, expiresAt: true, approvalStatus: true } });
+  const now = new Date();
+  for (const a of assets) {
+    if (a.approvalStatus === 'REJECTED') fail(400, '"' + a.name + '" was rejected in the media library and cannot be used.');
+    if (a.expiresAt && a.expiresAt <= now) fail(400, '"' + a.name + '" has expired in the media library (usage rights ended). Choose another asset.');
+  }
 };

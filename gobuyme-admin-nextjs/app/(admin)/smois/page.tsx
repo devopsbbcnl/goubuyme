@@ -16,6 +16,8 @@ interface Dash {
   staff: { activeManagers: number; tasks: { assigned: number; completed: number; pending: number; overdue: number; awaitingReview: number } };
   upcoming: { id: string; status: string; scheduledAt: string | null; plannedAt: string | null; content: { id: string; title: string }; account: { name: string; platform: string } }[];
   me: { feedbackWaiting: number; submissions: { status: string; count: number }[] };
+  engagement: { incoming: number; comments: number; messages: number; mentions: number; unanswered: number; openComplaints: number; resolved: number; avgResponseMinutes: number | null; withinTargetPct: number | null } | null;
+  campaigns: { active: number; completedInPeriod: number; upcoming: number } | null;
   dataIntegrity: { source: string; status: string; asOf: string; unavailable: { metric: string; reason: string }[] };
 }
 
@@ -112,6 +114,36 @@ export default function SmoisOverview() {
             {scope === 'department' && <Kpi label="Active managers" value={data.staff.activeManagers} href="/smois/team" />}
           </Grid>
 
+          {me?.can.reviewReports && <TopSuggestions />}
+
+          {data.engagement && (
+            <>
+              <Heading>Community · {data.period.label}</Heading>
+              <Grid>
+                <Kpi label="Incoming" value={data.engagement.incoming} href="/smois/inbox" />
+                <Kpi label="Messages" value={data.engagement.messages} />
+                <Kpi label="Comments" value={data.engagement.comments} />
+                <Kpi label="Mentions" value={data.engagement.mentions} />
+                <Kpi label="Unanswered" value={data.engagement.unanswered} href="/smois/inbox?view=overdue" tone="warn" />
+                <Kpi label="Open complaints" value={data.engagement.openComplaints} href="/smois/inbox" tone="bad" />
+                <Kpi label="Resolved" value={data.engagement.resolved} />
+                <Kpi label="Avg first response" value={data.engagement.avgResponseMinutes === null ? 'No replies yet' : `${data.engagement.avgResponseMinutes} min`} />
+                <Kpi label="Within target" value={data.engagement.withinTargetPct === null ? '—' : `${data.engagement.withinTargetPct}%`} />
+              </Grid>
+            </>
+          )}
+
+          {data.campaigns && (
+            <>
+              <Heading>Campaigns</Heading>
+              <Grid>
+                <Kpi label="Active" value={data.campaigns.active} href="/smois/campaigns" />
+                <Kpi label="Completed this period" value={data.campaigns.completedInPeriod} href="/smois/campaigns" />
+                <Kpi label="Upcoming" value={data.campaigns.upcoming} href="/smois/campaigns" />
+              </Grid>
+            </>
+          )}
+
           <Heading>Accounts</Heading>
           <Grid>
             <Kpi label="Registered accounts" value={data.accounts.total} href="/smois/accounts" />
@@ -152,5 +184,24 @@ export default function SmoisOverview() {
         </>
       )}
     </div>
+  );
+}
+
+function TopSuggestions() {
+  const { theme: T } = useTheme();
+  const { data } = useLoad(() => api.get<{ data: { findings: { key: string; severity: string; title: string; evidence: string; link: string }[] } }>('/admin/smois/insights/workflow').then((r) => r.data), []);
+  if (!data || data.findings.length === 0) return null;
+  return (
+    <Card title="Worth a look" style={{ marginBottom: 20 }}>
+      {data.findings.slice(0, 3).map((f) => (
+        <Link key={f.key} href={f.link} style={{ textDecoration: 'none' }}>
+          <div style={{ padding: '8px 0', borderTop: `1px solid ${T.border}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}><Pill tone={f.severity === 'HIGH' ? 'bad' : f.severity === 'MEDIUM' ? 'warn' : 'neutral'}>{pretty(f.severity)}</Pill> {f.title}</div>
+            <div style={{ fontSize: 12, color: T.textSec, marginTop: 2 }}>{f.evidence}</div>
+          </div>
+        </Link>
+      ))}
+      <Link href="/smois/assistant" style={{ fontSize: 12, color: T.primary, fontWeight: 700, textDecoration: 'none' }}>All suggestions →</Link>
+    </Card>
   );
 }

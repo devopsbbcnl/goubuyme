@@ -2066,6 +2066,8 @@ model SmoisAccount {
   assignments SmoisAssignment[]
   variants    SmoisVariant[]
   tasks       SmoisTask[]
+  snapshots   SmoisMetricSnapshot[]
+  conversations SmoisConversation[]
 
   @@unique([platform, handle])
   @@index([platform, archivedAt])
@@ -2122,7 +2124,9 @@ model SmoisContent {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  campaignId  String?
   category SmoisCategory? @relation(fields: [categoryId], references: [id])
+  campaign SmoisCampaign? @relation(fields: [campaignId], references: [id])
   variants SmoisVariant[]
 
   @@index([creatorId])
@@ -2166,6 +2170,7 @@ model SmoisVariant {
   reviews  SmoisReview[]
   comments SmoisComment[]
   attempts SmoisPublishAttempt[]
+  postMetrics SmoisPostMetric[]
 
   @@index([accountId, status])
   @@index([status, scheduledAt])
@@ -2374,6 +2379,15 @@ model SmoisSettings {
   allowSelfApproval     Boolean  @default(false)
   minPostGapMinutes     Int      @default(30)
   approvalReminderHours Int      @default(24)
+  slaHighMinutes        Int      @default(30)
+  slaStandardMinutes    Int      @default(120)
+  slaGeneralMinutes     Int      @default(1440)
+  businessStartHour     Int      @default(8)
+  businessEndHour       Int      @default(18)
+  businessDays          Int[]    @default([1, 2, 3, 4, 5])
+  /// AI assistance is off until a super admin switches it on.
+  aiEnabled             Boolean  @default(false)
+  aiDailyLimit          Int      @default(30)
   updatedById           String?
   updatedAt             DateTime @updatedAt
 
@@ -2388,4 +2402,480 @@ model SmoisPreference {
   updatedAt   DateTime @updatedAt
 
   @@map("smois_preferences")
+}
+
+// ── SMOIS phase 2: analytics, targets, performance, reports ────────────────
+
+enum SmoisReportType {
+  WEEKLY_MANAGER
+  MONTHLY_DEPARTMENT
+  QUARTERLY_DEPARTMENT
+  ANNUAL_DEPARTMENT
+}
+
+enum SmoisReportStatus {
+  DRAFT
+  SUBMITTED
+  CLARIFICATION_REQUESTED
+  APPROVED
+}
+
+/// One account on one day. followers is a running total; the other figures cover that day.
+/// dataStatus says where it came from; until integrations exist everything is MANUAL.
+model SmoisMetricSnapshot {
+  id               String   @id @default(uuid())
+  accountId        String
+  snapshotDate     DateTime @db.Date
+  followers        Int?
+  reach            Int?
+  impressions      Int?
+  engagement       Int?
+  profileVisits    Int?
+  videoViews       Int?
+  websiteClicks    Int?
+  dataStatus       String   @default("MANUAL")
+  source           String   @default("Entered by hand")
+  metricVersion    String   @default("v1")
+  note             String?
+  enteredById      String
+  retrievedAt      DateTime @default(now())
+  correctedById    String?
+  correctedAt      DateTime?
+  correctionReason String?
+  createdAt        DateTime @default(now())
+
+  account SmoisAccount @relation(fields: [accountId], references: [id])
+
+  @@unique([accountId, snapshotDate])
+  @@index([snapshotDate])
+  @@map("smois_metric_snapshots")
+}
+
+/// A reading of one published post. Several can exist over time (early, day 7, final).
+model SmoisPostMetric {
+  id          String   @id @default(uuid())
+  variantId   String
+  recordedAt  DateTime @default(now())
+  reach       Int?
+  impressions Int?
+  likes       Int?
+  comments    Int?
+  shares      Int?
+  saves       Int?
+  clicks      Int?
+  videoViews  Int?
+  dataStatus  String   @default("MANUAL")
+  note        String?
+  enteredById String
+
+  variant SmoisVariant @relation(fields: [variantId], references: [id])
+
+  @@index([variantId, recordedAt])
+  @@map("smois_post_metrics")
+}
+
+model SmoisTarget {
+  id          String        @id @default(uuid())
+  name        String
+  metric      String
+  targetValue Float
+  /// DEPARTMENT | PLATFORM | ACCOUNT | EMPLOYEE
+  scope       String
+  platform    SmoisPlatform?
+  accountId   String?
+  memberId    String?
+  startsAt    DateTime
+  endsAt      DateTime
+  supervisorId String?
+  notes       String?
+  isActive    Boolean       @default(true)
+  /// The last status management was told about, so a change is announced once.
+  lastNotifiedStatus String?
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([scope, isActive])
+  @@index([memberId])
+  @@map("smois_targets")
+}
+
+/// Management's written assessment of a person for a period. Never edited or deleted, only added to.
+model SmoisEvaluation {
+  id          String   @id @default(uuid())
+  memberId    String
+  periodStart DateTime
+  periodEnd   DateTime
+  feedback    String
+  rating      Int?
+  reviewerId  String
+  createdAt   DateTime @default(now())
+
+  @@index([memberId, createdAt])
+  @@map("smois_evaluations")
+}
+
+model SmoisReport {
+  id           String            @id @default(uuid())
+  type         SmoisReportType
+  periodStart  DateTime
+  periodEnd    DateTime
+  authorId     String
+  status       SmoisReportStatus @default(DRAFT)
+  /// Figures counted from SMOIS records when the draft was generated (frozen once submitted).
+  data         Json
+  /// Words written by the author.
+  commentary   Json              @default("{}")
+  submittedAt  DateTime?
+  reviewedById String?
+  reviewedAt   DateTime?
+  reviewNote   String?
+  dueNotifiedAt DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([authorId, type, periodStart])
+  @@index([type, status])
+  @@map("smois_reports")
+}
+
+// ── SMOIS phase 3: inbox, contacts, campaigns, media library, listening, competitors ──
+
+enum SmoisConversationType {
+  DIRECT_MESSAGE
+  COMMENT
+  MENTION
+  REPLY
+  STORY_INTERACTION
+  ENQUIRY
+  REVIEW
+}
+
+enum SmoisConversationStatus {
+  NEW
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_FOR_CUSTOMER
+  ESCALATED
+  RESOLVED
+  CLOSED
+}
+
+enum SmoisInboxPriority {
+  HIGH
+  STANDARD
+  GENERAL
+}
+
+enum SmoisCampaignStatus {
+  PLANNING
+  BRIEFING
+  PREPARATION
+  APPROVAL
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum SmoisSentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+  UNCERTAIN
+}
+
+model SmoisContact {
+  id           String         @id @default(uuid())
+  displayName  String
+  username     String?
+  platform     SmoisPlatform?
+  profileUrl   String?
+  /// Only what the person chose to share. Never scraped.
+  email        String?
+  phone        String?
+  location     String?
+  category     String         @default("OTHER")
+  assignedToId String?
+  tags         String[]
+  notes        String?
+  consentNote  String?
+  consentAt    DateTime?
+  anonymizedAt DateTime?
+  createdById  String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  conversations SmoisConversation[]
+
+  @@index([platform, username])
+  @@index([anonymizedAt])
+  @@map("smois_contacts")
+}
+
+model SmoisConversation {
+  id                  String                  @id @default(uuid())
+  number              Int                     @unique @default(autoincrement())
+  accountId           String
+  contactId           String?
+  type                SmoisConversationType   @default(DIRECT_MESSAGE)
+  subject             String?
+  externalUrl         String?
+  status              SmoisConversationStatus @default(NEW)
+  priority            SmoisInboxPriority      @default(GENERAL)
+  tags                String[]
+  assignedMemberId    String?
+  /// When it reached the platform account (not when someone logged it here).
+  receivedAt          DateTime
+  slaDueAt            DateTime?
+  firstResponseAt     DateTime?
+  firstResponderId    String?
+  resolvedAt          DateTime?
+  escalationType      String?
+  escalatedAt         DateTime?
+  escalationNote      String?
+  slaBreachNotifiedAt DateTime?
+  loggedById          String
+  lastActivityAt      DateTime                @default(now())
+  createdAt           DateTime                @default(now())
+
+  account  SmoisAccount   @relation(fields: [accountId], references: [id])
+  contact  SmoisContact?  @relation(fields: [contactId], references: [id])
+  messages SmoisMessage[]
+
+  @@index([status, priority])
+  @@index([assignedMemberId, status])
+  @@index([accountId, receivedAt])
+  @@index([slaDueAt])
+  @@map("smois_conversations")
+}
+
+model SmoisMessage {
+  id             String   @id @default(uuid())
+  conversationId String
+  /// INBOUND (from the person), OUTBOUND (our reply, as sent on the platform) or NOTE (internal only).
+  direction      String
+  body           String
+  authorId       String?
+  occurredAt     DateTime
+  createdAt      DateTime @default(now())
+
+  conversation SmoisConversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId, occurredAt])
+  @@map("smois_messages")
+}
+
+model SmoisSavedReply {
+  id          String   @id @default(uuid())
+  title       String
+  body        String
+  isActive    Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  @@map("smois_saved_replies")
+}
+
+model SmoisCampaign {
+  id              String              @id @default(uuid())
+  number          Int                 @unique @default(autoincrement())
+  name            String
+  description     String?
+  objective       String?
+  type            String              @default("BRAND_AWARENESS")
+  ownerId         String
+  status          SmoisCampaignStatus @default(PLANNING)
+  startsAt        DateTime
+  endsAt          DateTime
+  targetAudience  String?
+  budget          Float?
+  expectedResults String?
+  trackingLinks   Json                @default("[]")
+  lessonsLearned  String?
+  recommendations String?
+  createdById     String
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  contents SmoisContent[]
+  accounts SmoisCampaignAccount[]
+  members  SmoisCampaignMember[]
+  results  SmoisCampaignResult[]
+
+  @@index([status, startsAt])
+  @@map("smois_campaigns")
+}
+
+model SmoisCampaignAccount {
+  campaignId String
+  accountId  String
+
+  campaign SmoisCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, accountId])
+  @@map("smois_campaign_accounts")
+}
+
+model SmoisCampaignMember {
+  campaignId String
+  memberId   String
+
+  campaign SmoisCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, memberId])
+  @@map("smois_campaign_members")
+}
+
+/// Results a person copied from the platform or the ads manager. Paid and organic are kept apart.
+model SmoisCampaignResult {
+  id          String   @id @default(uuid())
+  campaignId  String
+  /// PAID | ORGANIC
+  channel     String
+  recordedFor DateTime @db.Date
+  reach       Int?
+  impressions Int?
+  engagement  Int?
+  clicks      Int?
+  leads       Int?
+  conversions Int?
+  spend       Float?
+  revenue     Float?
+  note        String?
+  enteredById String
+  createdAt   DateTime @default(now())
+
+  campaign SmoisCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, channel])
+  @@map("smois_campaign_results")
+}
+
+model SmoisAsset {
+  id                String    @id @default(uuid())
+  name              String
+  description       String?
+  category          String    @default("OTHER")
+  fileType          String    @default("IMAGE")
+  fileSize          Int?
+  url               String
+  folder            String?
+  tags              String[]
+  version           Int       @default(1)
+  /// The asset this one replaces, so version history can be walked.
+  previousVersionId String?
+  /// DRAFT | APPROVED | REJECTED
+  approvalStatus    String    @default("DRAFT")
+  approvedById      String?
+  usageRestrictions String?
+  expiresAt         DateTime?
+  expiryNotifiedAt  DateTime?
+  uploadedById      String
+  archivedAt        DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@index([category, archivedAt])
+  @@index([expiresAt])
+  @@map("smois_assets")
+}
+
+model SmoisKeyword {
+  id          String   @id @default(uuid())
+  term        String
+  /// BRAND | PRODUCT | EXECUTIVE | INDUSTRY | HASHTAG | COMPETITOR
+  kind        String   @default("BRAND")
+  isActive    Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  mentions SmoisMention[]
+
+  @@unique([term, kind])
+  @@map("smois_keywords")
+}
+
+/// A public mention a person found and logged. There is no automated monitoring.
+model SmoisMention {
+  id              String         @id @default(uuid())
+  keywordId       String?
+  platform        SmoisPlatform?
+  authorName      String?
+  url             String?
+  text            String
+  sentiment       SmoisSentiment @default(UNCERTAIN)
+  /// MANUAL: chosen by whoever logged it. An assistive label, never a verdict.
+  sentimentSource String         @default("MANUAL")
+  reach           Int?
+  occurredAt      DateTime
+  handled         Boolean        @default(false)
+  handledById     String?
+  note            String?
+  loggedById      String
+  createdAt       DateTime       @default(now())
+
+  keyword SmoisKeyword? @relation(fields: [keywordId], references: [id])
+
+  @@index([occurredAt])
+  @@index([sentiment, occurredAt])
+  @@map("smois_mentions")
+}
+
+model SmoisCompetitor {
+  id               String        @id @default(uuid())
+  name             String
+  website          String?
+  platform         SmoisPlatform
+  handle           String?
+  url              String?
+  industry         String?
+  notes            String?
+  monitoringStatus String        @default("ACTIVE")
+  createdById      String
+  createdAt        DateTime      @default(now())
+
+  snapshots SmoisCompetitorSnapshot[]
+
+  @@unique([platform, handle])
+  @@map("smois_competitors")
+}
+
+/// What a person observed on a competitor's public profile on a given day.
+model SmoisCompetitorSnapshot {
+  id             String   @id @default(uuid())
+  competitorId   String
+  observedOn     DateTime @db.Date
+  followers      Int?
+  postsLast7Days Int?
+  avgEngagement  Float?
+  popularContent String?
+  campaignNote   String?
+  /// PUBLIC_OBSERVATION | ESTIMATE | THIRD_PARTY
+  dataKind       String   @default("PUBLIC_OBSERVATION")
+  enteredById    String
+  createdAt      DateTime @default(now())
+
+  competitor SmoisCompetitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+
+  @@unique([competitorId, observedOn])
+  @@map("smois_competitor_snapshots")
+}
+
+/// One row per AI request: who asked, which feature, and how it went. The question and the answer are not stored.
+model SmoisAiRequest {
+  id              String   @id @default(uuid())
+  userId          String
+  feature         String
+  model           String?
+  /// OK | UNAVAILABLE | DISABLED | LIMIT | ERROR
+  status          String
+  unverifiedCount Int      @default(0)
+  durationMs      Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([feature, createdAt])
+  @@map("smois_ai_requests")
 }
