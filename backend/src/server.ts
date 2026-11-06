@@ -58,6 +58,7 @@ import companyRoutes from './routes/company.routes';
 import adminRoutes from './routes/admin.routes';
 import crmRoutes from './routes/crm.routes';
 import smoisRoutes from "./routes/smois.routes";
+import smoisWebhookRoutes from "./routes/smoisWebhook.routes";
 import marketingRoutes from './routes/marketing.routes';
 import leadRoutes from './routes/lead.routes';
 import offerRoutes from './routes/offer.routes';
@@ -122,7 +123,8 @@ attachRedisAdapter(io);
 app.use(helmet());
 app.use(cors({ origin: allowedOrigins }));
 app.use(ipBlocklistMiddleware);
-app.use(express.json());
+// Keep the raw bytes: platform webhooks are signed over the exact body.
+app.use(express.json({ verify: (req, _res, buf) => { (req as unknown as { rawBody?: Buffer }).rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true }));
 
 if (process.env.NODE_ENV === 'development') {
@@ -191,6 +193,7 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/riders', riderRoutes);
 app.use('/api/v1/company', companyRoutes);
 app.use('/api/v1/admin/crm', crmRoutes);
+app.use('/api/v1/webhooks/smois', smoisWebhookRoutes);
 app.use('/api/v1/admin/smois', smoisRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/offers', offerRoutes);

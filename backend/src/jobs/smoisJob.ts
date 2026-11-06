@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import logger from '../utils/logger';
 import { recordError } from '../utils/recordError';
 import { claimJobRun } from '../utils/jobLock';
+import { sweepConnections } from '../services/smois/connectors/sync';
 import { generateRecurringTasks, sweepApprovals, sweepAssetExpiry, sweepDuePublishing, sweepReportsDue, sweepReputation, sweepResponseTargets, sweepTargetStatus, sweepTaskDeadlines, sweepUnusualPerformance } from '../services/smois/sweep';
 
 const schedule = process.env.SMOIS_SWEEP_CRON_SCHEDULE || '*/15 * * * *';
@@ -22,6 +23,7 @@ export const startSmoisJobs = (): void => {
       await sweepReputation();
       await sweepTargetStatus();
       await sweepUnusualPerformance();
+      await sweepConnections();
     } catch (err) {
       recordError('smois-job', 'SMOIS sweep failed', err);
     }
