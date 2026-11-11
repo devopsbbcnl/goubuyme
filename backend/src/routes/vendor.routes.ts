@@ -13,7 +13,7 @@ import {
   getMyDocument, submitDocument,
   getMyBusinessVerification, submitBusinessVerification,
   getMyLicenses, submitLicense, deleteLicense,
-  getMyPromotions, createPromotion, togglePromotion, deletePromotion, updatePromotionPosition,
+  getMyPromotions, createPromotion, updatePromotion, togglePromotion, deletePromotion, updatePromotionPosition,
   getActiveVendorPromotions, searchMenuItems, unifiedSearch, browseItems, getMenuItemById, getSimilarMenuItems,
   getPublicCommissionRates,
 } from '../controllers/vendor.controller';
@@ -93,6 +93,7 @@ router.delete('/me/menu/:itemId/option-groups/:groupId/items/:optItemId',       
 // Promotion routes (vendor-authenticated)
 router.get('/me/promotions',                   ...vendorAuth, getMyPromotions);
 router.post('/me/promotions',                  ...vendorAuth, createPromotion);
+router.patch('/me/promotions/:id',             ...vendorAuth, updatePromotion);
 router.patch('/me/promotions/:id/toggle',      ...vendorAuth, togglePromotion);
 router.patch('/me/promotions/:id/position',    ...vendorAuth, updatePromotionPosition);
 router.delete('/me/promotions/:id',            ...vendorAuth, deletePromotion);

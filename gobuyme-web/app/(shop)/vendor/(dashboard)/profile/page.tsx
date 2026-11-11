@@ -10,6 +10,7 @@ import Image from 'next/image';
 import { useCommissionRates } from '@/hooks/useCommissionRates';
 
 interface VendorProfile {
+  id: string;
   businessName: string;
   description?: string;
   address: string;
@@ -175,13 +176,29 @@ export default function VendorProfilePage() {
   if (loading) return <div className="kpi-grid">{[...Array(4)].map((_, i) => <div key={i} className="sk" style={{ height: 60 }} />)}</div>;
   if (!profile) return <div className="empty"><div className="emoji">🏪</div><h3>No profile data</h3></div>;
 
+  // Public link to this store. On a phone with the GoBuyMe app it opens in the app.
+  const shareStore = async () => {
+    const url = `${window.location.origin}/vendor/${profile.id}`;
+    const text = `Order from ${profile.businessName} on GoBuyMe`;
+    try {
+      if (navigator.share) { await navigator.share({ title: profile.businessName, text, url }); return; }
+      await navigator.clipboard.writeText(url);
+      toast('Store link copied', 'success');
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') toast('Could not share the link', 'error');
+    }
+  };
+
   return (
     <div>
       <div className="between" style={{ marginBottom: 28 }}>
         <h1 className="t-page">Store Profile</h1>
-        <button className="btn btn-primary" onClick={save} disabled={saving}>
-          {saving ? <><span className="spin" />Saving…</> : 'Save Changes'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={shareStore}>🔗 Share store</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>
+            {saving ? <><span className="spin" />Saving…</> : 'Save Changes'}
+          </button>
+        </div>
       </div>
 
       <div className="two-col-grid">

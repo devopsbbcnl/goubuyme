@@ -244,12 +244,14 @@ Key routes: `POST /auth/register`, `POST /auth/login`, `POST /auth/verify-otp`,
 
 Vendor promotion routes (vendor-auth required):
 `GET /vendors/me/promotions`, `POST /vendors/me/promotions`,
-`PATCH /vendors/me/promotions/:id/toggle`, `DELETE /vendors/me/promotions/:id`
+`PATCH /vendors/me/promotions/:id` (edit + resubmit), `PATCH /vendors/me/promotions/:id/toggle`, `DELETE /vendors/me/promotions/:id`
 
 Public promotion route (customer homescreen carousel):
-`GET /vendors/active-promotions` — returns all active vendor promo cards (max 10, ordered by updatedAt)
+`GET /vendors/active-promotions` — returns active, **admin-approved** promo cards from approved vendors (optional `?city=` filter, case-insensitive match on the vendor's city; ordered by updatedAt)
 
-Prisma model: `VendorPromotion` (id, vendorId, title, imageUrl, code?, isActive, createdAt, updatedAt)
+Prisma model: `VendorPromotion` (id, vendorId, title, imageUrl, code?, isActive, approvalStatus PENDING/APPROVED/REJECTED, reviewedById?, reviewedAt?, rejectionReason?, createdAt, updatedAt)
+Approval flow: new cards start PENDING; admin approves/rejects at admin `/promotions` (`/admin/promotions*`); the vendor can only set an APPROVED card live; editing title/image/code (or any edit of a REJECTED card) sends it back to PENDING and switches it off.
+Share + deep links: vendor profile "Share My Store" shares `https://gobuyme.shop/vendor/<id>`; Android `intentFilters` in app.json and iOS `associatedDomains` open it in the app (route `(customer)/vendor/[id]`). The website serves `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association` from env `ANDROID_SHA256_CERT_FINGERPRINTS` and `APPLE_TEAM_ID` (404 until set).
 Tier rules enforced server-side: POST/PATCH toggle blocked for TIER_1 (403); PATCH /vendors/me/tier
 to TIER_1 auto-deactivates all vendor promotions.
 

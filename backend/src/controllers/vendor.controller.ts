@@ -4,7 +4,7 @@ import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { haversineDistance, estimateDeliveryMinutes } from '../services/distance.service';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
-import { ApprovalStatus, CommissionTier, LicenseType, OrderActorType, OrderStatus, Prisma, VendorCategory, VerificationBadge } from '@prisma/client';
+import { ApprovalStatus, CommissionTier, LicenseType, OrderActorType, OrderStatus, Prisma, PromotionStatus, VendorCategory, VerificationBadge } from '@prisma/client';
 import { cancelOrderWithRefund, transitionOrder, OrderActionError } from '../services/orderLifecycle.service';
 import { notifyUser } from '../services/notification.service';
 import { AuthRequest } from '../middleware/auth.middleware';
@@ -1425,9 +1425,64 @@ export const createPromotion = catchAsync(async (req: AuthRequest, res: Response
   if (imagePosition === false) return apiResponse.error(res, 'Image position must look like "50% 30%".', 400);
 
   const promo = await prisma.vendorPromotion.create({
-    data: { vendorId: vendor.id, title, imageUrl, imagePosition: imagePosition ?? null, code: code || null, isActive: false },
+    data: { vendorId: vendor.id, title, imageUrl, imagePosition: imagePosition ?? null, code: code || null, isActive: false, approvalStatus: PromotionStatus.PENDING },
   });
-  return apiResponse.success(res, 'Promotion created.', promo, 201);
+  return apiResponse.success(res, 'Promotion submitted for review. It goes live once an admin approves it.', promo, 201);
+});
+
+// PATCH /vendors/me/promotions/:id
+// Edit a card. Any change to what customers would see (title, image, code), and any edit of a
+// rejected card, sends it back to review and takes it off the carousel until an admin approves it.
+export const updatePromotion = catchAsync(async (req: AuthRequest, res: Response) => {
+  const vendor = await prisma.vendor.findFirst({
+    where: actingVendorWhere(req),
+    select: { id: true, commissionTier: true },
+  });
+  if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+  if (vendor.commissionTier !== CommissionTier.TIER_2) {
+    return apiResponse.error(res, 'Promotions require the Growth Plan (Tier 2).', 403);
+  }
+
+  const promo = await prisma.vendorPromotion.findFirst({ where: { id: req.params.id, vendorId: vendor.id } });
+  if (!promo) return apiResponse.error(res, 'Promotion not found.', 404);
+
+  const data: Prisma.VendorPromotionUpdateInput = {};
+  let material = false;
+
+  if (req.body.title !== undefined) {
+    const title = String(req.body.title).trim();
+    if (!title) return apiResponse.error(res, 'title cannot be empty.', 400);
+    if (title !== promo.title) { data.title = title; material = true; }
+  }
+  if (req.body.imageUrl !== undefined) {
+    const imageUrl = String(req.body.imageUrl).trim();
+    if (!imageUrl) return apiResponse.error(res, 'imageUrl cannot be empty.', 400);
+    if (imageUrl !== promo.imageUrl) { data.imageUrl = imageUrl; material = true; }
+  }
+  if (req.body.code !== undefined) {
+    const code = String(req.body.code || '').trim().toUpperCase() || null;
+    if (code !== promo.code) { data.code = code; material = true; }
+  }
+  if (req.body.imagePosition !== undefined) {
+    const imagePosition = parseImagePosition(req.body.imagePosition);
+    if (imagePosition === false) return apiResponse.error(res, 'Image position must look like "50% 30%".', 400);
+    data.imagePosition = imagePosition ?? null;
+  }
+
+  const resubmit = promo.approvalStatus === PromotionStatus.REJECTED;
+  if (material || resubmit) {
+    data.approvalStatus = PromotionStatus.PENDING;
+    data.isActive = false;
+    data.rejectionReason = null;
+    data.reviewedAt = null;
+    data.reviewedById = null;
+  }
+
+  const updated = await prisma.vendorPromotion.update({ where: { id: promo.id }, data });
+  const message = material || resubmit
+    ? 'Promotion sent for review. It goes live once an admin approves it.'
+    : 'Promotion updated.';
+  return apiResponse.success(res, message, updated);
 });
 
 // PATCH /vendors/me/promotions/:id/position
@@ -1471,6 +1526,16 @@ export const togglePromotion = catchAsync(async (req: AuthRequest, res: Response
     where: { id: req.params.id, vendorId: vendor.id },
   });
   if (!promo) return apiResponse.error(res, 'Promotion not found.', 404);
+
+  if (!promo.isActive && promo.approvalStatus !== PromotionStatus.APPROVED) {
+    return apiResponse.error(
+      res,
+      promo.approvalStatus === PromotionStatus.REJECTED
+        ? 'This promotion was rejected. Edit it and resubmit for review.'
+        : 'This promotion is awaiting admin approval.',
+      409,
+    );
+  }
 
   // Activating: deactivate any currently active promo first (only one active at a time)
   if (!promo.isActive) {
@@ -1864,8 +1929,12 @@ export const browseItems = catchAsync(async (req: Request, res: Response) => {
 export const getActiveVendorPromotions = catchAsync(async (req: Request, res: Response) => {
   const { city, limit = '50' } = req.query as Record<string, string>;
 
-  const where: Record<string, unknown> = { isActive: true };
-  if (city) where.vendor = { city: { equals: city, mode: 'insensitive' }, approvalStatus: ApprovalStatus.APPROVED };
+  // Only cards an admin approved, from vendors that are themselves approved. The city filter is optional.
+  const where: Prisma.VendorPromotionWhereInput = {
+    isActive: true,
+    approvalStatus: PromotionStatus.APPROVED,
+    vendor: { approvalStatus: ApprovalStatus.APPROVED, ...(city ? { city: { equals: city, mode: 'insensitive' } } : {}) },
+  };
 
   const promos = await prisma.vendorPromotion.findMany({
     where,

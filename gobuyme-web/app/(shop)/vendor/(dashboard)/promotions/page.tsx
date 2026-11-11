@@ -8,7 +8,7 @@ import { positionStyle } from '@/lib/imagePosition';
 import api from '@/services/api';
 import { uploadToCloudinary } from '@/services/cloudinary';
 
-interface Promo { id: string; title: string; description?: string; imageUrl?: string; imagePosition?: string | null; isActive: boolean; expiresAt?: string; }
+interface Promo { id: string; title: string; description?: string; imageUrl?: string; imagePosition?: string | null; code?: string | null; isActive: boolean; expiresAt?: string; approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED'; rejectionReason?: string | null; }
 
 export default function VendorPromotionsPage() {
   const toast = useToast();
@@ -21,6 +21,7 @@ export default function VendorPromotionsPage() {
   const [form, setForm] = useState({ title: '', description: '', imageUrl: '', imagePosition: '', expiresAt: '' });
   const [imgBusy, setImgBusy] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [tier, setTier] = useState<string | null>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
   // Which saved promo (or the form's draft image) is being repositioned.
@@ -62,24 +63,45 @@ export default function VendorPromotionsPage() {
     finally { setImgBusy(false); }
   };
 
-  const create = async () => {
+  const reload = async () => {
+    try { const r = await api.get('/vendors/me/promotions'); setPromos(r.data.data ?? []); } catch {}
+  };
+
+  const openNew = () => {
+    setEditId(null);
+    setForm({ title: '', description: '', imageUrl: '', imagePosition: '', expiresAt: '' });
+    setModal(true);
+  };
+
+  const openEdit = (p: Promo) => {
+    setEditId(p.id);
+    setForm({ title: p.title, description: p.description ?? '', imageUrl: p.imageUrl ?? '', imagePosition: p.imagePosition ?? '', expiresAt: '' });
+    setModal(true);
+  };
+
+  const save = async () => {
     if (!form.title) { toast('Title required', 'error'); return; }
+    if (!form.imageUrl) { toast('Please add a promotion image', 'error'); return; }
     setSaving(true);
     try {
-      const { data } = await api.post('/vendors/me/promotions', form);
-      setPromos(prev => [...prev, data.data]);
+      const body = { title: form.title, imageUrl: form.imageUrl, imagePosition: form.imagePosition || undefined };
+      const { data } = editId
+        ? await api.patch(`/vendors/me/promotions/${editId}`, body)
+        : await api.post('/vendors/me/promotions', body);
       setModal(false);
-      toast('Promotion created', 'success');
+      setEditId(null);
+      await reload();
+      toast(data?.message ?? 'Submitted for review', 'success');
     } catch (e: any) {
-      toast(e?.response?.data?.message ?? 'Create failed', 'error');
+      toast(e?.response?.data?.message ?? 'Save failed', 'error');
     } finally { setSaving(false); }
   };
 
   const toggle = async (id: string) => {
     try {
       await api.patch(`/vendors/me/promotions/${id}/toggle`);
-      setPromos(prev => prev.map(p => p.id === id ? { ...p, isActive: !p.isActive } : p));
-    } catch { toast('Update failed', 'error'); }
+      await reload(); // only one card can be live, so other cards may have switched off
+    } catch (e: any) { toast(e?.response?.data?.message ?? 'Update failed', 'error'); }
   };
 
   const del = async (id: string) => {
@@ -107,7 +129,7 @@ export default function VendorPromotionsPage() {
     <div>
       <div className="between" style={{ marginBottom: 24 }}>
         <h1 className="t-page">Promotions</h1>
-        <button className="btn btn-primary" onClick={() => { setForm({ title: '', description: '', imageUrl: '', imagePosition: '', expiresAt: '' }); setModal(true); }}>+ New Promotion</button>
+        <button className="btn btn-primary" onClick={openNew}>+ New Promotion</button>
       </div>
 
       {loading ? (
@@ -115,20 +137,26 @@ export default function VendorPromotionsPage() {
           {[...Array(3)].map((_, i) => <div key={i} className="sk" style={{ height: 200 }} />)}
         </div>
       ) : promos.length === 0 ? (
-        <div className="empty"><div className="emoji">🎁</div><h3>No promotions</h3><p>Create your first promotion to attract more customers.</p><button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => { setForm({ title: '', description: '', imageUrl: '', imagePosition: '', expiresAt: '' }); setModal(true); }}>+ New Promotion</button></div>
+        <div className="empty"><div className="emoji">🎁</div><h3>No promotions</h3><p>Create your first promotion to attract more customers.</p><button className="btn btn-primary" style={{ marginTop: 20 }} onClick={openNew}>+ New Promotion</button></div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {promos.map(p => (
-            <div key={p.id} className="card" style={{ overflow: 'hidden', opacity: p.isActive ? 1 : .6 }}>
+            <div key={p.id} className="card" style={{ overflow: 'hidden', opacity: p.isActive || p.approvalStatus !== 'APPROVED' ? 1 : .75 }}>
               {p.imageUrl ? <img src={p.imageUrl} alt="" style={{ width: '100%', height: 160, objectFit: 'cover', ...positionStyle(p.imagePosition) }} /> : <div style={{ width: '100%', height: 160, background: 'linear-gradient(135deg, var(--brand-tint), var(--surface2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>🎁</div>}
               <div style={{ padding: 16 }}>
                 <div className="between" style={{ marginBottom: 8 }}>
                   <span style={{ fontWeight: 700 }}>{p.title}</span>
-                  <label className="switch" style={{ transform: 'scale(.85)' }}><input type="checkbox" checked={p.isActive} onChange={() => toggle(p.id)} /><span className="track" /></label>
+                  <label className="switch" style={{ transform: 'scale(.85)' }}><input type="checkbox" checked={p.isActive} disabled={!p.isActive && p.approvalStatus !== 'APPROVED'} title={p.approvalStatus !== 'APPROVED' ? 'Available once approved' : undefined} onChange={() => toggle(p.id)} /><span className="track" /></label>
                 </div>
+                <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 700, color: p.approvalStatus === 'APPROVED' ? 'var(--success, #1A9E5F)' : p.approvalStatus === 'REJECTED' ? 'var(--danger, #E23B3B)' : '#F5A623' }}>
+                  {p.approvalStatus === 'APPROVED' ? (p.isActive ? 'Approved · Live' : 'Approved · Off') : p.approvalStatus === 'REJECTED' ? 'Rejected' : 'In review'}
+                </div>
+                {p.approvalStatus === 'REJECTED' && <p style={{ fontSize: 12, marginBottom: 10, color: 'var(--danger, #E23B3B)' }}>Not approved{p.rejectionReason ? ': ' + p.rejectionReason : '.'} Edit it and resubmit.</p>}
+                {p.approvalStatus === 'PENDING' && <p className="muted" style={{ fontSize: 12, marginBottom: 10 }}>Waiting for admin approval. You can switch it on once approved.</p>}
                 {p.description && <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>{p.description}</p>}
                 <div style={{ display: 'flex', gap: 8 }}>
                   {p.imageUrl && <button className="btn btn-ghost btn-sm" onClick={() => setRepositionTarget(p)}>✥ Reposition</button>}
+                  <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}>{p.approvalStatus === 'REJECTED' ? '✎ Edit & Resubmit' : '✎ Edit'}</button>
                   <button className="btn btn-danger btn-sm" onClick={() => del(p.id)}>Delete</button>
                 </div>
               </div>
@@ -140,7 +168,7 @@ export default function VendorPromotionsPage() {
       {modal && (
         <div className="modal-overlay" onClick={() => setModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-head"><h3>New Promotion</h3><button onClick={() => setModal(false)}>✕</button></div>
+            <div className="modal-head"><h3>{editId ? 'Edit Promotion' : 'New Promotion'}</h3><button onClick={() => setModal(false)}>✕</button></div>
             <div className="modal-body">
               <input ref={fileRef}   type="file" accept="image/*"                      style={{ display: 'none' }} onChange={handleImageFile} />
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleImageFile} />
@@ -177,7 +205,7 @@ export default function VendorPromotionsPage() {
             </div>
             <div className="modal-foot">
               <button className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={create} disabled={saving || imgBusy}>{saving ? <><span className="spin" />Creating…</> : 'Create'}</button>
+              <button className="btn btn-primary" onClick={save} disabled={saving || imgBusy}>{saving ? <><span className="spin" />Saving…</> : editId ? 'Save & Resubmit' : 'Submit for Review'}</button>
             </div>
           </div>
         </div>

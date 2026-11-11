@@ -31,7 +31,7 @@ export interface FullDetail {
   subcategory?: string | null;
   businessHours?: { id: string; dayOfWeek: number; openTime: string; closeTime: string }[];
   temporaryClosures?: { id: string; startAt: string; endAt: string | null; reason: string | null }[];
-  vendorPromotions?: { id: string; title: string; imageUrl: string; code: string | null; isActive: boolean; createdAt: string }[];
+  vendorPromotions?: { id: string; title: string; imageUrl: string; code: string | null; isActive: boolean; approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED'; rejectionReason?: string | null; createdAt: string }[];
   incidents?: { id: string; orderId: string; incidentType: string; createdAt: string }[];
   payoutAccount?: { bankName: string; accountName: string; accountNumberMasked: string; hasTransferRecipient: boolean } | null;
   payoutSummary?: { status: string; count: number; netAmount: number }[];
@@ -361,6 +361,7 @@ export function VendorFullDetail({ detail, T, onOpenVendor }: { detail: FullDeta
           ) : detail.vendorPromotions!.map(p => (
             <div key={p.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
               <Pill text={p.isActive ? 'Active' : 'Off'} tone={p.isActive ? 'good' : 'neutral'} T={T} />
+              {p.approvalStatus && <Pill text={p.approvalStatus === 'PENDING' ? 'Needs review' : p.approvalStatus === 'APPROVED' ? 'Approved' : 'Rejected'} tone={p.approvalStatus === 'APPROVED' ? 'good' : p.approvalStatus === 'REJECTED' ? 'bad' : 'warn'} T={T} />}
               <span style={{ fontSize: 12, color: T.text }}>{p.title}{p.code ? ` · ${p.code}` : ''}</span>
             </div>
           ))}

@@ -45,6 +45,13 @@ const nextConfig: NextConfig = {
     loader: 'custom',
     loaderFile: './lib/cloudinaryLoader.ts',
   },
+  // Files the phone OS fetches to confirm gobuyme.shop/vendor/* links may open the GoBuyMe app.
+  async rewrites() {
+    return [
+      { source: '/.well-known/assetlinks.json', destination: '/api/well-known/assetlinks' },
+      { source: '/.well-known/apple-app-site-association', destination: '/api/well-known/apple-app-site-association' },
+    ];
+  },
   async headers() {
     return [
       {
