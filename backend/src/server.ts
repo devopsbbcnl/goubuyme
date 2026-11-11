@@ -42,6 +42,7 @@ import { startAnalyticsRetentionJob } from './jobs/analyticsRetentionJob';
 import { startOpsBriefingJob } from './jobs/opsBriefingJob';
 import { startDispatchWatcherJob } from './jobs/dispatchWatcherJob';
 import { startTicketTriagerJob } from './jobs/ticketTriagerJob';
+import { startOrderAlertJob } from './jobs/orderAlertJob';
 import { startSmoisJobs } from "./jobs/smoisJob";
 import { errorHandler } from './middleware/error.middleware';
 import { globalLimiter, publicSettingsLimiter } from './middleware/rateLimiter.middleware';
@@ -250,6 +251,7 @@ const start = async () => {
     startOpsBriefingJob();
     startDispatchWatcherJob();
     startTicketTriagerJob();
+    startOrderAlertJob();
     startSmoisJobs();
   } else {
     logger.info(`Worker ${process.env.NODE_APP_INSTANCE}: scheduled jobs run on worker 0 only`);
