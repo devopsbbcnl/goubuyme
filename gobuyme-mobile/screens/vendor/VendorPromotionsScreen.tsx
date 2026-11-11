@@ -32,6 +32,8 @@ interface Promo {
   imagePosition?: string | null;
   code: string | null;
   isActive: boolean;
+  approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string | null;
   createdAt: string;
 }
 
@@ -72,6 +74,7 @@ export default function VendorPromotionsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Promo | null>(null);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -136,28 +139,55 @@ export default function VendorPromotionsScreen() {
     setImagePosition('');
   };
 
-  const handleCreate = async () => {
+  const openEdit = (promo: Promo) => {
+    setEditing(promo);
+    setTitle(promo.title);
+    setCode(promo.code ?? '');
+    setImageUri(promo.imageUrl);
+    setImagePosition(promo.imagePosition ?? '');
+    setModalVisible(true);
+  };
+
+  const handleSave = async () => {
     if (!title.trim()) { Alert.alert('Required', 'Please enter a promotion title.'); return; }
     if (!imageUri) { Alert.alert('Required', 'Please upload a promo image.'); return; }
 
     setSaving(true);
     try {
-      setUploadingImage(true);
-      const imageUrl = await uploadToCloudinary(imageUri);
-      setUploadingImage(false);
+      // An image that is already hosted (editing without replacing it) needs no new upload.
+      let imageUrl = imageUri;
+      if (!imageUri.startsWith('http')) {
+        setUploadingImage(true);
+        imageUrl = await uploadToCloudinary(imageUri);
+        setUploadingImage(false);
+      }
 
-      await api.post('/vendors/me/promotions', {
-        title: title.trim(),
-        imageUrl,
-        imagePosition: imagePosition || undefined,
-        code: code.trim() || undefined,
-      });
+      let message: string | undefined;
+      if (editing) {
+        const res = await api.patch(`/vendors/me/promotions/${editing.id}`, {
+          title: title.trim(),
+          imageUrl,
+          imagePosition: imagePosition || undefined,
+          code: code.trim(),
+        });
+        message = res.data?.message;
+      } else {
+        const res = await api.post('/vendors/me/promotions', {
+          title: title.trim(),
+          imageUrl,
+          imagePosition: imagePosition || undefined,
+          code: code.trim() || undefined,
+        });
+        message = res.data?.message;
+      }
 
       resetForm();
+      setEditing(null);
       setModalVisible(false);
       await loadData();
+      if (message) Alert.alert('Submitted', message);
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message ?? e?.message ?? 'Could not create promotion.');
+      Alert.alert('Error', e?.response?.data?.message ?? e?.message ?? 'Could not save promotion.');
     } finally {
       setSaving(false);
       setUploadingImage(false);
@@ -207,6 +237,7 @@ export default function VendorPromotionsScreen() {
       return;
     }
     resetForm();
+    setEditing(null);
     setModalVisible(true);
   };
 
@@ -252,7 +283,7 @@ export default function VendorPromotionsScreen() {
           </View>
           <Text style={[styles.tierInfo, { color: T.textSec }]}>
             {isTier2
-              ? 'You can create promo cards that appear in the customer app homescreen carousel.'
+              ? 'Create promo cards for the customer app homescreen carousel. Each card is reviewed by GoBuyMe first, then you set it live.'
               : 'Upgrade to the Growth Plan to create promotions visible to customers on the homescreen.'}
           </Text>
         </View>
@@ -304,6 +335,11 @@ export default function VendorPromotionsScreen() {
                 { backgroundColor: T.surface, borderColor: promo.isActive ? T.primary : T.border, ...shadows.card },
               ]}
             >
+              {/* Review status */}
+              <View style={[styles.statusBadge, { backgroundColor: promo.approvalStatus === 'APPROVED' ? '#1A9E5F' : promo.approvalStatus === 'REJECTED' ? '#E23B3B' : '#F5A623' }]}>
+                <Text style={styles.activeBadgeText}>{promo.approvalStatus === 'APPROVED' ? 'APPROVED' : promo.approvalStatus === 'REJECTED' ? 'REJECTED' : 'IN REVIEW'}</Text>
+              </View>
+
               {/* Active badge */}
               {promo.isActive && (
                 <View style={[styles.activeBadge, { backgroundColor: T.primary }]}>
@@ -321,6 +357,14 @@ export default function VendorPromotionsScreen() {
                     <Text style={[styles.codeTagText, { color: T.primary }]}>Code: {promo.code}</Text>
                   </View>
                 )}
+                {promo.approvalStatus === 'REJECTED' && (
+                  <Text style={{ color: '#E23B3B', fontSize: 12, lineHeight: 17 }}>
+                    Not approved{promo.rejectionReason ? ': ' + promo.rejectionReason : '.'} Edit it and resubmit.
+                  </Text>
+                )}
+                {promo.approvalStatus === 'PENDING' && (
+                  <Text style={{ color: T.textSec, fontSize: 12 }}>Waiting for admin approval. You can set it live once approved.</Text>
+                )}
                 <Text style={[styles.promoDate, { color: T.textMuted }]}>
                   Created {new Date(promo.createdAt).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </Text>
@@ -335,14 +379,21 @@ export default function VendorPromotionsScreen() {
                   <Text style={[styles.actionBtnText, { color: T.text }]}>Reposition</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
+                  onPress={() => openEdit(promo)}
+                  disabled={!isTier2}
+                  style={[styles.actionBtn, { backgroundColor: T.surface2, borderColor: T.border, opacity: isTier2 ? 1 : 0.4 }]}
+                >
+                  <Text style={[styles.actionBtnText, { color: T.text }]}>{promo.approvalStatus === 'REJECTED' ? 'Edit & Resubmit' : 'Edit'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   onPress={() => handleToggle(promo)}
-                  disabled={!isTier2 || togglingId === promo.id}
+                  disabled={!isTier2 || togglingId === promo.id || (!promo.isActive && promo.approvalStatus !== 'APPROVED')}
                   style={[
                     styles.actionBtn,
                     {
                       backgroundColor: promo.isActive ? '#1A9E5F18' : T.primaryTint,
                       borderColor: promo.isActive ? '#1A9E5F40' : T.primary + '40',
-                      opacity: isTier2 ? 1 : 0.4,
+                      opacity: isTier2 && (promo.isActive || promo.approvalStatus === 'APPROVED') ? 1 : 0.4,
                     },
                   ]}
                 >
@@ -371,12 +422,15 @@ export default function VendorPromotionsScreen() {
       {/* Create promo modal */}
       <CenteredKeyboardModal
         visible={modalVisible}
-        onBackdropPress={() => !saving && setModalVisible(false)}
+        onBackdropPress={() => { if (!saving) { setModalVisible(false); setEditing(null); } }}
         cardStyle={{ backgroundColor: T.surface }}
       >
           <View style={styles.modalSheet}>
             <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <Text style={[styles.modalTitle, { color: T.text }]}>New Promotion</Text>
+            <Text style={[styles.modalTitle, { color: T.text }]}>{editing ? 'Edit Promotion' : 'New Promotion'}</Text>
+            <Text style={[styles.fieldLabel, { color: T.textMuted, marginBottom: 0 }]}>
+              Cards are reviewed by GoBuyMe before they appear to customers.{editing ? ' Saving changes sends this card back for review.' : ''}
+            </Text>
 
             {/* Image picker */}
             <TouchableOpacity
@@ -427,7 +481,7 @@ export default function VendorPromotionsScreen() {
             />
 
             <TouchableOpacity
-              onPress={handleCreate}
+              onPress={handleSave}
               disabled={saving}
               style={[styles.submitBtn, { backgroundColor: saving ? T.surface3 : T.primary }]}
               activeOpacity={0.85}
@@ -440,7 +494,7 @@ export default function VendorPromotionsScreen() {
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.submitBtnText}>Create Promotion</Text>
+                <Text style={styles.submitBtnText}>{editing ? 'Save & Resubmit' : 'Submit for Review'}</Text>
               )}
             </TouchableOpacity>
             </ScrollView>
@@ -472,6 +526,7 @@ const styles = StyleSheet.create({
   emptyTitle:      { fontSize: 16, fontWeight: '700', marginBottom: 6 },
   emptySub:        { fontSize: 13, textAlign: 'center', lineHeight: 18 },
   promoCard:       { borderRadius: 4, borderWidth: 1.5, overflow: 'hidden', marginBottom: 16, position: 'relative' },
+  statusBadge:     { position: 'absolute', top: 10, left: 10, zIndex: 10, borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8 },
   activeBadge:     { position: 'absolute', top: 10, right: 10, zIndex: 10, borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8 },
   activeBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
   promoImage:      { width: '100%', height: 160 },

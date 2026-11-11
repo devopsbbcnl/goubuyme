@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getAdminCompanies, updateCompanyStatus } from '../controllers/adminCompany.controller';
 import { getAdminVendorMenu } from '../controllers/adminVendorMenu.controller';
+import { listAdminPromotions, approvePromotion, rejectPromotion } from '../controllers/adminPromotion.controller';
 import {
   getDashboardStats,
   getAdminSettings,
@@ -112,6 +113,11 @@ router.patch('/vendors/:id/licenses/:licenseId/status',         ...opsAuth,     
 router.patch('/vendors/:id/feature',                            ...opsAuth,        featureVendor);
 router.post('/vendors/:id/regeocode',                           ...opsAuth,        regeocodeVendor);
 router.delete('/vendors/:id',                                   ...superAdminAuth, deleteVendor);
+
+// Vendor promotion cards (review before they reach the customer carousel)
+router.get('/promotions',               ...readAuth, listAdminPromotions);
+router.patch('/promotions/:id/approve', ...opsAuth,  approvePromotion);
+router.patch('/promotions/:id/reject',  ...opsAuth,  rejectPromotion);
 
 // Riders
 router.get('/companies',                     ...readAuth, getAdminCompanies);

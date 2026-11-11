@@ -7,6 +7,8 @@ import {
 	TouchableOpacity,
 	Image,
 	ActivityIndicator,
+	Alert,
+	Share,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -53,7 +55,15 @@ const OWNER_ONLY_ROUTES = [
 	'/(vendor)/branches',
 ];
 
+// Public store page. Phones with GoBuyMe installed open it in the app (deep link), everyone else gets the website.
+const STORE_LINK_BASE = 'https://gobuyme.shop/vendor';
+
 const MENU_ROWS: MenuRow[] = [
+	{
+		icon: '🔗',
+		label: 'Share My Store',
+		sub: 'Send your store link to customers',
+	},
 	{
 		icon: '🍽️',
 		label: 'Menu Items',
@@ -133,10 +143,28 @@ export default function VendorProfileScreen() {
 		}, [fetchProfile]),
 	);
 
+	const shareStore = () => {
+		if (!profile) return;
+		if (profile.approvalStatus !== 'APPROVED') {
+			Alert.alert('Not live yet', 'Your store link works once GoBuyMe has approved your account.');
+			return;
+		}
+		const url = `${STORE_LINK_BASE}/${profile.id}`;
+		// Android ignores the separate "url" field, so the link is also part of the message.
+		Share.share({
+			message: `Order from ${profile.businessName} on GoBuyMe: ${url}`,
+			url,
+		}).catch(() => {});
+	};
+
 	const handleRow = (row: MenuRow) => {
 		if (row.label === 'Sign Out') {
 			logout();
 			router.replace('/onboarding');
+			return;
+		}
+		if (row.label === 'Share My Store') {
+			shareStore();
 			return;
 		}
 		if (row.route) router.push(row.route as any);

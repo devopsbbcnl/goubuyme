@@ -696,11 +696,23 @@ model VendorPromotion {
   imagePosition String?
   code          String?
   isActive      Boolean  @default(false)
+  /// A card only reaches the customer carousel once an admin approves it.
+  approvalStatus  PromotionStatus @default(PENDING)
+  reviewedById    String?
+  reviewedAt      DateTime?
+  rejectionReason String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
+  @@index([approvalStatus])
   @@map("vendor_promotions")
+}
+
+enum PromotionStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model AuditLog {

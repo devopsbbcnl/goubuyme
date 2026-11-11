@@ -1213,7 +1213,7 @@ export const getVendorDetail = catchAsync(async (req: Request, res: Response) =>
         take: 20,
       },
       vendorPromotions: {
-        select: { id: true, title: true, imageUrl: true, code: true, isActive: true, createdAt: true },
+        select: { id: true, title: true, imageUrl: true, code: true, isActive: true, approvalStatus: true, rejectionReason: true, createdAt: true },
         orderBy: { createdAt: 'desc' as const },
         take: 20,
       },
