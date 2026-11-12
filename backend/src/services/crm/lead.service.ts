@@ -6,7 +6,7 @@ import { recordError } from '../../utils/recordError';
 
 export const LEAD_STAGES: LeadStage[] = ['NEW', 'CONTACTED', 'INTERESTED', 'ONBOARDING', 'LIVE', 'LOST'];
 export const OPEN_STAGES: LeadStage[] = ['NEW', 'CONTACTED', 'INTERESTED', 'ONBOARDING'];
-export const LEAD_SOURCES: LeadSource[] = ['FIELD', 'REFERRAL', 'INBOUND_WEB', 'SOCIAL', 'IMPORT', 'OTHER'];
+export const LEAD_SOURCES: LeadSource[] = ['FIELD', 'REFERRAL', 'INBOUND_WEB', 'SOCIAL', 'IMPORT', 'OTHER', 'PROSPECTING'];
 export const MAX_IMPORT_ROWS = 1000;
 
 export class LeadError extends Error {

@@ -38,6 +38,7 @@ import { startEscalationJob } from './jobs/escalationJob';
 import { startTicketSlaJob } from './jobs/ticketSlaJob';
 import { startCampaignJobs } from './jobs/campaignJob';
 import { startTaskJobs } from './jobs/taskJob';
+import { startProspectingJobs } from './jobs/prospectingJob';
 import { startAnalyticsRetentionJob } from './jobs/analyticsRetentionJob';
 import { startOpsBriefingJob } from './jobs/opsBriefingJob';
 import { startDispatchWatcherJob } from './jobs/dispatchWatcherJob';
@@ -247,6 +248,7 @@ const start = async () => {
     startTicketSlaJob();
     startCampaignJobs();
     startTaskJobs();
+    startProspectingJobs();
     startAnalyticsRetentionJob();
     startOpsBriefingJob();
     startDispatchWatcherJob();

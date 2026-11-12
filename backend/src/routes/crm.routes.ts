@@ -20,6 +20,10 @@ import {
   addLeadActivity, createLead, deleteLead, getLead, importLeads, leadSummary, linkLeadAccount, listLeads, updateLead,
 } from '../controllers/crm/lead.controller';
 import { createTask, deleteTask, listTasks, updateTask } from '../controllers/crm/task.controller';
+import {
+  addProspects, createSearchAndRun, deleteSearch, getFinderStatus, getOutreach, getRun, interpret, listProspects, listSearches,
+  patchSearch, rewriteOutreach, runSearch, setProspectStatus,
+} from '../controllers/crm/prospecting.controller';
 import { getCrmOverview } from '../controllers/crm/overview.controller';
 
 const router = Router();
@@ -108,6 +112,21 @@ router.patch('/leads/:id',                   ...opsAuth,   updateLead);
 router.delete('/leads/:id',                  ...superAuth, deleteLead);
 router.post('/leads/:id/activities',         ...opsAuth,   addLeadActivity);
 router.post('/leads/:id/link',               ...opsAuth,   linkLeadAccount);
+
+// Lead finder. Running a search spends money with the places provider, so it is ops and above.
+router.get('/prospecting/status',                        ...readAuth, getFinderStatus);
+router.post('/prospecting/interpret',                    ...readAuth, interpret);
+router.get('/prospecting/searches',                      ...readAuth, listSearches);
+router.post('/prospecting/searches',                     ...opsAuth,  createSearchAndRun);
+router.patch('/prospecting/searches/:id',                ...opsAuth,  patchSearch);
+router.delete('/prospecting/searches/:id',               ...opsAuth,  deleteSearch);
+router.post('/prospecting/searches/:id/run',             ...opsAuth,  runSearch);
+router.get('/prospecting/runs/:id',                      ...readAuth, getRun);
+router.get('/prospecting/prospects',                     ...readAuth, listProspects);
+router.post('/prospecting/prospects/add',                ...opsAuth,  addProspects);
+router.patch('/prospecting/prospects/:id',               ...opsAuth,  setProspectStatus);
+router.get('/prospecting/prospects/:id/outreach',        ...readAuth, getOutreach);
+router.post('/prospecting/prospects/:id/outreach/rewrite', ...opsAuth, rewriteOutreach);
 
 // Tasks (ownership rules for support agents are enforced in the controller)
 router.get('/tasks',                         ...readAuth,  listTasks);

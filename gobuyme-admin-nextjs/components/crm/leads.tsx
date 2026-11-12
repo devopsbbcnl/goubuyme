@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 
 export type LeadType = 'VENDOR' | 'RIDER';
 export type LeadStage = 'NEW' | 'CONTACTED' | 'INTERESTED' | 'ONBOARDING' | 'LIVE' | 'LOST';
-export type LeadSource = 'FIELD' | 'REFERRAL' | 'INBOUND_WEB' | 'SOCIAL' | 'IMPORT' | 'OTHER';
+export type LeadSource = 'FIELD' | 'REFERRAL' | 'INBOUND_WEB' | 'SOCIAL' | 'IMPORT' | 'OTHER' | 'PROSPECTING';
 
 export interface Lead {
   id: string; type: LeadType; name: string; contactName: string | null; phone: string | null; email: string | null;
@@ -31,7 +31,7 @@ export const STAGE_HINT: Record<LeadStage, string> = {
 };
 
 export const SOURCE_LABEL: Record<LeadSource, string> = {
-  FIELD: 'Field visit', REFERRAL: 'Referral', INBOUND_WEB: 'Website', SOCIAL: 'Social media', IMPORT: 'Import', OTHER: 'Other',
+  FIELD: 'Field visit', REFERRAL: 'Referral', INBOUND_WEB: 'Website', SOCIAL: 'Social media', IMPORT: 'Import', OTHER: 'Other', PROSPECTING: 'Lead finder',
 };
 
 export const VENDOR_CATEGORIES = ['RESTAURANT', 'EMART', 'PHARMACY', 'BAKERY', 'DRINKS', 'BUTCHER', 'GAS'];

@@ -276,6 +276,18 @@ Spec: `SMOIS_Detailed_PRD_v1.0.docx` (kept out of git; ask the owner for a copy)
 - **Audit:** SMOIS activity is `AuditLog` rows with entity `Smois*`, append-only via DB trigger (UPDATE/DELETE raise). Test cleanup must `ALTER TABLE audit_logs DISABLE TRIGGER USER` first.
 - Write new notifications through `notifyMany` (`controllers/smois/common.ts`); it handles in-app, push and the per-user email switch.
 
+## Lead finder (CRM, vendor prospecting)
+
+Admin page `/crm/lead-finder`; backend `/api/v1/admin/crm/prospecting/*` (`controllers/crm/prospecting.controller.ts`, `services/crm/prospecting/`).
+
+- **Flow:** staff type a plain-language request → Google Places Text Search (`places.ts`) → each business's own website is read for email/phone/WhatsApp (`enrich.ts`, public hosts only) → businesses already on GoBuyMe or already leads are set aside → fit score out of 100 with reasons → staff review → "Add to pipeline" creates a `Lead` (source `PROSPECTING`) in `/crm/pipeline`.
+- **Pure rules** (request parsing, category mapping, contact extraction, scoring, vendor matching, message drafts, rewrite fact-check) live in `services/crm/prospecting/rules.ts` and are unit-tested.
+- **Nothing is sent automatically.** Suggested WhatsApp/email/call text is shown on the prospect and on the lead page; staff send it themselves. Every draft says where we found the business and how to decline. Keep it that way unless the owner decides otherwise.
+- **Never guess a contact or a rating:** missing values stay null and show as "Not recorded" / "No contact found".
+- **Spend:** `PROSPECTING_DAILY_REQUEST_CAP` limits Google requests per 24 hours; runs reserve their worst case before starting. Saved searches can repeat daily/weekly (`jobs/prospectingJob.ts`).
+- **Retention:** unactioned prospects are deleted after `PROSPECT_RETENTION_DAYS` (180); dismissed ones keep only name + place id so they stay dismissed.
+- **Testing locally:** export `PROSPECTING_PLACES_PROVIDER=stub` (non-production only) for made-up businesses marked TEST. No real Google call has been made from this machine yet.
+
 ## Security notes
 
 - All routes use Helmet + CORS
