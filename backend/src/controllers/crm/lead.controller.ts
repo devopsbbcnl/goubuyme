@@ -160,6 +160,7 @@ export const getLead = catchAsync(async (req: Request, res: Response) => {
           rider: { select: { approvalStatus: true } },
         },
       },
+      prospect: true,
       activities: { orderBy: { createdAt: 'desc' }, take: 100, include: { author: { select: { id: true, name: true } } } },
       tasks: {
         orderBy: [{ status: 'asc' }, { dueAt: 'asc' }],

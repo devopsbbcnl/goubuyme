@@ -17,6 +17,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/inbox': 'Support Inbox',
   '/crm/tasks': 'Tasks',
   '/crm/pipeline': 'Growth Pipeline',
+  '/crm/lead-finder': 'Lead Finder',
   '/crm/profiles': 'CRM Profiles',
   '/crm/campaigns': 'Marketing · Campaigns',
   '/crm/segments': 'Marketing · Segments',

@@ -1648,6 +1648,27 @@ enum LeadSource {
   SOCIAL
   IMPORT
   OTHER
+  /// Found by the lead finder (services/crm/prospecting).
+  PROSPECTING
+}
+
+enum ProspectSchedule {
+  NONE
+  DAILY
+  WEEKLY
+}
+
+enum ProspectRunStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum ProspectStatus {
+  NEW
+  ADDED
+  DISMISSED
 }
 
 enum LeadActivityType {
@@ -1701,6 +1722,7 @@ model Lead {
   convertedUser       User?           @relation("LeadConvertedUser", fields: [convertedUserId], references: [id], onDelete: SetNull)
   activities          LeadActivity[]
   tasks               CrmTask[]
+  prospect            Prospect?
 
   @@index([type, stage])
   @@index([ownerId, stage])
@@ -1722,6 +1744,106 @@ model LeadActivity {
 
   @@index([leadId, createdAt])
   @@map("lead_activities")
+}
+
+/// A saved lead-finder search: what staff typed plus what the rules understood from it.
+model ProspectSearch {
+  id              String           @id @default(uuid())
+  /// The plain-language request, sent to the places provider as typed.
+  query           String
+  category        VendorCategory?
+  city            String?
+  area            String?
+  minRating       Float?
+  minReviews      Int?
+  maxResults      Int              @default(20)
+  schedule        ProspectSchedule @default(NONE)
+  /// When set, scheduled runs add prospects scoring at least this straight to the pipeline.
+  autoAddMinScore Int?
+  nextRunAt       DateTime?
+  lastRunAt       DateTime?
+  createdById     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  runs            ProspectRun[]
+  prospects       Prospect[]
+
+  @@index([schedule, nextRunAt])
+  @@map("prospect_searches")
+}
+
+model ProspectRun {
+  id           String            @id @default(uuid())
+  searchId     String
+  status       ProspectRunStatus @default(QUEUED)
+  scheduled    Boolean           @default(false)
+  /// Billable requests made to the places provider; summed per day for the spend cap.
+  placesCalls  Int               @default(0)
+  found        Int               @default(0)
+  added        Int               @default(0)
+  alreadyKnown Int               @default(0)
+  withUs       Int               @default(0)
+  belowBar     Int               @default(0)
+  sitesRead    Int               @default(0)
+  autoAdded    Int               @default(0)
+  error        String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  search       ProspectSearch    @relation(fields: [searchId], references: [id], onDelete: Cascade)
+
+  @@index([searchId, createdAt])
+  @@index([createdAt])
+  @@map("prospect_runs")
+}
+
+/// A business found on the web that might become a vendor. Becomes a Lead when staff add it.
+/// Anything a source did not give stays null ("Not recorded"), never a guess.
+model Prospect {
+  id               String          @id @default(uuid())
+  /// Provider's stable id for the business (Google place id), so re-runs update instead of duplicating.
+  placeId          String          @unique
+  searchId         String?
+  name             String
+  category         VendorCategory?
+  address          String?
+  city             String?
+  area             String?
+  lat              Float?
+  lng              Float?
+  phone            String?
+  phoneKey         String?
+  email            String?
+  whatsapp         String?
+  website          String?
+  instagram        String?
+  facebook         String?
+  mapsUrl          String?
+  rating           Float?
+  reviewCount      Int?
+  businessStatus   String?
+  /// { offersDelivery, competitors[], ordersViaChat, websiteRead }
+  signals          Json?
+  fitScore         Int             @default(0)
+  /// Array of { label, points } explaining the score.
+  fitReasons       Json?
+  /// Set when the business matches a vendor already on GoBuyMe.
+  existingVendorId String?
+  status           ProspectStatus  @default(NEW)
+  leadId           String?         @unique
+  /// Staff-requested rewritten outreach messages; the standard ones are built on read.
+  drafts           Json?
+  enrichedAt       DateTime?
+  lastSeenAt       DateTime        @default(now())
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  search           ProspectSearch? @relation(fields: [searchId], references: [id], onDelete: SetNull)
+  lead             Lead?           @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([status, fitScore])
+  @@index([searchId, status])
+  @@index([phoneKey])
+  @@map("prospects")
 }
 
 /// Follow-up work for staff, optionally about a person, lead or ticket. No assignee = team queue.

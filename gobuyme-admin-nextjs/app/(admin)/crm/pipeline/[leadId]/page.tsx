@@ -12,6 +12,7 @@ import { LinkedTasks } from '@/components/crm/tasks';
 import {
   Lead, LeadFormModal, LeadStage, LostReasonModal, SOURCE_LABEL, STAGES, STAGE_HINT, STAGE_LABEL, humanize, useStageColor,
 } from '@/components/crm/leads';
+import { FitBadge, FitReasons, OutreachPanel, Prospect, ProspectLinks } from '@/components/crm/prospecting';
 
 type ActivityType = 'NOTE' | 'CALL' | 'VISIT' | 'EMAIL' | 'WHATSAPP' | 'STAGE_CHANGE' | 'CONVERTED';
 
@@ -21,6 +22,7 @@ interface LeadDetail extends Omit<Lead, 'openTasks'> {
     vendor: { businessName: string; approvalStatus: string } | null;
     rider: { approvalStatus: string } | null;
   };
+  prospect: Prospect | null;
   activities: Array<{ id: string; type: ActivityType; body: string; createdAt: string; author: { id: string; name: string } | null }>;
 }
 
@@ -138,6 +140,29 @@ export default function LeadPage() {
         </div>
         {error && <div style={{ fontSize: 12, color: T.error, marginTop: 8 }}>{error}</div>}
       </Card>
+
+      {lead.prospect && (
+        <Card>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.4fr', gap: 16, alignItems: 'start' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <SectionLabel>Found by the lead finder</SectionLabel>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: T.text }}>
+                <FitBadge score={lead.prospect.fitScore} /> fit score
+                <span style={{ color: T.textSec }}>
+                  · {lead.prospect.rating !== null ? `rated ${lead.prospect.rating.toFixed(1)}${lead.prospect.reviewCount !== null ? ` from ${lead.prospect.reviewCount.toLocaleString()} reviews` : ''}` : 'rating not recorded'}
+                </span>
+              </div>
+              <FitReasons reasons={lead.prospect.fitReasons} />
+              {lead.prospect.address && <div style={{ fontSize: 12, color: T.textSec }}>{lead.prospect.address}</div>}
+              <ProspectLinks p={lead.prospect} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <SectionLabel>Suggested first message</SectionLabel>
+              <OutreachPanel prospectId={lead.prospect.id} phone={lead.phone ?? lead.prospect.whatsapp} email={lead.email} canEdit={canEdit} />
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 16, alignItems: 'start' }}>
         <Card>

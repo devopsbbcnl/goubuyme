@@ -48,6 +48,7 @@ const NAV_SECTIONS: NavSection[] = [
     { href: '/crm/tasks',  label: 'Tasks',         icon: '✅', pendingKey: 'tasks' },
     { href: '/crm/profiles', label: 'CRM Profiles', icon: '🧭', pendingKey: null },
     { href: '/crm/pipeline', label: 'Pipeline',   icon: '🤝', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
+    { href: '/crm/lead-finder', label: 'Lead Finder', icon: '🔎', pendingKey: null, minRole: 'OPERATIONS_ADMIN' },
     { href: '/crm/campaigns', label: 'Marketing', icon: '📣', pendingKey: null, minRole: 'OPERATIONS_ADMIN', activePrefixes: ['/crm/segments', '/crm/automations'] },
     { href: '/broadcasts', label: 'Broadcasts',  icon: '📢', pendingKey: null },
   ] },
