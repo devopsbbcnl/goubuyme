@@ -18,6 +18,7 @@ interface SettingsApi {
   latestAppVersion: string;
   storeUrlAndroid: string;
   storeUrlIos: string;
+  appReleaseNotes: string;
 }
 
 interface SettingsState {
@@ -34,6 +35,7 @@ interface SettingsState {
   latestAppVersion: string;
   storeUrlAndroid: string;
   storeUrlIos: string;
+  appReleaseNotes: string;
 }
 
 const EMPTY: SettingsState = {
@@ -50,6 +52,7 @@ const EMPTY: SettingsState = {
   latestAppVersion: '',
   storeUrlAndroid: '',
   storeUrlIos: '',
+  appReleaseNotes: '',
 };
 
 const toState = (s: SettingsApi | undefined): SettingsState => {
@@ -70,6 +73,7 @@ const toState = (s: SettingsApi | undefined): SettingsState => {
     latestAppVersion: s.latestAppVersion ?? '',
     storeUrlAndroid: s.storeUrlAndroid ?? '',
     storeUrlIos: s.storeUrlIos ?? '',
+    appReleaseNotes: s.appReleaseNotes ?? '',
   };
 };
 
@@ -134,6 +138,7 @@ export default function SettingsPage() {
         if (raw !== '') payload[key] = raw;
       }
       payload.storeUrlIos = cfg.storeUrlIos.trim();
+      payload.appReleaseNotes = cfg.appReleaseNotes.trim();
       const res = await api.patch<{ data: SettingsApi }>('/admin/settings', payload);
       setCfg(toState(res.data));
       setSaved(true);
@@ -358,6 +363,20 @@ export default function SettingsPage() {
           <div>
             <label style={labelStyle}>App Store Link</label>
             <input style={inputStyle} type="text" placeholder="Leave empty until the iOS app is published" value={cfg.storeUrlIos} onChange={e => set('storeUrlIos', e.target.value)} />
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>What's New in the Latest Version</label>
+            <textarea
+              style={{ ...inputStyle, minHeight: 110, resize: 'vertical', lineHeight: 1.5 }}
+              maxLength={1000}
+              placeholder={'One change per line, in plain words. For example:\nShare your store link with customers\nFixed: promo image sometimes failed to upload'}
+              value={cfg.appReleaseNotes}
+              onChange={e => set('appReleaseNotes', e.target.value)}
+            />
+            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 5 }}>
+              Shown to users in the app's update prompt as a list: new features and bugs fixed. Required, and must be
+              rewritten, every time the latest version changes.
+            </div>
           </div>
           <div style={{ gridColumn: '1 / -1', fontSize: 11, color: T.textMuted }}>
             Raise the minimum only after the new build is live in the store. Phones that cannot reach the

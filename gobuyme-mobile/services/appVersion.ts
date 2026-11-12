@@ -8,6 +8,8 @@ export interface VersionPolicy {
   min: string;
   latest: string;
   storeUrl: string | null;
+  // What changed in `latest`, one short line each. Empty when the admin wrote none.
+  notes: string[];
 }
 
 export type UpdateState = 'ok' | 'available' | 'required';
@@ -35,5 +37,8 @@ export function updateState(policy: VersionPolicy, installed = installedVersion)
 
 export const fetchVersionPolicy = async (): Promise<VersionPolicy> => {
   const res = await api.get('/app-version', { params: { platform: Platform.OS === 'ios' ? 'ios' : 'android' } });
-  return res.data.data as VersionPolicy;
+  const data = res.data.data;
+  // Older servers send no notes; anything that is not a list of text is treated as none.
+  const notes = Array.isArray(data.notes) ? data.notes.filter((n: unknown): n is string => typeof n === 'string' && n.trim() !== '') : [];
+  return { min: data.min, latest: data.latest, storeUrl: data.storeUrl ?? null, notes };
 };

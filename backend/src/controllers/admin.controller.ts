@@ -10,7 +10,7 @@ import { notifyUser } from '../services/notification.service';
 import { sendVendorApprovalEmail, sendRiderApprovalEmail } from '../services/email.service';
 import { generateReferralCode } from '../utils/generateToken';
 import { getPlatformSettings, updatePlatformSettings, PlatformSettingsPatch } from '../services/settings.service';
-import { VERSION_PATTERN, compareVersions } from '../services/appVersion.service';
+import { RELEASE_NOTES_MAX_LENGTH, VERSION_PATTERN, compareVersions, parseReleaseNotes } from '../services/appVersion.service';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { linkLeadForUser } from '../services/crm/lead.service';
@@ -159,12 +159,28 @@ export const updateAdminSettings = catchAsync(async (req: AuthRequest, res: Resp
     patch[key] = raw;
   }
 
+  // What changed in the latest version, one change per line. Shown in the app's update prompt.
+  if (typeof body.appReleaseNotes === 'string') {
+    const notes = body.appReleaseNotes.trim();
+    if (notes.length > RELEASE_NOTES_MAX_LENGTH) {
+      return apiResponse.error(res, `Release notes must be ${RELEASE_NOTES_MAX_LENGTH} characters or fewer.`, 400);
+    }
+    patch.appReleaseNotes = notes;
+  }
+
   if (patch.minAppVersion || patch.latestAppVersion) {
     const current = await getPlatformSettings();
     const min = patch.minAppVersion ?? current.minAppVersion;
     const latest = patch.latestAppVersion ?? current.latestAppVersion;
     if (compareVersions(min, latest) > 0) {
       return apiResponse.error(res, 'Minimum app version cannot be higher than the latest version.', 400);
+    }
+    // A new latest version must come with its own notes: users are told what changed, never left with the last version's list.
+    if (latest !== current.latestAppVersion) {
+      const notes = patch.appReleaseNotes ?? '';
+      if (parseReleaseNotes(notes).length === 0 || notes === current.appReleaseNotes) {
+        return apiResponse.error(res, `Write what changed in version ${latest} (new features and bugs fixed) before setting it as the latest version.`, 400);
+      }
     }
   }
 
