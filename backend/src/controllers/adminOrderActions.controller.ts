@@ -13,6 +13,7 @@ import {
   issueGoodwillCredit,
   unassignRider,
 } from '../services/orderLifecycle.service';
+import { listOrderAlerts } from '../services/orderAlert.service';
 
 // Admin write actions on orders. Thin HTTP wrappers over orderLifecycle.service — the ops agents
 // will call the same service functions, so behaviour and limits stay identical for both.
@@ -86,4 +87,10 @@ export const issueOrderCreditAsAdmin = handle(async (req, res) => {
   });
   await audit(req, 'ORDER_GOODWILL_CREDIT', result.orderId, { orderNumber: result.orderNumber, amount, note });
   return apiResponse.success(res, `₦${amount.toLocaleString()} credit issued to the customer.`, result);
+});
+
+// GET /admin/order-alerts — recent order progress announcements for the admin bell
+export const getOrderAlerts = handle(async (req, res) => {
+  const limit = Number(req.query.limit) || 30;
+  return apiResponse.success(res, 'Order alerts fetched.', await listOrderAlerts(limit));
 });

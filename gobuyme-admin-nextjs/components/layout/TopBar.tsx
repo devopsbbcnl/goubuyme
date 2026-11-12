@@ -77,6 +77,13 @@ type OrderItem = {
   vendor?: { businessName?: string };
 };
 
+type OrderAlert = { id: string; orderId: string; orderNumber: string; kind: string; urgent: boolean; title: string; summary: string; createdAt: string };
+const ALERT_ICON: Record<string, string> = {
+  NEW_ORDER: '🆕', ACCEPTED: '👨‍🍳', READY: '📦', RIDER_ASSIGNED: '🏍️', RIDER_UNASSIGNED: '⚠️',
+  PICKED_UP: '🛍️', IN_TRANSIT: '🚚', DELIVERED: '✅', CANCELLED: '❌', CREDIT_ISSUED: '💳',
+};
+const ALERTS_SEEN_KEY = 'gbm:order-alerts-seen';
+
 const ORDER_COLOR: Record<string, string> = {
   PENDING: '#F59E0B', CONFIRMED: '#3B82F6', PREPARING: '#8B5CF6',
   READY: '#06B6D4', DELIVERING: '#FF521B', DELIVERED: '#10B981', CANCELLED: '#EF4444',
@@ -105,6 +112,26 @@ export function TopBar({ pathname, onMenuClick }: { pathname: string; onMenuClic
   const [pendingRiders, setPendingRiders]   = useState<RiderItem[]>([]);
   const [recentOrders, setRecentOrders]     = useState<OrderItem[]>([]);
   const dropRef = useRef<HTMLDivElement>(null);
+
+  // Live order progress (same feed that goes to the support Telegram group). Read state is kept per browser.
+  const [orderAlerts, setOrderAlerts] = useState<OrderAlert[]>([]);
+  const [alertsSeen, setAlertsSeen] = useState<string>(() => {
+    try { return window.localStorage.getItem(ALERTS_SEEN_KEY) ?? ''; } catch { return ''; }
+  });
+  const markAlertsRead = () => {
+    const latest = orderAlerts[0]?.createdAt;
+    if (!latest) return;
+    setAlertsSeen(latest);
+    try { window.localStorage.setItem(ALERTS_SEEN_KEY, latest); } catch { /* storage unavailable */ }
+  };
+  useEffect(() => {
+    if (!user || user.role === 'SOCIAL_MEDIA') return;
+    const load = () => api.get<{ data: OrderAlert[] }>('/admin/order-alerts?limit=20')
+      .then(r => setOrderAlerts(r.data ?? [])).catch(() => {});
+    load();
+    const t = setInterval(load, 20_000);
+    return () => clearInterval(t);
+  }, [user]);
 
   // Social media workspace alerts (only for people who have access; a 403 just means none).
   type SmoisNote = { id: string; title: string; body: string; isRead: boolean; createdAt: string; meta: { link?: string } | null };
@@ -153,11 +180,13 @@ export function TopBar({ pathname, onMenuClick }: { pathname: string; onMenuClic
   }, [open]);
 
   const smoisUnread  = smoisNotes?.unread ?? 0;
-  const totalBadge   = pendingVendors.length + pendingRiders.length + smoisUnread;
+  const alertsUnread = orderAlerts.filter(a => !alertsSeen || a.createdAt > alertsSeen).length;
+  const totalBadge   = pendingVendors.length + pendingRiders.length + smoisUnread + alertsUnread;
   const hasApprovals = pendingVendors.length > 0 || pendingRiders.length > 0;
   const hasOrders    = recentOrders.length > 0;
   const hasSmois     = (smoisNotes?.items.length ?? 0) > 0;
-  const isEmpty      = !hasApprovals && !hasOrders && !hasSmois;
+  const hasAlerts    = orderAlerts.length > 0;
+  const isEmpty      = !hasApprovals && !hasOrders && !hasSmois && !hasAlerts;
 
   return (
     <header style={{
@@ -235,6 +264,30 @@ export function TopBar({ pathname, onMenuClick }: { pathname: string; onMenuClic
                 </div>
               ) : (
                 <div style={{ maxHeight: 380, overflowY: 'auto' }}>
+
+                  {hasAlerts && (
+                    <>
+                      <div style={{ padding: '10px 16px 6px', fontSize: 10, fontWeight: 700, color: T.textSec, letterSpacing: '0.5px', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>ORDER ACTIVITY</span>
+                        {alertsUnread > 0 && <button onClick={markAlertsRead} style={{ background: 'none', border: 'none', color: T.primary, fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: 0 }}>Mark all read</button>}
+                      </div>
+                      {orderAlerts.slice(0, 8).map(a => {
+                        const unread = !alertsSeen || a.createdAt > alertsSeen;
+                        return (
+                          <Link key={a.id} href="/orders" style={{ textDecoration: 'none' }} onClick={() => setOpen(false)}>
+                            <NotifRow
+                              icon={ALERT_ICON[a.kind] ?? '📦'}
+                              iconBg={a.urgent ? 'rgba(226,59,59,0.14)' : undefined}
+                              title={a.title}
+                              sub={`${a.summary.slice(0, 90)} · ${timeAgo(a.createdAt)}`}
+                              dot={unread}
+                              T={T}
+                            />
+                          </Link>
+                        );
+                      })}
+                    </>
+                  )}
 
                   {hasSmois && (
                     <>

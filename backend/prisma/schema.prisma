@@ -473,6 +473,25 @@ model OrderEvent {
   @@map("order_events")
 }
 
+/// One row per order event announced to admins (in-app feed + Telegram). The unique orderEventId
+/// is what keeps a retry or a second poll from announcing the same event twice.
+model OrderAlert {
+  id              String    @id @default(uuid())
+  orderEventId    String    @unique
+  orderId         String
+  orderNumber     String
+  kind            String
+  urgent          Boolean   @default(false)
+  title           String
+  summary         String
+  telegramSentAt  DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([orderId, createdAt])
+  @@map("order_alerts")
+}
+
 model OrderItem {
   id         String   @id @default(uuid())
   orderId    String

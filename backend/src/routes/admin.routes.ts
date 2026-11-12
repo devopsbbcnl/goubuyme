@@ -33,7 +33,7 @@ import { listErrorLogs, getErrorLogDetail, resolveErrorLog, bulkResolveErrorLogs
 import { validate } from '../middleware/validate.middleware';
 import { bulkResolveErrorLogsSchema } from '../validators/errorLog.validator';
 import {
-  getOrderCandidateRiders, cancelOrderAsAdmin, assignRiderAsAdmin, unassignRiderAsAdmin, issueOrderCreditAsAdmin,
+  getOrderCandidateRiders, cancelOrderAsAdmin, assignRiderAsAdmin, unassignRiderAsAdmin, issueOrderCreditAsAdmin, getOrderAlerts,
 } from '../controllers/adminOrderActions.controller';
 import {
   adminCancelOrderSchema, adminAssignRiderSchema, adminUnassignRiderSchema, adminOrderCreditSchema,
@@ -134,6 +134,7 @@ router.get('/customers', ...readAuth, getAdminCustomers);
 router.get('/customers/:id/addresses', ...readAuth, getCustomerAddresses);
 router.delete('/customers/:id', ...superAdminAuth, deleteCustomer);
 router.get('/orders',    ...readAuth, getAdminOrders);
+router.get('/order-alerts', ...readAuth, getOrderAlerts);
 router.get('/orders/:id', ...readAuth, getAdminOrderDetail);
 router.delete('/orders/:id', ...superAdminAuth, deleteAdminOrder);
 router.get('/orders/:id/candidate-riders', ...opsAuth, getOrderCandidateRiders);
