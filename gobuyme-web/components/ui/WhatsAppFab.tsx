@@ -1,13 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSupportWhatsapp } from '@/hooks/useSupportWhatsapp';
 
 // Floating WhatsApp support button, shown app-wide via the shop layout.
-// Number: 0707 890 1075 → international +234 707 890 1075 (wa.me strips the leading 0).
-const WHATSAPP_NUMBER = '2347078901075';
-const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-  "Hi GoBuyMe 👋 I'd like some help.",
-)}`;
+// The number is set in admin Settings → Customer Support (see useSupportWhatsapp).
+const WHATSAPP_MESSAGE = encodeURIComponent("Hi GoBuyMe 👋 I'd like some help.");
 
 const SIZE = 56;
 const MARGIN = 16;
@@ -34,6 +32,8 @@ function defaultPos(): Pos {
 }
 
 export function WhatsAppFab() {
+  const whatsappNumber = useSupportWhatsapp();
+  const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${WHATSAPP_MESSAGE}`;
   const [pos, setPos] = useState<Pos | null>(null);
   const posRef = useRef<Pos>({ x: 0, y: 0 });
   const dragRef = useRef<{
@@ -142,7 +142,7 @@ export function WhatsAppFab() {
 
   return (
     <a
-      href={WHATSAPP_URL}
+      href={whatsappUrl}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"

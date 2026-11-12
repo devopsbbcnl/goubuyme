@@ -19,6 +19,7 @@ interface SettingsApi {
   storeUrlAndroid: string;
   storeUrlIos: string;
   appReleaseNotes: string;
+  supportWhatsapp: string;
 }
 
 interface SettingsState {
@@ -36,6 +37,7 @@ interface SettingsState {
   storeUrlAndroid: string;
   storeUrlIos: string;
   appReleaseNotes: string;
+  supportWhatsapp: string;
 }
 
 const EMPTY: SettingsState = {
@@ -53,6 +55,7 @@ const EMPTY: SettingsState = {
   storeUrlAndroid: '',
   storeUrlIos: '',
   appReleaseNotes: '',
+  supportWhatsapp: '',
 };
 
 const toState = (s: SettingsApi | undefined): SettingsState => {
@@ -74,6 +77,7 @@ const toState = (s: SettingsApi | undefined): SettingsState => {
     storeUrlAndroid: s.storeUrlAndroid ?? '',
     storeUrlIos: s.storeUrlIos ?? '',
     appReleaseNotes: s.appReleaseNotes ?? '',
+    supportWhatsapp: s.supportWhatsapp ?? '',
   };
 };
 
@@ -137,6 +141,7 @@ export default function SettingsPage() {
         const raw = cfg[key].trim();
         if (raw !== '') payload[key] = raw;
       }
+      if (cfg.supportWhatsapp.trim()) payload.supportWhatsapp = cfg.supportWhatsapp.trim();
       payload.storeUrlIos = cfg.storeUrlIos.trim();
       payload.appReleaseNotes = cfg.appReleaseNotes.trim();
       const res = await api.patch<{ data: SettingsApi }>('/admin/settings', payload);
@@ -334,6 +339,27 @@ export default function SettingsPage() {
             <div style={{ fontSize: 11, color: T.textMuted, marginTop: 5 }}>
               General cancellation grace period. Vendor no-response auto-cancel is handled
               separately by the escalation service.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={sectionHeader}>Customer Support</div>
+        <div style={sectionBody}>
+          <div>
+            <label style={labelStyle}>Support WhatsApp Number</label>
+            <input
+              style={inputStyle}
+              type="text"
+              inputMode="tel"
+              placeholder="0707 890 1075 or +234 707 890 1075"
+              value={cfg.supportWhatsapp}
+              onChange={e => set('supportWhatsapp', e.target.value)}
+            />
+            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 5 }}>
+              Used by the chat button on the website and in the mobile app. Saved in international
+              format. The mobile app picks up a change the next time it is opened.
             </div>
           </div>
         </div>

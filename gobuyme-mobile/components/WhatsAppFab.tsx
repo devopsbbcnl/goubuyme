@@ -8,12 +8,10 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useSupportWhatsapp } from '@/hooks/useSupportWhatsapp';
 
-// Number: 0707 890 1075 → international +234 707 890 1075 (wa.me strips the leading 0).
-const WHATSAPP_NUMBER = '2347078901075';
-const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-  "Hi GoBuyMe 👋 I'd like some help.",
-)}`;
+// The number is set in admin Settings → Customer Support (see useSupportWhatsapp).
+const WHATSAPP_MESSAGE = encodeURIComponent("Hi GoBuyMe 👋 I'd like some help.");
 
 const SIZE = 56;
 const MARGIN = 18;
@@ -27,6 +25,10 @@ const STORAGE_KEY = '@gbm/whatsapp_fab_pos';
  */
 export default function WhatsAppFab() {
   const { width, height } = useWindowDimensions();
+  // Ref, because the PanResponder below is created once and would keep a stale number.
+  const whatsappNumber = useSupportWhatsapp();
+  const whatsappNumberRef = useRef(whatsappNumber);
+  whatsappNumberRef.current = whatsappNumber;
   const pan = useRef(new Animated.ValueXY()).current;
   const posRef = useRef({ x: 0, y: 0 });
   const [ready, setReady] = useState(false);
@@ -98,7 +100,7 @@ export default function WhatsAppFab() {
         // A near-stationary press is a tap → open the chat.
         if (Math.abs(g.dx) < TAP_SLOP && Math.abs(g.dy) < TAP_SLOP) {
           setPos(posRef.current.x, posRef.current.y); // undo any sub-slop drift
-          Linking.openURL(WHATSAPP_URL).catch(() => {});
+          Linking.openURL(`https://wa.me/${whatsappNumberRef.current}?text=${WHATSAPP_MESSAGE}`).catch(() => {});
           return;
         }
         const c = clamp(posRef.current.x + g.dx, posRef.current.y + g.dy);
