@@ -1002,6 +1002,7 @@ model PlatformSetting {
   latestAppVersion                  String   @default("1.0.0")
   storeUrlAndroid                   String   @default("https://play.google.com/store/apps/details?id=dev.bubblebarrel.gobuyme")
   storeUrlIos                       String   @default("")
+  appReleaseNotes                   String   @default("")
 
   @@map("platform_settings")
 }

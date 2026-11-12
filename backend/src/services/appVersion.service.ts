@@ -15,11 +15,26 @@ export const compareVersions = (a: string, b: string): number => {
   return 0;
 };
 
+export const RELEASE_NOTES_MAX_LENGTH = 1000;
+
+// Release notes are typed one change per line. A leading "-", "*" or "•" is
+// dropped so the app can draw its own bullets; blank lines are ignored.
+export const parseReleaseNotes = (raw: string): string[] =>
+  raw
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*[-*•]\s*/, '').trim())
+    .filter(Boolean);
+
 // What the phone app asks at launch: the oldest version still allowed, the newest
-// one out, and where to get it. The app does the comparing (it knows its own
-// version); the server only says what the platform wants.
+// one out, what changed in it, and where to get it. The app does the comparing
+// (it knows its own version); the server only says what the platform wants.
 export const versionPolicy = async (platform: 'android' | 'ios') => {
   const s = await getPlatformSettings();
   const storeUrl = platform === 'ios' ? s.storeUrlIos : s.storeUrlAndroid;
-  return { min: s.minAppVersion, latest: s.latestAppVersion, storeUrl: storeUrl || null };
+  return {
+    min: s.minAppVersion,
+    latest: s.latestAppVersion,
+    storeUrl: storeUrl || null,
+    notes: parseReleaseNotes(s.appReleaseNotes),
+  };
 };

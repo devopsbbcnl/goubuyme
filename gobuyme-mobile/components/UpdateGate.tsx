@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, Linking, Modal, Platform, StyleSheet, Text, View } from 'react-native';
+import { AppState, Linking, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useTheme } from '@/context/ThemeContext';
 import { fetchVersionPolicy, installedVersion, updateState, type VersionPolicy } from '@/services/appVersion';
@@ -7,6 +7,7 @@ import { fetchVersionPolicy, installedVersion, updateState, type VersionPolicy }
 // Asks the API at launch and whenever the app comes back to the front. Too old
 // (below `min`) and nothing else can be used until the user updates; merely
 // behind (below `latest`) and it asks once per version, then lets them carry on.
+// Either way it lists what changed in the new version, as written by the admin.
 // A failed check lets the app run: being offline must never lock anyone out.
 export function UpdateGate() {
   const { theme: T } = useTheme();
@@ -42,6 +43,19 @@ export function UpdateGate() {
               ? `This version (${installedVersion}) is too old to keep working. Update to ${policy.latest} to carry on.`
               : `Version ${policy.latest} is ready. You have ${installedVersion}.`}
           </Text>
+          {policy.notes.length > 0 && (
+            <View style={styles.notes}>
+              <Text style={[styles.notesTitle, { color: T.text }]}>What's new in {policy.latest}</Text>
+              <ScrollView style={styles.notesList} showsVerticalScrollIndicator={false}>
+                {policy.notes.map((note, i) => (
+                  <View key={i} style={styles.noteRow}>
+                    <Text style={[styles.body, { color: T.primary }]}>•</Text>
+                    <Text style={[styles.body, styles.noteText, { color: T.textSec }]}>{note}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
           <View style={styles.footer}>
             {policy.storeUrl ? (
               <PrimaryButton onPress={() => { void Linking.openURL(policy.storeUrl!); }}>Update</PrimaryButton>
@@ -61,5 +75,10 @@ const styles = StyleSheet.create({
   card: { width: '100%', maxWidth: 420, borderWidth: 1, borderRadius: 4, padding: 24, gap: 8 },
   title: { fontSize: 18, fontFamily: 'PlusJakartaSans_700Bold' },
   body: { fontSize: 14, lineHeight: 20, fontFamily: 'PlusJakartaSans_400Regular' },
+  notes: { marginTop: 8, gap: 6 },
+  notesTitle: { fontSize: 14, fontFamily: 'PlusJakartaSans_700Bold' },
+  notesList: { maxHeight: 200 },
+  noteRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  noteText: { flex: 1 },
   footer: { marginTop: 16, gap: 8 },
 });

@@ -19,6 +19,7 @@ export const DEFAULT_PLATFORM_SETTINGS = {
   latestAppVersion: '1.0.0',
   storeUrlAndroid: 'https://play.google.com/store/apps/details?id=dev.bubblebarrel.gobuyme',
   storeUrlIos: '',
+  appReleaseNotes: '',
 };
 
 export const getPlatformSettings = async () =>
@@ -44,6 +45,7 @@ export type PlatformSettingsPatch = Partial<{
   latestAppVersion: string;
   storeUrlAndroid: string;
   storeUrlIos: string;
+  appReleaseNotes: string;
 }>;
 
 export const updatePlatformSettings = async (data: PlatformSettingsPatch) =>

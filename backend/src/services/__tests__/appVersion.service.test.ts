@@ -1,4 +1,20 @@
-import { compareVersions, VERSION_PATTERN } from '../appVersion.service';
+import { compareVersions, parseReleaseNotes, VERSION_PATTERN } from '../appVersion.service';
+
+describe('parseReleaseNotes', () => {
+  it('gives one entry per line and drops typed bullets and blank lines', () => {
+    expect(parseReleaseNotes('- Share your store\r\n\n• Fixed a crash\n  * Faster search  \nPlain line')).toEqual([
+      'Share your store',
+      'Fixed a crash',
+      'Faster search',
+      'Plain line',
+    ]);
+  });
+
+  it('gives nothing when no notes are written', () => {
+    expect(parseReleaseNotes('')).toEqual([]);
+    expect(parseReleaseNotes(' \n - \n')).toEqual([]);
+  });
+});
 
 describe('compareVersions', () => {
   it('compares numerically, not as text', () => {
