@@ -39,6 +39,12 @@ export const getPublicCommissionRates = catchAsync(async (_req: Request, res: Re
   });
 });
 
+// GET /vendors/support-contact (public) — support WhatsApp number shown by web + mobile
+export const getPublicSupportContact = catchAsync(async (_req: Request, res: Response) => {
+  const settings = await getPlatformSettings();
+  return apiResponse.success(res, 'Support contact fetched.', { whatsapp: settings.supportWhatsapp });
+});
+
 // ── Badge recomputation ───────────────────────────────────────────────────────
 export async function updateVendorBadge(vendorId: string): Promise<void> {
   const [doc, biz, licenses] = await Promise.all([

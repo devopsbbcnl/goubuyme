@@ -1003,6 +1003,7 @@ model PlatformSetting {
   storeUrlAndroid                   String   @default("https://play.google.com/store/apps/details?id=dev.bubblebarrel.gobuyme")
   storeUrlIos                       String   @default("")
   appReleaseNotes                   String   @default("")
+  supportWhatsapp                   String   @default("2347078901075")
 
   @@map("platform_settings")
 }

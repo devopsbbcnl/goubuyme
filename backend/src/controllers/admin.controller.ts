@@ -9,7 +9,7 @@ import { updateVendorBadge } from './vendor.controller';
 import { notifyUser } from '../services/notification.service';
 import { sendVendorApprovalEmail, sendRiderApprovalEmail } from '../services/email.service';
 import { generateReferralCode } from '../utils/generateToken';
-import { getPlatformSettings, updatePlatformSettings, PlatformSettingsPatch } from '../services/settings.service';
+import { getPlatformSettings, updatePlatformSettings, normalizeWhatsappNumber, PlatformSettingsPatch } from '../services/settings.service';
 import { RELEASE_NOTES_MAX_LENGTH, VERSION_PATTERN, compareVersions, parseReleaseNotes } from '../services/appVersion.service';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
@@ -99,6 +99,14 @@ export const updateAdminSettings = catchAsync(async (req: AuthRequest, res: Resp
       return apiResponse.error(res, 'Support email must be a valid email address.', 400);
     }
     patch.supportEmail = supportEmail;
+  }
+
+  if (typeof body.supportWhatsapp === 'string' && body.supportWhatsapp.trim()) {
+    const number = normalizeWhatsappNumber(body.supportWhatsapp);
+    if (!number) {
+      return apiResponse.error(res, 'WhatsApp number must be a valid phone number, e.g. 0707 890 1075 or +234 707 890 1075.', 400);
+    }
+    patch.supportWhatsapp = number;
   }
 
   type NumericSettingKey =

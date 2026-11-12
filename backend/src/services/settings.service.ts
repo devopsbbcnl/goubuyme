@@ -20,6 +20,8 @@ export const DEFAULT_PLATFORM_SETTINGS = {
   storeUrlAndroid: 'https://play.google.com/store/apps/details?id=dev.bubblebarrel.gobuyme',
   storeUrlIos: '',
   appReleaseNotes: '',
+  // International format, digits only (wa.me style), e.g. 2347078901075.
+  supportWhatsapp: process.env.SUPPORT_WHATSAPP || '2347078901075',
 };
 
 export const getPlatformSettings = async () =>
@@ -46,7 +48,17 @@ export type PlatformSettingsPatch = Partial<{
   storeUrlAndroid: string;
   storeUrlIos: string;
   appReleaseNotes: string;
+  supportWhatsapp: string;
 }>;
+
+// Accepts what an admin might type ("0707 890 1075", "+234 707 890 1075") and
+// returns digits in international format, or null if it can't be a Nigerian-style number.
+export const normalizeWhatsappNumber = (raw: string): string | null => {
+  let d = raw.replace(/[\s\-().+]/g, '');
+  if (!/^\d+$/.test(d)) return null;
+  if (d.startsWith('0') && d.length === 11) d = `234${d.slice(1)}`;
+  return d.length >= 10 && d.length <= 15 ? d : null;
+};
 
 export const updatePlatformSettings = async (data: PlatformSettingsPatch) =>
   prisma.platformSetting.upsert({

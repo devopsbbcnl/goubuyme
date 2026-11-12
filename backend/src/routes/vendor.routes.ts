@@ -15,7 +15,7 @@ import {
   getMyLicenses, submitLicense, deleteLicense,
   getMyPromotions, createPromotion, updatePromotion, togglePromotion, deletePromotion, updatePromotionPosition,
   getActiveVendorPromotions, searchMenuItems, unifiedSearch, browseItems, getMenuItemById, getSimilarMenuItems,
-  getPublicCommissionRates,
+  getPublicCommissionRates, getPublicSupportContact,
 } from '../controllers/vendor.controller';
 import {
   listMyBranches, createBranch, updateBranch, deleteBranch,
@@ -100,6 +100,7 @@ router.delete('/me/promotions/:id',            ...vendorAuth, deletePromotion);
 
 // Public routes
 router.get('/commission-rates',   getPublicCommissionRates);
+router.get('/support-contact',    getPublicSupportContact);
 router.get('/active-promotions',  getActiveVendorPromotions);
 router.get('/browse-items',       browseItems);
 router.get('/search',             unifiedSearch);

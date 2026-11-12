@@ -6,16 +6,18 @@ import { Input } from "@/marketing/components/ui/input";
 import { Textarea } from "@/marketing/components/ui/textarea";
 import { useToast } from "@/marketing/hooks/use-toast";
 import { submitSiteForm } from "@/marketing/lib/submitSiteForm";
+import { useSupportWhatsapp, formatWhatsapp } from "@/hooks/useSupportWhatsapp";
 
-const channels = [
-  { emoji: "💬", title: "WhatsApp support", note: "+234 707 890 1075", sub: "Mon–Sun · 7am–10pm" },
+const buildChannels = (whatsapp: string) => [
+  { emoji: "💬", title: "WhatsApp support", note: formatWhatsapp(whatsapp), sub: "Mon–Sun · 7am–10pm" },
   { emoji: "✉️", title: "Email", note: "contact@gobuyme.shop", sub: "We reply within 4 hours" },
   { emoji: "🏢", title: "HQ", note: "7th Avenu Federal Housing Estate, Egbeada. Owerri, Nigeria.", sub: "Visits by appointment" },
-  { emoji: "🚨", title: "Emergency", note: "+234 707 890 1075", sub: "Order issues · 24/7" },
+  { emoji: "🚨", title: "Emergency", note: formatWhatsapp(whatsapp), sub: "Order issues · 24/7" },
 ];
 
 const Contact = () => {
   const { toast } = useToast();
+  const channels = buildChannels(useSupportWhatsapp());
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState("");
