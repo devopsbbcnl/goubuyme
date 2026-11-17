@@ -41,6 +41,7 @@ import {
 import { runOpsBriefingSchema } from '../validators/opsBriefing.validator';
 import { sendBroadcastSchema } from '../validators/broadcast.validator';
 import { listBroadcasts, previewBroadcast, searchBroadcastRecipients, sendBroadcast } from '../controllers/broadcast.controller';
+import { exportEmails } from '../controllers/emailExport.controller';
 import { listOpsBriefings, runOpsBriefingNow } from '../controllers/opsBriefing.controller';
 import {
   listAgents, updateAgent, listSuggestions, approveAgentSuggestion, rejectAgentSuggestion,
@@ -162,6 +163,8 @@ router.get('/broadcasts',         ...readAuth, listBroadcasts);
 router.get('/broadcasts/preview', ...readAuth, previewBroadcast);
 router.get('/broadcasts/recipients', ...opsAuth, searchBroadcastRecipients);
 router.post('/broadcasts',        ...opsAuth, validate(sendBroadcastSchema), sendBroadcast);
+// Personal data: operations and super admins only, each export is audit-logged.
+router.get('/exports/emails',     ...opsAuth, exportEmails);
 
 // Server logs (Winston files on disk) — super admin only
 router.get('/logs/files', ...superAdminAuth, getLogFiles);

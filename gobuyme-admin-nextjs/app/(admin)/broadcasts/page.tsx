@@ -4,7 +4,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 
-type Audience = 'ALL' | 'CUSTOMERS' | 'VENDORS' | 'RIDERS' | 'USER';
+type Audience = 'ALL' | 'CUSTOMERS' | 'VENDORS' | 'RIDERS' | 'LOGISTICS_COMPANIES' | 'USER';
+type EmailType = 'SERVICE' | 'PROMOTIONAL';
 
 interface Broadcast {
   id: string;
@@ -15,11 +16,15 @@ interface Broadcast {
   targetUserEmail: string | null;
   recipientCount: number;
   pushCount: number;
+  sendInApp: boolean;
+  sendEmail: boolean;
+  emailType: EmailType | null;
+  emailCount: number;
   authorName: string;
   createdAt: string;
 }
 
-interface Reach { recipients: number; pushReachable: number }
+interface Reach { recipients: number; pushReachable: number; emailService: number; emailPromotional: number }
 
 interface Recipient { id: string; name: string; email: string; phone: string | null; role: string }
 
@@ -28,12 +33,17 @@ const AUDIENCES: Array<{ value: Audience; label: string }> = [
   { value: 'CUSTOMERS', label: 'Customers' },
   { value: 'VENDORS', label: 'Vendors' },
   { value: 'RIDERS', label: 'Riders' },
+  { value: 'LOGISTICS_COMPANIES', label: 'Logistics companies' },
   { value: 'USER', label: 'One user' },
 ];
 const AUDIENCE_LABEL = Object.fromEntries(AUDIENCES.map(a => [a.value, a.label])) as Record<Audience, string>;
 
+// Whole groups only: an export is never a single person.
+const EXPORT_AUDIENCES = AUDIENCES.filter(a => a.value !== 'USER');
+
 const TITLE_MAX = 80;
 const BODY_MAX = 500;
+const EMAIL_BODY_MAX = 3000;
 
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -50,6 +60,13 @@ export default function BroadcastsPage() {
   const [results, setResults] = useState<Recipient[] | null>(null);
   const [reach, setReach] = useState<Reach | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [inApp, setInApp] = useState(true);
+  const [email, setEmail] = useState(false);
+  const [emailType, setEmailType] = useState<EmailType>('SERVICE');
+  const [emailBody, setEmailBody] = useState('');
+  const [exportAudience, setExportAudience] = useState<Audience>('ALL');
+  const [exportMarketingOnly, setExportMarketingOnly] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -96,8 +113,31 @@ export default function BroadcastsPage() {
     return () => { live = false; clearTimeout(t); };
   }, [audience, target, query]);
 
-  const valid = title.trim().length >= 3 && body.trim().length >= 3 && (audience !== 'USER' || !!target);
+  const valid = title.trim().length >= 3 && body.trim().length >= 3 && (audience !== 'USER' || !!target)
+    && (inApp || email) && (!email || emailBody.trim().length === 0 || emailBody.trim().length >= 3);
   const audienceName = audience === 'USER' && target ? target.name : AUDIENCE_LABEL[audience];
+  // How many accounts the email will actually go to: a promotion skips those who opted out.
+  const emailReach = reach ? (emailType === 'PROMOTIONAL' ? reach.emailPromotional : reach.emailService) : null;
+  const nobodyToReach = !reach || reach.recipients === 0 || (!inApp && email && emailReach === 0);
+
+  const exportEmails = async () => {
+    setExporting(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/proxy/admin/exports/emails?audience=${exportAudience}&marketingOnly=${exportMarketingOnly}`);
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Export failed.');
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gobuyme-${exportAudience.toLowerCase()}-emails-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setMessage({ text: e instanceof Error ? e.message : 'Export failed.', ok: false });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const send = async () => {
     setBusy(true);
@@ -105,10 +145,14 @@ export default function BroadcastsPage() {
     try {
       const res = await api.post<{ message: string }>('/admin/broadcasts', {
         title: title.trim(), body: body.trim(), audience, ...(audience === 'USER' && target ? { targetUserId: target.id } : {}),
+        sendInApp: inApp,
+        sendEmail: email,
+        ...(email ? { emailType, ...(emailBody.trim() ? { emailBody: emailBody.trim() } : {}) } : {}),
       });
       setMessage({ text: res.message, ok: true });
       setTitle('');
       setBody('');
+      setEmailBody('');
       setTarget(null);
       setQuery('');
       setConfirming(false);
@@ -139,8 +183,9 @@ export default function BroadcastsPage() {
       <div>
         <div style={{ fontSize: 20, fontWeight: 800, color: T.text }}>Broadcasts</div>
         <div style={{ fontSize: 13, color: T.textSec, maxWidth: 680, lineHeight: 1.5 }}>
-          Send a message from GoBuyMe to everyone, to every customer, vendor or rider, or to one specific user. It arrives as a
-          push notification and is kept in their notifications. This is for operational news (an outage, a policy change); use Marketing for promotions.
+          Send a message from GoBuyMe to everyone, to every customer, vendor, rider or logistics company, or to one specific user.
+          It can arrive as a push notification (kept in their notifications), as an email, or both. Pick a service notice for operational news
+          (an outage, a policy change). Promotional emails skip anyone who opted out of marketing and carry an unsubscribe link.
           A sent broadcast cannot be edited or taken back.
         </div>
       </div>
@@ -210,7 +255,46 @@ export default function BroadcastsPage() {
           </div>
 
           <div>
-            <label style={label} htmlFor="bc-title">Title</label>
+            <span style={label}>Send by</span>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: T.text, cursor: 'pointer' }}>
+                <input type="checkbox" checked={inApp} onChange={e => { setInApp(e.target.checked); setConfirming(false); }} />
+                In-app and push
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: T.text, cursor: 'pointer' }}>
+                <input type="checkbox" checked={email} onChange={e => { setEmail(e.target.checked); setConfirming(false); }} />
+                Email
+              </label>
+            </div>
+            {!inApp && !email && <div style={{ fontSize: 12, color: T.error, marginTop: 6 }}>Choose at least one.</div>}
+            {email && (
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {([
+                  ['SERVICE', 'Service notice', 'Operational news. Goes to every active account in the audience.'],
+                  ['PROMOTIONAL', 'Promotional', 'Offers and marketing. Skips accounts that opted out; adds an unsubscribe link.'],
+                ] as const).map(([value, name, hint]) => (
+                  <label key={value} style={{
+                    display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer', padding: '8px 12px', borderRadius: 4,
+                    border: `1px solid ${emailType === value ? T.primary : T.border}`,
+                  }}>
+                    <input type="radio" name="bc-email-type" checked={emailType === value} onChange={() => { setEmailType(value); setConfirming(false); }} style={{ marginTop: 3 }} />
+                    <span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: T.text }}>{name}</span>
+                      <span style={{ display: 'block', fontSize: 12, color: T.textSec }}>{hint}</span>
+                    </span>
+                  </label>
+                ))}
+                <div style={{ fontSize: 12, color: T.textMuted }}>
+                  {emailReach === null
+                    ? 'Counting…'
+                    : `${emailReach.toLocaleString()} email${emailReach === 1 ? '' : 's'} will be sent.${emailType === 'PROMOTIONAL' && reach && reach.recipients > emailReach ? ` ${(reach.recipients - emailReach).toLocaleString()} skipped (opted out of marketing).` : ''}`}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label style={label} htmlFor="bc-title">{email ? 'Title (also the email subject)' : 'Title'}</label>
             <input id="bc-title" style={input} value={title} maxLength={TITLE_MAX} onChange={e => { setTitle(e.target.value); setConfirming(false); }} placeholder="e.g. Scheduled maintenance tonight" />
             <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4, textAlign: 'right' }}>{title.length}/{TITLE_MAX}</div>
           </div>
@@ -221,6 +305,14 @@ export default function BroadcastsPage() {
             <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4, textAlign: 'right' }}>{body.length}/{BODY_MAX}</div>
           </div>
 
+          {email && (
+            <div>
+              <label style={label} htmlFor="bc-email-body">Email message <span style={{ fontWeight: 400 }}>(optional, longer version)</span></label>
+              <textarea id="bc-email-body" style={{ ...input, minHeight: 120, resize: 'vertical' }} value={emailBody} maxLength={EMAIL_BODY_MAX} onChange={e => { setEmailBody(e.target.value); setConfirming(false); }} placeholder="Leave empty to email the message above. Each email opens with “Hi <first name>,”." />
+              <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4, textAlign: 'right' }}>{emailBody.length}/{EMAIL_BODY_MAX}</div>
+            </div>
+          )}
+
           {confirming ? (
             <div style={{ border: `1px solid ${T.primary}`, borderRadius: 4, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>
@@ -228,9 +320,12 @@ export default function BroadcastsPage() {
                   ? `${audienceName} (${target?.email})`
                   : reach ? `${reach.recipients.toLocaleString()} ${AUDIENCE_LABEL[audience].toLowerCase()} account${reach.recipients === 1 ? '' : 's'}` : AUDIENCE_LABEL[audience]}? This cannot be undone.
               </div>
+              <div style={{ fontSize: 12, color: T.textSec }}>
+                {[inApp && 'In-app and push', email && `Email (${emailType === 'PROMOTIONAL' ? 'promotional' : 'service notice'}${emailReach !== null ? `, ${emailReach.toLocaleString()} sent` : ''})`].filter(Boolean).join(' + ')}
+              </div>
               <div style={{ background: T.surface2, borderRadius: 4, padding: 12 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>{title.trim()}</div>
-                <div style={{ fontSize: 13, color: T.textSec, marginTop: 4, whiteSpace: 'pre-wrap' }}>{body.trim()}</div>
+                <div style={{ fontSize: 13, color: T.textSec, marginTop: 4, whiteSpace: 'pre-wrap' }}>{(email && !inApp && emailBody.trim()) || body.trim()}</div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {button(busy ? 'Sending…' : 'Send now', send, true, busy)}
@@ -238,11 +333,39 @@ export default function BroadcastsPage() {
               </div>
             </div>
           ) : (
-            <div>{button('Review and send', () => setConfirming(true), true, !valid || !reach || reach.recipients === 0)}</div>
+            <div>{button('Review and send', () => setConfirming(true), true, !valid || nobodyToReach)}</div>
           )}
         </div>
       ) : (
         <div style={{ fontSize: 13, color: T.textSec }}>Only Operations and Super Admins can send broadcasts.</div>
+      )}
+
+      {canSend && (
+        <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: T.text }}>Export email addresses</div>
+            <div style={{ fontSize: 12, color: T.textSec, lineHeight: 1.5, maxWidth: 680 }}>
+              Download a CSV (email, name, role, business, city, marketing opt-in) of active accounts to use in a mail tool.
+              This is personal data: only share it with people who need it, and honour the opt-out column for promotions.
+              Each export is recorded in the audit log.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {EXPORT_AUDIENCES.map(a => (
+              <button key={a.value} onClick={() => setExportAudience(a.value)} style={{
+                padding: '7px 14px', borderRadius: 999, fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+                border: `1px solid ${exportAudience === a.value ? T.primary : T.border}`,
+                background: exportAudience === a.value ? T.primary : 'none',
+                color: exportAudience === a.value ? '#fff' : T.text,
+              }}>{a.label}</button>
+            ))}
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: T.text, cursor: 'pointer' }}>
+            <input type="checkbox" checked={exportMarketingOnly} onChange={e => setExportMarketingOnly(e.target.checked)} />
+            Only people who have not opted out of marketing
+          </label>
+          <div>{button(exporting ? 'Preparing…' : 'Download CSV', () => { void exportEmails(); }, true, exporting)}</div>
+        </div>
       )}
 
       <div style={{ fontSize: 14, fontWeight: 800, color: T.text }}>Sent</div>
@@ -261,7 +384,9 @@ export default function BroadcastsPage() {
             </div>
             <div style={{ fontSize: 13, color: T.textSec, marginTop: 4, whiteSpace: 'pre-wrap' }}>{b.body}</div>
             <div style={{ fontSize: 12, color: T.textMuted, marginTop: 8 }}>
-              {fmt(b.createdAt)} · by {b.authorName} · {b.recipientCount.toLocaleString()} recipients, {b.pushCount.toLocaleString()} notified on a device
+              {fmt(b.createdAt)} · by {b.authorName} · {b.recipientCount.toLocaleString()} recipients
+              {b.sendInApp ? `, ${b.pushCount.toLocaleString()} notified on a device` : ''}
+              {b.sendEmail ? ` · ${b.emailCount.toLocaleString()} ${b.emailType === 'PROMOTIONAL' ? 'promotional ' : ''}email${b.emailCount === 1 ? '' : 's'}` : ''}
             </div>
           </div>
         ))}

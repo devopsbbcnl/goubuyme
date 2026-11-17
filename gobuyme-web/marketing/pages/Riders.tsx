@@ -20,6 +20,11 @@ const perks = [
 
 const Riders = () => {
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState<"rider" | "company">("rider");
+  const openModal = (tab: "rider" | "company") => {
+    setModalTab(tab);
+    setModalOpen(true);
+  };
 
   return (
     <main className="min-h-screen bg-background">
@@ -44,10 +49,16 @@ const Riders = () => {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <button
-                onClick={() => setModalOpen(true)}
+                onClick={() => openModal("rider")}
                 className="inline-flex items-center gap-2 rounded-full border-2 border-background bg-primary px-6 py-3 font-mono-pop text-xs uppercase tracking-widest text-primary-foreground shadow-[6px_6px_0_hsl(var(--background))] transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-none"
               >
                 Become a rider →
+              </button>
+              <button
+                onClick={() => openModal("company")}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-background px-6 py-3 font-mono-pop text-xs uppercase tracking-widest"
+              >
+                Register a logistics company
               </button>
               <a
                 href="#earnings"
@@ -175,7 +186,7 @@ const Riders = () => {
               Our lease-to-own program puts a brand-new Sonik bike under you for as low as ₦4,500/day. Pay from your earnings, own it in 18 months.
             </p>
             <button
-              onClick={() => setModalOpen(true)}
+              onClick={() => openModal("rider")}
               className="mt-6 inline-flex items-center gap-2 rounded-full border-2 border-ink bg-foreground px-6 py-3 font-mono-pop text-xs uppercase tracking-widest text-background shadow-pop-sm transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-none"
             >
               Apply for a bike →
@@ -213,10 +224,16 @@ const Riders = () => {
               ))}
             </ul>
             <button
-              onClick={() => setModalOpen(true)}
+              onClick={() => openModal("rider")}
               className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-full border-2 border-ink bg-foreground px-6 font-mono-pop text-xs uppercase tracking-widest text-background shadow-pop-sm transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
             >
               Become a rider →
+            </button>
+            <button
+              onClick={() => openModal("company")}
+              className="mt-3 inline-flex h-12 w-full items-center justify-center rounded-full border-2 border-ink px-6 font-mono-pop text-xs uppercase tracking-widest transition-all hover:bg-muted"
+            >
+              Run a fleet? Register your company →
             </button>
           </div>
         </div>
@@ -231,7 +248,8 @@ const Riders = () => {
       <RegistrationModal
         open={modalOpen}
         onOpenChange={setModalOpen}
-        defaultTab="rider"
+        defaultTab={modalTab}
+        tabs={["rider", "company"]}
       />
 
       <Footer />

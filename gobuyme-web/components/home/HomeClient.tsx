@@ -120,7 +120,7 @@ export function HomeClient() {
           <div className="section-head"><h2 className="section-title">What are you craving?</h2></div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 12 }}>
             {FOOD_CATEGORIES.map(c => (
-              <button key={c.label} onClick={() => { const cp = selectedCity ? `&city=${encodeURIComponent(selectedCity)}` : ''; router.push(`/vendors?q=${encodeURIComponent(c.label)}&category=${c.cat}${cp}`); }}
+              <button key={c.label} onClick={() => { const cp = selectedCity ? `&city=${encodeURIComponent(selectedCity)}` : ''; const qp = c.cat === 'RESTAURANT' ? `q=${encodeURIComponent(c.label)}&` : ''; router.push(`/vendors?${qp}category=${c.cat}${cp}`); }}
                 className="card card-pad" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 8px', cursor: 'pointer', transition: 'all .15s', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--brand)'; (e.currentTarget as HTMLElement).style.color = 'var(--brand)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--line)'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; }}

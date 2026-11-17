@@ -1990,6 +1990,15 @@ model Broadcast {
   recipientCount Int
   /// Of those, how many had a push token or web subscription to be buzzed on.
   pushCount      Int
+  /// Delivered as an in-app Notification row + push. False for an email-only broadcast.
+  sendInApp      Boolean           @default(true)
+  /// Also sent by email. SERVICE reaches every active account; PROMOTIONAL skips users who opted out of marketing.
+  sendEmail      Boolean           @default(false)
+  emailType      BroadcastEmailType?
+  /// The longer email text; falls back to `body` when null.
+  emailBody      String?
+  /// Accounts the email was addressed to (each one a Resend message).
+  emailCount     Int               @default(0)
   createdAt      DateTime          @default(now())
   author         User              @relation("BroadcastAuthor", fields: [authorId], references: [id])
   targetUser     User?             @relation("BroadcastTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
@@ -2004,8 +2013,16 @@ enum BroadcastAudience {
   CUSTOMERS
   VENDORS
   RIDERS
+  LOGISTICS_COMPANIES
   /// One specific account (see Broadcast.targetUserId).
   USER
+}
+
+enum BroadcastEmailType {
+  /// Operational news (outage, policy change): every active account in the audience.
+  SERVICE
+  /// Promotions and offers: only accounts with marketingOptIn, with an unsubscribe link.
+  PROMOTIONAL
 }
 
 /// A logistics company that runs a fleet of riders. The owner signs in with the

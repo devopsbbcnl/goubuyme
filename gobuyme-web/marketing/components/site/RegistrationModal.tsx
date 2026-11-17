@@ -60,7 +60,12 @@ const VENDOR_STEP_FIELDS: Record<number, string[]> = {
 
 const RIDER_STEP_FIELDS: Record<number, string[]> = {
   1: ["name", "email", "phone", "password", "confirmPassword", "terms"],
-  2: ["vehicleType", "nin"],
+  2: ["vehicleType", "nin", "address", "city", "state"],
+};
+
+const COMPANY_STEP_FIELDS: Record<number, string[]> = {
+  1: ["name", "email", "phone", "password", "confirmPassword", "terms"],
+  2: ["companyName", "registrationNumber", "address", "city", "state"],
 };
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -120,6 +125,9 @@ const riderSchema = z
   .object({
     ...accountBase,
     vehicleType: z.string().min(1, "Vehicle type is required"),
+    address: z.string().min(1, "Address is required"),
+    city: z.string().min(1, "City is required"),
+    state: z.string().min(1, "State is required"),
     plateNumber: z.string().optional(),
     nin: z.string().regex(/^\d{11}$/, "NIN must be exactly 11 digits"),
     guarantorName: z.string().optional(),
@@ -139,8 +147,28 @@ const riderSchema = z
     }
   });
 
+const companySchema = z
+  .object({
+    ...accountBase,
+    companyName: z.string().trim().min(2, "Min 2 characters").max(150, "Max 150 characters"),
+    registrationNumber: z.string().trim().max(60, "Max 60 characters").optional(),
+    address: z.string().min(1, "Company address is required"),
+    city: z.string().min(1, "City is required"),
+    state: z.string().min(1, "State is required"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Passwords don't match",
+        path: ["confirmPassword"],
+      });
+    }
+  });
+
 type VendorValues = z.infer<typeof vendorSchema>;
 type RiderValues = z.infer<typeof riderSchema>;
+type CompanyValues = z.infer<typeof companySchema>;
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 
@@ -235,7 +263,7 @@ function ApiError({ message }: { message: string }) {
 
 // ─── Shared account step fields (used in both forms) ──────────────────────────
 
-function AccountStepFields<T extends VendorValues | RiderValues>({
+function AccountStepFields<T extends VendorValues | RiderValues | CompanyValues>({
   form,
 }: {
   form: ReturnType<typeof useForm<T>>;
@@ -630,6 +658,9 @@ function RiderForm({ onSuccess }: { onSuccess: () => void }) {
       guarantorName: "",
       guarantorPhone: "",
       guarantorAddress: "",
+      address: "",
+      city: "",
+      state: "",
     },
   });
 
@@ -655,6 +686,9 @@ function RiderForm({ onSuccess }: { onSuccess: () => void }) {
         role: "RIDER",
         vehicleType: v.vehicleType,
         plateNumber: v.plateNumber || "",
+        address: v.address,
+        city: v.city,
+        state: v.state,
         ...(v.referralCode ? { referralCode: v.referralCode } : {}),
       });
       onSuccess();
@@ -751,6 +785,48 @@ function RiderForm({ onSuccess }: { onSuccess: () => void }) {
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-mono-pop text-xs uppercase tracking-widest">Home Address</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="12 Adeyemi Close, Owerri" className="border-2 border-ink" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono-pop text-xs uppercase tracking-widest">City</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Owerri" className="border-2 border-ink" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono-pop text-xs uppercase tracking-widest">State</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Imo" className="border-2 border-ink" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               {/* Guarantor section */}
               <div className="rounded-2xl border-2 border-dashed border-ink/40 bg-muted/40 p-4">
                 <p className="mb-3 font-mono-pop text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -827,6 +903,192 @@ function RiderForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
+// ─── Logistics Company Form ───────────────────────────────────────────────────
+
+function CompanyForm({ onSuccess }: { onSuccess: () => void }) {
+  const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [apiError, setApiError] = useState("");
+
+  const form = useForm<CompanyValues>({
+    resolver: zodResolver(companySchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      password: "",
+      confirmPassword: "",
+      referralCode: "",
+      terms: false,
+      companyName: "",
+      registrationNumber: "",
+      address: "",
+      city: "",
+      state: "",
+    },
+  });
+
+  const advance = async () => {
+    const valid = await form.trigger(COMPANY_STEP_FIELDS[1] as (keyof CompanyValues)[]);
+    if (valid) setStep(2);
+  };
+
+  const handleFinalSubmit = async () => {
+    const valid = await form.trigger(COMPANY_STEP_FIELDS[2] as (keyof CompanyValues)[]);
+    if (!valid) return;
+    const v = form.getValues();
+    setApiError("");
+    setSubmitting(true);
+    try {
+      await registerUser({
+        name: v.name,
+        email: v.email,
+        phone: v.phone || "",
+        password: v.password,
+        role: "LOGISTICS_COMPANY",
+        companyName: v.companyName.trim(),
+        ...(v.registrationNumber?.trim() ? { registrationNumber: v.registrationNumber.trim() } : {}),
+        address: v.address,
+        city: v.city,
+        state: v.state,
+        ...(v.referralCode ? { referralCode: v.referralCode } : {}),
+      });
+      onSuccess();
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Form {...form}>
+      <form>
+        <StepIndicator current={step} total={2} />
+
+        {step === 1 && (
+          <>
+            <p className="mb-4 font-mono-pop text-[10px] uppercase tracking-widest text-muted-foreground">
+              Step 1 — Account Details
+            </p>
+            <AccountStepFields form={form} />
+            <Button
+              type="button"
+              onClick={advance}
+              className="mt-5 w-full rounded-full border-2 border-ink bg-primary text-primary-foreground shadow-pop-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none font-mono-pop text-xs uppercase tracking-widest h-11"
+            >
+              Next →
+            </Button>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <p className="mb-4 font-mono-pop text-[10px] uppercase tracking-widest text-muted-foreground">
+              Step 2 — Company Details
+            </p>
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="companyName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-mono-pop text-xs uppercase tracking-widest">Company Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Swift Dispatch Ltd" className="border-2 border-ink" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="registrationNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-mono-pop text-xs uppercase tracking-widest">
+                      CAC Registration Number{" "}
+                      <span className="normal-case text-muted-foreground">(optional)</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="RC 1234567" className="border-2 border-ink" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-mono-pop text-xs uppercase tracking-widest">Company Address</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="12 Adeyemi Close, Owerri" className="border-2 border-ink" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono-pop text-xs uppercase tracking-widest">City</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Owerri" className="border-2 border-ink" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono-pop text-xs uppercase tracking-widest">State</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Imo" className="border-2 border-ink" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <p className="rounded-2xl border-2 border-dashed border-ink/40 bg-muted/40 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+                After approval you can invite your riders and manage your whole fleet from one dashboard.
+              </p>
+              {apiError && <ApiError message={apiError} />}
+            </div>
+            <div className="mt-5 flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep(1)}
+                disabled={submitting}
+                className="flex-1 rounded-full border-2 border-ink font-mono-pop text-xs uppercase tracking-widest h-11"
+              >
+                ← Back
+              </Button>
+              <Button
+                type="button"
+                onClick={handleFinalSubmit}
+                disabled={submitting}
+                className="flex-1 rounded-full border-2 border-ink bg-primary text-primary-foreground shadow-pop-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none font-mono-pop text-xs uppercase tracking-widest h-11"
+              >
+                {submitting ? "Submitting…" : "Submit →"}
+              </Button>
+            </div>
+          </>
+        )}
+      </form>
+    </Form>
+  );
+}
+
 // ─── Success Screen ───────────────────────────────────────────────────────────
 
 function SuccessScreen() {
@@ -858,19 +1120,30 @@ function SuccessScreen() {
 
 // ─── Registration Modal (main export) ─────────────────────────────────────────
 
+type RegistrationTab = "vendor" | "rider" | "company";
+
+const TAB_LABELS: Record<RegistrationTab, string> = {
+  vendor: "Vendor",
+  rider: "Rider",
+  company: "Logistics Co.",
+};
+
 export interface RegistrationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultTab?: "vendor" | "rider";
+  defaultTab?: RegistrationTab;
+  /** Which sign-up tabs to offer. Defaults to all three. */
+  tabs?: RegistrationTab[];
 }
 
 export function RegistrationModal({
   open,
   onOpenChange,
   defaultTab = "vendor",
+  tabs = ["vendor", "rider", "company"],
 }: RegistrationModalProps) {
   const [submitted, setSubmitted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"vendor" | "rider">(defaultTab);
+  const [activeTab, setActiveTab] = useState<RegistrationTab>(defaultTab);
 
   useEffect(() => {
     if (open) {
@@ -891,36 +1164,33 @@ export function RegistrationModal({
         {submitted ? (
           <SuccessScreen />
         ) : (
-          <Tabs
-            value={activeTab}
-            onValueChange={(v) => setActiveTab(v as "vendor" | "rider")}
-          >
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as RegistrationTab)}>
             <TabsList className="mb-6 h-11 w-full rounded-full border-2 border-ink bg-muted p-1">
-              <TabsTrigger
-                value="vendor"
-                className="flex-1 rounded-full font-mono-pop text-xs uppercase tracking-widest data-[state=active]:bg-foreground data-[state=active]:text-background"
-              >
-                Become a Vendor
-              </TabsTrigger>
-              <TabsTrigger
-                value="rider"
-                className="flex-1 rounded-full font-mono-pop text-xs uppercase tracking-widest data-[state=active]:bg-foreground data-[state=active]:text-background"
-              >
-                Become a Rider
-              </TabsTrigger>
+              {tabs.map((t) => (
+                <TabsTrigger
+                  key={t}
+                  value={t}
+                  className="flex-1 rounded-full font-mono-pop text-xs uppercase tracking-widest data-[state=active]:bg-foreground data-[state=active]:text-background"
+                >
+                  {TAB_LABELS[t]}
+                </TabsTrigger>
+              ))}
             </TabsList>
-            <TabsContent value="vendor">
-              <VendorForm
-                key={`vendor-${open}`}
-                onSuccess={() => setSubmitted(true)}
-              />
-            </TabsContent>
-            <TabsContent value="rider">
-              <RiderForm
-                key={`rider-${open}`}
-                onSuccess={() => setSubmitted(true)}
-              />
-            </TabsContent>
+            {tabs.includes("vendor") && (
+              <TabsContent value="vendor">
+                <VendorForm key={`vendor-${open}`} onSuccess={() => setSubmitted(true)} />
+              </TabsContent>
+            )}
+            {tabs.includes("rider") && (
+              <TabsContent value="rider">
+                <RiderForm key={`rider-${open}`} onSuccess={() => setSubmitted(true)} />
+              </TabsContent>
+            )}
+            {tabs.includes("company") && (
+              <TabsContent value="company">
+                <CompanyForm key={`company-${open}`} onSuccess={() => setSubmitted(true)} />
+              </TabsContent>
+            )}
           </Tabs>
         )}
       </DialogContent>
