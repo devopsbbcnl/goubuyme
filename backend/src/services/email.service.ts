@@ -20,6 +20,22 @@ export const sendEmail = async (to: string, subject: string, html: string): Prom
   }
 };
 
+export interface BatchEmail { to: string; subject: string; html: string }
+
+// Resend takes up to 100 messages per call. Failures are recorded, never thrown,
+// so one bad batch does not stop the rest of a broadcast.
+export const sendEmailBatch = async (messages: BatchEmail[]): Promise<{ sent: number; failed: number }> => {
+  if (messages.length === 0) return { sent: 0, failed: 0 };
+  try {
+    const { error } = await resend.batch.send(messages.map(m => ({ from: FROM, to: m.to, subject: m.subject, html: m.html })));
+    if (error) throw new Error(error.message);
+    return { sent: messages.length, failed: 0 };
+  } catch (err) {
+    recordError('email', 'Email batch send failed', err, { count: messages.length });
+    return { sent: 0, failed: messages.length };
+  }
+};
+
 // ─── Shared layout wrapper ──────────────────────────────────────────────────
 
 export function emailLayout(content: string): string {

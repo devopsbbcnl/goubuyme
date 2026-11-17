@@ -246,7 +246,11 @@ export default function HomeScreen() {
 
   const fetchVendors = useCallback(async () => {
     try {
-      const params = selectedCity ? { city: selectedCity } : {};
+      // The API pages at 20 by default; ask for the selected category directly so a
+      // vendor in a small category (e.g. the only pharmacy) is not cut off the first page.
+      const params: Record<string, string | number> = { limit: 100 };
+      if (selectedCity) params.city = selectedCity;
+      if (activeCat !== 'all') params.category = activeCat;
       const res = await api.get('/vendors', { params });
       setVendors(res.data.data ?? []);
     } catch {
@@ -255,7 +259,7 @@ export default function HomeScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCity]);
+  }, [selectedCity, activeCat]);
 
   useEffect(() => { if (cityLoaded) fetchVendors(); }, [fetchVendors, cityLoaded]);
 

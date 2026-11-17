@@ -266,6 +266,7 @@ const Vendors = () => {
         open={modalOpen}
         onOpenChange={setModalOpen}
         defaultTab="vendor"
+        tabs={["vendor", "rider"]}
       />
       <BookCallModal open={bookCallOpen} onOpenChange={setBookCallOpen} />
 
