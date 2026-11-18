@@ -21,11 +21,16 @@ interface AuthCtx {
   login: (user: AuthUser) => void;
   logout: () => void;
   updateUser: (patch: Partial<AuthUser>) => void;
+  /** Switch the active experience on this account. Throws if the role isn't available. */
+  switchRole: (target: 'customer' | 'vendor' | 'rider') => Promise<void>;
+  /** Register a vendor or rider profile on this account and switch into it. */
+  addRole: (payload: Record<string, unknown>) => Promise<void>;
 }
 
 const Ctx = createContext<AuthCtx>({
   user: null, loading: true,
   login: () => {}, logout: () => {}, updateUser: () => {},
+  switchRole: async () => {}, addRole: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -83,7 +88,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(prev => (prev ? { ...prev, ...patch } : prev));
   };
 
-  return <Ctx.Provider value={{ user, loading, login, logout, updateUser }}>{children}</Ctx.Provider>;
+  // The proxy lifts the new tokens out of the response into the httpOnly cookies, so the browser
+  // only ever sees the user. Same account and id; only the active role changes.
+  const applyRoleSession = (d: { user: { role: string; approvalStatus?: AuthUser['approvalStatus'] } }) => {
+    setActiveLocationId(null);
+    setUser(prev => prev ? {
+      ...prev,
+      role: d.user.role.toLowerCase() as AuthUser['role'],
+      approvalStatus: d.user.approvalStatus,
+    } : prev);
+  };
+
+  const switchRole = async (target: 'customer' | 'vendor' | 'rider') => {
+    const { data } = await api.post('/auth/switch-role', { role: target.toUpperCase() });
+    applyRoleSession(data.data);
+  };
+
+  const addRole = async (payload: Record<string, unknown>) => {
+    const { data } = await api.post('/auth/add-role', payload);
+    applyRoleSession(data.data);
+  };
+
+  return <Ctx.Provider value={{ user, loading, login, logout, updateUser, switchRole, addRole }}>{children}</Ctx.Provider>;
 }
 
 export const useAuth = () => useContext(Ctx);

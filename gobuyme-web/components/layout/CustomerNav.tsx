@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import RoleSwitcher from '@/components/ui/RoleSwitcher';
 import api from '@/services/api';
 import { useCart } from '@/context/CartContext';
 import { useCity, SUPPORTED_CITIES } from '@/context/CityContext';
@@ -95,6 +96,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
   const [showPromo, setShowPromo] = useState(showPromoBar);
   const [cityOpen, setCityOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -442,6 +444,10 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                 Help & Support
               </Link>
+              <button className="c-mob-item" onClick={() => { setMobileMenuOpen(false); setSwitcherOpen(true); }}>
+                <span style={{ width: 18, textAlign: 'center' }}>🔁</span>
+                Switch Experience
+              </button>
               <button className="c-mob-item danger" onClick={() => { logout(); setMobileMenuOpen(false); }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 Sign Out
@@ -581,6 +587,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
           ) : null}
         </div>
       )}
+      <RoleSwitcher open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
     </>
   );
 }

@@ -1,6 +1,8 @@
 import { Socket, ExtendedError } from 'socket.io';
 import prisma from '../config/db';
+import { Role } from '@prisma/client';
 import { verifySocketTicket } from '../utils/generateToken';
+import { canActAs } from '../services/roles.service';
 
 /**
  * Identity attached to an authenticated socket. Everything handlers need for
@@ -51,9 +53,15 @@ export const socketAuth = async (socket: Socket, next: (err?: ExtendedError) => 
     });
     if (!user || !user.isActive || user.deletedAt) return next(new Error('UNAUTHORIZED'));
 
+    // A multi-role account connects as the role it switched into, if it still qualifies.
+    const role =
+      payload.role !== user.role && (await canActAs(user.id, user.role, payload.role as Role))
+        ? payload.role
+        : user.role;
+
     const identity: SocketIdentity = {
       userId: user.id,
-      role: user.role,
+      role,
       customerId: user.customer?.id,
       // An owner hears every location they own; a branch manager hears only their branch.
       vendorIds: [...user.vendors.map((v) => v.id), ...(user.managedVendor ? [user.managedVendor.id] : [])],

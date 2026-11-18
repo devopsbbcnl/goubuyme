@@ -79,6 +79,7 @@ export const runPayoutBatch = async (): Promise<void> => {
         logger.info(`Rider ${rider.user.name}: ₦${totalNet} transfer ${transferCode}`);
 
         notifyUser(rider.user.id, {
+          role: 'RIDER',
           title: 'Payout Processing 💸',
           body:  `Your earnings of ₦${totalNet.toLocaleString()} are being processed and will arrive shortly.`,
           type:  'payout',
@@ -153,6 +154,7 @@ export const runPayoutBatch = async (): Promise<void> => {
         logger.info(`Vendor ${vendor.businessName}: ₦${totalNet} transfer ${transferCode}`);
 
         notifyUser(vendor.userId, {
+          role: 'VENDOR',
           title: 'Payout Processing 💸',
           body:  `Your payout of ₦${totalNet.toLocaleString()} is being processed and will arrive shortly.`,
           type:  'payout',

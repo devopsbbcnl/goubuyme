@@ -218,6 +218,7 @@ export async function adminCancelOrder(orderId: string, actor: OrderActor, reaso
   });
 
   notifyUser(cancelled.customerUserId, {
+    role: 'CUSTOMER',
     title: 'Order cancelled',
     body: cancelled.wasPaid
       ? `GoBuyMe support cancelled order #${cancelled.orderNumber}. ₦${cancelled.totalAmount.toLocaleString()} was added to your account as store credit.`
@@ -228,6 +229,7 @@ export async function adminCancelOrder(orderId: string, actor: OrderActor, reaso
   vendorOrderContacts(cancelled.vendorId).then((contacts) => {
     for (const c of contacts) {
       notifyUser(c.userId, {
+        role: 'VENDOR',
         title: 'Order cancelled by GoBuyMe',
         body: `Order #${cancelled.orderNumber} was cancelled by GoBuyMe support. No action is needed.`,
         type: 'order',
@@ -237,6 +239,7 @@ export async function adminCancelOrder(orderId: string, actor: OrderActor, reaso
   }).catch(() => {});
   if (cancelled.riderUserId) {
     notifyUser(cancelled.riderUserId, {
+      role: 'RIDER',
       title: 'Delivery cancelled',
       body: `Order #${cancelled.orderNumber} was cancelled by GoBuyMe support. You're free to take another job.`,
       type: 'order',
@@ -334,6 +337,7 @@ export async function assignRider(orderId: string, riderId: string, actor: Order
 
   const { order, rider, previousRiderUserId } = result;
   notifyUser(rider.userId, {
+    role: 'RIDER',
     title: 'New delivery assigned 🏍️',
     body: `GoBuyMe assigned you order #${order.orderNumber} from ${order.vendor.businessName}. Head to the vendor for pickup.`,
     type: 'order',
@@ -341,6 +345,7 @@ export async function assignRider(orderId: string, riderId: string, actor: Order
   }).catch(() => {});
   if (previousRiderUserId) {
     notifyUser(previousRiderUserId, {
+      role: 'RIDER',
       title: 'Delivery reassigned',
       body: `Order #${order.orderNumber} has been reassigned to another rider. You're free to take another job.`,
       type: 'order',
@@ -348,6 +353,7 @@ export async function assignRider(orderId: string, riderId: string, actor: Order
     }).catch(() => {});
   }
   notifyUser(order.customer.userId, {
+    role: 'CUSTOMER',
     title: 'Rider assigned! 🏍️',
     body: `A rider is heading to pick up your order ${order.orderNumber}.`,
     type: 'order',
@@ -390,6 +396,7 @@ export async function unassignRider(orderId: string, actor: OrderActor, note?: s
 
   if (order.rider) {
     notifyUser(order.rider.userId, {
+      role: 'RIDER',
       title: 'Delivery unassigned',
       body: `You've been removed from order #${order.orderNumber}. You're free to take another job.`,
       type: 'order',

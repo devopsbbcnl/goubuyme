@@ -154,7 +154,12 @@ export const getAvailableJobs = catchAsync(async (req: AuthRequest, res: Respons
   if (!rider.isOnline) return apiResponse.success(res, 'Rider is offline.', []);
 
   const orders = await prisma.order.findMany({
-    where: { status: OrderStatus.READY, riderId: null },
+    where: {
+      status: OrderStatus.READY, riderId: null,
+      // One account can be customer / vendor / rider: never offer a rider their own order or their own store's.
+      customer: { userId: { not: req.user!.userId } },
+      vendor: { userId: { not: req.user!.userId } },
+    },
     include: {
       vendor: { select: { businessName: true, address: true, coverImage: true, latitude: true, longitude: true } },
       customer: { include: { user: { select: { name: true, phone: true } } } },
@@ -213,11 +218,14 @@ export const acceptJob = catchAsync(async (req: AuthRequest, res: Response) => {
   const order = await prisma.order.findFirst({
     where: { id: orderId, status: OrderStatus.READY, riderId: null },
     include: {
-      vendor: { select: { businessName: true, latitude: true, longitude: true } },
+      vendor: { select: { businessName: true, latitude: true, longitude: true, userId: true } },
       customer: { include: { user: { select: { id: true, name: true, phone: true } } } },
     },
   });
   if (!order) return apiResponse.error(res, 'Job no longer available.', 404);
+  if (order.customer.user.id === req.user!.userId || order.vendor.userId === req.user!.userId) {
+    return apiResponse.error(res, "You can't deliver your own order or one from your own business.", 403);
+  }
 
   // Guarded on riderId: null so two riders tapping accept at once can't both get the job.
   const claimed = await prisma.$transaction(async (tx) => {
@@ -238,6 +246,7 @@ export const acceptJob = catchAsync(async (req: AuthRequest, res: Response) => {
   if (!claimed) return apiResponse.error(res, 'Job no longer available.', 404);
 
   notifyUser(order.customer.user.id, {
+    role: 'CUSTOMER',
     title: 'Rider assigned! 🏍️',
     body: `A rider has accepted your order ${order.orderNumber} and is heading to pick it up.`,
     type: 'order',
@@ -373,6 +382,7 @@ export const updateDeliveryStatus = catchAsync(async (req: AuthRequest, res: Res
     ]);
 
     notifyUser(order.customer.user.id, {
+      role: 'CUSTOMER',
       title: 'Order Delivered! 🎉',
       body: `Your order ${order.orderNumber} has been delivered. Enjoy your meal!`,
       type: 'order',

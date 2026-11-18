@@ -3,6 +3,7 @@ import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { ApprovalStatus, OnboardingEventType, Prisma } from '@prisma/client';
+import { REAL_CUSTOMER } from '../services/roles.service';
 
 /**
  * Onboarding analytics — derived entirely from existing data (no event stream).
@@ -57,9 +58,9 @@ export const getOnboardingFunnel = catchAsync(async (req: Request, res: Response
 
   if (role === 'CUSTOMER') {
     const [registered, verified, activated] = await Promise.all([
-      prisma.customer.count({ where: { ...w } }),
-      prisma.customer.count({ where: { ...w, user: { isEmailVerified: true } } }),
-      prisma.customer.count({ where: { ...w, orders: { some: {} } } }),
+      prisma.customer.count({ where: { AND: [w, REAL_CUSTOMER] } }),
+      prisma.customer.count({ where: { AND: [w, REAL_CUSTOMER, { user: { isEmailVerified: true } }] } }),
+      prisma.customer.count({ where: { AND: [w, REAL_CUSTOMER, { orders: { some: {} } }] } }),
     ]);
     raw = [
       { key: 'registered', label: 'Registered', count: registered },
@@ -168,9 +169,11 @@ export const getStuckUsers = catchAsync(async (req: Request, res: Response) => {
   const limitNum = Math.min(200, Math.max(1, parseInt((req.query.limit as string) || '50', 10)));
 
   const cutoff = staleBefore(staleHours);
-  const where = stuckWhere(role, stage, cutoff) as Prisma.VendorWhereInput &
+  const stuck = stuckWhere(role, stage, cutoff) as Prisma.VendorWhereInput &
     Prisma.RiderWhereInput &
     Prisma.CustomerWhereInput;
+  // Customer-mode rows created by vendors/riders switching are not real customers (see REAL_CUSTOMER).
+  const where = (role === 'CUSTOMER' ? { AND: [stuck, REAL_CUSTOMER] } : stuck) as typeof stuck;
 
   const userSelect = { select: { name: true, email: true, phone: true } } as const;
   const baseArgs = {
@@ -262,7 +265,8 @@ export const getOnboardingEventFunnel = catchAsync(async (req: Request, res: Res
 
   const events = cohortIds.length
     ? await prisma.onboardingEvent.findMany({
-        where: { userId: { in: cohortIds }, event: { in: order } },
+        // Same role only: an account can hold several roles, each with its own funnel.
+        where: { userId: { in: cohortIds }, role, event: { in: order } },
         select: { userId: true, event: true, createdAt: true },
       })
     : [];

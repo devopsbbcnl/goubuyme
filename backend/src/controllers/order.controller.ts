@@ -191,12 +191,17 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
     where: { id: cart.vendorId! },
     select: {
       id: true, latitude: true, longitude: true, commissionTier: true, city: true, state: true,
-      businessName: true,
+      businessName: true, managerUserId: true,
       user: { select: { id: true, phone: true, email: true } },
       ...availabilityInclude,
     },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+  // One account can be both a customer and a vendor: it cannot order from its own business
+  // (or the branch it manages), which would also pay itself the vendor payout.
+  if (vendor.user.id === req.user!.userId || vendor.managerUserId === req.user!.userId) {
+    return apiResponse.error(res, "You can't order from your own business.", 403);
+  }
   // Single source of truth: compute live availability against server time so an
   // order can never be placed during a closure, even between cron ticks.
   const availability = computeAvailability(vendor as unknown as AvailabilityInput);
@@ -369,6 +374,7 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
   } catch { /* socket may not be connected */ }
 
   notifyUser(req.user!.userId, {
+    role: 'CUSTOMER',
     title: 'Order Placed! 🎉',
     body: `Your order #${order.orderNumber} has been received and is being processed.`,
     type: 'order',
@@ -378,6 +384,7 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
   // Notify the vendor on every channel at once — mobile push, browser push, and SMS are all
   // "now" channels; email is a slower async backup. None of these should block the response.
   const vendorNotifyPayload = {
+    role: 'VENDOR' as const,
     title: 'New order! 🔔',
     body: `Order #${order.orderNumber} — ₦${totalAmount.toLocaleString()}. Tap to review and accept.`,
     type: 'order',
@@ -547,6 +554,7 @@ export const releaseUnpaidOrder = async (orderId: string, reason: string): Promi
   }
 
   notifyUser(order.customer.userId, {
+    role: 'CUSTOMER',
     title: 'Payment not completed',
     body: `Your order #${order.orderNumber} was cancelled because payment wasn't completed. We've restored your cart${order.creditApplied > 0 ? ` and your ₦${order.creditApplied.toLocaleString()} store credit` : ''}.`,
     type: 'order',

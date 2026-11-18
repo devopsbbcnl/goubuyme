@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { router } from 'expo-router';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -22,8 +23,38 @@ if (!isExpoGo) {
   });
 }
 
+const SWITCHABLE = ['customer', 'vendor', 'rider'] as const;
+type Switchable = (typeof SWITCHABLE)[number];
+let coldStartHandled = false;
+
 export function usePushNotifications() {
-  const { user } = useAuth();
+  const { user, role, switchRole } = useAuth();
+
+  // Multi-role accounts: an alert carries the experience it is for (data.role). Tapping a vendor
+  // alert while in customer mode switches to vendor mode first, then opens the app home.
+  useEffect(() => {
+    if (!user || isExpoGo) return;
+
+    const handle = async (response: Notifications.NotificationResponse | null) => {
+      const target = String(response?.notification.request.content.data?.role ?? '').toLowerCase();
+      if (!SWITCHABLE.includes(target as Switchable) || target === role) return;
+      if (!SWITCHABLE.includes(role as Switchable)) return; // staff/logistics accounts never switch
+      try {
+        await switchRole(target as Switchable);
+        router.replace('/' as never);
+      } catch {
+        // not registered/approved for that role any more: stay where we are
+      }
+    };
+
+    // The "last" response sticks around, so act on a cold-start tap once per app session only.
+    if (!coldStartHandled) {
+      coldStartHandled = true;
+      Notifications.getLastNotificationResponseAsync().then(handle).catch(() => {});
+    }
+    const sub = Notifications.addNotificationResponseReceivedListener((r) => { handle(r); });
+    return () => sub.remove();
+  }, [user?.id, role]);
 
   useEffect(() => {
     if (!user || isExpoGo) return;

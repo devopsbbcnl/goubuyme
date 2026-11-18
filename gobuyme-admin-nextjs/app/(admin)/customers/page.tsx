@@ -8,9 +8,11 @@ import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { Pagination } from '@/components/ui/Pagination';
+import { OtherRoles, OtherRole } from '@/components/ui/OtherRoles';
 import { api } from '@/lib/api';
 
 interface Customer {
+  otherRoles?: OtherRole[];
   id: string; userId: string; name: string; email: string; phone: string | null;
   isActive: boolean; totalOrders: number; totalSpent: number; createdAt: string;
 }
@@ -281,7 +283,7 @@ export default function CustomersPage() {
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         title="Delete Customer"
-        message="This will deactivate the customer's account. Historical orders and records are retained."
+        message="This will deactivate the customer's account. Historical orders and records are retained. An account that is also a vendor or rider cannot be deleted here: delete that role first."
         itemName={deleteCustomerName}
         onConfirm={deleteCustomerHandler}
         isLoading={deleteLoading}
@@ -351,6 +353,7 @@ export default function CustomersPage() {
                 <td style={{ padding: '13px 16px' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{c.name}</div>
                   <div style={{ fontSize: 11, color: T.textMuted }}>{c.id.slice(0, 8)}</div>
+                  <OtherRoles roles={c.otherRoles} />
                 </td>
                 <td style={{ padding: '13px 16px', fontSize: 12, color: T.textSec }}>{c.phone ?? '—'}</td>
                 <td style={{ padding: '13px 16px', fontSize: 12, color: T.textSec }}>{c.email}</td>

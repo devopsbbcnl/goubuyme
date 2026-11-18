@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal';
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { AddVendorModal } from '@/components/vendor/AddVendorModal';
 import { Pagination } from '@/components/ui/Pagination';
+import { OtherRoles, OtherRole } from '@/components/ui/OtherRoles';
 import { api } from '@/lib/api';
 import { VendorFullDetail, FullDetail } from '@/components/vendor/VendorFullDetail';
 
@@ -25,6 +26,7 @@ const VENDOR_DOCUMENT_ITEMS: { value: string; label: string }[] = [
 
 interface Vendor {
   id: string; userId: string; businessName: string; ownerName: string; category: string;
+  otherRoles?: OtherRole[];
   city: string; totalOrders: number; totalRevenue: number;
   rating: number; approvalStatus: Status; commissionTier: Tier; createdAt: string;
   // A branch is a full vendor listing owned by a main business.
@@ -42,6 +44,7 @@ interface PlanChange {
 }
 
 interface VendorDetail extends FullDetail {
+  otherRoles?: OtherRole[];
   id: string; businessName: string; slug: string; description: string | null;
   logo: string | null; coverImage: string | null; category: string;
   address: string; city: string; state: string;
@@ -323,7 +326,7 @@ export default function VendorsPage() {
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         title="Delete Vendor"
-        message="This will deactivate the vendor's account. Historical orders and payout records are retained."
+        message="This will deactivate the vendor's account. Historical orders and payout records are retained. If the same person also rides or has customer orders (see the Also tags), only the vendor role is removed and the account stays."
         itemName={deleteVendorName}
         onConfirm={deleteVendorHandler}
         isLoading={deleteLoading}
@@ -436,7 +439,10 @@ export default function VendorsPage() {
                     {v.isBranch && <div style={{ fontSize: 11, color: T.primary, fontWeight: 600 }}>Branch of {v.parentName}</div>}
                     {!v.isBranch && (v.branchCount ?? 0) > 0 && <div style={{ fontSize: 11, color: T.primary, fontWeight: 600 }}>{v.branchCount} branch{v.branchCount === 1 ? '' : 'es'}</div>}
                   </td>
-                  <td style={{ padding: '13px 16px', fontSize: 13, color: T.textSec }}>{v.ownerName}</td>
+                  <td style={{ padding: '13px 16px', fontSize: 13, color: T.textSec }}>
+                    {v.ownerName}
+                    <OtherRoles roles={v.otherRoles} />
+                  </td>
                   <td style={{ padding: '13px 16px', fontSize: 13, color: T.textSec }}>{capFirst(v.category)}</td>
                   <td style={{ padding: '13px 16px' }}><TierPill tier={v.commissionTier} T={T} /></td>
                   <td style={{ padding: '13px 16px', fontSize: 13, color: T.textSec }}>{v.city}</td>
@@ -616,6 +622,7 @@ export default function VendorsPage() {
                   ['Account active', detail.user.isActive ? 'Yes' : 'No'],
                   ['Registered', fmtDate(detail.user.createdAt)],
                 ]} T={T} />
+                <OtherRoles roles={detail.otherRoles} />
               </div>
             </div>
 

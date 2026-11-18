@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/Toast';
 import ImageRepositionModal from '@/components/ui/ImageRepositionModal';
 import { positionStyle } from '@/lib/imagePosition';
 import DeleteAccountModal from '@/components/ui/DeleteAccountModal';
+import RoleSwitcher from '@/components/ui/RoleSwitcher';
 import Image from 'next/image';
 import api from '@/services/api';
 import { AnalyticsConsentRow } from '@/components/AnalyticsConsentRow';
@@ -121,6 +122,7 @@ const NOTIF_ROWS: Array<{ key: NotifCategory; label: string; desc: string }> = [
 
 export default function ProfilePage() {
   const { user, loading: authLoading, logout, updateUser } = useAuth();
+  const [switcherOpen, setSwitcherOpen] = useState(false);
   const router = useRouter();
   const toast = useToast();
 
@@ -343,13 +345,23 @@ export default function ProfilePage() {
             <h1 className="t-page" style={{ marginBottom: 4 }}>My Account</h1>
             <p className="muted" style={{ fontSize: 14 }}>Manage your profile, orders, and preferences</p>
           </div>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={logout}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--error)', borderColor: 'rgba(226,59,59,.3)' }}
-          >
-            <IconLogout /> Sign Out
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setSwitcherOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 7 }}
+            >
+              🔁 Switch Experience
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={logout}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--error)', borderColor: 'rgba(226,59,59,.3)' }}
+            >
+              <IconLogout /> Sign Out
+            </button>
+          </div>
+          <RoleSwitcher open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
         </div>
 
         {/* ── Hero profile card ── */}

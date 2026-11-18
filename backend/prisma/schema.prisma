@@ -15,6 +15,9 @@ model User {
   password               String?
   googleId               String?             @unique
   role                   Role                @default(CUSTOMER)
+  /// Multi-role accounts: the experience the person last used, so the next sign-in opens it
+  /// (only honoured while they still qualify for it; see resolveLoginRole). Null = the primary role.
+  lastActiveRole         Role?
   avatar                 String?
   avatarPosition         String?
   isEmailVerified        Boolean             @default(false)
@@ -98,7 +101,9 @@ model OnboardingEvent {
   createdAt DateTime            @default(now())
   user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, event])
+  // One row per user, per role, per transition: an account that later adds a vendor or rider role
+  // gets its own funnel for that role.
+  @@unique([userId, role, event])
   @@index([role, event])
   @@index([createdAt])
   @@map("onboarding_events")
@@ -826,9 +831,13 @@ model Notification {
   type      String
   isRead    Boolean  @default(false)
   meta      Json?
+  /// Which experience this is for (customer / vendor / rider). Null = every role (system messages).
+  /// A multi-role account only sees the active role's notifications plus the null ones.
+  role      Role?
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([userId, role])
   @@index([userId, createdAt])
   @@index([userId, isRead])
   @@index([isRead])

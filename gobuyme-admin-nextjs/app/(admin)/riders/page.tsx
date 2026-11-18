@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal';
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { AddRiderModal } from '@/components/rider/AddRiderModal';
 import { Pagination } from '@/components/ui/Pagination';
+import { OtherRoles, OtherRole } from '@/components/ui/OtherRoles';
 import { api } from '@/lib/api';
 
 type RiderStatus = 'APPROVED' | 'PENDING' | 'SUSPENDED';
@@ -21,6 +22,7 @@ const RIDER_DOCUMENT_ITEMS: { value: string; label: string }[] = [
 ];
 
 interface Rider {
+  otherRoles?: OtherRole[];
   id: string; userId: string; name: string; phone: string | null; vehicleType: string;
   plateNumber: string | null; totalDeliveries: number; totalEarnings: number;
   rating: number; approvalStatus: RiderStatus; isOnline: boolean; createdAt: string;
@@ -28,6 +30,7 @@ interface Rider {
 }
 
 interface RiderDetail {
+  otherRoles?: OtherRole[];
   id: string; vehicleType: string; plateNumber: string | null;
   isOnline: boolean; isAvailable: boolean; approvalStatus: RiderStatus;
   rating: number; totalRatings: number;
@@ -194,7 +197,7 @@ export default function RidersPage() {
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         title="Delete Rider"
-        message="This will deactivate the rider's account. Historical deliveries and earnings records are retained."
+        message="This will deactivate the rider's account. Historical deliveries and earnings records are retained. If the same person also owns a business or has customer orders (see the Also tags), only the rider role is removed and the account stays."
         itemName={deleteRiderName}
         onConfirm={deleteRiderHandler}
         isLoading={deleteLoading}
@@ -270,6 +273,7 @@ export default function RidersPage() {
                     <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{r.name}</div>
                     <div style={{ fontSize: 11, color: T.textMuted }}>{fmtDate(r.createdAt)}</div>
                     {r.fleetName && <div style={{ fontSize: 11, color: T.primary, fontWeight: 600 }}>Fleet: {r.fleetName}</div>}
+                    <OtherRoles roles={r.otherRoles} />
                   </td>
                   <td style={{ padding: '13px 16px', fontSize: 12, color: T.textSec }}>{r.phone ?? '—'}</td>
                   <td style={{ padding: '13px 16px', fontSize: 13, color: T.textSec }}>{r.vehicleType}</td>
@@ -350,6 +354,7 @@ export default function RidersPage() {
                   <Badge status={detail.approvalStatus} />
                   <Badge status={detail.isOnline ? 'ONLINE' : 'OFFLINE'} />
                 </div>
+                <OtherRoles roles={detail.otherRoles} />
               </div>
             </div>
 

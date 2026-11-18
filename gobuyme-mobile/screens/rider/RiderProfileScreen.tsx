@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { RoleSwitcher } from '@/components/RoleSwitcher';
 import {
 	View,
 	Text,
@@ -96,6 +97,7 @@ const STATUS_COLOR: Record<string, string> = {
 const MENU_ROWS = [
 	{ icon: '💳', label: 'Earnings', sub: 'Payouts and history' },
 	{ icon: '🪪', label: 'Identity Documents', sub: 'NIN, selfie & guarantor' },
+	{ icon: '🔁', label: 'Switch Experience', sub: 'Customer or vendor mode, same account' },
 	{ icon: '🔔', label: 'Notifications', sub: 'Inbox & alerts' },
 	{ icon: '⚙️', label: 'Settings', sub: 'Theme, language & more' },
 	{ icon: '🚪', label: 'Sign Out', sub: null },
@@ -107,6 +109,7 @@ export default function RiderProfileScreen() {
 	const { user, logout, updateUser } = useAuth();
 	const [profile, setProfile] = useState<RiderProfile | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [switcherOpen, setSwitcherOpen] = useState(false);
 
 	const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -253,6 +256,8 @@ export default function RiderProfileScreen() {
 		if (label === 'Sign Out') {
 			logout();
 			router.replace('/onboarding');
+		} else if (label === 'Switch Experience') {
+			setSwitcherOpen(true);
 		} else if (label === 'Earnings') {
 			router.push('/(rider)/earnings');
 		} else if (label === 'Identity Documents') {
@@ -277,6 +282,7 @@ export default function RiderProfileScreen() {
 	return (
 		<KeyboardAvoidingWrapper>
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
+			<RoleSwitcher visible={switcherOpen} onClose={() => setSwitcherOpen(false)} />
 			<ScrollView
 				contentContainerStyle={{ paddingBottom: 40 }}
 				showsVerticalScrollIndicator={false}

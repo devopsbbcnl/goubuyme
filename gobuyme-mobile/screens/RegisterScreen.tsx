@@ -153,7 +153,7 @@ function getRegisterErrors(err: unknown): RegisterErrors {
 	if (data?.message === 'Email already registered.') {
 		return {
 			email:
-				'An account already exists with this email. Try signing in instead.',
+				'An account already exists with this email. Sign in instead. To become a vendor or rider on it, open Profile → Switch Experience.',
 		};
 	}
 

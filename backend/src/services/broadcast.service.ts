@@ -44,14 +44,28 @@ const AUDIENCE_ROLES: Record<BroadcastAudience, Role[]> = {
   USER: [Role.CUSTOMER, Role.VENDOR, Role.RIDER, Role.LOGISTICS_COMPANY],
 };
 
+// Multi-role accounts: someone who signed up as a customer but also runs a business or rides is
+// still a vendor / rider, so those audiences also reach anyone holding the profile.
+const PROFILE_MATCH: Partial<Record<BroadcastAudience, Prisma.UserWhereInput>> = {
+  VENDORS: { role: { in: [Role.CUSTOMER, Role.RIDER] }, vendors: { some: { parentVendorId: null } } },
+  RIDERS: { role: { in: [Role.CUSTOMER, Role.VENDOR] }, rider: { isNot: null } },
+};
+
+// The experience a broadcast's in-app notification belongs to; null = every role.
+export const audienceNotificationRole = (audience: BroadcastAudience): Role | null =>
+  audience === 'CUSTOMERS' ? Role.CUSTOMER : audience === 'VENDORS' ? Role.VENDOR : audience === 'RIDERS' ? Role.RIDER : null;
+
 // Active, undeleted accounts only: a suspended or deleted one has no session to read it in.
-export const audienceWhere = (audience: BroadcastAudience, targetUserId?: string | null): Prisma.UserWhereInput => ({
-  role: { in: AUDIENCE_ROLES[audience] },
-  isActive: true,
-  deletedAt: null,
-  // A single-user message matches that account only; an empty id matches nobody.
-  ...(audience === 'USER' ? { id: targetUserId || '' } : {}),
-});
+export const audienceWhere = (audience: BroadcastAudience, targetUserId?: string | null): Prisma.UserWhereInput => {
+  const profile = PROFILE_MATCH[audience];
+  return {
+    ...(profile ? { OR: [{ role: { in: AUDIENCE_ROLES[audience] } }, profile] } : { role: { in: AUDIENCE_ROLES[audience] } }),
+    isActive: true,
+    deletedAt: null,
+    // A single-user message matches that account only; an empty id matches nobody.
+    ...(audience === 'USER' ? { id: targetUserId || '' } : {}),
+  };
+};
 
 interface Reach {
   recipients: number;
@@ -68,7 +82,8 @@ export const preview = async (audience: BroadcastAudience, targetUserId?: string
   const where = audienceWhere(audience, targetUserId);
   const [recipients, pushReachable, emailPromotional] = await Promise.all([
     prisma.user.count({ where }),
-    prisma.user.count({ where: { ...where, OR: [{ pushToken: { not: null } }, { pushSubscriptions: { some: {} } }] } }),
+    // AND, not a spread: the audience itself may carry an OR (multi-role vendors / riders).
+    prisma.user.count({ where: { AND: [where, { OR: [{ pushToken: { not: null } }, { pushSubscriptions: { some: {} } }] }] } }),
     prisma.user.count({ where: { ...where, marketingOptIn: true } }),
   ]);
   return { recipients, pushReachable, emailService: recipients, emailPromotional };
@@ -80,18 +95,57 @@ const WEB_PUSH_CONCURRENCY = 20;
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+// Merge fields staff can put in an email's title and message. Each is filled per recipient.
+//   {{name}} first name, {{full_name}}, {{business_name}} (store or company name, else the person's name),
+//   {{dashboard_link}} where that person manages their account.
+export const MERGE_FIELDS = ['name', 'full_name', 'business_name', 'dashboard_link'] as const;
+const MERGE_PATTERN = /\{\{\s*([a-z_]+)\s*\}\}/gi;
+export const hasMergeFields = (text: string) => /\{\{\s*[a-z_]+\s*\}\}/i.test(text);
+
+export interface MergeRecipient {
+  name: string;
+  role: Role;
+  businessName?: string | null;
+  companyName?: string | null;
+}
+
+const dashboardLink = (role: Role): string => {
+  const base = getPrimaryClientUrl() || 'https://gobuyme.shop';
+  if (role === 'VENDOR') return `${base}/vendor/menu`;
+  if (role === 'LOGISTICS_COMPANY') return `${base}/company`;
+  return `${base}/login`;
+};
+
+/** Fills the merge fields for one recipient. Unknown fields are left as typed so a typo is visible. */
+export const fillMergeFields = (text: string, r: MergeRecipient): string =>
+  text.replace(MERGE_PATTERN, (whole, key: string) => {
+    switch (key.toLowerCase()) {
+      case 'name': return r.name.trim().split(/\s+/)[0] || 'there';
+      case 'full_name': return r.name.trim() || 'there';
+      case 'business_name': return r.businessName?.trim() || r.companyName?.trim() || r.name.trim() || 'there';
+      case 'dashboard_link': return dashboardLink(r.role);
+      default: return whole;
+    }
+  });
+
+// Escape first, then make bare https:// links clickable (the text is plain, written by staff).
+const toHtml = (text: string) =>
+  escapeHtml(text).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#FF521B;">$1</a>');
+
 export const broadcastEmailHtml = (
-  title: string, text: string, name: string, type: BroadcastEmailType, userId: string,
+  title: string, text: string, recipient: MergeRecipient, type: BroadcastEmailType, userId: string,
 ): string => {
-  const first = name.trim().split(/\s+/)[0] || 'there';
+  // A message that opens with its own merge field ("Dear {{business_name}},") supplies its own greeting.
+  const greeting = hasMergeFields(text)
+    ? ''
+    : `<p style="margin:0 0 12px;font-size:15px;color:#444;">Hi ${escapeHtml(recipient.name.trim().split(/\s+/)[0] || 'there')},</p>`;
   const unsubscribe = type === 'PROMOTIONAL'
     ? `<p style="margin:28px 0 0;font-size:12px;color:#999;">You're receiving this because you have a GoBuyMe account.
         <a href="${getPrimaryClientUrl() || 'https://gobuyme.shop'}/unsubscribe?t=${unsubscribeToken(userId)}" style="color:#999;">Unsubscribe from promotions</a></p>`
     : '';
   return emailLayout(`
-    <h2 style="margin:0 0 12px;font-size:22px;color:#1A1410;">${escapeHtml(title)}</h2>
-    <p style="margin:0 0 12px;font-size:15px;color:#444;">Hi ${escapeHtml(first)},</p>
-    <p style="margin:0;font-size:15px;line-height:1.6;color:#444;white-space:pre-wrap;">${escapeHtml(text)}</p>${unsubscribe}`);
+    <h2 style="margin:0 0 12px;font-size:22px;color:#1A1410;">${escapeHtml(fillMergeFields(title, recipient))}</h2>
+    ${greeting}<p style="margin:0;font-size:15px;line-height:1.6;color:#444;white-space:pre-wrap;">${toHtml(fillMergeFields(text, recipient))}</p>${unsubscribe}`);
 };
 
 const EMAIL_BATCH = 100;
@@ -106,14 +160,22 @@ const deliverEmail = async (input: BroadcastInput, type: BroadcastEmailType): Pr
   let failed = 0;
   for (;;) {
     const users = await prisma.user.findMany({
-      where, select: { id: true, name: true, email: true }, orderBy: { id: 'asc' }, take: EMAIL_BATCH,
+      where, orderBy: { id: 'asc' }, take: EMAIL_BATCH,
+      select: {
+        id: true, name: true, email: true, role: true,
+        vendor: { select: { businessName: true } },
+        logisticsCompany: { select: { companyName: true } },
+      },
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
     if (users.length === 0) break;
     cursor = users[users.length - 1].id;
-    const messages: BatchEmail[] = users.map(u => ({
-      to: u.email, subject: input.title, html: broadcastEmailHtml(input.title, text, u.name, type, u.id),
-    }));
+    const messages: BatchEmail[] = users.map(u => {
+      const r: MergeRecipient = {
+        name: u.name, role: u.role, businessName: u.vendor?.businessName, companyName: u.logisticsCompany?.companyName,
+      };
+      return { to: u.email, subject: fillMergeFields(input.title, r), html: broadcastEmailHtml(input.title, text, r, type, u.id) };
+    });
     failed += (await sendEmailBatch(messages)).failed;
     if (users.length < EMAIL_BATCH) break;
     await sleep(EMAIL_BATCH_GAP_MS);
@@ -142,6 +204,7 @@ const deliver = async (broadcastId: string, input: BroadcastInput): Promise<void
     await prisma.notification.createMany({
       data: chunk.map(u => ({
         userId: u.id, title: input.title, body: input.body, type: 'broadcast', meta: { broadcastId } as Prisma.InputJsonValue,
+        role: audienceNotificationRole(input.audience),
       })),
     });
     // One phone can hold several accounts' tokens; send each device once.
@@ -166,6 +229,11 @@ export const send = async (actorId: string, input: BroadcastInput) => {
   const sendEmail = input.sendEmail === true;
   if (!sendInApp && !sendEmail) throw new BroadcastError('Choose at least one way to send: in-app and push, or email.');
   if (sendEmail && !input.emailType) throw new BroadcastError('Say whether the email is a service notice or a promotion.');
+  // Push and in-app text is one shared string, so a merge field there would show up as raw {{text}}.
+  if (sendInApp && (hasMergeFields(input.title) || hasMergeFields(input.body))) {
+    throw new BroadcastError('Merge fields like {{business_name}} work in emails only. Untick "In-app and push" or remove them from the title and message.');
+  }
+  if (!sendEmail && input.emailBody) throw new BroadcastError('An email message was given but email is not selected.');
 
   const duplicate = await prisma.broadcast.findFirst({
     where: {

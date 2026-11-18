@@ -3,14 +3,14 @@ import {
   register, login, refresh, logout, googleAuth,
   getMe, updateProfile, forgotPassword, resetPassword, changePassword,
   verifyOtp, resendOtp, activationStatus, requestPasswordOtp, deleteAccount,
-  socketTicket, sendPhoneVerificationCode, verifyPhoneCode,
+  socketTicket, getRoles, switchRole, addRole, sendPhoneVerificationCode, verifyPhoneCode,
 } from '../controllers/auth.controller';
 import { validate } from '../middleware/validate.middleware';
 import { verifyToken } from '../middleware/auth.middleware';
 import { requireMfa } from '../middleware/mfa.middleware';
 import { authLimiter } from '../middleware/rateLimiter.middleware';
 import {
-  registerSchema, loginSchema, googleAuthSchema, forgotPasswordSchema,
+  registerSchema, addRoleSchema, loginSchema, googleAuthSchema, forgotPasswordSchema,
   resetPasswordSchema, refreshTokenSchema, verifyOtpSchema, resendOtpSchema,
   changePasswordSchema, deleteAccountSchema, sendPhoneOtpSchema, verifyPhoneOtpSchema,
 } from '../validators/auth.validator';
@@ -29,6 +29,9 @@ router.post('/refresh', validate(refreshTokenSchema), refresh);
 router.post('/logout', verifyToken, logout);
 router.get('/me', verifyToken, getMe);
 router.post('/socket-ticket', verifyToken, socketTicket);
+router.get('/roles', verifyToken, getRoles);
+router.post('/switch-role', verifyToken, authLimiter, switchRole);
+router.post('/add-role', verifyToken, authLimiter, validate(addRoleSchema), addRole);
 router.post('/phone/send-otp', verifyToken, authLimiter, validate(sendPhoneOtpSchema), sendPhoneVerificationCode);
 router.post('/phone/verify', verifyToken, validate(verifyPhoneOtpSchema), verifyPhoneCode);
 router.get('/activation-status', verifyToken, activationStatus);

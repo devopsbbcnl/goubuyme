@@ -77,6 +77,7 @@ export const approvePromotion = catchAsync(async (req: AuthRequest, res: Respons
     },
   });
   notifyUser(promo.vendor.userId, {
+    role: 'VENDOR',
     title: 'Promotion approved 🎉',
     body: `"${promo.title}" was approved. Open Promotions and set it live to show it to customers.`,
     type: 'account',
@@ -110,6 +111,7 @@ export const rejectPromotion = catchAsync(async (req: AuthRequest, res: Response
     },
   });
   notifyUser(promo.vendor.userId, {
+    role: 'VENDOR',
     title: 'Promotion needs changes',
     body: `"${promo.title}" was not approved: ${reason} Edit it and resubmit.`,
     type: 'account',

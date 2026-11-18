@@ -1,5 +1,6 @@
 import { PositionedImage } from '@/components/ui/PositionedImage';
-import React from 'react';
+import React, { useState } from 'react';
+import { RoleSwitcher } from '@/components/RoleSwitcher';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
 } from 'react-native';
@@ -18,7 +19,8 @@ type MenuItem = {
 };
 
 const MENU_ITEMS: MenuItem[] = [
-  { icon: '📦', label: 'My Orders',         sub: 'View order history',        route: '/orders' },
+  { icon: '🔁', label: 'Switch Experience', sub: 'Vendor or rider mode, same account' },
+  { icon: '📦', label: 'My Orders',        sub: 'View order history',        route: '/orders' },
   { icon: '📍', label: 'Saved Addresses',   sub: 'Home, Work, and more',      route: '/saved-addresses' },
   { icon: '🔔', label: 'Notifications',     sub: 'Inbox & alerts',             route: '/notifications' },
   { icon: '🎁', label: 'Offers & Promos',   sub: 'Available deals',           route: '/offers-promos' },
@@ -32,8 +34,13 @@ export default function ProfileScreen() {
   const { theme: T } = useTheme();
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const handleItem = (item: MenuItem) => {
+    if (item.label === 'Switch Experience') {
+      setSwitcherOpen(true);
+      return;
+    }
     if (item.label === 'Sign Out') {
       logout();
       router.replace('/onboarding');
@@ -106,6 +113,8 @@ export default function ProfileScreen() {
           ))}
         </View>
       </ScrollView>
+
+      <RoleSwitcher visible={switcherOpen} onClose={() => setSwitcherOpen(false)} />
 
       <BottomNav active="profile" onPress={(tab) => {
         if (tab === 'home') router.replace('/(customer)');

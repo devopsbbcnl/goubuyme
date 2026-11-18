@@ -4,6 +4,7 @@ import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { holdsOtherLiveRole, REAL_CUSTOMER, OTHER_ROLES_SELECT, summarizeOtherRoles } from '../services/roles.service';
 import { ApprovalStatus, CommissionTier, DocumentStatus, DocumentType, LicenseStatus, OrderStatus, PaymentStatus, PayoutStatus, Prisma, Role, VendorCategory } from '@prisma/client';
 import { updateVendorBadge } from './vendor.controller';
 import { notifyUser } from '../services/notification.service';
@@ -228,7 +229,7 @@ export const getAdminVendors = catchAsync(async (req: Request, res: Response) =>
         commissionTier: true, createdAt: true,
         parentVendorId: true, branchLabel: true,
         parent: { select: { id: true, businessName: true } },
-        user: { select: { name: true } },
+        user: { select: { name: true, ...OTHER_ROLES_SELECT } },
         _count: { select: { orders: true, branches: true, menuItems: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -253,6 +254,8 @@ export const getAdminVendors = catchAsync(async (req: Request, res: Response) =>
     userId: v.userId,
     businessName: v.businessName,
     ownerName: v.user.name,
+    // Roles the same account also holds (customer / rider), so staff can see one person, not two.
+    otherRoles: summarizeOtherRoles(v.user, 'VENDOR'),
     category: v.category,
     city: v.city,
     rating: v.rating,
@@ -341,7 +344,7 @@ export const getAdminRiders = catchAsync(async (req: Request, res: Response) => 
       select: {
         id: true, userId: true, vehicleType: true, plateNumber: true,
         isOnline: true, approvalStatus: true, rating: true, createdAt: true,
-        user: { select: { name: true, phone: true } },
+        user: { select: { name: true, phone: true, ...OTHER_ROLES_SELECT } },
         company: { select: { companyName: true } },
         _count: { select: { deliveries: true } },
       },
@@ -367,6 +370,7 @@ export const getAdminRiders = catchAsync(async (req: Request, res: Response) => 
     userId: r.userId,
     name: r.user.name,
     phone: r.user.phone,
+    otherRoles: summarizeOtherRoles(r.user, 'RIDER'),
     vehicleType: r.vehicleType,
     plateNumber: r.plateNumber,
     isOnline: r.isOnline,
@@ -391,7 +395,7 @@ export const getAdminRiderDetail = catchAsync(async (req: Request, res: Response
   const rider = await prisma.rider.findUnique({
     where: { id },
     select: {
-      id: true, vehicleType: true, plateNumber: true,
+      id: true, userId: true, vehicleType: true, plateNumber: true,
       isOnline: true, isAvailable: true, approvalStatus: true,
       rating: true, totalRatings: true,
       latitude: true, longitude: true,
@@ -421,8 +425,11 @@ export const getAdminRiderDetail = catchAsync(async (req: Request, res: Response
     _sum: { netAmount: true },
   });
 
+  const riderAccount = await prisma.user.findUnique({ where: { id: rider.userId }, select: OTHER_ROLES_SELECT });
+
   return apiResponse.success(res, 'Rider detail fetched.', {
     ...rider,
+    otherRoles: riderAccount ? summarizeOtherRoles(riderAccount, 'RIDER') : [],
     totalDeliveries: rider._count.deliveries,
     totalEarnings: earningAgg._sum.netAmount ?? 0,
   });
@@ -483,14 +490,14 @@ export const getAdminCustomers = catchAsync(async (req: Request, res: Response) 
   if (isActive !== undefined && isActive !== '') {
     userWhere.isActive = isActive === 'true';
   }
-  const where: Record<string, unknown> = { user: userWhere };
+  const where = { AND: [{ user: userWhere }, REAL_CUSTOMER] } as Prisma.CustomerWhereInput;
 
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({
       where,
       select: {
         id: true, userId: true, createdAt: true,
-        user: { select: { name: true, email: true, phone: true, isActive: true } },
+        user: { select: { name: true, email: true, phone: true, isActive: true, ...OTHER_ROLES_SELECT } },
         _count: { select: { orders: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -516,6 +523,7 @@ export const getAdminCustomers = catchAsync(async (req: Request, res: Response) 
     name: c.user.name,
     email: c.user.email,
     phone: c.user.phone,
+    otherRoles: summarizeOtherRoles(c.user, 'CUSTOMER'),
     isActive: c.user.isActive,
     createdAt: c.createdAt,
     totalOrders: c._count.orders,
@@ -981,6 +989,7 @@ export const processManualPayout = catchAsync(async (req: AuthRequest, res: Resp
     });
 
     notifyUser(vendor.userId, {
+      role: 'VENDOR',
       title: 'Payout Initiated 💸',
       body: `Your payout of ₦${amount.toLocaleString()} has been initiated and will arrive in your bank account shortly.`,
       type: 'payout',
@@ -1048,6 +1057,7 @@ export const processManualPayout = catchAsync(async (req: AuthRequest, res: Resp
   });
 
   notifyUser(rider.userId, {
+    role: 'RIDER',
     title: 'Payout Initiated 💸',
     body: `Your earnings of ₦${amount.toLocaleString()} have been initiated and will arrive in your bank account shortly.`,
     type: 'payout',
@@ -1140,6 +1150,7 @@ export const updateVendorTier = catchAsync(async (req: AuthRequest, res: Respons
 
   const rateLabel = await tierRateLabel(tier as CommissionTier);
   notifyUser(vendor.userId, {
+    role: 'VENDOR',
     title: 'Commission Tier Updated',
     body: `Your commission tier has been changed to ${tier} (${rateLabel} platform fee). This applies to all future orders.`,
     type: 'account',
@@ -1193,6 +1204,7 @@ export const updateVendorCategory = catchAsync(async (req: AuthRequest, res: Res
   });
 
   notifyUser(vendor.userId, {
+    role: 'VENDOR',
     title: 'Store Category Updated',
     body: `Your store category has been changed to ${category}. Your available product categories will update to match.`,
     type: 'account',
@@ -1246,6 +1258,7 @@ export const getVendorDetail = catchAsync(async (req: Request, res: Response) =>
       rating: true, totalRatings: true,
       openingTime: true, closingTime: true, avgDeliveryTime: true,
       createdAt: true, updatedAt: true,
+      userId: true,
       user: {
         select: {
           name: true, email: true, phone: true,
@@ -1335,8 +1348,11 @@ export const getVendorDetail = catchAsync(async (req: Request, res: Response) =>
       }
     : null;
 
+  const vendorAccount = await prisma.user.findUnique({ where: { id: vendor.userId }, select: OTHER_ROLES_SELECT });
+
   return apiResponse.success(res, 'Vendor detail fetched.', {
     ...vendor,
+    otherRoles: vendorAccount ? summarizeOtherRoles(vendorAccount, 'VENDOR') : [],
     payoutAccount,
     isBranch: vendor.parentVendorId !== null,
     recentOrders: recentOrders.map((o) => ({
@@ -1411,6 +1427,7 @@ export const updateVendorDocumentStatus = catchAsync(async (req: AuthRequest, re
   const rejectedItemLabel = appliedRejectedItem ? VENDOR_DOCUMENT_ITEMS[appliedRejectedItem] : null;
 
   notifyUser(vendor.userId, {
+    role: 'VENDOR',
     title: status === 'VERIFIED' ? 'Document Verified ✅' : `${rejectedItemLabel ?? 'Document'} Rejected`,
     body: status === 'VERIFIED'
       ? 'Your identity document has been verified by the GoBuyMe team.'
@@ -1458,6 +1475,7 @@ export const updateVendorBusinessVerifStatus = catchAsync(async (req: AuthReques
   });
 
   notifyUser(vendor.userId, {
+    role: 'VENDOR',
     title: status === 'VERIFIED' ? 'Business Verified ✅' : 'Business Verification Rejected',
     body: status === 'VERIFIED'
       ? 'Your business (CAC) has been verified. Your profile now shows a Business Verified badge.'
@@ -1509,6 +1527,7 @@ export const updateVendorLicenseStatus = catchAsync(async (req: AuthRequest, res
   });
 
   notifyUser(vendor.userId, {
+    role: 'VENDOR',
     title: status === 'VERIFIED' ? 'License Verified ✅' : `License ${status === 'EXPIRED' ? 'Expired' : 'Rejected'}`,
     body: status === 'VERIFIED'
       ? `Your ${license.type} license has been verified. Your profile now shows a Premium Verified badge.`
@@ -1570,6 +1589,7 @@ export const updateRiderDocumentStatus = catchAsync(async (req: AuthRequest, res
   const rejectedItemLabel = appliedRejectedItem ? RIDER_DOCUMENT_ITEMS[appliedRejectedItem] : null;
 
   notifyUser(rider.userId, {
+    role: 'RIDER',
     title: status === 'VERIFIED' ? 'Documents Verified ✅' : `${rejectedItemLabel ?? 'Documents'} Rejected`,
     body: status === 'VERIFIED'
       ? 'Your identity documents have been verified by the GoBuyMe team.'
@@ -1927,11 +1947,18 @@ export const deleteVendor = catchAsync(async (req: AuthRequest, res: Response) =
   }
 
   await prisma.$transaction(async (tx) => {
-    await softDeleteUser(
-      tx, req.user!.userId,
-      { userId: vendor.userId, email: vendor.user.email, phone: vendor.user.phone },
-      'Vendor', id, 'VENDOR_ADMIN_DELETED', { businessName: vendor.businessName },
-    );
+    if (await holdsOtherLiveRole(tx, vendor.userId, 'VENDOR')) {
+      // The person is also a rider/customer: remove only the business, keep the account.
+      await tx.auditLog.create({
+        data: { userId: req.user!.userId, action: 'VENDOR_ADMIN_DELETED', entity: 'Vendor', entityId: id, meta: { businessName: vendor.businessName, accountKept: true } },
+      });
+    } else {
+      await softDeleteUser(
+        tx, req.user!.userId,
+        { userId: vendor.userId, email: vendor.user.email, phone: vendor.user.phone },
+        'Vendor', id, 'VENDOR_ADMIN_DELETED', { businessName: vendor.businessName },
+      );
+    }
     await tx.vendor.update({
       where: { id: vendor.id },
       data: { approvalStatus: 'SUSPENDED', businessName: deletedVendorName(vendor.businessName, vendor.id) },
@@ -1957,6 +1984,11 @@ export const deleteCustomer = catchAsync(async (req: AuthRequest, res: Response)
   });
   if (activeOrder) {
     return apiResponse.error(res, 'This customer has an order in progress and cannot be deleted yet.', 409);
+  }
+
+  const holdsBusinessRole = await prisma.$transaction((tx) => holdsOtherLiveRole(tx, customer.userId, 'CUSTOMER'));
+  if (holdsBusinessRole) {
+    return apiResponse.error(res, 'This account is also a vendor or rider. Delete that role first.', 409);
   }
 
   await prisma.$transaction(async (tx) => {
@@ -1989,11 +2021,18 @@ export const deleteRider = catchAsync(async (req: AuthRequest, res: Response) =>
   }
 
   await prisma.$transaction(async (tx) => {
-    await softDeleteUser(
-      tx, req.user!.userId,
-      { userId: rider.userId, email: rider.user.email, phone: rider.user.phone },
-      'Rider', id, 'RIDER_ADMIN_DELETED', { riderName: rider.user.name },
-    );
+    if (await holdsOtherLiveRole(tx, rider.userId, 'RIDER')) {
+      // The person is also a vendor/customer: remove only the rider role, keep the account.
+      await tx.auditLog.create({
+        data: { userId: req.user!.userId, action: 'RIDER_ADMIN_DELETED', entity: 'Rider', entityId: id, meta: { riderName: rider.user.name, accountKept: true } },
+      });
+    } else {
+      await softDeleteUser(
+        tx, req.user!.userId,
+        { userId: rider.userId, email: rider.user.email, phone: rider.user.phone },
+        'Rider', id, 'RIDER_ADMIN_DELETED', { riderName: rider.user.name },
+      );
+    }
     await tx.rider.update({ where: { id: rider.id }, data: { approvalStatus: 'SUSPENDED' } });
   });
 
