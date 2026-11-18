@@ -35,6 +35,7 @@ export const issueCredit = async (
 
     // `silent` lets callers send their own, more specific push instead of this generic one.
     if (!opts.silent) notifyUser(userId, {
+      role: 'CUSTOMER',
       title: 'Store credit added 🎉',
       body: `₦${amount.toLocaleString()} in GoBuyMe credit has been added to your account and is ready to use on your next order.`,
       type: 'store_credit',

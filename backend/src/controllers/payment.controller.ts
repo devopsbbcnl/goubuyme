@@ -132,6 +132,7 @@ export const verifyPayment = catchAsync(async (req: AuthRequest, res: Response) 
     });
 
     notifyUser(updatedOrder.customer.userId, {
+      role: 'CUSTOMER',
       title: 'Payment Confirmed ✅',
       body:  `Payment for order #${updatedOrder.orderNumber} was successful. Your order is being prepared!`,
       type:  'payment',
@@ -212,6 +213,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
         const riderTotal = batch.riderEarnings.reduce((s, e) => s + e.netAmount, 0);
         for (const userId of [...new Set(batch.riderEarnings.map(e => e.rider.userId))]) {
           notifyUser(userId, {
+            role: 'RIDER',
             title: 'Payout Received! 🎉',
             body: `₦${riderTotal.toLocaleString()} has landed in your bank account.`,
             type: 'payout',
@@ -227,6 +229,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
         }
         for (const [, { userId, total }] of vendorTotals) {
           notifyUser(userId, {
+            role: 'VENDOR',
             title: 'Payout Received! 🎉',
             body: `₦${total.toLocaleString()} has landed in your bank account.`,
             type: 'payout',

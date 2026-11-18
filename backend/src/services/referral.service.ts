@@ -32,11 +32,13 @@ export const activateReferral = async (refereeId: string): Promise<void> => {
     logger.info(`Referral activated: referrer ${referral.referrerId} and referee ${refereeId} each earned a free-delivery credit`);
 
     notifyUser(referral.referrerId, {
+      role: 'CUSTOMER',
       title: 'You earned a free delivery! 🎉',
       body: 'Someone you referred just placed their first order. A free-delivery credit is now on your account.',
       type: 'referral',
     }).catch(() => {});
     notifyUser(refereeId, {
+      role: 'CUSTOMER',
       title: 'Free delivery unlocked! 🎉',
       body: 'Thanks for joining with a referral code — your next order ships free.',
       type: 'referral',

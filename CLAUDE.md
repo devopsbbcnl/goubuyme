@@ -288,6 +288,21 @@ Admin page `/crm/lead-finder`; backend `/api/v1/admin/crm/prospecting/*` (`contr
 - **Retention:** unactioned prospects are deleted after `PROSPECT_RETENTION_DAYS` (180); dismissed ones keep only name + place id so they stay dismissed.
 - **Testing locally:** export `PROSPECTING_PLACES_PROVIDER=stub` (non-production only) for made-up businesses marked TEST. No real Google call has been made from this machine yet.
 
+## Multi-role accounts (customer / vendor / rider on one login)
+
+One `User` can be a customer, a vendor and a rider. Roles come from the profile tables (`Customer`, `Vendor`, `Rider`, each with its own `approvalStatus`); there is no separate roles table. Staff roles (admins, SMOIS, logistics companies) are single-role and never switch.
+
+- **`User.role` is the primary role** (what the account signed up as). **The access token's `role` claim is the active role**, so every `requireRole` guard and `req.user.role` read works unchanged. `User.lastActiveRole` remembers the last experience so the next sign-in reopens it (`resolveLoginRole`, only while the person still qualifies).
+- **Rules live in `services/roles.service.ts`** (unit-tested): `getRoleStatuses`, `canActAs`, `resolveLoginRole`, `holdsOtherLiveRole`, `REAL_CUSTOMER`, `summarizeOtherRoles`. A pending vendor/rider can switch (dashboards open while pending, gated server-side); rejected/suspended cannot.
+- **Endpoints:** `GET /auth/roles`, `POST /auth/switch-role`, `POST /auth/add-role` (create a vendor/rider profile on an existing account). `/auth/refresh` keeps the switched role while it still qualifies; `/auth/me` returns the active `role` plus `primaryRole`; the socket handshake uses the active role.
+- **Suspension is per role** (it sets the profile's `approvalStatus`, never `User.isActive`), so a suspended rider still uses GoBuyMe as a customer. Suspension takes effect at the next refresh/switch (up to 15 min).
+- **Admin delete:** deleting a vendor/rider only removes that role when the account holds another live one (live vendor/rider profile, or customer with orders); deleting a customer who is also a vendor/rider is refused (409). Admin lists show "Also: Customer · Rider" via `otherRoles`.
+- **A switched-to-customer vendor/rider gets an empty `Customer` row.** Never count those as customers: use `REAL_CUSTOMER` (customer-primary or has orders) in admin lists and analytics.
+- **Notifications are role-tagged:** `notifyUser` payloads carry `role`, stored in `Notification.role` (null = every role). The inbox is scoped by the active role (`roleScope`). Tag every new `notifyUser` call for a vendor/rider/customer with `role`. Push `data.role` makes a tap switch to that experience first (mobile `usePushNotifications`).
+- **Onboarding funnel events are unique per user + role** (an added role starts its own funnel). Broadcast audiences VENDORS/RIDERS also reach accounts that hold the profile.
+- **No self-dealing:** a vendor/branch manager cannot order from their own business, and a rider cannot see or accept their own order or their own store's.
+- **Apps:** mobile (`components/RoleSwitcher.tsx`, `app/become-role.tsx`, `AuthContext.switchRole/addRole`), web (`components/ui/RoleSwitcher.tsx`, `app/(shop)/become-role`; the BFF proxy already turns any response carrying `accessToken` into the httpOnly cookies), admin (`components/ui/OtherRoles.tsx`).
+
 ## Security notes
 
 - All routes use Helmet + CORS

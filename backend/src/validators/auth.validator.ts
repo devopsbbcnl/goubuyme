@@ -100,6 +100,25 @@ export const registerSchema = Joi.object({
   }),
 });
 
+// An existing signed-in account adds a vendor or rider role (no name/email/password/branches).
+export const addRoleSchema = Joi.object({
+  role: Joi.string().valid('VENDOR', 'RIDER').required(),
+  address: Joi.string().trim().required(),
+  city: Joi.string().trim().required(),
+  state: Joi.string().trim().required(),
+  latitude: Joi.number().optional(),
+  longitude: Joi.number().optional(),
+  commissionTier: Joi.when('role', { is: 'VENDOR', then: Joi.string().valid('TIER_1', 'TIER_2').required(), otherwise: Joi.forbidden() }),
+  businessName: Joi.when('role', { is: 'VENDOR', then: Joi.string().trim().min(2).max(150).required(), otherwise: Joi.forbidden() }),
+  category: Joi.when('role', {
+    is: 'VENDOR',
+    then: Joi.string().valid('RESTAURANT', 'EMART', 'PHARMACY', 'BAKERY', 'DRINKS', 'BUTCHER', 'GAS').required(),
+    otherwise: Joi.forbidden(),
+  }),
+  vehicleType: Joi.when('role', { is: 'RIDER', then: Joi.string().required(), otherwise: Joi.forbidden() }),
+  plateNumber: Joi.when('role', { is: 'RIDER', then: Joi.string().min(1).required(), otherwise: Joi.forbidden() }),
+});
+
 export const loginSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),

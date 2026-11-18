@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { RoleSwitcher } from '@/components/RoleSwitcher';
 import {
 	View,
 	Text,
@@ -106,6 +107,7 @@ const MENU_ROWS: MenuRow[] = [
 		sub: 'Add and manage your locations',
 		route: '/(vendor)/branches',
 	},
+	{ icon: '🔁', label: 'Switch Experience', sub: 'Customer or rider mode, same account' },
 	{ icon: '🔔', label: 'Notifications', sub: 'Inbox & alerts', route: '/(vendor)/notifications' },
 	{ icon: '⚙️', label: 'Settings', sub: 'Theme, language & more', route: '/(vendor)/settings' },
 	{ icon: '🚪', label: 'Sign Out', sub: null },
@@ -125,6 +127,7 @@ export default function VendorProfileScreen() {
 	const terms = useVendorTerminology();
 	const [profile, setProfile] = useState<VendorProfile | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [switcherOpen, setSwitcherOpen] = useState(false);
 
 	const fetchProfile = useCallback(async () => {
 		try {
@@ -167,6 +170,10 @@ export default function VendorProfileScreen() {
 			shareStore();
 			return;
 		}
+		if (row.label === 'Switch Experience') {
+			setSwitcherOpen(true);
+			return;
+		}
 		if (row.route) router.push(row.route as any);
 	};
 
@@ -189,6 +196,7 @@ export default function VendorProfileScreen() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: T.bg }}>
+			<RoleSwitcher visible={switcherOpen} onClose={() => setSwitcherOpen(false)} />
 			<ScrollView
 				contentContainerStyle={{ paddingBottom: 40 }}
 				showsVerticalScrollIndicator={false}

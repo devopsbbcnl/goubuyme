@@ -75,6 +75,7 @@ export async function settleSuccessfulPayment(input: {
   });
   await issueCredit(order.customer.userId, amount, LATE_PAYMENT_CREDIT_REASON, order.id, { silent: true });
   notifyUser(order.customer.userId, {
+    role: 'CUSTOMER',
     title: 'Payment added as store credit',
     body: `Your payment for order #${order.orderNumber} came through after the order had been cancelled, so ₦${amount.toLocaleString()} was added to your GoBuyMe store credit.`,
     type: 'store_credit',

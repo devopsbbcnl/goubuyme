@@ -142,6 +142,7 @@ const notifyRiders: ActionDefinition<NotifyRidersPayload> = {
       .slice(0, p.maxRiders);
     await Promise.all(riders.map((r) =>
       notifyUser(r.userId, {
+        role: 'RIDER',
         title: 'Delivery waiting near you 🏍️',
         body: `${p.vendorName} has order #${p.orderNumber} ready for pickup, ${r.distanceKm} km away. Earn ₦${Math.round(p.fee).toLocaleString()}. Open Available Jobs to accept.`,
         type: 'job',

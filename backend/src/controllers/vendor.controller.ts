@@ -774,6 +774,7 @@ export const updateMyOrderStatus = catchAsync(async (req: AuthRequest, res: Resp
   if (action === 'reject') {
     const vendorReason = reason?.trim() ? ` Reason: ${reason.trim().slice(0, 200)}` : '';
     notifyUser(order.customer.userId, {
+      role: 'CUSTOMER',
       title: 'Order declined',
       body: wasPaid
         ? `The vendor couldn't take order #${order.orderNumber}, so it's been cancelled. ₦${order.totalAmount.toLocaleString()} was added to your GoBuyMe store credit.${vendorReason}`

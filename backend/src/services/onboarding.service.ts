@@ -5,8 +5,9 @@ import { linkLeadForUser, markLeadLiveForUser } from './crm/lead.service';
 
 /**
  * Records an onboarding transition for a user. First occurrence wins — the
- * @@unique([userId, event]) constraint keeps one row per transition, so calling
- * this again for the same step is a harmless no-op.
+ * @@unique([userId, role, event]) constraint keeps one row per transition, so calling
+ * this again for the same step is a harmless no-op. The key includes the role, so an account that
+ * adds a vendor/rider role later gets its own funnel for that role.
  *
  * Fire-and-forget: always call as `void recordOnboardingEvent(...)`. Failures are
  * logged and swallowed so analytics instrumentation can never break a user flow.
@@ -19,7 +20,7 @@ export async function recordOnboardingEvent(
 ): Promise<void> {
   try {
     await prisma.onboardingEvent.upsert({
-      where: { userId_event: { userId, event } },
+      where: { userId_role_event: { userId, role, event } },
       create: {
         userId,
         role,

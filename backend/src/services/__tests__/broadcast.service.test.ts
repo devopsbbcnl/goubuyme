@@ -13,7 +13,7 @@ const mockSendEmailBatch = jest.fn();
 jest.mock('../email.service', () => ({ emailLayout: (c: string) => c, sendEmailBatch: (...a: unknown[]) => mockSendEmailBatch(...a) }));
 process.env.JWT_ACCESS_SECRET = 'test-secret';
 
-import { audienceWhere, send, BroadcastError, broadcastEmailHtml, fillMergeFields } from '../broadcast.service';
+import { audienceWhere, audienceNotificationRole, send, BroadcastError, broadcastEmailHtml, fillMergeFields } from '../broadcast.service';
 
 const input = { title: 'Heads up', body: 'We are down tonight', audience: 'VENDORS' as const };
 
@@ -32,13 +32,36 @@ describe('audienceWhere', () => {
 
   it('never includes admin roles', () => {
     for (const a of ['ALL', 'CUSTOMERS', 'VENDORS', 'RIDERS', 'LOGISTICS_COMPANIES'] as const) {
-      const roles = (audienceWhere(a).role as { in: string[] }).in;
-      expect(roles.some(r => r.endsWith('_ADMIN'))).toBe(false);
+      expect(JSON.stringify(audienceWhere(a)).includes('_ADMIN')).toBe(false);
     }
   });
 
   it('narrows to one role', () => {
-    expect((audienceWhere('RIDERS').role as { in: string[] }).in).toEqual(['RIDER']);
+    expect((audienceWhere('CUSTOMERS').role as { in: string[] }).in).toEqual(['CUSTOMER']);
+  });
+
+  it('reaches riders by primary role or by holding a rider profile (multi-role accounts)', () => {
+    const w = audienceWhere('RIDERS');
+    expect(w.OR).toEqual([
+      { role: { in: ['RIDER'] } },
+      { role: { in: ['CUSTOMER', 'VENDOR'] }, rider: { isNot: null } },
+    ]);
+    expect(w).toMatchObject({ isActive: true, deletedAt: null });
+  });
+
+  it('reaches vendors by primary role or by owning a main business (multi-role accounts)', () => {
+    expect(audienceWhere('VENDORS').OR).toEqual([
+      { role: { in: ['VENDOR'] } },
+      { role: { in: ['CUSTOMER', 'RIDER'] }, vendors: { some: { parentVendorId: null } } },
+    ]);
+  });
+
+  it('tags in-app broadcasts with the audience experience, or none for everyone', () => {
+    expect(audienceNotificationRole('VENDORS')).toBe('VENDOR');
+    expect(audienceNotificationRole('RIDERS')).toBe('RIDER');
+    expect(audienceNotificationRole('CUSTOMERS')).toBe('CUSTOMER');
+    expect(audienceNotificationRole('ALL')).toBeNull();
+    expect(audienceNotificationRole('USER')).toBeNull();
   });
 
   it('narrows to logistics companies', () => {

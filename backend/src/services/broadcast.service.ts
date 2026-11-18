@@ -44,14 +44,28 @@ const AUDIENCE_ROLES: Record<BroadcastAudience, Role[]> = {
   USER: [Role.CUSTOMER, Role.VENDOR, Role.RIDER, Role.LOGISTICS_COMPANY],
 };
 
+// Multi-role accounts: someone who signed up as a customer but also runs a business or rides is
+// still a vendor / rider, so those audiences also reach anyone holding the profile.
+const PROFILE_MATCH: Partial<Record<BroadcastAudience, Prisma.UserWhereInput>> = {
+  VENDORS: { role: { in: [Role.CUSTOMER, Role.RIDER] }, vendors: { some: { parentVendorId: null } } },
+  RIDERS: { role: { in: [Role.CUSTOMER, Role.VENDOR] }, rider: { isNot: null } },
+};
+
+// The experience a broadcast's in-app notification belongs to; null = every role.
+export const audienceNotificationRole = (audience: BroadcastAudience): Role | null =>
+  audience === 'CUSTOMERS' ? Role.CUSTOMER : audience === 'VENDORS' ? Role.VENDOR : audience === 'RIDERS' ? Role.RIDER : null;
+
 // Active, undeleted accounts only: a suspended or deleted one has no session to read it in.
-export const audienceWhere = (audience: BroadcastAudience, targetUserId?: string | null): Prisma.UserWhereInput => ({
-  role: { in: AUDIENCE_ROLES[audience] },
-  isActive: true,
-  deletedAt: null,
-  // A single-user message matches that account only; an empty id matches nobody.
-  ...(audience === 'USER' ? { id: targetUserId || '' } : {}),
-});
+export const audienceWhere = (audience: BroadcastAudience, targetUserId?: string | null): Prisma.UserWhereInput => {
+  const profile = PROFILE_MATCH[audience];
+  return {
+    ...(profile ? { OR: [{ role: { in: AUDIENCE_ROLES[audience] } }, profile] } : { role: { in: AUDIENCE_ROLES[audience] } }),
+    isActive: true,
+    deletedAt: null,
+    // A single-user message matches that account only; an empty id matches nobody.
+    ...(audience === 'USER' ? { id: targetUserId || '' } : {}),
+  };
+};
 
 interface Reach {
   recipients: number;
@@ -68,7 +82,8 @@ export const preview = async (audience: BroadcastAudience, targetUserId?: string
   const where = audienceWhere(audience, targetUserId);
   const [recipients, pushReachable, emailPromotional] = await Promise.all([
     prisma.user.count({ where }),
-    prisma.user.count({ where: { ...where, OR: [{ pushToken: { not: null } }, { pushSubscriptions: { some: {} } }] } }),
+    // AND, not a spread: the audience itself may carry an OR (multi-role vendors / riders).
+    prisma.user.count({ where: { AND: [where, { OR: [{ pushToken: { not: null } }, { pushSubscriptions: { some: {} } }] }] } }),
     prisma.user.count({ where: { ...where, marketingOptIn: true } }),
   ]);
   return { recipients, pushReachable, emailService: recipients, emailPromotional };
@@ -189,6 +204,7 @@ const deliver = async (broadcastId: string, input: BroadcastInput): Promise<void
     await prisma.notification.createMany({
       data: chunk.map(u => ({
         userId: u.id, title: input.title, body: input.body, type: 'broadcast', meta: { broadcastId } as Prisma.InputJsonValue,
+        role: audienceNotificationRole(input.audience),
       })),
     });
     // One phone can hold several accounts' tokens; send each device once.

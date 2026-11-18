@@ -6,12 +6,23 @@ import { wantsNotification } from './notificationPrefs';
 
 const expo = new Expo();
 
+/** The experience a notification belongs to. Omit for system messages meant for every role. */
+export type NotificationRole = 'CUSTOMER' | 'VENDOR' | 'RIDER';
+
 export interface PushPayload {
   title: string;
   body: string;
   type: string;
   data?: Record<string, unknown>;
+  role?: NotificationRole;
 }
+
+// A multi-role account sees the active role's notifications plus the untagged (every-role) ones.
+// Staff roles have a single experience, so they are not narrowed.
+export const roleScope = (activeRole: string): Prisma.NotificationWhereInput =>
+  activeRole === 'CUSTOMER' || activeRole === 'VENDOR' || activeRole === 'RIDER'
+    ? { OR: [{ role: null }, { role: activeRole }] }
+    : {};
 
 export const sendPush = async (pushToken: string, payload: PushPayload): Promise<void> => {
   if (!Expo.isExpoPushToken(pushToken)) {
@@ -72,8 +83,15 @@ export const notifyUser = async (userId: string, payload: PushPayload): Promise<
   if (!user || !wantsNotification(user.notificationPrefs, payload.type)) return;
 
   await prisma.notification.create({
-    data: { userId, title: payload.title, body: payload.body, type: payload.type, meta: payload.data as Prisma.InputJsonValue },
+    data: {
+      userId, title: payload.title, body: payload.body, type: payload.type,
+      meta: payload.data as Prisma.InputJsonValue,
+      ...(payload.role ? { role: payload.role } : {}),
+    },
   });
 
-  if (user.pushToken) await sendPush(user.pushToken, payload);
+  // The device learns which experience the alert is for, so tapping it can open the right one.
+  if (user.pushToken) {
+    await sendPush(user.pushToken, payload.role ? { ...payload, data: { ...payload.data, role: payload.role } } : payload);
+  }
 };

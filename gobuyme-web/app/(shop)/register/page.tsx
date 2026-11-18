@@ -207,7 +207,14 @@ function RegisterContent() {
       router.push(`/verify-otp?userId=${encodeURIComponent(userId)}&email=${encodeURIComponent(form.email)}&role=${role}`);
     } catch (e: any) {
       const fieldError = e?.response?.data?.errors?.[0]?.message;
-      setErr(fieldError ?? e?.response?.data?.message ?? 'Registration failed. Try again.');
+      const message: string | undefined = e?.response?.data?.message;
+      setErr(
+        fieldError
+          ?? (message === 'Email already registered.'
+            ? 'An account already exists with this email. Sign in instead. To become a vendor or rider on it, use Switch Experience from your account.'
+            : message)
+          ?? 'Registration failed. Try again.',
+      );
     } finally { setLoading(false); }
   };
 

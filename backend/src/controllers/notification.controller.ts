@@ -3,6 +3,7 @@ import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { roleScope } from '../services/notification.service';
 
 export const registerPushToken = catchAsync(async (req: AuthRequest, res: Response) => {
   const { token } = req.body;
@@ -25,12 +26,12 @@ export const getNotifications = catchAsync(async (req: AuthRequest, res: Respons
 
   const [notifications, total] = await prisma.$transaction([
     prisma.notification.findMany({
-      where: { userId: req.user!.userId },
+      where: { userId: req.user!.userId, ...roleScope(req.user!.role) },
       orderBy: { createdAt: 'desc' },
       skip: (pageNum - 1) * limitNum,
       take: limitNum,
     }),
-    prisma.notification.count({ where: { userId: req.user!.userId } }),
+    prisma.notification.count({ where: { userId: req.user!.userId, ...roleScope(req.user!.role) } }),
   ]);
 
   return apiResponse.paginated(res, 'Notifications fetched.', notifications, {
@@ -39,7 +40,7 @@ export const getNotifications = catchAsync(async (req: AuthRequest, res: Respons
 });
 
 export const getUnreadCount = catchAsync(async (req: AuthRequest, res: Response) => {
-  const count = await prisma.notification.count({ where: { userId: req.user!.userId, isRead: false } });
+  const count = await prisma.notification.count({ where: { userId: req.user!.userId, isRead: false, ...roleScope(req.user!.role) } });
   return apiResponse.success(res, 'Unread count fetched.', { count });
 });
 
@@ -53,7 +54,7 @@ export const markNotificationRead = catchAsync(async (req: AuthRequest, res: Res
 
 export const markAllRead = catchAsync(async (req: AuthRequest, res: Response) => {
   await prisma.notification.updateMany({
-    where: { userId: req.user!.userId, isRead: false },
+    where: { userId: req.user!.userId, isRead: false, ...roleScope(req.user!.role) },
     data: { isRead: true },
   });
   return apiResponse.success(res, 'All notifications marked as read.');

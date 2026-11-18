@@ -24,6 +24,9 @@ import { RIDER_APPROVAL_SELECT, claimFleetInvite, effectiveRiderApproval } from 
 import { BranchError, createBranchVendor } from '../services/branch.service';
 import { revokeManagerLogin } from '../services/branchAccess.service';
 import { recordSmoisAuthEvent } from '../services/smois/audit';
+import {
+  SWITCHABLE_ROLES, canActAs, ensureCustomerProfile, getRoleStatuses, isSwitchableAccount, resolveLoginRole,
+} from '../services/roles.service';
 
 const SALT_ROUNDS = 12;
 
@@ -336,17 +339,19 @@ export const login = catchAsync(async (req: Request, res: Response) => {
     ]);
   }
 
-  const accessToken = generateAccessToken({ userId: user.id, role: user.role });
-  const refreshToken = generateRefreshToken({ userId: user.id, role: user.role });
+  // Multi-role accounts reopen the experience they last used.
+  const activeRole = await resolveLoginRole(user);
+  const accessToken = generateAccessToken({ userId: user.id, role: activeRole });
+  const refreshToken = generateRefreshToken({ userId: user.id, role: activeRole });
 
   await prisma.user.update({ where: { id: user.id }, data: { refreshToken } });
 
   if (user.role === 'RIDER') await claimFleetInvite({ id: user.id, email: user.email });
-  const approvalStatus = await resolveApprovalStatus(user.id, user.role);
+  const approvalStatus = await resolveApprovalStatus(user.id, activeRole);
   void recordSmoisAuthEvent(req, user, 'AUTH_LOGIN');
 
   return apiResponse.success(res, 'Login successful.', {
-    user: { ...buildUserPayload(user), ...(approvalStatus !== undefined ? { approvalStatus } : {}) },
+    user: { ...buildUserPayload(user), role: activeRole, ...(approvalStatus !== undefined ? { approvalStatus } : {}) },
     accessToken,
     refreshToken,
   });
@@ -427,18 +432,21 @@ export const googleAuth = catchAsync(async (req: Request, res: Response) => {
     void recordOnboardingEvent(user.id, user.role, 'EMAIL_VERIFIED');
   }
 
-  const accessToken = generateAccessToken({ userId: user.id, role: user.role });
-  const refreshToken = generateRefreshToken({ userId: user.id, role: user.role });
+  const activeRole = await resolveLoginRole(user);
+  const accessToken = generateAccessToken({ userId: user.id, role: activeRole });
+  const refreshToken = generateRefreshToken({ userId: user.id, role: activeRole });
   await prisma.user.update({ where: { id: user.id }, data: { refreshToken } });
 
   let approvalStatus: string | undefined;
-  if (user.role === 'VENDOR') {
+  if (activeRole === 'VENDOR') {
     const vendor = await vendorStanding(user.id);
     approvalStatus = vendor?.approvalStatus;
+  } else if (activeRole === 'RIDER') {
+    approvalStatus = await resolveApprovalStatus(user.id, activeRole);
   }
 
   return apiResponse.success(res, 'Signed in with Google.', {
-    user: { ...buildUserPayload(user), ...(approvalStatus !== undefined ? { approvalStatus } : {}) },
+    user: { ...buildUserPayload(user), role: activeRole, ...(approvalStatus !== undefined ? { approvalStatus } : {}) },
     accessToken,
     refreshToken,
   });
@@ -476,14 +484,123 @@ export const refresh = catchAsync(async (req: Request, res: Response) => {
     return apiResponse.error(res, 'Refresh token revoked.', 401);
   }
 
-  const newAccessToken = generateAccessToken({ userId: user.id, role: user.role });
-  const newRefreshToken = generateRefreshToken({ userId: user.id, role: user.role });
+  // Keep the role the user switched into, but only while they still qualify for it
+  // (a suspended rider drops back to the account's primary role on the next refresh).
+  let activeRole: Role = user.role;
+  if (decoded.role !== user.role && (await canActAs(user.id, user.role, decoded.role as Role))) {
+    activeRole = decoded.role as Role;
+  }
+
+  const newAccessToken = generateAccessToken({ userId: user.id, role: activeRole });
+  const newRefreshToken = generateRefreshToken({ userId: user.id, role: activeRole });
 
   await prisma.user.update({ where: { id: user.id }, data: { refreshToken: newRefreshToken } });
 
   return apiResponse.success(res, 'Token refreshed.', {
     accessToken: newAccessToken,
     refreshToken: newRefreshToken,
+  });
+});
+
+// GET /auth/roles — every experience this account can use, with its standing.
+export const getRoles = catchAsync(async (req: AuthRequest, res: Response) => {
+  const user = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { role: true } });
+  if (!user) return apiResponse.error(res, 'User not found.', 404);
+  const roles = await getRoleStatuses(req.user!.userId, user.role);
+  return apiResponse.success(res, 'Roles fetched.', { primaryRole: user.role, activeRole: req.user!.role, roles });
+});
+
+// POST /auth/add-role — a signed-in customer/vendor/rider registers a second role on the same
+// account. Creates the profile (pending approval, same as signup) and switches into it.
+export const addRole = catchAsync(async (req: AuthRequest, res: Response) => {
+  const {
+    role, address, city, state, latitude, longitude,
+    commissionTier, businessName, category, vehicleType, plateNumber,
+  } = req.body;
+
+  const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
+  if (!user || !user.isActive || user.deletedAt) return apiResponse.error(res, 'Account suspended. Contact support.', 403);
+  if (!isSwitchableAccount(user.role)) return apiResponse.error(res, 'This account type cannot add roles.', 403);
+  if (!user.isEmailVerified) return apiResponse.error(res, 'Verify your email before adding a role.', 403);
+
+  const statuses = await getRoleStatuses(user.id, user.role);
+  if (statuses.find((s) => s.role === role)?.status !== 'NOT_REGISTERED') {
+    return apiResponse.error(res, 'This account already has that role.', 409);
+  }
+
+  if (role === 'VENDOR') {
+    const nameTaken = await prisma.vendor.findFirst({
+      where: { businessName: { equals: businessName.trim(), mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (nameTaken) return apiResponse.error(res, 'A store with this business name already exists. Please choose a different name.', 409);
+
+    const slug =
+      businessName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + user.id.slice(0, 6);
+    await prisma.vendor.create({
+      data: {
+        userId: user.id, businessName: businessName.trim(), slug,
+        category: category as VendorCategory, address, city, state,
+        ...(latitude !== undefined ? { latitude } : {}),
+        ...(longitude !== undefined ? { longitude } : {}),
+        commissionTier: commissionTier as CommissionTier,
+        isPharmacyFlagged: category === 'PHARMACY',
+      },
+    });
+  } else {
+    await prisma.rider.create({
+      data: {
+        userId: user.id, vehicleType, plateNumber, address, city, state,
+        ...(latitude !== undefined ? { latitude } : {}),
+        ...(longitude !== undefined ? { longitude } : {}),
+      },
+    });
+  }
+
+  const target = role as Role;
+  const accessToken = generateAccessToken({ userId: user.id, role: target });
+  const refreshToken = generateRefreshToken({ userId: user.id, role: target });
+  await prisma.user.update({ where: { id: user.id }, data: { refreshToken, lastActiveRole: target } });
+
+  // The new role's own funnel starts here; the email was already verified when the account was made.
+  void recordOnboardingEvent(user.id, target, 'SIGNED_UP', { addedToExistingAccount: true });
+  void recordOnboardingEvent(user.id, target, 'EMAIL_VERIFIED', { addedToExistingAccount: true });
+
+  const approvalStatus = await resolveApprovalStatus(user.id, target);
+  return apiResponse.success(res, 'Role added.', {
+    user: { ...buildUserPayload(user), role: target, ...(approvalStatus !== undefined ? { approvalStatus } : {}) },
+    accessToken,
+    refreshToken,
+  }, 201);
+});
+
+// POST /auth/switch-role { role } — same user and session history, new active experience.
+// Permissions are enforced server-side from the role claim in the token this issues.
+export const switchRole = catchAsync(async (req: AuthRequest, res: Response) => {
+  const target = String(req.body?.role ?? '').toUpperCase() as Role;
+  if (!SWITCHABLE_ROLES.includes(target)) return apiResponse.error(res, 'Invalid role.', 400);
+
+  const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
+  if (!user || !user.isActive) return apiResponse.error(res, 'Account suspended. Contact support.', 403);
+  if (!isSwitchableAccount(user.role)) {
+    return apiResponse.error(res, 'This account type cannot switch roles.', 403);
+  }
+  if (!(await canActAs(user.id, user.role, target))) {
+    return apiResponse.error(res, 'You are not registered or approved for that role.', 403);
+  }
+
+  if (target === Role.CUSTOMER) await ensureCustomerProfile(user.id);
+
+  const accessToken = generateAccessToken({ userId: user.id, role: target });
+  const refreshToken = generateRefreshToken({ userId: user.id, role: target });
+  // Remember the choice so the next sign-in opens this experience.
+  await prisma.user.update({ where: { id: user.id }, data: { refreshToken, lastActiveRole: target } });
+
+  const approvalStatus = await resolveApprovalStatus(user.id, target);
+  return apiResponse.success(res, 'Role switched.', {
+    user: { ...buildUserPayload(user), role: target, ...(approvalStatus !== undefined ? { approvalStatus } : {}) },
+    accessToken,
+    refreshToken,
   });
 });
 
@@ -517,7 +634,13 @@ export const getMe = catchAsync(async (req: AuthRequest, res: Response) => {
     },
   });
   if (!user) return apiResponse.error(res, 'User not found.', 404);
-  return apiResponse.success(res, 'User fetched.', user);
+  // `role` is the active experience (token claim) so apps that route by it stay on the role the
+  // user switched into; `primaryRole` is what the account signed up as.
+  return apiResponse.success(res, 'User fetched.', {
+    ...user,
+    role: isSwitchableAccount(user.role) ? req.user!.role : user.role,
+    primaryRole: user.role,
+  });
 });
 
 // POST /auth/phone/send-otp — SMS a 6-digit code to `phone` (or the current number).

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import RoleSwitcher from '@/components/ui/RoleSwitcher';
 import api from '@/services/api';
 
 const NAV = [
@@ -32,6 +33,8 @@ export function RiderSidebar({ isOpen, onClose }: SidebarProps) {
       })
       .catch(() => {});
   }, []);
+
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const signOut = async () => {
     try { await api.post('/auth/logout'); } catch {}
@@ -93,11 +96,15 @@ export function RiderSidebar({ isOpen, onClose }: SidebarProps) {
             );
           })}
           <div className="v-nav-section">Account</div>
+          <button className="v-nav-item w-full" style={{ justifyContent: 'flex-start' }} onClick={() => setSwitcherOpen(true)}>
+            <span>🔁</span><span>Switch Experience</span>
+          </button>
           <button className="v-nav-item w-full" style={{ color: 'var(--error)', justifyContent: 'flex-start' }} onClick={signOut}>
             <span>🚪</span><span>Sign Out</span>
           </button>
         </nav>
       </aside>
+      <RoleSwitcher open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
     </>
   );
 }

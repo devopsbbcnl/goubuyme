@@ -59,6 +59,7 @@ async function autoCancelForNoResponse(order: {
   }
 
   notifyUser(order.customer.userId, {
+    role: 'CUSTOMER',
     title: 'Order cancelled',
     body: wasPaid
       ? `The vendor didn't respond to order #${order.orderNumber} in time. It's been cancelled and ₦${order.totalAmount.toLocaleString()} was added as GoBuyMe store credit.`
@@ -70,6 +71,7 @@ async function autoCancelForNoResponse(order: {
   vendorOrderContacts(order.vendorId).then((contacts) => {
     for (const c of contacts) {
       notifyUser(c.userId, {
+        role: 'VENDOR',
         title: 'Order auto-cancelled',
         body: `Order #${order.orderNumber} was auto-cancelled after 10 minutes of no response. This affects your response-rate score.`,
         type: 'order',
