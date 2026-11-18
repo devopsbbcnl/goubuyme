@@ -11,7 +11,8 @@ const PROMO_CARD_WIDTH = SCREEN_WIDTH - 40;
 import { useTheme } from '@/context/ThemeContext';
 import { useCart } from '@/context/CartContext';
 import { useAddress } from '@/context/AddressContext';
-import { useCity, SUPPORTED_CITIES } from '@/context/CityContext';
+import { useStateFilter } from '@/context/StateContext';
+import { NIGERIA_STATES } from '@/constants/nigeriaStates';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { router } from 'expo-router';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -172,14 +173,14 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { count } = useCart();
   const { addresses, selected, selectAddress } = useAddress();
-  const { selectedCity, setSelectedCity, cityLoaded } = useCity();
+  const { selectedState, detectedState, isManual, locationStatus, setManualState, followMyLocation, stateLoaded } = useStateFilter();
 
   const [activeCat,      setActiveCat]      = useState('all');
   const [activeEmartCat, setActiveEmartCat] = useState<string | null>(null);
   const [emartItems,     setEmartItems]     = useState<BrowseItem[]>([]);
   const [browseLoading,  setBrowseLoading]  = useState(false);
   const [addrModal,    setAddrModal]    = useState(false);
-  const [cityModal,    setCityModal]    = useState(false);
+  const [stateModal,   setStateModal]   = useState(false);
   const [filterModal,  setFilterModal]  = useState(false);
   const [openNowOnly,  setOpenNowOnly]  = useState(false);
   const [sortBy,       setSortBy]       = useState<SortOption>('default');
@@ -193,10 +194,10 @@ export default function HomeScreen() {
   const promoRef = useRef<FlatList>(null);
   const isUserScrolling = useRef(false);
 
-  // Show city picker on first load if no city is stored yet
+  // Open the state picker only when location gave us nothing to go on (denied/unavailable, no saved state).
   useEffect(() => {
-    if (cityLoaded && !selectedCity) setCityModal(true);
-  }, [cityLoaded, selectedCity]);
+    if (stateLoaded && !selectedState && locationStatus !== 'detecting') setStateModal(true);
+  }, [stateLoaded, selectedState, locationStatus]);
 
   // The "Refer a friend" card surfaces the signed-in user's own referral code to share.
   const platformCards: CarouselItem[] = PLATFORM_PROMOS.map(p => ({
@@ -218,13 +219,13 @@ export default function HomeScreen() {
 
   const fetchPromos = useCallback(async () => {
     try {
-      const params = selectedCity ? { city: selectedCity } : {};
+      const params = selectedState ? { state: selectedState } : {};
       const res = await api.get('/vendors/active-promotions', { params });
       setVendorPromos(res.data.data ?? []);
     } catch {}
-  }, [selectedCity]);
+  }, [selectedState]);
 
-  useEffect(() => { if (cityLoaded) fetchPromos(); }, [fetchPromos, cityLoaded]);
+  useEffect(() => { if (stateLoaded) fetchPromos(); }, [fetchPromos, stateLoaded]);
 
   useEffect(() => {
     api.get('/referral')
@@ -249,7 +250,7 @@ export default function HomeScreen() {
       // The API pages at 20 by default; ask for the selected category directly so a
       // vendor in a small category (e.g. the only pharmacy) is not cut off the first page.
       const params: Record<string, string | number> = { limit: 100 };
-      if (selectedCity) params.city = selectedCity;
+      if (selectedState) params.state = selectedState;
       if (activeCat !== 'all') params.category = activeCat;
       const res = await api.get('/vendors', { params });
       setVendors(res.data.data ?? []);
@@ -259,15 +260,15 @@ export default function HomeScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCity, activeCat]);
+  }, [selectedState, activeCat]);
 
-  useEffect(() => { if (cityLoaded) fetchVendors(); }, [fetchVendors, cityLoaded]);
+  useEffect(() => { if (stateLoaded) fetchVendors(); }, [fetchVendors, stateLoaded]);
 
   const fetchEmartItems = useCallback(async (category: string) => {
     setBrowseLoading(true);
     try {
       const params: Record<string, string> = { vendorCategory: 'EMART', itemCategory: category };
-      if (selectedCity) params.city = selectedCity;
+      if (selectedState) params.state = selectedState;
       const res = await api.get('/vendors/browse-items', { params });
       setEmartItems(res.data.data ?? []);
     } catch {
@@ -275,7 +276,7 @@ export default function HomeScreen() {
     } finally {
       setBrowseLoading(false);
     }
-  }, [selectedCity]);
+  }, [selectedState]);
 
   const handleTopCatChange = useCallback((catId: string) => {
     setActiveCat(catId);
@@ -299,12 +300,19 @@ export default function HomeScreen() {
     else fetchVendors();
   }, [fetchVendors, fetchEmartItems, activeEmartCat]);
 
-  const handleCitySelect = useCallback(async (cityName: string) => {
-    await setSelectedCity(cityName);
-    setCityModal(false);
+  const handleStateSelect = useCallback(async (stateName: string) => {
+    await setManualState(stateName);
+    setStateModal(false);
     setLoading(true);
     setActivePromo(0);
-  }, [setSelectedCity]);
+  }, [setManualState]);
+
+  const handleUseMyLocation = useCallback(async () => {
+    await followMyLocation();
+    setStateModal(false);
+    setLoading(true);
+    setActivePromo(0);
+  }, [followMyLocation]);
 
   const hasAddresses = addresses.length > 0;
   const catFiltered = vendors.filter(v => matchCat(v.category, activeCat));
@@ -339,15 +347,15 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={{ gap: 2 }}>
-            {/* City selector */}
-            <TouchableOpacity onPress={() => setCityModal(true)} activeOpacity={0.75}>
+            {/* State selector */}
+            <TouchableOpacity onPress={() => setStateModal(true)} activeOpacity={0.75}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name="location-sharp" size={14} color={T.primary} />
-                <Text style={[styles.locationLabel, { color: T.textSec }]}>Delivering in</Text>
+                <Ionicons name={isManual ? 'location-sharp' : 'navigate'} size={14} color={T.primary} />
+                <Text style={[styles.locationLabel, { color: T.textSec }]}>{isManual ? 'Browsing' : 'Delivering in'}</Text>
                 <Ionicons name="chevron-down" size={12} color={T.textSec} />
               </View>
               <Text style={[styles.locationCity, { color: T.text }]} numberOfLines={1}>
-                {selectedCity ?? 'Select City'}
+                {selectedState ?? (locationStatus === 'detecting' ? 'Finding you…' : 'Select State')}
               </Text>
             </TouchableOpacity>
 
@@ -503,7 +511,7 @@ export default function HomeScreen() {
           <Text style={[styles.sectionTitle, { color: T.text, marginBottom: 0 }]}>
             {showingBrowse
               ? activeEmartCat
-              : selectedCity ? `Vendors in ${selectedCity}` : 'All Vendors'}
+              : selectedState ? `Vendors in ${selectedState}${isManual ? '' : ' (near you)'}` : 'All Vendors'}
           </Text>
           {!showingBrowse && (
             <TouchableOpacity onPress={() => router.push('/search')}>
@@ -520,7 +528,7 @@ export default function HomeScreen() {
             <View style={[styles.emptyState, { backgroundColor: T.surface, borderColor: T.border }]}>
               <Text style={{ fontSize: 32, marginBottom: 8 }}>🛒</Text>
               <Text style={[styles.emptyText, { color: T.textSec }]}>
-                No {activeEmartCat} items available{selectedCity ? ` in ${selectedCity}` : ''} yet.
+                No {activeEmartCat} items available{selectedState ? ` in ${selectedState}` : ''} yet.
               </Text>
             </View>
           ) : (
@@ -573,8 +581,8 @@ export default function HomeScreen() {
             <Text style={[styles.emptyText, { color: T.textSec }]}>
               {catFiltered.length > 0
                 ? 'No vendors match these filters — try adjusting them.'
-                : selectedCity
-                  ? `No vendors in ${selectedCity} yet — check back soon!`
+                : selectedState
+                  ? `No vendors in ${selectedState} yet — check back soon!`
                   : 'No vendors available yet'}
             </Text>
           </View>
@@ -703,27 +711,51 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* City picker modal */}
-      <Modal visible={cityModal} transparent animationType="slide">
-        {/* Only dismissible if a city is already selected */}
+      {/* State picker modal */}
+      <Modal visible={stateModal} transparent animationType="slide">
+        {/* Only dismissible once a state is in effect */}
         <Pressable
           style={styles.modalBackdrop}
-          onPress={() => { if (selectedCity) setCityModal(false); }}
+          onPress={() => { if (selectedState) setStateModal(false); }}
         />
         <View style={[styles.modalSheet, { backgroundColor: T.surface, paddingBottom: 40 }]}>
           <View style={styles.modalHandle} />
-          <Text style={[styles.modalTitle, { color: T.text }]}>Select Your City</Text>
+          <Text style={[styles.modalTitle, { color: T.text }]}>Choose a State</Text>
           <Text style={[{ fontSize: 13, color: T.textSec, marginBottom: 8 }]}>
-            We'll show you vendors available in your city.
+            You see vendors near you by default. Pick another state to order for someone there; delivery stays within that state.
           </Text>
 
           <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
-            {SUPPORTED_CITIES.map(city => {
-              const isActive = city.name === selectedCity;
+            <TouchableOpacity
+              onPress={handleUseMyLocation}
+              activeOpacity={0.75}
+              style={[
+                styles.cityRow,
+                { borderColor: !isManual ? T.primary : T.border,
+                  backgroundColor: !isManual ? T.primaryTint : T.surface2 },
+              ]}
+            >
+              <View style={[styles.cityIconWrap, { backgroundColor: !isManual ? T.primary : T.surface3 }]}>
+                <Ionicons name="navigate" size={16} color={!isManual ? '#fff' : T.textSec} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cityName, { color: T.text }]}>My location</Text>
+                <Text style={[styles.cityState, { color: T.textSec }]}>
+                  {locationStatus === 'detecting' ? 'Finding you…'
+                    : detectedState ? detectedState
+                    : locationStatus === 'denied' ? 'Location is off. Allow it in Settings.'
+                    : 'Could not work out your state'}
+                </Text>
+              </View>
+              {!isManual && <Ionicons name="checkmark-circle" size={20} color={T.primary} />}
+            </TouchableOpacity>
+
+            {NIGERIA_STATES.map(name => {
+              const isActive = isManual && name === selectedState;
               return (
                 <TouchableOpacity
-                  key={city.name}
-                  onPress={() => handleCitySelect(city.name)}
+                  key={name}
+                  onPress={() => handleStateSelect(name)}
                   activeOpacity={0.75}
                   style={[
                     styles.cityRow,
@@ -735,8 +767,7 @@ export default function HomeScreen() {
                     <Ionicons name="location-sharp" size={16} color={isActive ? '#fff' : T.textSec} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.cityName, { color: T.text }]}>{city.name}</Text>
-                    <Text style={[styles.cityState, { color: T.textSec }]}>{city.state} State</Text>
+                    <Text style={[styles.cityName, { color: T.text }]}>{name}</Text>
                   </View>
                   {isActive && <Ionicons name="checkmark-circle" size={20} color={T.primary} />}
                 </TouchableOpacity>

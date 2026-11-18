@@ -404,6 +404,8 @@ function CheckoutContent() {
   const [originalDeliveryFee, setOriginalDeliveryFee] = useState<number | null>(null);
   const [freeDeliveryReason, setFreeDeliveryReason] = useState<'THRESHOLD' | 'CREDIT' | null>(null);
   const [feeLoading, setFeeLoading] = useState(false);
+  // Why the fee could not be worked out (e.g. the address is in a different state from the vendor).
+  const [feeError, setFeeError] = useState<string | null>(null);
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoLoading, setPromoLoading] = useState(false);
@@ -421,9 +423,10 @@ function CheckoutContent() {
 
   useEffect(() => {
     if (!user || !selectedAddr || !items.length) {
-      setDeliveryFee(null); setOriginalDeliveryFee(null); setFreeDeliveryReason(null); return;
+      setDeliveryFee(null); setOriginalDeliveryFee(null); setFreeDeliveryReason(null); setFeeError(null); return;
     }
     setFeeLoading(true);
+    setFeeError(null);
     api.get('/orders/estimate-fee', { params: { addressId: selectedAddr, vendorId } })
       .then(r => {
         const d = r.data.data;
@@ -431,7 +434,10 @@ function CheckoutContent() {
         setOriginalDeliveryFee(d.originalDeliveryFee ?? d.deliveryFee);
         setFreeDeliveryReason(d.freeDelivery ? (d.freeDeliveryReason ?? null) : null);
       })
-      .catch(() => { setDeliveryFee(null); setOriginalDeliveryFee(null); setFreeDeliveryReason(null); })
+      .catch((err) => {
+        setDeliveryFee(null); setOriginalDeliveryFee(null); setFreeDeliveryReason(null);
+        setFeeError(err?.response?.data?.message ?? null);
+      })
       .finally(() => setFeeLoading(false));
   }, [selectedAddr, user, items]);
 
@@ -576,6 +582,9 @@ function CheckoutContent() {
                   ))}
                   <div className="divider" />
                   <div className="between" style={{ marginBottom: 8 }}><span className="muted">Subtotal</span><span style={{ fontWeight: 700 }}>₦{totalAmount.toLocaleString()}</span></div>
+                  {feeError && (
+                    <p style={{ color: 'var(--danger, #d92d20)', fontSize: 13, fontWeight: 600, margin: '0 0 8px' }}>{feeError}</p>
+                  )}
                   <div className="between" style={{ marginBottom: 8 }}>
                     <span className="muted">Delivery</span>
                     <span style={{ fontWeight: 700 }}>
@@ -642,7 +651,7 @@ function CheckoutContent() {
               <button
                 className="btn btn-primary btn-block btn-lg"
                 onClick={place}
-                disabled={placing || !user || items.length === 0}
+                disabled={placing || !user || items.length === 0 || Boolean(feeError)}
               >
                 {placing ? <><span className="spin" />Placing order…</> : !user ? 'Sign in to continue' : 'Place Order →'}
               </button>
