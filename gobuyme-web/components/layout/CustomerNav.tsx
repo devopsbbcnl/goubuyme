@@ -8,7 +8,8 @@ import { useAuth } from '@/context/AuthContext';
 import RoleSwitcher from '@/components/ui/RoleSwitcher';
 import api from '@/services/api';
 import { useCart } from '@/context/CartContext';
-import { useCity, SUPPORTED_CITIES } from '@/context/CityContext';
+import { useStateFilter } from '@/context/StateContext';
+import { NIGERIA_STATES } from '@/lib/nigeriaStates';
 
 const VENDOR_TYPES = [
   { label: 'All', icon: '☰', slug: '' },
@@ -86,7 +87,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const { totalCount } = useCart();
-  const { selectedCity, setSelectedCity } = useCity();
+  const { selectedState, detectedState, isManual, locationStatus, setManualState, followMyLocation } = useStateFilter();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
@@ -170,12 +171,12 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
     let term = search.trim();
     if (!term) return;
 
-    // Auto-detect a supported city in the query and strip it from the keyword
+    // Auto-detect a state name in the query and strip it from the keyword
     let detectedCity: string | null = null;
-    for (const city of SUPPORTED_CITIES) {
-      const re = new RegExp(`\\b${city.name}\\b`, 'i');
+    for (const stateName of NIGERIA_STATES) {
+      const re = new RegExp(`\\b${stateName}\\b`, 'i');
       if (re.test(term)) {
-        detectedCity = city.name;
+        detectedCity = stateName;
         term = term.replace(re, '').replace(/\s+/g, ' ').trim();
         break;
       }
@@ -183,14 +184,15 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
 
     if (!term && detectedCity) {
       // Pure city search — show vendors in that city
-      router.push(`/vendors?city=${encodeURIComponent(detectedCity)}`);
+      setManualState(detectedCity);
+      router.push(`/vendors?state=${encodeURIComponent(detectedCity)}`);
       return;
     }
 
     const params = new URLSearchParams({ q: term });
     if (searchType !== 'all') params.set('type', searchType);
     const cityForSearch = detectedCity ?? activeCity();
-    if (cityForSearch) params.set('city', cityForSearch);
+    if (cityForSearch) params.set('state', cityForSearch);
     router.push(`/vendors?${params}`);
   };
 
@@ -200,8 +202,8 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
     // Preserve city only — clear search query and other filters on category change
     const params = new URLSearchParams();
     if (slug) params.set('category', slug);
-    const city = searchParams.get('city') ?? (selectedCity ?? '');
-    if (city) params.set('city', city);
+    const city = searchParams.get('state') ?? (selectedState ?? '');
+    if (city) params.set('state', city);
     const qs = params.toString();
     router.push(qs ? `/vendors?${qs}` : '/vendors');
   };
@@ -219,25 +221,28 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
     if (closeTimer.current) clearTimeout(closeTimer.current);
   };
 
-  const handleCitySelect = (city: string | null) => {
-    setSelectedCity(city);
+  // stateName null = "My location": drop any manual pick and follow the device location again.
+  const handleStateSelect = (stateName: string | null) => {
+    if (stateName) setManualState(stateName);
+    else followMyLocation();
     setCityOpen(false);
-    // Preserve all current params (category, q, type, page) — only swap city
+    // Preserve all current params (category, q, type, page) — only swap state
     const params = new URLSearchParams(
       typeof window !== 'undefined' ? window.location.search : searchParams.toString()
     );
-    if (city) {
-      params.set('city', city);
+    params.delete('city');
+    if (stateName) {
+      params.set('state', stateName);
     } else {
-      params.delete('city');
+      params.delete('state');
     }
     params.delete('page'); // reset to page 1 on city change
     const qs = params.toString();
     router.push(qs ? `/vendors?${qs}` : '/vendors');
   };
 
-  // Always prefer the city in the URL; fall back to context (set by prior city selection)
-  const activeCity = () => searchParams.get('city') ?? selectedCity ?? '';
+  // Always prefer the state in the URL; fall back to context (manual pick or detected location)
+  const activeCity = () => searchParams.get('state') ?? selectedState ?? '';
 
   const initials = (name: string) => name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
@@ -266,41 +271,41 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
             <Image src="/images/logo.png" alt="GoBuyMe" width={140} height={42} style={{ objectFit: 'contain' }} />
           </Link>
 
-          {/* City selector */}
+          {/* State selector */}
           <div className="city-dropdown-wrap" ref={cityRef}>
-            <button className="city-btn" onClick={() => setCityOpen(o => !o)} aria-label="Select city">
+            <button className="city-btn" onClick={() => setCityOpen(o => !o)} aria-label="Select state">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0, color: 'var(--brand)' }}>
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
               </svg>
-              <span className="city-name">{selectedCity ?? 'All Cities'}</span>
+              <span className="city-name">{selectedState ?? (locationStatus === 'detecting' ? 'Finding you…' : 'Select state')}</span>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, transition: 'transform .2s', transform: cityOpen ? 'rotate(180deg)' : 'none' }}>
                 <polyline points="6 9 12 15 18 9"/>
               </svg>
             </button>
 
             {cityOpen && (
-              <div className="city-dropdown">
+              <div className="city-dropdown" style={{ maxHeight: 360, overflowY: 'auto' }}>
                 <button
-                  className={`city-option${!selectedCity ? ' active' : ''}`}
-                  onClick={() => handleCitySelect(null)}
+                  className={`city-option${!isManual ? ' active' : ''}`}
+                  onClick={() => handleStateSelect(null)}
                 >
-                  <span>All Cities</span>
-                  {!selectedCity && (
+                  <span style={{ flex: 1, textAlign: 'left' }}>
+                    My location
+                    <span className="city-state"> · {locationStatus === 'detecting' ? 'Finding you…' : detectedState ?? (locationStatus === 'denied' ? 'Location is off' : 'Not available')}</span>
+                  </span>
+                  {!isManual && (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                   )}
                 </button>
                 <div style={{ height: 1, background: 'var(--line)', margin: '4px 0' }} />
-                {SUPPORTED_CITIES.map(city => (
+                {NIGERIA_STATES.map(name => (
                   <button
-                    key={city.name}
-                    className={`city-option${selectedCity === city.name ? ' active' : ''}`}
-                    onClick={() => handleCitySelect(city.name)}
+                    key={name}
+                    className={`city-option${isManual && selectedState === name ? ' active' : ''}`}
+                    onClick={() => handleStateSelect(name)}
                   >
-                    <span style={{ flex: 1, textAlign: 'left' }}>
-                      {city.name}
-                      <span className="city-state"> · {city.state}</span>
-                    </span>
-                    {selectedCity === city.name && (
+                    <span style={{ flex: 1, textAlign: 'left' }}>{name}</span>
+                    {isManual && selectedState === name && (
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                     )}
                   </button>
@@ -323,7 +328,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
             </select>
             <input
               type="text"
-              placeholder={selectedCity ? `Search in ${selectedCity}...` : 'Search vendors, food, groceries...'}
+              placeholder={selectedState ? `Search in ${selectedState}...` : 'Search vendors, food, groceries...'}
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -520,7 +525,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                   <div className="mega-subs">
                     {CATEGORY_DATA[allHoveredSub]?.subs.map(sub => (
                       <button key={sub} className="mega-sub-item"
-                        onClick={() => { const cp = activeCity() ? `&city=${encodeURIComponent(activeCity())}` : ''; router.push(`/vendors?category=${allHoveredSub}&q=${encodeURIComponent(sub)}${cp}`); setOpenCat(null); }}
+                        onClick={() => { const cp = activeCity() ? `&state=${encodeURIComponent(activeCity())}` : ''; router.push(`/vendors?category=${allHoveredSub}&q=${encodeURIComponent(sub)}${cp}`); setOpenCat(null); }}
                       >
                         {sub}
                       </button>
@@ -532,7 +537,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                       <div className="mega-subs">
                         {group.subs.map(sub => (
                           <button key={sub} className="mega-sub-item"
-                            onClick={() => { const cp = activeCity() ? `&city=${encodeURIComponent(activeCity())}` : ''; router.push(`/vendors?category=${allHoveredSub}&q=${encodeURIComponent(sub)}${cp}`); setOpenCat(null); }}
+                            onClick={() => { const cp = activeCity() ? `&state=${encodeURIComponent(activeCity())}` : ''; router.push(`/vendors?category=${allHoveredSub}&q=${encodeURIComponent(sub)}${cp}`); setOpenCat(null); }}
                           >
                             {sub}
                           </button>
@@ -556,7 +561,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                 <div className="cat-drop-grid">
                   {CATEGORY_DATA[openCat].subs.map(sub => (
                     <button key={sub} className="cat-drop-item"
-                      onClick={() => { const cp = activeCity() ? `&city=${encodeURIComponent(activeCity())}` : ''; router.push(`/vendors?category=${openCat}&q=${encodeURIComponent(sub)}${cp}`); setOpenCat(null); }}
+                      onClick={() => { const cp = activeCity() ? `&state=${encodeURIComponent(activeCity())}` : ''; router.push(`/vendors?category=${openCat}&q=${encodeURIComponent(sub)}${cp}`); setOpenCat(null); }}
                     >
                       {sub}
                     </button>
@@ -568,7 +573,7 @@ export function CustomerNav({ showPromoBar = true, promoText }: Props) {
                     <div className="cat-drop-grid" style={{ marginTop: 8 }}>
                       {group.subs.map(sub => (
                         <button key={sub} className="cat-drop-item"
-                          onClick={() => { const cp = activeCity() ? `&city=${encodeURIComponent(activeCity())}` : ''; router.push(`/vendors?category=${openCat}&q=${encodeURIComponent(sub)}${cp}`); setOpenCat(null); }}
+                          onClick={() => { const cp = activeCity() ? `&state=${encodeURIComponent(activeCity())}` : ''; router.push(`/vendors?category=${openCat}&q=${encodeURIComponent(sub)}${cp}`); setOpenCat(null); }}
                         >
                           {sub}
                         </button>

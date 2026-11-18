@@ -10,7 +10,7 @@ import {
 	ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
-import { useCity } from '@/context/CityContext';
+import { useStateFilter } from '@/context/StateContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -42,7 +42,7 @@ function formatTime(mins: number | null): string {
 export default function SearchScreen() {
 	const { theme: T } = useTheme();
 	const insets = useSafeAreaInsets();
-	const { selectedCity, cityLoaded } = useCity();
+	const { selectedState, stateLoaded } = useStateFilter();
 	const [query, setQuery] = useState('');
 	const [vendors, setVendors] = useState<Vendor[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -52,7 +52,7 @@ export default function SearchScreen() {
 	const fetchVendors = useCallback(async (search?: string) => {
 		try {
 			const params: Record<string, string> = {};
-			if (selectedCity) params.city = selectedCity;
+			if (selectedState) params.state = selectedState;
 			if (search && search.length >= 2) params.search = search;
 			const res = await api.get('/vendors', { params });
 			setVendors(res.data.data ?? []);
@@ -65,11 +65,11 @@ export default function SearchScreen() {
 		} finally {
 			setLoading(false);
 		}
-	}, [selectedCity]);
+	}, [selectedState]);
 
 	useEffect(() => {
-		if (cityLoaded) fetchVendors();
-	}, [fetchVendors, cityLoaded]);
+		if (stateLoaded) fetchVendors();
+	}, [fetchVendors, stateLoaded]);
 
 	const handleQueryChange = useCallback((text: string) => {
 		setQuery(text);
@@ -120,7 +120,7 @@ export default function SearchScreen() {
 				>
 					{!query && (
 						<Text style={[styles.sectionLabel, { color: T.textSec }]}>
-							{selectedCity ? `Vendors in ${selectedCity}` : 'All Vendors'}
+							{selectedState ? `Vendors in ${selectedState}` : 'All Vendors'}
 						</Text>
 					)}
 

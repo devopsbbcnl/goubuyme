@@ -8,7 +8,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { useCity } from '@/context/CityContext';
+import { useStateFilter } from '@/context/StateContext';
 import api from '@/services/api';
 
 interface Vendor {
@@ -43,7 +43,7 @@ const FOOD_CATEGORIES = [
 
 export function HomeClient() {
   const { user, loading } = useAuth();
-  const { selectedCity } = useCity();
+  const { selectedState, isManual, stateReady } = useStateFilter();
   const router = useRouter();
   const [slide, setSlide] = useState(0);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -60,13 +60,15 @@ export function HomeClient() {
   }, [user, loading, router]);
 
   useEffect(() => {
+    // Hold off until we know the user's state, so vendors from other states never flash up first.
+    if (!stateReady) return;
     let cancelled = false;
     setDataLoading(true);
     const params = new URLSearchParams({ limit: '12' });
-    if (selectedCity) params.set('city', selectedCity);
+    if (selectedState) params.set('state', selectedState);
 
     const promoParams = new URLSearchParams();
-    if (selectedCity) promoParams.set('city', selectedCity);
+    if (selectedState) promoParams.set('state', selectedState);
 
     Promise.all([
       api.get(`/vendors?${params}`).catch(() => ({ data: { data: [] } })),
@@ -78,7 +80,7 @@ export function HomeClient() {
     }).finally(() => { if (!cancelled) setDataLoading(false); });
 
     return () => { cancelled = true; };
-  }, [selectedCity]);
+  }, [selectedState, stateReady]);
 
   useEffect(() => {
     autoRef.current = setInterval(() => setSlide(s => (s + 1) % HERO_SLIDES.length), 5000);
@@ -120,7 +122,7 @@ export function HomeClient() {
           <div className="section-head"><h2 className="section-title">What are you craving?</h2></div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 12 }}>
             {FOOD_CATEGORIES.map(c => (
-              <button key={c.label} onClick={() => { const cp = selectedCity ? `&city=${encodeURIComponent(selectedCity)}` : ''; const qp = c.cat === 'RESTAURANT' ? `q=${encodeURIComponent(c.label)}&` : ''; router.push(`/vendors?${qp}category=${c.cat}${cp}`); }}
+              <button key={c.label} onClick={() => { const cp = selectedState ? `&state=${encodeURIComponent(selectedState)}` : ''; const qp = c.cat === 'RESTAURANT' ? `q=${encodeURIComponent(c.label)}&` : ''; router.push(`/vendors?${qp}category=${c.cat}${cp}`); }}
                 className="card card-pad" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 8px', cursor: 'pointer', transition: 'all .15s', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--brand)'; (e.currentTarget as HTMLElement).style.color = 'var(--brand)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--line)'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; }}
@@ -135,7 +137,7 @@ export function HomeClient() {
         {/* ── PROMOS ── */}
         {promos.length > 0 && (
           <div className="section">
-            <div className="section-head"><h2 className="section-title">Deals & Promotions</h2><Link href={selectedCity ? `/deals?city=${encodeURIComponent(selectedCity)}` : '/deals'} className="see-all">See all</Link></div>
+            <div className="section-head"><h2 className="section-title">Deals & Promotions</h2><Link href={selectedState ? `/deals?state=${encodeURIComponent(selectedState)}` : '/deals'} className="see-all">See all</Link></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
               {promos.slice(0, 4).map(p => (
                 <div key={p.id} className="card" style={{ overflow: 'hidden' }}>
@@ -155,9 +157,9 @@ export function HomeClient() {
         <div className="section">
           <div className="section-head">
             <h2 className="section-title">
-              {selectedCity ? `Vendors in ${selectedCity}` : 'Vendors near you'}
+              {selectedState ? `Vendors in ${selectedState}${isManual ? '' : ' (near you)'}` : 'Vendors near you'}
             </h2>
-            <Link href={selectedCity ? `/vendors?city=${encodeURIComponent(selectedCity)}` : '/vendors'} className="see-all">Browse all →</Link>
+            <Link href={selectedState ? `/vendors?state=${encodeURIComponent(selectedState)}` : '/vendors'} className="see-all">Browse all →</Link>
           </div>
           {dataLoading ? (
             <div className="vendor-grid">
@@ -166,8 +168,8 @@ export function HomeClient() {
           ) : vendors.length === 0 ? (
             <div className="empty">
               <div className="emoji">🏙️</div>
-              <h3>{selectedCity ? `No vendors in ${selectedCity} yet` : 'No vendors yet'}</h3>
-              <p>{selectedCity ? 'Try a different city or check back soon!' : "We're expanding to your area soon!"}</p>
+              <h3>{selectedState ? `No vendors in ${selectedState} yet` : 'No vendors yet'}</h3>
+              <p>{selectedState ? 'Try a different state from the top bar or check back soon!' : "We're expanding to your area soon!"}</p>
             </div>
           ) : (
             <div className="vendor-grid">

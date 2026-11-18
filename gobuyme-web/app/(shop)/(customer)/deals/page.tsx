@@ -4,7 +4,7 @@ import { positionStyle } from '@/lib/imagePosition';
 import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useCity } from '@/context/CityContext';
+import { useStateFilter } from '@/context/StateContext';
 import Image from 'next/image';
 import api from '@/services/api';
 
@@ -107,19 +107,24 @@ function PromoCard({ promo }: { promo: Promo }) {
 
 function DealsContent() {
   const searchParams = useSearchParams();
-  const { selectedCity } = useCity();
+  const { selectedState, stateReady } = useStateFilter();
   const urlCity = searchParams.get('city');
-  const cityLabel = urlCity ?? selectedCity;
+  const urlState = searchParams.get('state');
+  // An explicit ?city= (SEO landing links) wins; otherwise the URL state, then the user's own state.
+  const stateLabel = urlState ?? (urlCity ? null : selectedState);
+  const cityLabel = urlCity ?? stateLabel;
 
   const [promos, setPromos] = useState<Promo[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!stateReady) return;
     let cancelled = false;
     setLoading(true);
 
     const params = new URLSearchParams({ limit: '100' });
-    if (cityLabel) params.set('city', cityLabel);
+    if (urlCity) params.set('city', urlCity);
+    else if (stateLabel) params.set('state', stateLabel);
 
     api.get(`/vendors/active-promotions?${params}`)
       .then(r => { if (!cancelled) setPromos(r.data.data ?? []); })
@@ -127,7 +132,7 @@ function DealsContent() {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [cityLabel]);
+  }, [urlCity, stateLabel, stateReady]);
 
   const title = cityLabel ? `Deals & Promotions in ${cityLabel}` : 'Deals & Promotions';
 

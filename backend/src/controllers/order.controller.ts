@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { sameState } from '../utils/nigeriaStates';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
@@ -64,6 +65,9 @@ export const estimateDeliveryFee = catchAsync(async (req: AuthRequest, res: Resp
   });
   if (!vendor || !vendor.latitude || !vendor.longitude) {
     return apiResponse.error(res, 'Vendor not found or missing coordinates.', 404);
+  }
+  if (!sameState(vendor.state, deliveryAddress.state)) {
+    return apiResponse.error(res, `This vendor is in ${vendor.state}. Delivery is only available within the same state, so choose a delivery address in ${vendor.state}.`, 400);
   }
 
   const subtotal = (cart?.items ?? []).reduce(
@@ -197,6 +201,10 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
     },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+  // Delivery stays inside one state: the address must be in the vendor's state (ordering for someone else is fine).
+  if (!sameState(vendor.state, deliveryAddress.state)) {
+    return apiResponse.error(res, `This vendor is in ${vendor.state}. Delivery is only available within the same state, so choose a delivery address in ${vendor.state}.`, 400);
+  }
   // One account can be both a customer and a vendor: it cannot order from its own business
   // (or the branch it manages), which would also pay itself the vendor payout.
   if (vendor.user.id === req.user!.userId || vendor.managerUserId === req.user!.userId) {

@@ -4,7 +4,7 @@ import { positionStyle } from '@/lib/imagePosition';
 import { Suspense, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useCity } from '@/context/CityContext';
+import { useStateFilter } from '@/context/StateContext';
 import Image from 'next/image';
 import api from '@/services/api';
 import { track } from '@/services/analytics';
@@ -147,7 +147,7 @@ function VendorCard({ v }: { v: Vendor }) {
 
 function VendorsContent() {
   const searchParams = useSearchParams();
-  const { selectedCity } = useCity();
+  const { selectedState, stateReady } = useStateFilter();
 
   // Derive filter values directly from URL — no intermediate state copy.
   // This eliminates the two-effect race where Effect 1 (URL→state) would cancel
@@ -156,6 +156,7 @@ function VendorsContent() {
   const q          = searchParams.get('q') ?? '';
   const searchType = searchParams.get('type') ?? 'all';
   const urlCity    = searchParams.get('city');
+  const urlState   = searchParams.get('state');
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -178,22 +179,22 @@ function VendorsContent() {
     if (page > 1) window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [page]);
 
-  // Single fetch effect. City comes from the URL param only — selectedCity is
-  // already written into the URL by handleCitySelect, so we don't need it here.
-  // This means CityContext loading from localStorage cannot cancel this fetch.
+  // The state to filter by: an explicit ?state= in the URL, else the user's own state (detected from
+  // location or picked by hand). An explicit ?city= (SEO landing links) filters by that city alone.
+  const effectiveState = urlState ?? (urlCity ? null : selectedState);
+
+  // Single fetch effect. Waits until we know the user's state so other states never flash first.
   useEffect(() => {
+    if (!stateReady) return;
     let cancelled = false;
     setLoading(true);
-
-    // Prefer URL city param; fall back to context city for the first render
-    // before the user has navigated (e.g. direct visit with a stored city pref).
-    const effectiveCity = urlCity ?? selectedCity;
 
     if (q) {
       const params = new URLSearchParams({ q });
       if (searchType !== 'all') params.set('type', searchType);
       if (cat) params.set('category', cat);
-      if (effectiveCity) params.set('city', effectiveCity);
+      if (urlCity) params.set('city', urlCity);
+      if (effectiveState) params.set('state', effectiveState);
 
       api.get(`/vendors/search?${params}`)
         .then(r => {
@@ -219,7 +220,8 @@ function VendorsContent() {
       setMenuItems([]);
       const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
       if (cat) params.set('category', cat);
-      if (effectiveCity) params.set('city', effectiveCity);
+      if (urlCity) params.set('city', urlCity);
+      if (effectiveState) params.set('state', effectiveState);
 
       api.get(`/vendors?${params}`)
         .then(r => {
@@ -233,7 +235,7 @@ function VendorsContent() {
     }
 
     return () => { cancelled = true; };
-  }, [cat, q, searchType, urlCity, page]); // selectedCity intentionally omitted — city is in URL
+  }, [cat, q, searchType, urlCity, effectiveState, stateReady, page]);
 
   const isSearchMode = Boolean(q);
   const showTabs = isSearchMode && searchType === 'all';
@@ -262,7 +264,7 @@ function VendorsContent() {
     BUTCHER: 'Butchers',
     GAS: 'Gas',
   };
-  const cityLabel = urlCity ?? selectedCity;
+  const cityLabel = urlCity ?? effectiveState;
   const categoryLabel = cat ? (CATEGORY_LABELS[cat] ?? cat) : 'Locations';
   const pageTitle = q
     ? `Results for "${q}"${cityLabel ? ` in ${cityLabel}` : ''}`
@@ -349,15 +351,15 @@ function VendorsContent() {
             <h3>
               {isSearchMode
                 ? `No ${emptyLabel} found for "${q}"`
-                : selectedCity ? `No vendors in ${selectedCity}` : 'No vendors found'}
+                : effectiveState ? `No vendors in ${effectiveState}` : 'No vendors found'}
             </h3>
             <p>
               {isSearchMode
                 ? showTabs
                   ? 'Try switching tabs or use a different keyword.'
-                  : 'Try a different keyword or remove the city filter.'
-                : selectedCity
-                  ? 'Try selecting a different city from the top bar.'
+                  : 'Try a different keyword or pick another state.'
+                : effectiveState
+                  ? 'Try selecting a different state from the top bar.'
                   : 'Try a different search or category.'}
             </p>
           </div>

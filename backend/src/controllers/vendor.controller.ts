@@ -4,6 +4,7 @@ import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { haversineDistance, estimateDeliveryMinutes } from '../services/distance.service';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
+import { vendorStateFilter } from '../utils/nigeriaStates';
 import { ApprovalStatus, CommissionTier, LicenseType, OrderActorType, OrderStatus, Prisma, PromotionStatus, VendorCategory, VerificationBadge } from '@prisma/client';
 import { cancelOrderWithRefund, transitionOrder, OrderActionError } from '../services/orderLifecycle.service';
 import { notifyUser } from '../services/notification.service';
@@ -75,7 +76,7 @@ const vendorSelect = {
 
 export const getVendors = catchAsync(async (req: Request, res: Response) => {
   const {
-    lat, lng, radius, category, search, city,
+    lat, lng, radius, category, search, city, state,
     page = '1', limit = '20',
   } = req.query as Record<string, string>;
 
@@ -92,6 +93,7 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
     ];
   }
   if (city) where.city = city;
+  if (state) where.AND = [vendorStateFilter(state)];
 
   const vendors = await prisma.vendor.findMany({
     where,
@@ -1701,7 +1703,7 @@ export const deleteLicense = catchAsync(async (req: AuthRequest, res: Response) 
 
 // GET /vendors/search  (public — unified search: vendors and/or menu items)
 export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
-  const { q, type = 'all', city, category } = req.query as Record<string, string>;
+  const { q, type = 'all', city, state, category } = req.query as Record<string, string>;
 
   if (!q?.trim()) return apiResponse.error(res, 'q query parameter is required.', 400);
 
@@ -1710,6 +1712,7 @@ export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
 
   const vendorFilter: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
   if (city) vendorFilter.city = city;
+  if (state) vendorFilter.AND = [vendorStateFilter(state)];
   if (category && category !== 'ALL') vendorFilter.category = category as VendorCategory;
 
   const [vendors, menuItems] = await Promise.all([
@@ -1761,12 +1764,13 @@ export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
 
 // GET /vendors/menu-items/search  (public — searches menu items across approved vendors)
 export const searchMenuItems = catchAsync(async (req: Request, res: Response) => {
-  const { search, city, category } = req.query as Record<string, string>;
+  const { search, city, state, category } = req.query as Record<string, string>;
 
   if (!search?.trim()) return apiResponse.error(res, 'search query is required.', 400);
 
   const vendorWhere: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
   if (city) vendorWhere.city = city;
+  if (state) vendorWhere.AND = [vendorStateFilter(state)];
   if (category && category !== 'ALL') vendorWhere.category = category as VendorCategory;
 
   const items = await prisma.menuItem.findMany({
@@ -1890,7 +1894,7 @@ export const getSimilarMenuItems = catchAsync(async (req: Request, res: Response
 // GET /vendors/browse-items  (public — cross-vendor product category browse)
 export const browseItems = catchAsync(async (req: Request, res: Response) => {
   const {
-    vendorCategory, itemCategory, city,
+    vendorCategory, itemCategory, city, state,
     page = '1', limit = '20',
   } = req.query as Record<string, string>;
 
@@ -1902,6 +1906,7 @@ export const browseItems = catchAsync(async (req: Request, res: Response) => {
     vendorWhere.category = vendorCategory as VendorCategory;
   }
   if (city) vendorWhere.city = city;
+  if (state) vendorWhere.AND = [vendorStateFilter(state)];
 
   const itemWhere: Prisma.MenuItemWhereInput = {
     isAvailable: true,
@@ -1934,13 +1939,13 @@ export const browseItems = catchAsync(async (req: Request, res: Response) => {
 
 // GET /vendors/active-promotions  (public — feeds the customer homescreen carousel and deals page)
 export const getActiveVendorPromotions = catchAsync(async (req: Request, res: Response) => {
-  const { city, limit = '50' } = req.query as Record<string, string>;
+  const { city, state, limit = '50' } = req.query as Record<string, string>;
 
   // Only cards an admin approved, from vendors that are themselves approved. The city filter is optional.
   const where: Prisma.VendorPromotionWhereInput = {
     isActive: true,
     approvalStatus: PromotionStatus.APPROVED,
-    vendor: { approvalStatus: ApprovalStatus.APPROVED, ...(city ? { city: { equals: city, mode: 'insensitive' } } : {}) },
+    vendor: { approvalStatus: ApprovalStatus.APPROVED, ...(city ? { city: { equals: city, mode: 'insensitive' } } : {}), ...(state ? { AND: [vendorStateFilter(state)] } : {}) },
   };
 
   const promos = await prisma.vendorPromotion.findMany({

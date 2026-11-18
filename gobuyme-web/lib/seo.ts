@@ -11,10 +11,9 @@ export const DEFAULT_DESCRIPTION =
 
 // Cities where GoBuyMe is actually live today — used for SEO copy, sitemap
 // city pages and areaServed schema. Do NOT add a city here until it has real
-// vendor coverage; this is a smaller, deliberately-curated list than
-// SUPPORTED_CITIES in context/CityContext.tsx, which is the full city picker
-// shown in the app (including cities we plan to expand to but aren't live in
-// yet).
+// vendor coverage; this is a smaller, deliberately-curated list than the
+// state picker (lib/nigeriaStates.ts), which lists every state, including
+// ones we plan to expand to but are not live in yet.
 export const SEO_CITIES = ['Owerri'];
 
 export interface FaqEntry { q: string; a: string; }

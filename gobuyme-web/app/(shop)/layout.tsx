@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
-import { CityProvider } from '@/context/CityContext';
+import { StateProvider } from '@/context/StateContext';
 import { ToastProvider } from '@/components/ui/Toast';
 import { ConfirmProvider } from '@/components/ui/Confirm';
 import { ThemeScript } from '@/components/ui/ThemeScript';
@@ -50,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <AuthProvider>
-          <CityProvider>
+          <StateProvider>
             <CartProvider>
               <ToastProvider>
                 <ConfirmProvider>
@@ -60,7 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </ConfirmProvider>
               </ToastProvider>
             </CartProvider>
-          </CityProvider>
+          </StateProvider>
         </AuthProvider>
       </body>
     </html>
