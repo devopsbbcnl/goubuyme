@@ -44,6 +44,12 @@ const EXPORT_AUDIENCES = AUDIENCES.filter(a => a.value !== 'USER');
 const TITLE_MAX = 80;
 const BODY_MAX = 500;
 const EMAIL_BODY_MAX = 3000;
+const MERGE_FIELDS: Array<[string, string]> = [
+  ['name', 'First name'],
+  ['full_name', 'Full name'],
+  ['business_name', 'Business name'],
+  ['dashboard_link', 'Dashboard link'],
+];
 
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -113,8 +119,10 @@ export default function BroadcastsPage() {
     return () => { live = false; clearTimeout(t); };
   }, [audience, target, query]);
 
+  // Push text is one shared string, so merge fields only work when the message is email-only.
+  const mergeInShared = inApp && /\{\{/.test(`${title} ${body}`);
   const valid = title.trim().length >= 3 && body.trim().length >= 3 && (audience !== 'USER' || !!target)
-    && (inApp || email) && (!email || emailBody.trim().length === 0 || emailBody.trim().length >= 3);
+    && (inApp || email) && !mergeInShared && (!email || emailBody.trim().length === 0 || emailBody.trim().length >= 3);
   const audienceName = audience === 'USER' && target ? target.name : AUDIENCE_LABEL[audience];
   // How many accounts the email will actually go to: a promotion skips those who opted out.
   const emailReach = reach ? (emailType === 'PROMOTIONAL' ? reach.emailPromotional : reach.emailService) : null;
@@ -309,7 +317,30 @@ export default function BroadcastsPage() {
             <div>
               <label style={label} htmlFor="bc-email-body">Email message <span style={{ fontWeight: 400 }}>(optional, longer version)</span></label>
               <textarea id="bc-email-body" style={{ ...input, minHeight: 120, resize: 'vertical' }} value={emailBody} maxLength={EMAIL_BODY_MAX} onChange={e => { setEmailBody(e.target.value); setConfirming(false); }} placeholder="Leave empty to email the message above. Each email opens with “Hi <first name>,”." />
-              <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4, textAlign: 'right' }}>{emailBody.length}/{EMAIL_BODY_MAX}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: T.textMuted }}>Insert:</span>
+                  {MERGE_FIELDS.map(([key, name]) => (
+                    <button key={key} type="button" title={`Adds {{${key}}}, filled in for each person`}
+                      onClick={() => { setEmailBody(v => `${v}${v && !/\s$/.test(v) ? ' ' : ''}{{${key}}}`.slice(0, EMAIL_BODY_MAX)); setConfirming(false); }}
+                      style={{ padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', border: `1px solid ${T.border}`, background: 'none', color: T.text }}>
+                      {name}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: T.textMuted }}>{emailBody.length}/{EMAIL_BODY_MAX}</div>
+              </div>
+              <div style={{ fontSize: 12, color: T.textMuted, marginTop: 6, lineHeight: 1.5 }}>
+                Merge fields are filled in for each person, in the email message and the title: <code>{'{{name}}'}</code> first name,{' '}
+                <code>{'{{full_name}}'}</code>, <code>{'{{business_name}}'}</code> (store or company name),{' '}
+                <code>{'{{dashboard_link}}'}</code> (vendors go to their menu page). Use them only when &ldquo;In-app and push&rdquo; is off.
+                An email that uses them skips the automatic &ldquo;Hi &lt;name&gt;,&rdquo; line.
+              </div>
+              {mergeInShared && (
+                <div style={{ fontSize: 12, color: T.error, marginTop: 6 }}>
+                  The title or message contains a merge field, but it is also going in-app and by push where it would show as raw text. Untick &ldquo;In-app and push&rdquo; or remove the field from the title and message above.
+                </div>
+              )}
             </div>
           )}
 

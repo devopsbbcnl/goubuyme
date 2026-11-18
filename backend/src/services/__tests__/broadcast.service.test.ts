@@ -13,7 +13,7 @@ const mockSendEmailBatch = jest.fn();
 jest.mock('../email.service', () => ({ emailLayout: (c: string) => c, sendEmailBatch: (...a: unknown[]) => mockSendEmailBatch(...a) }));
 process.env.JWT_ACCESS_SECRET = 'test-secret';
 
-import { audienceWhere, send, BroadcastError, broadcastEmailHtml } from '../broadcast.service';
+import { audienceWhere, send, BroadcastError, broadcastEmailHtml, fillMergeFields } from '../broadcast.service';
 
 const input = { title: 'Heads up', body: 'We are down tonight', audience: 'VENDORS' as const };
 
@@ -144,16 +144,82 @@ describe('send', () => {
   });
 
   describe('email html', () => {
+    const ada = { name: 'Ada Obi', role: 'CUSTOMER' as const };
+
     it('escapes the message and greets by first name', () => {
-      const html = broadcastEmailHtml('<b>Hi</b>', 'a & b', 'Ada Obi', 'SERVICE', 'u1');
+      const html = broadcastEmailHtml('<b>Hi</b>', 'a & b', ada, 'SERVICE', 'u1');
       expect(html).toContain('&lt;b&gt;Hi&lt;/b&gt;');
       expect(html).toContain('a &amp; b');
       expect(html).toContain('Hi Ada,');
     });
 
     it('only a promotion carries an unsubscribe link', () => {
-      expect(broadcastEmailHtml('T', 'x', 'Ada', 'SERVICE', 'u1')).not.toContain('unsubscribe');
-      expect(broadcastEmailHtml('T', 'x', 'Ada', 'PROMOTIONAL', 'u1')).toContain('/unsubscribe?t=');
+      expect(broadcastEmailHtml('T', 'x', ada, 'SERVICE', 'u1')).not.toContain('unsubscribe');
+      expect(broadcastEmailHtml('T', 'x', ada, 'PROMOTIONAL', 'u1')).toContain('/unsubscribe?t=');
+    });
+
+    it('does not add its own greeting when the message uses merge fields', () => {
+      const html = broadcastEmailHtml('T', 'Dear {{business_name}},', { ...ada, role: 'VENDOR', businessName: 'Mama Put' }, 'SERVICE', 'u1');
+      expect(html).toContain('Dear Mama Put,');
+      expect(html).not.toContain('Hi Ada,');
+    });
+
+    it('makes links clickable and keeps them safe', () => {
+      const html = broadcastEmailHtml('T', 'Go to https://gobuyme.shop/vendor/menu now <script>', ada, 'SERVICE', 'u1');
+      expect(html).toContain('<a href="https://gobuyme.shop/vendor/menu"');
+      expect(html).toContain('&lt;script&gt;');
+    });
+  });
+
+  describe('merge fields', () => {
+    const vendor = { name: 'Chidi Okeke', role: 'VENDOR' as const, businessName: 'Chidi Pharmacy' };
+
+    it('fills name, full name and business name', () => {
+      expect(fillMergeFields('Dear {{business_name}} ({{ name }} / {{full_name}})', vendor)).toBe('Dear Chidi Pharmacy (Chidi / Chidi Okeke)');
+    });
+
+    it('falls back to the person name when there is no business', () => {
+      expect(fillMergeFields('{{business_name}}', { name: 'Ada Obi', role: 'CUSTOMER' })).toBe('Ada Obi');
+    });
+
+    it('uses the company name for a logistics company', () => {
+      expect(fillMergeFields('{{business_name}}', { name: 'Eze', role: 'LOGISTICS_COMPANY', companyName: 'Swift Dispatch' })).toBe('Swift Dispatch');
+    });
+
+    it('points a vendor at the menu page and everyone else at login', () => {
+      expect(fillMergeFields('{{dashboard_link}}', vendor)).toMatch(/\/vendor\/menu$/);
+      expect(fillMergeFields('{{dashboard_link}}', { name: 'A', role: 'RIDER' })).toMatch(/\/login$/);
+    });
+
+    it('leaves an unknown field visible so a typo is caught', () => {
+      expect(fillMergeFields('{{bussiness_name}}', vendor)).toBe('{{bussiness_name}}');
+    });
+
+    it('refuses merge fields when the message also goes in-app', async () => {
+      await expect(send('admin1', { title: 'Hello', body: 'Dear {{business_name}}', audience: 'VENDORS' })).rejects.toThrow('emails only');
+      expect(db.broadcast.create).not.toHaveBeenCalled();
+    });
+
+    it('fills each vendor from their own record when sending', async () => {
+      db.user.count.mockResolvedValueOnce(2).mockResolvedValueOnce(0).mockResolvedValueOnce(2);
+      db.broadcast.create.mockResolvedValue({ id: 'b5' });
+      db.user.findMany.mockResolvedValue([
+        { id: 'v1', name: 'Chidi Okeke', email: 'c@x.com', role: 'VENDOR', vendor: { businessName: 'Chidi Pharmacy' }, logisticsCompany: null },
+        { id: 'v2', name: 'Ngozi Eze', email: 'n@x.com', role: 'VENDOR', vendor: { businessName: 'Ngozi Bakery' }, logisticsCompany: null },
+      ]);
+      mockSendEmailBatch.mockResolvedValue({ sent: 2, failed: 0 });
+
+      await send('admin1', {
+        title: 'Hello {{business_name}}', body: 'Update your menu', emailBody: 'Dear {{business_name}}, update it: {{dashboard_link}}',
+        audience: 'VENDORS', sendInApp: false, sendEmail: true, emailType: 'SERVICE',
+      });
+      await new Promise(r => setImmediate(r));
+
+      const sent = mockSendEmailBatch.mock.calls[0][0];
+      expect(sent[0].subject).toBe('Hello Chidi Pharmacy');
+      expect(sent[0].html).toContain('Dear Chidi Pharmacy, update it:');
+      expect(sent[1].subject).toBe('Hello Ngozi Bakery');
+      expect(sent[1].html).toContain('Dear Ngozi Bakery');
     });
   });
 
