@@ -11,7 +11,8 @@ const targetUserId = Joi.string().guid().when('audience', {
 
 export const sendBroadcastSchema = Joi.object({
   title: Joi.string().trim().min(3).max(80).required(),
-  body: Joi.string().trim().min(3).max(500).required(),
+  // May be empty on an email-only send (the email message stands in); the service enforces the rest.
+  body: Joi.string().trim().allow('').max(500).default(''),
   audience: Joi.string().valid(...AUDIENCES).required(),
   targetUserId,
   // Where it goes: in-app + push (default) and/or email.

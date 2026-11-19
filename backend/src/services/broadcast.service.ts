@@ -235,6 +235,16 @@ export const send = async (actorId: string, input: BroadcastInput) => {
   }
   if (!sendEmail && input.emailBody) throw new BroadcastError('An email message was given but email is not selected.');
 
+  // The short message is required for in-app/push. On an email-only send the email message can stand in,
+  // and the record keeps its first 500 characters as the body so the history list still has text.
+  const shortBody = (input.body ?? '').trim();
+  const longBody = (input.emailBody ?? '').trim();
+  if (sendInApp && shortBody.length < 3) throw new BroadcastError('Write a message of at least 3 characters.');
+  if (!sendInApp && shortBody.length < 3 && longBody.length < 3) {
+    throw new BroadcastError('Write a message or an email message of at least 3 characters.');
+  }
+  input = { ...input, body: shortBody.length >= 3 ? shortBody : longBody.slice(0, 500) };
+
   const duplicate = await prisma.broadcast.findFirst({
     where: {
       audience: input.audience, targetUserId: input.targetUserId ?? null, title: input.title, body: input.body,

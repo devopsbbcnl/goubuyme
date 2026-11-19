@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
@@ -121,12 +121,30 @@ export default function BroadcastsPage() {
 
   // Push text is one shared string, so merge fields only work when the message is email-only.
   const mergeInShared = inApp && /\{\{/.test(`${title} ${body}`);
-  const valid = title.trim().length >= 3 && body.trim().length >= 3 && (audience !== 'USER' || !!target)
+  // On an email-only send the short message is optional: the email message can stand in for it.
+  const emailOnly = email && !inApp;
+  const messageOk = body.trim().length >= 3 || (emailOnly && emailBody.trim().length >= 3);
+  const valid = title.trim().length >= 3 && messageOk && (audience !== 'USER' || !!target)
     && (inApp || email) && !mergeInShared && (!email || emailBody.trim().length === 0 || emailBody.trim().length >= 3);
   const audienceName = audience === 'USER' && target ? target.name : AUDIENCE_LABEL[audience];
   // How many accounts the email will actually go to: a promotion skips those who opted out.
   const emailReach = reach ? (emailType === 'PROMOTIONAL' ? reach.emailPromotional : reach.emailService) : null;
   const nobodyToReach = !reach || reach.recipients === 0 || (!inApp && email && emailReach === 0);
+
+  // Put a merge tag where the cursor is (or over the selection), then keep the cursor after it.
+  const emailBodyRef = useRef<HTMLTextAreaElement>(null);
+  const insertTag = (key: string) => {
+    const tag = `{{${key}}}`;
+    const el = emailBodyRef.current;
+    const start = el?.selectionStart ?? emailBody.length;
+    const end = el?.selectionEnd ?? emailBody.length;
+    const next = `${emailBody.slice(0, start)}${tag}${emailBody.slice(end)}`;
+    if (next.length > EMAIL_BODY_MAX) return;
+    setEmailBody(next);
+    setConfirming(false);
+    const caret = start + tag.length;
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(caret, caret); });
+  };
 
   const exportEmails = async () => {
     setExporting(true);
@@ -308,21 +326,22 @@ export default function BroadcastsPage() {
           </div>
 
           <div>
-            <label style={label} htmlFor="bc-body">Message</label>
+            <label style={label} htmlFor="bc-body">Message{emailOnly && <span style={{ fontWeight: 400 }}> (optional for email-only; the email message is used)</span>}</label>
             <textarea id="bc-body" style={{ ...input, minHeight: 96, resize: 'vertical' }} value={body} maxLength={BODY_MAX} onChange={e => { setBody(e.target.value); setConfirming(false); }} placeholder="Keep it short and clear. Phones show only the first lines." />
             <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4, textAlign: 'right' }}>{body.length}/{BODY_MAX}</div>
           </div>
 
           {email && (
             <div>
-              <label style={label} htmlFor="bc-email-body">Email message <span style={{ fontWeight: 400 }}>(optional, longer version)</span></label>
-              <textarea id="bc-email-body" style={{ ...input, minHeight: 120, resize: 'vertical' }} value={emailBody} maxLength={EMAIL_BODY_MAX} onChange={e => { setEmailBody(e.target.value); setConfirming(false); }} placeholder="Leave empty to email the message above. Each email opens with “Hi <first name>,”." />
+              <label style={label} htmlFor="bc-email-body">Email message <span style={{ fontWeight: 400 }}>{emailOnly ? '(required if Message is empty)' : '(optional, longer version)'}</span></label>
+              <textarea id="bc-email-body" ref={emailBodyRef} style={{ ...input, minHeight: 120, resize: 'vertical' }} value={emailBody} maxLength={EMAIL_BODY_MAX} onChange={e => { setEmailBody(e.target.value); setConfirming(false); }} placeholder="Leave empty to email the message above. Each email opens with “Hi <first name>,”." />
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                   <span style={{ fontSize: 11, color: T.textMuted }}>Insert:</span>
                   {MERGE_FIELDS.map(([key, name]) => (
                     <button key={key} type="button" title={`Adds {{${key}}}, filled in for each person`}
-                      onClick={() => { setEmailBody(v => `${v}${v && !/\s$/.test(v) ? ' ' : ''}{{${key}}}`.slice(0, EMAIL_BODY_MAX)); setConfirming(false); }}
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => insertTag(key)}
                       style={{ padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', border: `1px solid ${T.border}`, background: 'none', color: T.text }}>
                       {name}
                     </button>
