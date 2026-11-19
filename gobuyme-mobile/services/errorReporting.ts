@@ -9,7 +9,7 @@ import { requirePublicEnv } from './env';
 const BASE_URL = requirePublicEnv('EXPO_PUBLIC_API_URL', process.env.EXPO_PUBLIC_API_URL, 'http://localhost:5000/api/v1');
 
 type ReportOptions = {
-  source: 'api' | 'boundary' | 'google_signin' | 'global';
+  source: 'api' | 'boundary' | 'google_signin' | 'apple_signin' | 'global';
   context?: Record<string, unknown>;
 };
 

@@ -14,6 +14,10 @@ model User {
   phone                  String?             @unique
   password               String?
   googleId               String?             @unique
+  /// Sign in with Apple: Apple's stable user id (the token `sub`). It is per developer team, so an app transfer needs Apple's transfer-id migration.
+  appleId                String?             @unique
+  /// Apple refresh token (AES-GCM encrypted), kept only so the grant can be revoked when the account is deleted.
+  appleRefreshToken      String?
   role                   Role                @default(CUSTOMER)
   /// Multi-role accounts: the experience the person last used, so the next sign-in opens it
   /// (only honoured while they still qualify for it; see resolveLoginRole). Null = the primary role.

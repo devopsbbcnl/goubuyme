@@ -10,12 +10,8 @@ import { applyFreeDelivery } from '../services/referral.service';
 import { issueCredit, applyCredit } from '../services/storeCredit.service';
 import { evaluatePromo } from '../services/offer.service';
 import { getPlatformSettings } from '../services/settings.service';
-import { getIO } from '../config/socket';
 import { notifyUser } from '../services/notification.service';
-import { sendSms } from '../services/sms.service';
-import { sendWebPush } from '../services/webPush.service';
-import { sendVendorNewOrderEmail } from '../services/email.service';
-import { vendorOrderContacts } from '../services/vendorRecipients';
+import { alertVendorOfNewOrder } from '../services/vendorOrderAlert.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
 import { trackServerEvent } from '../services/analytics.service';
 import { availabilityInclude, computeAvailability, AvailabilityInput } from '../services/availability.service';
@@ -322,7 +318,10 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
           platformFee,
           totalAmount,
           creditApplied,
-          vendorNotifiedAt: new Date(),
+          // Card/transfer orders stay invisible to the vendor until Paystack confirms the money
+          // (settleSuccessfulPayment stamps this then). Cash and fully-credited orders are
+          // settled now, so the vendor's response clock starts now.
+          vendorNotifiedAt: initialStatus === OrderStatus.CONFIRMED ? new Date() : null,
           statusChangedAt: new Date(),
           freeDeliveryUsed: creditUsed,
           promoCode: promoApplied ? promo!.code : null,
@@ -377,10 +376,6 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
     throw err;
   }
 
-  try {
-    getIO().of('/orders').to(`vendor:${vendor.id}`).emit('order:new', { order });
-  } catch { /* socket may not be connected */ }
-
   notifyUser(req.user!.userId, {
     role: 'CUSTOMER',
     title: 'Order Placed! 🎉',
@@ -389,29 +384,12 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
     data: { orderId: order.id },
   }).catch(() => {});
 
-  // Notify the vendor on every channel at once — mobile push, browser push, and SMS are all
-  // "now" channels; email is a slower async backup. None of these should block the response.
-  const vendorNotifyPayload = {
-    role: 'VENDOR' as const,
-    title: 'New order! 🔔',
-    body: `Order #${order.orderNumber} — ₦${totalAmount.toLocaleString()}. Tap to review and accept.`,
-    type: 'order',
-    data: { orderId: order.id },
-  };
-  // A branch with its own manager alerts the manager's devices (and the owner too, unless they
-  // turned that off); everything else alerts the owner as before.
-  vendorOrderContacts(vendor.id).then((contacts) => {
-    for (const c of contacts) {
-      notifyUser(c.userId, vendorNotifyPayload).catch(() => {});
-      sendWebPush(c.userId, { ...vendorNotifyPayload, requireInteraction: true }).catch(() => {});
-      if (c.phone) {
-        sendSms(c.phone, `GoBuyMe: New order #${order.orderNumber} (₦${totalAmount.toLocaleString()}). Open the app to accept.`).catch(() => {});
-      }
-      if (c.email && !c.email.endsWith('.invalid')) {
-        sendVendorNewOrderEmail(c.email, order.orderNumber, totalAmount).catch(() => {});
-      }
-    }
-  }).catch(() => {});
+  // Only orders that are already settled (cash on delivery, or fully covered by store credit)
+  // reach the vendor now. Card/transfer orders alert the vendor from settleSuccessfulPayment
+  // once Paystack confirms the money — an unpaid order must never show up on a vendor's phone.
+  if (order.status === OrderStatus.CONFIRMED) {
+    void alertVendorOfNewOrder(order.id);
+  }
 
   // First order = customer activation (idempotent — only the first order counts).
   void recordOnboardingEvent(req.user!.userId, 'CUSTOMER', 'FIRST_ORDER');

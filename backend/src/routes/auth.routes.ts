@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  register, login, refresh, logout, googleAuth,
+  register, login, refresh, logout, googleAuth, appleAuth,
   getMe, updateProfile, forgotPassword, resetPassword, changePassword,
   verifyOtp, resendOtp, activationStatus, requestPasswordOtp, deleteAccount,
   socketTicket, getRoles, switchRole, addRole, sendPhoneVerificationCode, verifyPhoneCode,
@@ -10,7 +10,7 @@ import { verifyToken } from '../middleware/auth.middleware';
 import { requireMfa } from '../middleware/mfa.middleware';
 import { authLimiter } from '../middleware/rateLimiter.middleware';
 import {
-  registerSchema, addRoleSchema, loginSchema, googleAuthSchema, forgotPasswordSchema,
+  registerSchema, addRoleSchema, loginSchema, googleAuthSchema, appleAuthSchema, forgotPasswordSchema,
   resetPasswordSchema, refreshTokenSchema, verifyOtpSchema, resendOtpSchema,
   changePasswordSchema, deleteAccountSchema, sendPhoneOtpSchema, verifyPhoneOtpSchema,
 } from '../validators/auth.validator';
@@ -25,6 +25,7 @@ router.post('/verify-otp', validate(verifyOtpSchema), verifyOtp);
 router.post('/resend-otp', authLimiter, validate(resendOtpSchema), resendOtp);
 router.post('/login', authLimiter, validate(loginSchema), login);
 router.post('/google', authLimiter, validate(googleAuthSchema), googleAuth);
+router.post('/apple', authLimiter, validate(appleAuthSchema), appleAuth);
 router.post('/refresh', validate(refreshTokenSchema), refresh);
 router.post('/logout', verifyToken, logout);
 router.get('/me', verifyToken, getMe);

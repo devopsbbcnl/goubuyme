@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
 	View,
 	Text,
@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CenteredKeyboardModal } from '@/components/ui/CenteredKeyboardModal';
 import api from '@/services/api';
 import MfaCodeModal from '@/components/MfaCodeModal';
+import { requestAppleCredential } from '@/hooks/useAppleSignIn';
 
 interface Props {
 	visible: boolean;
@@ -30,6 +31,19 @@ export default function DeleteAccountModal({ visible, onClose }: Props) {
 	const [showPassword, setShowPassword] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [mfaModal, setMfaModal] = useState(false);
+	// An account that signed in with Apple has no password: it confirms by signing in with Apple again.
+	const [account, setAccount] = useState<{ hasPassword: boolean; hasApple: boolean } | null>(null);
+	const appleToken = useRef<string | null>(null);
+
+	useEffect(() => {
+		if (!visible) return;
+		api.get('/auth/me')
+			.then((r) => setAccount({ hasPassword: !!r.data.data.hasPassword, hasApple: !!r.data.data.hasApple }))
+			.catch(() => setAccount(null));
+	}, [visible]);
+
+	const needsApple = !!account && !account.hasPassword && account.hasApple;
+	const noWayToConfirm = !!account && !account.hasPassword && !account.hasApple;
 
 	const handleClose = () => {
 		if (loading) return;
@@ -39,7 +53,19 @@ export default function DeleteAccountModal({ visible, onClose }: Props) {
 	};
 
 	const handleSubmit = async () => {
-		if (!password) {
+		if (needsApple) {
+			try {
+				const cred = await requestAppleCredential();
+				if (!cred?.identityToken) return; // cancelled
+				appleToken.current = cred.identityToken;
+			} catch {
+				Alert.alert('Apple sign-in failed', 'Could not confirm with Apple. Please try again.');
+				return;
+			}
+		} else if (noWayToConfirm) {
+			Alert.alert('Contact support', 'This account has no password. Please contact support to delete it.');
+			return;
+		} else if (!password) {
 			Alert.alert('Password required', 'Enter your password to confirm account deletion.');
 			return;
 		}
@@ -65,7 +91,7 @@ export default function DeleteAccountModal({ visible, onClose }: Props) {
 		try {
 			setLoading(true);
 			await api.delete('/auth/me', {
-				data: { password },
+				data: needsApple ? { appleIdentityToken: appleToken.current } : { password },
 				headers: mfaCode ? { 'X-MFA-Code': mfaCode } : {},
 			});
 			setMfaModal(false);
@@ -103,11 +129,11 @@ export default function DeleteAccountModal({ visible, onClose }: Props) {
 							<Text style={[styles.title, { color: T.error }]}>Delete Account</Text>
 							<Text style={[styles.subtitle, { color: T.textSec }]}>
 								This will deactivate your account and remove your access immediately. Enter your
-								password to confirm. This cannot be undone from the app — contact support to
-								restore your account.
+								{needsApple ? 'Sign in with Apple again to confirm.' : 'Enter your password to confirm.'} This cannot be undone from the
+								app — contact support to restore your account.
 							</Text>
 
-							<View style={[styles.pwRow, { backgroundColor: T.surface2, borderColor: T.border }]}>
+							{!needsApple && <View style={[styles.pwRow, { backgroundColor: T.surface2, borderColor: T.border }]}>
 								<TextInput
 									value={password}
 									onChangeText={setPassword}
@@ -124,7 +150,7 @@ export default function DeleteAccountModal({ visible, onClose }: Props) {
 										color={T.textMuted}
 									/>
 								</TouchableOpacity>
-							</View>
+							</View>}
 
 							<TouchableOpacity
 								onPress={handleSubmit}
@@ -135,7 +161,7 @@ export default function DeleteAccountModal({ visible, onClose }: Props) {
 								{loading ? (
 									<ActivityIndicator color="#fff" size="small" />
 								) : (
-									<Text style={styles.deleteBtnText}>Delete My Account</Text>
+									<Text style={styles.deleteBtnText}>{needsApple ? 'Confirm with Apple and delete' : 'Delete My Account'}</Text>
 								)}
 							</TouchableOpacity>
 					</ScrollView>

@@ -255,6 +255,9 @@ export default function CheckoutScreen() {
         email: user?.email ?? 'customer@gobuyme.ng',
         amount: amountToCharge, // naira — library multiplies by 100 internally
         reference,
+        // The order id travels with the Paystack transaction so the backend webhook can still
+        // confirm payment if this app dies or loses network before /payments/verify succeeds.
+        metadata: { orderId, orderNumber },
         onSuccess: async (paystackRes) => {
           const ref = paystackRes.reference ?? paystackRes.transaction ?? paystackRes.trans ?? reference;
           try {
@@ -262,7 +265,7 @@ export default function CheckoutScreen() {
             // no paystackRef was pre-saved (the backend saves it on verify).
             await api.post('/payments/verify', { reference: ref, orderId });
           } catch {
-            // network hiccup — backend webhook will reconcile
+            // network hiccup — the backend webhook reconciles using metadata.orderId above
           }
           goToTracking();
         },

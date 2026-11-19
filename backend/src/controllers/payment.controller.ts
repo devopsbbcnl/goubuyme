@@ -10,6 +10,7 @@ import { notifyUser } from '../services/notification.service';
 import { releaseUnpaidOrder } from './order.controller';
 import { PaymentStatus } from '@prisma/client';
 import { settleSuccessfulPayment, latePaymentMessage } from '../services/paymentSettlement.service';
+import { orderIdFromMetadata } from '../services/paymentRules';
 import { recordError } from '../utils/recordError';
 import { trackServerEvent } from '../services/analytics.service';
 import { getPrimaryClientUrl } from '../utils/clientUrl';
@@ -119,6 +120,10 @@ export const verifyPayment = catchAsync(async (req: AuthRequest, res: Response) 
     const amountPaid = typeof data.data.amount === 'number' ? data.data.amount / 100 : null;
     const outcome = await settleSuccessfulPayment({ orderId: order.id, reference, amountPaid, via: 'verify' });
 
+    if (outcome === 'amount_mismatch' || outcome === 'reference_in_use') {
+      recordError('payments', `Payment rejected at verify: ${outcome}`, undefined, { orderId: order.id, reference, amountPaid });
+      return apiResponse.error(res, 'This payment does not match the order, so it was not applied. Please contact support with your payment reference.', 400);
+    }
     if (outcome === 'late_credited' || outcome === 'already_credited') {
       return apiResponse.error(res, latePaymentMessage(amountPaid), 409);
     }
@@ -170,10 +175,24 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
   try {
     if (event === 'charge.success') {
-      const order = await prisma.order.findFirst({
+      let order = await prisma.order.findFirst({
         where: { paystackRef: data.reference },
         include: { customer: { select: { userId: true } } },
       });
+      // The mobile popup starts its own Paystack transaction, so the order has no saved
+      // reference until the app calls /payments/verify. If the app died or lost network before
+      // that, the webhook is the only thing that can still confirm the payment — find the order
+      // from the orderId the app put in the transaction metadata. settleSuccessfulPayment checks
+      // the amount and that the reference isn't already used, since metadata is client-supplied.
+      if (!order) {
+        const metaOrderId = orderIdFromMetadata(data.metadata);
+        if (metaOrderId) {
+          order = await prisma.order.findUnique({
+            where: { id: metaOrderId },
+            include: { customer: { select: { userId: true } } },
+          });
+        }
+      }
       if (!order || order.paystackVerified) return;
 
       const outcome = await settleSuccessfulPayment({
@@ -182,6 +201,11 @@ export const handleWebhook = async (req: Request, res: Response) => {
         amountPaid: typeof data.amount === 'number' ? data.amount / 100 : null,
         via: 'webhook',
       });
+      if (outcome === 'amount_mismatch' || outcome === 'reference_in_use') {
+        recordError('payments', `Payment webhook rejected: ${outcome}`, undefined, {
+          orderId: order.id, reference: data.reference, amount: data.amount,
+        });
+      }
       if (outcome !== 'confirmed') return;
       void trackServerEvent('payment_succeeded', order.customer.userId, 'CUSTOMER', {
         orderId: order.id, amount: order.totalAmount, via: 'webhook',

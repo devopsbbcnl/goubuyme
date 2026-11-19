@@ -3,6 +3,7 @@ import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { haversineDistance, estimateDeliveryMinutes } from '../services/distance.service';
+import { vendorVisibleOrders } from '../services/vendorOrderVisibility';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { vendorStateFilter } from '../utils/nigeriaStates';
 import { ApprovalStatus, CommissionTier, LicenseType, OrderActorType, OrderStatus, Prisma, PromotionStatus, VendorCategory, VerificationBadge } from '@prisma/client';
@@ -586,8 +587,8 @@ export const getVendorDashboardStats = catchAsync(async (req: AuthRequest, res: 
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   const [todayOrders, pendingOrders, todayRevenue] = await Promise.all([
-    prisma.order.count({ where: { vendorId: vendor.id, createdAt: { gte: today, lt: tomorrow } } }),
-    prisma.order.count({ where: { vendorId: vendor.id, status: OrderStatus.PENDING } }),
+    prisma.order.count({ where: { vendorId: vendor.id, ...vendorVisibleOrders, createdAt: { gte: today, lt: tomorrow } } }),
+    prisma.order.count({ where: { vendorId: vendor.id, ...vendorVisibleOrders, status: OrderStatus.PENDING } }),
     prisma.order.aggregate({
       where: { vendorId: vendor.id, createdAt: { gte: today, lt: tomorrow }, paymentStatus: 'PAID' },
       _sum: { subtotal: true },
@@ -602,7 +603,7 @@ export const getVendorDashboardStats = catchAsync(async (req: AuthRequest, res: 
     const nextDay = new Date(day);
     nextDay.setDate(nextDay.getDate() + 1);
     weeklyOrders.push(
-      await prisma.order.count({ where: { vendorId: vendor.id, createdAt: { gte: day, lt: nextDay } } }),
+      await prisma.order.count({ where: { vendorId: vendor.id, ...vendorVisibleOrders, createdAt: { gte: day, lt: nextDay } } }),
     );
   }
 
@@ -627,7 +628,7 @@ export const getMyOrders = catchAsync(async (req: AuthRequest, res: Response) =>
   const pageNum  = Math.max(1, parseInt(page));
   const limitNum = Math.min(100, parseInt(limit));
 
-  const where: Record<string, unknown> = { vendorId: vendor.id };
+  const where: Record<string, unknown> = { vendorId: vendor.id, ...vendorVisibleOrders };
   if (!status || status === 'ACTIVE') {
     where.status = { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] };
   } else if (status !== 'ALL') {
@@ -679,7 +680,7 @@ export const getMyOrderById = catchAsync(async (req: AuthRequest, res: Response)
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
   const order = await prisma.order.findFirst({
-    where: { id: req.params.orderId, vendorId: vendor.id },
+    where: { id: req.params.orderId, vendorId: vendor.id, ...vendorVisibleOrders },
     include: {
       customer: { include: { user: { select: { name: true, phone: true } } } },
       items: { select: { id: true, name: true, quantity: true, price: true, selections: true } },
@@ -727,8 +728,10 @@ export const updateMyOrderStatus = catchAsync(async (req: AuthRequest, res: Resp
   const { orderId } = req.params;
   const { action, reason } = req.body as { action: string; reason?: string };
 
+  // An unpaid card/transfer order isn't the vendor's yet — to them it doesn't exist, so it can
+  // be neither accepted nor rejected until Paystack has confirmed the money.
   const order = await prisma.order.findFirst({
-    where: { id: orderId, vendorId: vendor.id },
+    where: { id: orderId, vendorId: vendor.id, ...vendorVisibleOrders },
     include: {
       items: { select: { menuItemId: true, quantity: true } },
       customer: { select: { userId: true } },
@@ -808,7 +811,7 @@ export const markOrderViewed = catchAsync(async (req: AuthRequest, res: Response
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
   const order = await prisma.order.findFirst({
-    where: { id: req.params.orderId, vendorId: vendor.id },
+    where: { id: req.params.orderId, vendorId: vendor.id, ...vendorVisibleOrders },
     select: { id: true, vendorViewedAt: true },
   });
   if (!order) return apiResponse.error(res, 'Order not found.', 404);

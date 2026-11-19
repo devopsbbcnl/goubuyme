@@ -8,6 +8,7 @@ import { localTimeInZone } from '../services/storeHours.service';
 import logger from '../utils/logger';
 import { recordError } from '../utils/recordError';
 import { vendorOrderContacts } from '../services/vendorRecipients';
+import { vendorVisibleOrders } from '../services/vendorOrderVisibility';
 
 // Vendor order-response escalation: reminder → urgent → auto-cancel-with-refund. Runs every
 // 10s (node-cron's 5-field syntax can't express seconds, so a plain interval is a better fit
@@ -86,6 +87,8 @@ export const startEscalationJob = (): void => {
     try {
       const candidates = await prisma.order.findMany({
         where: {
+          // Never chase (or fine) a vendor over an order they can't see because it's unpaid.
+          ...vendorVisibleOrders,
           status: { in: [OrderStatus.PENDING, OrderStatus.CONFIRMED] },
           vendorNotifiedAt: { not: null },
           vendorViewedAt: null,
