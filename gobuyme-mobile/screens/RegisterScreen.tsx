@@ -18,6 +18,7 @@ import { generatePassword } from '@/utils/generatePassword';
 import { forwardGeocode } from '@/services/geocoding';
 import { useGoogleSignIn } from '@/hooks/useGoogleSignIn';
 import GoogleIcon from '@/components/ui/GoogleIcon';
+import AppleSignInButton from '@/components/ui/AppleSignInButton';
 import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
 type RoleParam = 'customer' | 'vendor' | 'rider' | 'logistics_company';
@@ -439,6 +440,7 @@ export default function RegisterScreen() {
 
 			{role === 'customer' && (
 				<>
+					<AppleSignInButton kind="SIGN_UP" />
 					{!!googleError && (
 						<Text style={[styles.errorText, { color: '#E53E3E', textAlign: 'center' }]}>{googleError}</Text>
 					)}

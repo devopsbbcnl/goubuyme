@@ -222,6 +222,8 @@ export async function revokeManagerLogin(tx: Tx, ownerUserId: string, branchId: 
       deletedAt: new Date(),
       email: `deleted-${managerId}@deleted.gobuyme.local`,
       googleId: null,
+      appleId: null,
+      appleRefreshToken: null,
       phone: null,
       refreshToken: null,
       pushToken: null,

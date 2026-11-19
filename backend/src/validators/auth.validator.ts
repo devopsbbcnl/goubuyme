@@ -157,8 +157,20 @@ export const changePasswordSchema = Joi.object({
   otp: Joi.string().length(6).required(),
 });
 
+// A password account confirms with its password; an account that signed in with Apple has no
+// password, so it confirms by signing in with Apple again and sending the fresh identity token.
 export const deleteAccountSchema = Joi.object({
-  password: Joi.string().required(),
+  password: Joi.string(),
+  appleIdentityToken: Joi.string(),
+}).or('password', 'appleIdentityToken');
+
+export const appleAuthSchema = Joi.object({
+  identityToken: Joi.string().required(),
+  // One-time code Apple gives the app; swapped for a refresh token so the grant can be revoked on deletion.
+  authorizationCode: Joi.string().optional(),
+  // Apple only hands the name to the app, and only the first time.
+  fullName: Joi.string().trim().max(120).allow('').optional(),
+  referralCode: Joi.string().optional(),
 });
 
 export const sendPhoneOtpSchema = Joi.object({

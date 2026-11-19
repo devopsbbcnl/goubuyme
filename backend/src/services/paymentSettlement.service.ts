@@ -2,6 +2,8 @@ import { OrderActorType, OrderEventType, OrderStatus, PaymentStatus } from '@pri
 import prisma from '../config/db';
 import { issueCredit } from './storeCredit.service';
 import { notifyUser } from './notification.service';
+import { alertVendorOfNewOrder } from './vendorOrderAlert.service';
+import { amountCoversOrder } from './paymentRules';
 import { recordOrderEvent, transitionOrder } from './orderLifecycle.service';
 
 // Applies a successful Paystack charge to its order. Shared by /payments/verify and the
@@ -13,6 +15,8 @@ export type SettlementOutcome =
   | 'late_credited'     // order was already released as unpaid; the money went to store credit
   | 'already_credited'  // late payment that an earlier call already credited
   | 'already_settled'   // order was already PAID
+  | 'amount_mismatch'   // Paystack collected less than the order needs; order left unpaid
+  | 'reference_in_use'  // this Paystack reference already pays for a different order
   | 'not_found';
 
 export const LATE_PAYMENT_CREDIT_REASON = 'LATE_PAYMENT_CREDIT';
@@ -26,6 +30,26 @@ export async function settleSuccessfulPayment(input: {
 }): Promise<SettlementOutcome> {
   const { orderId, reference, via } = input;
 
+  const pre = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { status: true, totalAmount: true, creditApplied: true },
+  });
+  if (!pre) return 'not_found';
+
+  // One Paystack payment pays for one order. Without this a single small successful reference
+  // could be replayed against any number of orders (or banked as store credit repeatedly).
+  const clash = await prisma.order.findFirst({
+    where: { paystackRef: reference, id: { not: orderId } },
+    select: { id: true },
+  });
+  if (clash) return 'reference_in_use';
+
+  // Paystack said "success" for *some* amount — make sure it's the amount this order needs
+  // before the vendor is told to start cooking.
+  if (pre.status === OrderStatus.PENDING && !amountCoversOrder(input.amountPaid, pre)) {
+    return 'amount_mismatch';
+  }
+
   const confirmed = await transitionOrder(prisma, {
     orderId,
     from: [OrderStatus.PENDING],
@@ -33,9 +57,16 @@ export async function settleSuccessfulPayment(input: {
     actor: { type: OrderActorType.SYSTEM },
     note: via === 'verify' ? 'Payment verified' : 'Payment confirmed (Paystack webhook)',
     where: { paymentStatus: { notIn: [PaymentStatus.PAID, PaymentStatus.REFUNDED] } },
-    data: { paystackRef: reference, paymentStatus: PaymentStatus.PAID, paystackVerified: true },
+    // vendorNotifiedAt starts the vendor's response clock (escalationJob) — it begins when the
+    // vendor is first told about the order, which for card orders is now, not at checkout.
+    data: { paystackRef: reference, paymentStatus: PaymentStatus.PAID, paystackVerified: true, vendorNotifiedAt: new Date() },
   });
-  if (confirmed) return 'confirmed';
+  if (confirmed) {
+    // Paid for real — only now does the vendor hear about it. Both /payments/verify and the
+    // webhook land here, and only the one that wins the PENDING → CONFIRMED race gets this far.
+    void alertVendorOfNewOrder(orderId);
+    return 'confirmed';
+  }
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },

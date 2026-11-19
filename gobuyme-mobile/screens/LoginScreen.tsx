@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { connectSockets, subscribeBackendStatus } from '@/services/socketService';
 import { useGoogleSignIn } from '@/hooks/useGoogleSignIn';
 import GoogleIcon from '@/components/ui/GoogleIcon';
+import AppleSignInButton from '@/components/ui/AppleSignInButton';
 import { routeAfterLogin } from '@/services/postLoginRoute';
 import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
@@ -191,6 +192,8 @@ export default function LoginScreen() {
           <Text style={[styles.orText, { color: T.textSec }]}>OR</Text>
           <View style={[styles.line, { backgroundColor: T.border }]} />
         </View>
+
+        <AppleSignInButton kind="SIGN_IN" />
 
         {!!googleError && (
           <Text style={[styles.errorText, { color: '#E53E3E', textAlign: 'center' }]}>{googleError}</Text>

@@ -1909,6 +1909,8 @@ async function softDeleteUser(
       deletedAt: new Date(),
       email: `deleted-${target.userId}@deleted.gobuyme.local`,
       googleId: null,
+      appleId: null,
+      appleRefreshToken: null,
       phone: null,
       refreshToken: null,
       pushToken: null,

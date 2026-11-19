@@ -17,6 +17,10 @@ import { recordOnboardingEvent } from '../services/onboarding.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { Role, CommissionTier, VendorCategory, OrderStatus } from '@prisma/client';
 import { recordError } from '../utils/recordError';
+import { encryptSecret, decryptSecret } from '../utils/crypto';
+import {
+  AppleAuthError, verifyAppleIdentityToken, exchangeAppleAuthorizationCode, revokeAppleRefreshToken,
+} from '../services/appleAuth.service';
 import { sendPhoneOtp, verifyPhoneOtp, PhoneVerificationError } from '../services/phoneVerification.service';
 import { issueEmailOtp, issueEmailOtpIfAllowed, checkEmailOtp, EmailOtpError } from '../services/emailOtp.service';
 import { deletedVendorName } from '../utils/deletedVendorName';
@@ -452,6 +456,109 @@ export const googleAuth = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+export const appleAuth = catchAsync(async (req: Request, res: Response) => {
+  const { identityToken, authorizationCode, fullName, referralCode } = req.body as {
+    identityToken: string; authorizationCode?: string; fullName?: string; referralCode?: string;
+  };
+
+  let identity;
+  try {
+    identity = await verifyAppleIdentityToken(identityToken);
+  } catch (err) {
+    if (!(err instanceof AppleAuthError)) recordError('auth', 'Apple sign-in failed: could not verify token', err);
+    return apiResponse.error(res, 'Invalid or expired Apple token.', 401);
+  }
+
+  // Apple's id is the stable key. The email is only used to join an existing GoBuyMe account the first time.
+  let user = await prisma.user.findUnique({ where: { appleId: identity.sub } });
+
+  if (user) {
+    if (!user.isActive) return apiResponse.error(res, 'Account suspended. Contact support.', 403);
+  } else {
+    if (!identity.email) {
+      return apiResponse.error(res, 'Apple did not share an email address. Open Settings > Apple ID > Sign-In & Security > Sign in with Apple, remove GoBuyMe, and try again.', 400);
+    }
+    const email = identity.email;
+    const existing = await findUserByEmail(email);
+
+    if (existing) {
+      // Only a verified address may join an existing account, as with Google.
+      if (!identity.emailVerified) return apiResponse.error(res, 'Your Apple email address is not verified.', 401);
+      if (!existing.isActive) return apiResponse.error(res, 'Account suspended. Contact support.', 403);
+      if (existing.role !== 'CUSTOMER' && existing.role !== 'VENDOR') {
+        return apiResponse.error(res, 'This email is already registered as a different account type. Sign in with your password instead.', 409);
+      }
+      user = await prisma.user.update({
+        where: { id: existing.id },
+        data: { appleId: identity.sub, isEmailVerified: true },
+      });
+    } else {
+      let referredById: string | undefined;
+      if (referralCode) {
+        const referrer = await prisma.user.findUnique({ where: { referralCode } });
+        if (referrer) referredById = referrer.id;
+      }
+      // A "Hide My Email" address has a meaningless local part, so do not use it as the name.
+      const name = fullName?.trim() || (identity.isPrivateRelay ? 'GoBuyMe customer' : email.split('@')[0]);
+
+      user = await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            name,
+            email,
+            appleId: identity.sub,
+            role: Role.CUSTOMER,
+            isEmailVerified: true,
+            referralCode: generateReferralCode(),
+            referredById,
+          },
+        });
+        await tx.customer.create({ data: { userId: newUser.id } });
+        if (referredById) {
+          await tx.referral.create({ data: { referrerId: referredById, refereeId: newUser.id } });
+        }
+        return newUser;
+      });
+
+      // Mail to a relay address only arrives if the sending domain is registered with Apple, so skip it there.
+      if (!identity.isPrivateRelay) void sendWelcomeEmail(user.email, user.name, user.role);
+      void recordOnboardingEvent(user.id, user.role, 'SIGNED_UP');
+      void recordOnboardingEvent(user.id, user.role, 'EMAIL_VERIFIED');
+    }
+  }
+
+  // Keep a refresh token so the Apple grant can be revoked if the account is deleted. Never blocks sign-in.
+  if (authorizationCode) {
+    try {
+      const refresh = await exchangeAppleAuthorizationCode(authorizationCode);
+      if (refresh) {
+        await prisma.user.update({ where: { id: user.id }, data: { appleRefreshToken: encryptSecret(refresh) } });
+      }
+    } catch (err) {
+      recordError('auth', 'Apple sign-in: could not store the refresh token', err);
+    }
+  }
+
+  const activeRole = await resolveLoginRole(user);
+  const accessToken = generateAccessToken({ userId: user.id, role: activeRole });
+  const refreshToken = generateRefreshToken({ userId: user.id, role: activeRole });
+  await prisma.user.update({ where: { id: user.id }, data: { refreshToken } });
+
+  let approvalStatus: string | undefined;
+  if (activeRole === 'VENDOR') {
+    const vendor = await vendorStanding(user.id);
+    approvalStatus = vendor?.approvalStatus;
+  } else if (activeRole === 'RIDER') {
+    approvalStatus = await resolveApprovalStatus(user.id, activeRole);
+  }
+
+  return apiResponse.success(res, 'Signed in with Apple.', {
+    user: { ...buildUserPayload(user), role: activeRole, ...(approvalStatus !== undefined ? { approvalStatus } : {}) },
+    accessToken,
+    refreshToken,
+  });
+});
+
 export const activationStatus = catchAsync(async (req: AuthRequest, res: Response) => {
   const { userId, role } = req.user!;
 
@@ -631,13 +738,18 @@ export const getMe = catchAsync(async (req: AuthRequest, res: Response) => {
       mfaEnabled: true,
       referralCode: true, freeDeliveryCredits: true,
       createdAt: true,
+      password: true, appleId: true,
     },
   });
   if (!user) return apiResponse.error(res, 'User not found.', 404);
+  // Never send the hash itself: the app only needs to know how this account confirms a deletion.
+  const { password, appleId, ...safe } = user;
   // `role` is the active experience (token claim) so apps that route by it stay on the role the
   // user switched into; `primaryRole` is what the account signed up as.
   return apiResponse.success(res, 'User fetched.', {
-    ...user,
+    ...safe,
+    hasPassword: Boolean(password),
+    hasApple: Boolean(appleId),
     role: isSwitchableAccount(user.role) ? req.user!.role : user.role,
     primaryRole: user.role,
   });
@@ -762,17 +874,35 @@ export const changePassword = catchAsync(async (req: AuthRequest, res: Response)
 const TERMINAL_ORDER_STATUSES: OrderStatus[] = ['DELIVERED', 'CANCELLED'];
 
 export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { password } = req.body as { password: string };
+  const { password, appleIdentityToken } = req.body as { password?: string; appleIdentityToken?: string };
   const { userId, role } = req.user!;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, phone: true, password: true },
+    select: { id: true, email: true, phone: true, password: true, appleId: true, appleRefreshToken: true },
   });
-  if (!user || !user.password) return apiResponse.error(res, 'User not found.', 404);
+  if (!user) return apiResponse.error(res, 'User not found.', 404);
 
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) return apiResponse.error(res, 'Incorrect password.', 401);
+  if (user.password && password) {
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return apiResponse.error(res, 'Incorrect password.', 401);
+  } else if (user.appleId && appleIdentityToken) {
+    // No password on this account: a fresh Apple sign-in for the same Apple id is the confirmation.
+    try {
+      const identity = await verifyAppleIdentityToken(appleIdentityToken);
+      if (identity.sub !== user.appleId) return apiResponse.error(res, 'That Apple account does not match this account.', 401);
+    } catch {
+      return apiResponse.error(res, 'Could not confirm with Apple. Please try again.', 401);
+    }
+  } else {
+    return apiResponse.error(
+      res,
+      user.appleId ? 'Sign in with Apple again to confirm deleting your account.'
+        : user.password ? 'Enter your password to delete your account.'
+        : 'This account has no password. Contact support to delete it.',
+      400,
+    );
+  }
 
   if (role === 'VENDOR') {
     const managed = await prisma.vendor.findFirst({ where: { managerUserId: userId }, select: { id: true } });
@@ -822,6 +952,16 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
     }
   }
 
+  // Apple requires the Sign in with Apple grant to be revoked when the account is deleted.
+  // Best effort: a failure is logged and must not stop the person deleting their account.
+  if (user.appleRefreshToken) {
+    try {
+      await revokeAppleRefreshToken(decryptSecret(user.appleRefreshToken));
+    } catch (err) {
+      recordError('auth', 'Account deletion: could not revoke the Apple grant', err);
+    }
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: user.id },
@@ -830,6 +970,8 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
         deletedAt: new Date(),
         email: `deleted-${user.id}@deleted.gobuyme.local`,
         googleId: null,
+        appleId: null,
+        appleRefreshToken: null,
         phone: null,
         refreshToken: null,
         pushToken: null,
