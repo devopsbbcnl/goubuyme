@@ -22,7 +22,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
         context: { url: `${BASE}${path}`, method: init.method ?? 'GET', status: res.status },
       });
     }
-    throw new Error(json.message ?? 'Request failed');
+    // Keep per-field validation errors so a page can show which field was rejected.
+    const err = new Error(json.message ?? 'Request failed') as Error & { fieldErrors?: { field: string; message: string }[] };
+    if (Array.isArray(json.errors)) err.fieldErrors = json.errors;
+    throw err;
   }
 
   return json as T;

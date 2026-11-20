@@ -184,7 +184,9 @@ export default function BroadcastsPage() {
       setConfirming(false);
       await load(1, false);
     } catch (e) {
-      setMessage({ text: e instanceof Error ? e.message : 'Failed to send the broadcast.', ok: false });
+      const fields = (e as { fieldErrors?: { field: string; message: string }[] }).fieldErrors;
+      const detail = fields?.length ? ` ${fields.map(f => (f.field ? `${f.field}: ${f.message}` : f.message)).join('; ')}` : '';
+      setMessage({ text: `${e instanceof Error ? e.message : 'Failed to send the broadcast.'}${detail}`, ok: false });
       setConfirming(false);
     } finally {
       setBusy(false);
