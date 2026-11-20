@@ -76,12 +76,22 @@ export const Nav = () => {
                     {l.label}
                   </a>
                 ))}
+                <a
+                  href="/login"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="font-mono-pop text-xs uppercase tracking-widest hover:text-primary transition-colors py-2"
+                >
+                  Sign in/Register
+                </a>
               </div>
             </SheetContent>
           </Sheet>
         </div>
         
         <div className="flex items-center gap-2">
+          <a href="/login" className="hidden px-2 font-mono-pop md:inline text-xs uppercase tracking-widest transition-colors hover:text-primary">
+            Sign in/Register
+          </a>
           <Button variant="default" asChild className="rounded-full border-2 border-ink bg-primary text-primary-foreground shadow-pop-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all font-mono-pop text-xs uppercase tracking-widest">
             <a href="/home">Order now</a>
           </Button>
