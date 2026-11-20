@@ -20,6 +20,19 @@ export const sendEmail = async (to: string, subject: string, html: string): Prom
   }
 };
 
+/** Like sendEmail, but tells the caller whether Resend accepted the message (broadcasts record per-recipient results). */
+export const sendEmailChecked = async (to: string, subject: string, html: string): Promise<boolean> => {
+  try {
+    const { error } = await resend.emails.send({ from: FROM, to, subject, html });
+    if (error) throw new Error(error.message);
+    logger.info(`Email sent: ${subject}`);
+    return true;
+  } catch (err) {
+    recordError('email', `Email send failed: ${subject}`, err);
+    return false;
+  }
+};
+
 export interface BatchEmail { to: string; subject: string; html: string }
 
 // Resend takes up to 100 messages per call. Failures are recorded, never thrown,

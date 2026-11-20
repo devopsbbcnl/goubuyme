@@ -18,6 +18,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/tasks': 'Tasks',
   '/crm/pipeline': 'Growth Pipeline',
   '/crm/lead-finder': 'Lead Finder',
+  '/crm/lead-broadcasts': 'Lead Broadcasts',
+  '/crm/lead-broadcasts/new': 'New Lead Broadcast',
   '/crm/profiles': 'CRM Profiles',
   '/crm/campaigns': 'Marketing · Campaigns',
   '/crm/segments': 'Marketing · Segments',

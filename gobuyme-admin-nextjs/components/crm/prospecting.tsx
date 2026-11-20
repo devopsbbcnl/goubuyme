@@ -13,7 +13,7 @@ export interface ProspectSignals {
 export interface Prospect {
   id: string; name: string; category: string | null; address: string | null; city: string | null; area: string | null;
   phone: string | null; email: string | null; whatsapp: string | null; website: string | null; instagram: string | null;
-  facebook: string | null; mapsUrl: string | null; rating: number | null; reviewCount: number | null;
+  facebook: string | null; tiktok: string | null; twitter: string | null; youtube: string | null; mapsUrl: string | null; rating: number | null; reviewCount: number | null;
   signals: ProspectSignals | null; fitScore: number; fitReasons: FitReason[] | null; existingVendorId: string | null;
   status: 'NEW' | 'ADDED' | 'DISMISSED'; leadId: string | null; searchId: string | null; createdAt: string;
 }
@@ -54,9 +54,12 @@ export function FitReasons({ reasons }: { reasons: FitReason[] | null }) {
   );
 }
 
-export function ProspectLinks({ p }: { p: Pick<Prospect, 'website' | 'instagram' | 'facebook' | 'mapsUrl'> }) {
+export function ProspectLinks({ p }: { p: Partial<Pick<Prospect, 'website' | 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'youtube' | 'mapsUrl'>> }) {
   const { theme: T } = useTheme();
-  const links = ([['Website', p.website], ['Instagram', p.instagram], ['Facebook', p.facebook], ['Google Maps', p.mapsUrl]] as Array<[string, string | null]>).filter(([, u]) => u);
+  const links = ([
+    ['Website', p.website], ['Instagram', p.instagram], ['TikTok', p.tiktok], ['Facebook', p.facebook],
+    ['X', p.twitter], ['YouTube', p.youtube], ['Google Maps', p.mapsUrl],
+  ] as Array<[string, string | null | undefined]>).filter(([, u]) => u);
   if (!links.length) return null;
   return (
     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

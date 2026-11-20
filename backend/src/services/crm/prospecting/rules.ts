@@ -6,6 +6,7 @@
 //   buildDrafts      the standard first-contact messages
 // A value a source did not give stays null. Nothing here guesses a contact detail.
 import { VendorCategory } from '@prisma/client';
+import { normalizeSocial } from '../outreach';
 
 // ─── Understanding the request ───────────────────────────────────────────────
 
@@ -123,6 +124,9 @@ export interface PageContacts {
   whatsapp: string | null;
   instagram: string | null;
   facebook: string | null;
+  tiktok: string | null;
+  twitter: string | null;
+  youtube: string | null;
   contactPage: string | null;
   mentionsDelivery: boolean;
   competitors: string[];
@@ -186,6 +190,13 @@ export const extractContacts = (html: string, baseUrl: string): PageContacts => 
   const instagram = social(/https?:\/\/(?:www\.)?instagram\.com\/(?!p\/|reel\/|explore\/|accounts\/|stories\/)[A-Za-z0-9_.]{2,30}/i);
   const facebook = social(/https?:\/\/(?:www\.|web\.|m\.)?facebook\.com\/(?!sharer|share|dialog|plugins|tr\b|login)[A-Za-z0-9_.\-/]{2,80}/i);
 
+  // Only absolute links count: a relative "about" is a page on this site, not a profile.
+  const absolute = hrefs.filter((h) => /^https?:\/\//i.test(h));
+  const profile = (platform: 'tiktok' | 'twitter' | 'youtube') => {
+    for (const h of absolute) { const u = normalizeSocial(platform, h); if (u) return u; }
+    return null;
+  };
+
   let contactPage: string | null = null;
   try {
     const base = new URL(baseUrl);
@@ -203,6 +214,9 @@ export const extractContacts = (html: string, baseUrl: string): PageContacts => 
     whatsapp,
     instagram,
     facebook,
+    tiktok: profile('tiktok'),
+    twitter: profile('twitter'),
+    youtube: profile('youtube'),
     contactPage,
     mentionsDelivery: /\b(deliver(y|ies|ed|s|ing)?|dispatch rider|doorstep)\b/i.test(text),
     competitors: COMPETITORS.filter(([, re]) => re.test(haystack)).map(([name]) => name),
@@ -218,7 +232,7 @@ export const pickEmail = (emails: string[], website: string | null): string | nu
   return (host && emails.find((e) => e.endsWith(`@${host}`))) || emails[0];
 };
 
-export type LinkKind ='instagram' | 'facebook' | 'whatsapp' | 'site';
+export type LinkKind = 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'youtube' | 'whatsapp' | 'site';
 
 /** Many small businesses list a social profile as their "website". Those are recorded, not fetched. */
 export const linkKind = (url: string): LinkKind => {
@@ -226,6 +240,9 @@ export const linkKind = (url: string): LinkKind => {
   try { host = new URL(url).hostname.toLowerCase().replace(/^www\./, ''); } catch { return 'site'; }
   if (/(^|\.)instagram\.com$/.test(host)) return 'instagram';
   if (/(^|\.)(facebook|fb)\.com$/.test(host)) return 'facebook';
+  if (/(^|\.)tiktok\.com$/.test(host)) return 'tiktok';
+  if (host === 'x.com' || /(^|\.)twitter\.com$/.test(host)) return 'twitter';
+  if (/(^|\.)youtube\.com$/.test(host) || host === 'youtu.be') return 'youtube';
   if (host === 'wa.me' || /(^|\.)whatsapp\.com$/.test(host)) return 'whatsapp';
   return 'site';
 };
