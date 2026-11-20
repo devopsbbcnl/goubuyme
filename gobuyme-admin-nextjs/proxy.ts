@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // the window where an unauthenticated visitor briefly sees the dashboard shell
 // before the client-side check kicks in.
 const PUBLIC_PATHS = new Set(['/login']);
-const PUBLIC_PREFIXES = ['/rider/setup', '/vendor/setup', '/how-to', '/api'];
+const PUBLIC_PREFIXES = ['/rider/setup', '/vendor/setup', '/how-to', '/api', '/preboarding'];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

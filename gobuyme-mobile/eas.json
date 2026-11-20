@@ -44,6 +44,14 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6837178627",
+        "appleTeamId": "BULPDR6LB8",
+        "ascApiKeyPath": "C:\\Users\\Okonk\\OneDrive\\Desktop\\BUBBLE BARREL\\D-BLOCK\\APPLE\\4FIRST\\AuthKey_USX7TS4C55.p8",
+        "ascApiKeyIssuerId": "4dccb59a-6086-445d-af15-fbb68421cc6b",
+        "ascApiKeyId": "USX7TS4C55"
+      }
+    }
   }
 }

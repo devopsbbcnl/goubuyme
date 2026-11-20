@@ -24,6 +24,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!loading && user?.role === 'SOCIAL_MEDIA' && !pathname.startsWith('/smois')) router.replace('/smois');
   }, [loading, user, pathname, router]);
 
+  // Employee self-service logins only have My HR.
+  useEffect(() => {
+    if (!loading && user?.role === 'STAFF' && !pathname.startsWith('/my-hr')) router.replace('/my-hr');
+  }, [loading, user, pathname, router]);
+
   // Close the mobile drawer automatically whenever the route changes.
   useEffect(() => {
     setSidebarOpen(false);

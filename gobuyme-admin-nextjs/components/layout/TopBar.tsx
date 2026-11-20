@@ -59,6 +59,7 @@ const ROLE_COLOR: Record<string, string> = {
   OPERATIONS_ADMIN:  '#3B82F6',
   SUPPORT_ADMIN:     '#10B981',
   SOCIAL_MEDIA:      '#8B5CF6',
+  STAFF:             '#0EA5E9',
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -66,6 +67,7 @@ const ROLE_LABEL: Record<string, string> = {
   OPERATIONS_ADMIN:  'Operations',
   SUPPORT_ADMIN:     'Support',
   SOCIAL_MEDIA:      'Social media',
+  STAFF:             'Staff',
 };
 
 type VendorItem = { id: string; businessName: string; city: string; createdAt: string };
@@ -128,7 +130,7 @@ export function TopBar({ pathname, onMenuClick }: { pathname: string; onMenuClic
     try { window.localStorage.setItem(ALERTS_SEEN_KEY, latest); } catch { /* storage unavailable */ }
   };
   useEffect(() => {
-    if (!user || user.role === 'SOCIAL_MEDIA') return;
+    if (!user || user.role === 'SOCIAL_MEDIA' || user.role === 'STAFF') return;
     const load = () => api.get<{ data: OrderAlert[] }>('/admin/order-alerts?limit=20')
       .then(r => setOrderAlerts(r.data ?? [])).catch(() => {});
     load();
@@ -161,7 +163,7 @@ export function TopBar({ pathname, onMenuClick }: { pathname: string; onMenuClic
   };
 
   useEffect(() => {
-    if (user?.role === 'SOCIAL_MEDIA') return; // none of these lists are open to social media staff
+    if (user?.role === 'SOCIAL_MEDIA' || user?.role === 'STAFF') return; // none of these lists are open to social media staff
     Promise.allSettled([
       api.get<{ data: VendorItem[] }>('/admin/vendors?status=PENDING&limit=5'),
       api.get<{ data: RiderItem[]  }>('/admin/riders?status=PENDING&limit=5'),

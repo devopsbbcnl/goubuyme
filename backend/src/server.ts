@@ -45,6 +45,7 @@ import { startDispatchWatcherJob } from './jobs/dispatchWatcherJob';
 import { startTicketTriagerJob } from './jobs/ticketTriagerJob';
 import { startOrderAlertJob } from './jobs/orderAlertJob';
 import { startSmoisJobs } from "./jobs/smoisJob";
+import { startPwmJobs } from "./jobs/pwmJob";
 import { errorHandler } from './middleware/error.middleware';
 import { globalLimiter, publicSettingsLimiter } from './middleware/rateLimiter.middleware';
 import { maintenanceGuard } from './middleware/maintenance.middleware';
@@ -60,6 +61,9 @@ import companyRoutes from './routes/company.routes';
 import adminRoutes from './routes/admin.routes';
 import crmRoutes from './routes/crm.routes';
 import smoisRoutes from "./routes/smois.routes";
+import pwmRoutes from "./routes/pwm.routes";
+import myHrRoutes from "./routes/myhr.routes";
+import pwmPublicRoutes from "./routes/pwmPublic.routes";
 import smoisWebhookRoutes from "./routes/smoisWebhook.routes";
 import marketingRoutes from './routes/marketing.routes';
 import leadRoutes from './routes/lead.routes';
@@ -197,6 +201,9 @@ app.use('/api/v1/company', companyRoutes);
 app.use('/api/v1/admin/crm', crmRoutes);
 app.use('/api/v1/webhooks/smois', smoisWebhookRoutes);
 app.use('/api/v1/admin/smois', smoisRoutes);
+app.use('/api/v1/admin/pwm', pwmRoutes);
+app.use('/api/v1/my-hr', myHrRoutes);
+app.use('/api/v1/pwm-public', pwmPublicRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/offers', offerRoutes);
 app.use('/api/v1/support', supportRoutes);
@@ -255,6 +262,7 @@ const start = async () => {
     startTicketTriagerJob();
     startOrderAlertJob();
     startSmoisJobs();
+    startPwmJobs();
   } else {
     logger.info(`Worker ${process.env.NODE_APP_INSTANCE}: scheduled jobs run on worker 0 only`);
   }

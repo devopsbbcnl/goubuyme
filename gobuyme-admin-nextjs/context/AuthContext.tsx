@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!res.ok) throw new Error(data.message ?? 'Login failed');
 
     const u = data.data.user as AdminUser;
-    const ADMIN_ROLES = ['SUPER_ADMIN', 'OPERATIONS_ADMIN', 'SUPPORT_ADMIN', 'SOCIAL_MEDIA'];
+    const ADMIN_ROLES = ['SUPER_ADMIN', 'OPERATIONS_ADMIN', 'SUPPORT_ADMIN', 'SOCIAL_MEDIA', 'STAFF'];
     if (!ADMIN_ROLES.includes(u.role)) {
       throw new Error('Access denied. Admin account required.');
     }
