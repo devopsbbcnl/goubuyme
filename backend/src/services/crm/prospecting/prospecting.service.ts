@@ -187,6 +187,9 @@ const buildProspect = async (place: Place, search: ProspectSearch, vendors: Know
     website: kind === 'site' ? place.website : null,
     instagram: kind === 'instagram' ? place.website : page?.instagram ?? null,
     facebook: kind === 'facebook' ? place.website : page?.facebook ?? null,
+    tiktok: kind === 'tiktok' ? place.website : page?.tiktok ?? null,
+    twitter: kind === 'twitter' ? place.website : page?.twitter ?? null,
+    youtube: kind === 'youtube' ? place.website : page?.youtube ?? null,
     mapsUrl: place.mapsUrl, rating: place.rating, reviewCount: place.reviewCount, businessStatus: place.businessStatus,
     signals: signals as unknown as Prisma.InputJsonValue, fitScore: score, fitReasons: reasons as unknown as Prisma.InputJsonValue,
     existingVendorId: vendor?.id ?? null, enrichedAt: page ? new Date() : null,
@@ -271,6 +274,7 @@ const describe = (p: Prospect): string => [
   p.address ? `Address: ${p.address}.` : null,
   p.website ? `Website: ${p.website}` : null,
   p.instagram ? `Instagram: ${p.instagram}` : null,
+  p.tiktok ? `TikTok: ${p.tiktok}` : null,
   p.mapsUrl ? `Map: ${p.mapsUrl}` : null,
 ].filter(Boolean).join('\n');
 
@@ -293,6 +297,8 @@ export const addToPipeline = async (ids: string[], staffId: string, automatic = 
         data: {
           type: 'VENDOR', source: 'PROSPECTING', name: p.name.slice(0, 120), phone: p.phone, phoneKey: p.phoneKey, email: p.email,
           city: p.city, area: p.area, category: p.category, ownerId: staffId,
+          whatsapp: p.whatsapp, website: p.website, instagram: p.instagram, facebook: p.facebook,
+          tiktok: p.tiktok, twitter: p.twitter, youtube: p.youtube,
         },
       });
       await tx.leadActivity.create({ data: { leadId: lead.id, authorId: automatic ? null : staffId, type: 'NOTE', body: describe(p) } });
@@ -431,7 +437,7 @@ export const purgeOldProspects = async (now = new Date()) => {
   const stripped = await prisma.prospect.updateMany({
     where: { status: 'DISMISSED', lastSeenAt: { lt: cutoff }, OR: [{ phone: { not: null } }, { email: { not: null } }, { whatsapp: { not: null } }, { address: { not: null } }] },
     data: {
-      phone: null, phoneKey: null, email: null, whatsapp: null, website: null, instagram: null, facebook: null, address: null,
+      phone: null, phoneKey: null, email: null, whatsapp: null, website: null, instagram: null, facebook: null, tiktok: null, twitter: null, youtube: null, address: null,
       lat: null, lng: null, drafts: Prisma.DbNull,
     },
   });

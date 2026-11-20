@@ -83,6 +83,7 @@ model User {
   segmentsCreated        Segment[]
   campaignsCreated       Campaign[]
   campaignRecipients     CampaignRecipient[]
+  leadBroadcasts         LeadBroadcast[]     @relation("LeadBroadcastCreator")
   automationsCreated     CrmAutomation[]
   leadsOwned             Lead[]              @relation("LeadOwner")
   leadConvertedFrom      Lead?               @relation("LeadConvertedUser")
@@ -1692,6 +1693,7 @@ enum LeadActivityType {
   VISIT
   EMAIL
   WHATSAPP
+  SMS
   STAGE_CHANGE
   CONVERTED
 }
@@ -1719,6 +1721,18 @@ model Lead {
   /// Last 10 digits of the phone, used to match leads to accounts that sign up later.
   phoneKey            String?
   email               String?
+  whatsapp            String?
+  website             String?
+  instagram           String?
+  facebook            String?
+  tiktok              String?
+  twitter             String?
+  youtube             String?
+  /// The person asked us to stop marketing messages. Staff can set it; only the person can clear it.
+  marketingOptOut     Boolean         @default(false)
+  optOutAt            DateTime?
+  /// Short random code used in the "stop" link of broadcast SMS/email. Created on first send.
+  optOutCode          String?         @unique
   city                String?
   area                String?
   category            VendorCategory?
@@ -1738,6 +1752,7 @@ model Lead {
   activities          LeadActivity[]
   tasks               CrmTask[]
   prospect            Prospect?
+  broadcastRecipients LeadBroadcastRecipient[]
 
   @@index([type, stage])
   @@index([ownerId, stage])
@@ -1833,6 +1848,9 @@ model Prospect {
   website          String?
   instagram        String?
   facebook         String?
+  tiktok           String?
+  twitter          String?
+  youtube          String?
   mapsUrl          String?
   rating           Float?
   reviewCount      Int?
@@ -3138,4 +3156,63 @@ model SmoisWebhookEvent {
 
   @@unique([provider, eventKey])
   @@map("smois_webhook_events")
+}
+
+/// A phone number or email that must never receive lead marketing again. Kept apart from Lead so an
+/// opt-out survives the lead being deleted or the same business being found again.
+model OutreachSuppression {
+  id        String          @id @default(uuid())
+  channel   CampaignChannel
+  /// Last 10 digits of the phone (SMS) or the lowercase email (EMAIL).
+  key       String
+  reason    String?
+  createdAt DateTime        @default(now())
+
+  @@unique([channel, key])
+  @@map("outreach_suppressions")
+}
+
+/// A staff-confirmed bulk SMS/email to pipeline leads. Social profiles are never broadcast to.
+model LeadBroadcast {
+  id           String                   @id @default(uuid())
+  name         String
+  channels     CampaignChannel[]
+  body         String
+  emailSubject String?
+  ctaUrl       String?
+  /// The filters staff chose, kept so the send can be explained later.
+  filters      Json
+  status       CampaignStatus           @default(SENDING)
+  audienceSize Int                      @default(0)
+  createdById  String
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  createdBy    User                     @relation("LeadBroadcastCreator", fields: [createdById], references: [id])
+  recipients   LeadBroadcastRecipient[]
+
+  @@index([status, createdAt])
+  @@map("lead_broadcasts")
+}
+
+model LeadBroadcastRecipient {
+  id          String          @id @default(uuid())
+  broadcastId String
+  leadId      String
+  channel     CampaignChannel
+  status      RecipientStatus @default(PENDING)
+  error       String?
+  sentAt      DateTime?
+  createdAt   DateTime        @default(now())
+  /// Bumped on every status change; used to detect sends interrupted mid-flight.
+  updatedAt   DateTime        @updatedAt
+  broadcast   LeadBroadcast   @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  lead        Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastId, leadId, channel])
+  @@index([broadcastId, status])
+  @@index([leadId, sentAt])
+  @@index([channel, createdAt])
+  @@map("lead_broadcast_recipients")
 }

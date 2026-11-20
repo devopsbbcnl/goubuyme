@@ -6,6 +6,7 @@ import prisma from '../../config/db';
 import { AuthRequest } from '../../middleware/auth.middleware';
 import { catchAsync } from '../../utils/catchAsync';
 import { apiResponse } from '../../utils/apiResponse';
+import { normalizeSocial, SOCIAL_PLATFORMS } from '../../services/crm/outreach';
 import {
   LEAD_SOURCES, LEAD_STAGES, LeadError, OPEN_STAGES, findDuplicateLead, normalizeEmail, parseLeadImport,
   phoneKey, pipelineSummary, stageChangeData,
@@ -57,6 +58,23 @@ const parseLeadFields = async (body: Record<string, unknown>, partial: boolean) 
     if (email && !normalizeEmail(email)) throw new LeadError('Enter a valid email.');
     data.email = email ? normalizeEmail(email) : null;
   }
+  for (const platform of SOCIAL_PLATFORMS) {
+    if (!has(platform)) continue;
+    const raw = str(body[platform], 200);
+    const url = raw ? normalizeSocial(platform, raw) : null;
+    if (raw && !url) throw new LeadError(`That doesn't look like a ${platform === 'twitter' ? 'X (Twitter)' : platform} profile link.`);
+    data[platform] = url;
+  }
+  if (has('website')) {
+    const w = str(body.website, 200);
+    if (w && !/^https?:\/\/[^\s]+\.[^\s]+$/i.test(w)) throw new LeadError('Website must start with http:// or https://');
+    data.website = w;
+  }
+  if (has('whatsapp')) {
+    const wa = str(body.whatsapp, 30);
+    if (wa && !phoneKey(wa)) throw new LeadError('Enter a valid WhatsApp number.');
+    data.whatsapp = wa;
+  }
   if (has('city')) data.city = str(body.city, 80);
   if (has('area')) data.area = str(body.area, 80);
   if (has('category')) {
@@ -88,7 +106,7 @@ const parseLeadFields = async (body: Record<string, unknown>, partial: boolean) 
 const leadListSelect = {
   id: true, type: true, name: true, contactName: true, phone: true, email: true, city: true, area: true, category: true,
   source: true, stage: true, lostReason: true, estimatedMonthlyGmv: true, stageChangedAt: true, createdAt: true,
-  convertedUserId: true,
+  convertedUserId: true, marketingOptOut: true, whatsapp: true,
   owner: { select: { id: true, name: true } },
   _count: { select: { tasks: { where: { status: 'OPEN' } } } },
 } satisfies Prisma.LeadSelect;

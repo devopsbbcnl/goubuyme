@@ -24,6 +24,9 @@ import {
   addProspects, createSearchAndRun, deleteSearch, getFinderStatus, getOutreach, getRun, interpret, listProspects, listSearches,
   patchSearch, rewriteOutreach, runSearch, setProspectStatus,
 } from '../controllers/crm/prospecting.controller';
+import {
+  getBroadcast, getBroadcastSettings, listBroadcasts, optOutLeadHandler, previewLeadBroadcast, sendLeadBroadcast, stopLeadBroadcast,
+} from '../controllers/crm/leadBroadcast.controller';
 import { getCrmOverview } from '../controllers/crm/overview.controller';
 
 const router = Router();
@@ -112,6 +115,15 @@ router.patch('/leads/:id',                   ...opsAuth,   updateLead);
 router.delete('/leads/:id',                  ...superAuth, deleteLead);
 router.post('/leads/:id/activities',         ...opsAuth,   addLeadActivity);
 router.post('/leads/:id/link',               ...opsAuth,   linkLeadAccount);
+router.post('/leads/:id/opt-out',            ...opsAuth,   optOutLeadHandler);
+
+// Lead broadcasts: previewing is ops, actually sending is super admin (messaging people at scale)
+router.get('/lead-broadcasts/settings',      ...readAuth,  getBroadcastSettings);
+router.get('/lead-broadcasts',               ...readAuth,  listBroadcasts);
+router.post('/lead-broadcasts/preview',      ...opsAuth,   previewLeadBroadcast);
+router.post('/lead-broadcasts',              ...superAuth, sendLeadBroadcast);
+router.get('/lead-broadcasts/:id',           ...readAuth,  getBroadcast);
+router.post('/lead-broadcasts/:id/cancel',   ...superAuth, stopLeadBroadcast);
 
 // Lead finder. Running a search spends money with the places provider, so it is ops and above.
 router.get('/prospecting/status',                        ...readAuth, getFinderStatus);

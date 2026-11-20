@@ -60,8 +60,7 @@ describe('extractContacts', () => {
       <a href="tel:+234 803 123 4567">Call</a> Also 0802-555-1234 and 12345.
       <a href="https://wa.me/2348031234567?text=I%20want%20to%20order">Order on WhatsApp</a>
       <a href="https://www.instagram.com/mamaput_ph/">IG</a> <a href="https://instagram.com/p/abc123">post</a>
-      <a href="https://facebook.com/sharer/sharer.php?u=x">share</a> <a href="https://web.facebook.com/mamaputph">FB</a>
-      <a href="/contact-us#form">Contact</a>
+      <a href="https://facebook.com/sharer/sharer.php?u=x">share</a> <a href="https://web.facebook.com/mamaputph">FB</a> <a href="https://www.tiktok.com/@mamaput_ph?lang=en">TT</a> <a href="https://twitter.com/intent/tweet?text=x">tweet</a>      <a href="/contact-us#form">Contact</a>
       We offer home delivery. Find us on Chowdeck and Glovo.
     </body></html>`;
   const c = extractContacts(html, 'https://mamaput.ng/');
@@ -78,6 +77,9 @@ describe('extractContacts', () => {
     expect(c.whatsapp).toBe('+2348031234567');
     expect(c.instagram).toBe('https://www.instagram.com/mamaput_ph');
     expect(c.facebook).toBe('https://web.facebook.com/mamaputph');
+    expect(c.tiktok).toBe('https://www.tiktok.com/@mamaput_ph');
+    expect(c.twitter).toBeNull(); // a share button is not a profile
+    expect(c.youtube).toBeNull();
     expect(c.contactPage).toBe('https://mamaput.ng/contact-us');
   });
 
@@ -89,7 +91,7 @@ describe('extractContacts', () => {
 
   it('returns empty results, not guesses, for a page with nothing on it', () => {
     expect(extractContacts('<p>Welcome</p>', 'https://x.ng')).toEqual({
-      emails: [], phones: [], whatsapp: null, instagram: null, facebook: null, contactPage: null, mentionsDelivery: false, competitors: [], ordersViaChat: false,
+      emails: [], phones: [], whatsapp: null, instagram: null, facebook: null, tiktok: null, twitter: null, youtube: null, contactPage: null, mentionsDelivery: false, competitors: [], ordersViaChat: false,
     });
   });
 });
@@ -118,6 +120,9 @@ describe('contact helpers', () => {
     expect(linkKind('https://www.instagram.com/shop')).toBe('instagram');
     expect(linkKind('https://m.facebook.com/shop')).toBe('facebook');
     expect(linkKind('https://wa.me/2348031234567')).toBe('whatsapp');
+    expect(linkKind('https://www.tiktok.com/@shop')).toBe('tiktok');
+    expect(linkKind('https://x.com/shop')).toBe('twitter');
+    expect(linkKind('https://www.youtube.com/@shop')).toBe('youtube');
     expect(linkKind('https://shop.ng')).toBe('site');
     expect(linkKind('not a url')).toBe('site');
   });

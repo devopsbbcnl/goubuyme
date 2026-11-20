@@ -14,7 +14,7 @@ import {
 } from '@/components/crm/leads';
 import { FitBadge, FitReasons, OutreachPanel, Prospect, ProspectLinks } from '@/components/crm/prospecting';
 
-type ActivityType = 'NOTE' | 'CALL' | 'VISIT' | 'EMAIL' | 'WHATSAPP' | 'STAGE_CHANGE' | 'CONVERTED';
+type ActivityType = 'NOTE' | 'CALL' | 'VISIT' | 'EMAIL' | 'WHATSAPP' | 'SMS' | 'STAGE_CHANGE' | 'CONVERTED';
 
 interface LeadDetail extends Omit<Lead, 'openTasks'> {
   convertedUser: null | {
@@ -27,7 +27,7 @@ interface LeadDetail extends Omit<Lead, 'openTasks'> {
 }
 
 const ACTIVITY_ICON: Record<ActivityType, string> = {
-  NOTE: '📝', CALL: '📞', VISIT: '🚶', EMAIL: '✉️', WHATSAPP: '💬', STAGE_CHANGE: '➡️', CONVERTED: '🎉',
+  NOTE: '📝', CALL: '📞', VISIT: '🚶', EMAIL: '✉️', WHATSAPP: '💬', SMS: '📱', STAGE_CHANGE: '➡️', CONVERTED: '🎉',
 };
 const LOGGABLE: Array<{ type: ActivityType; label: string }> = [
   { type: 'CALL', label: 'Call' }, { type: 'VISIT', label: 'Visit' }, { type: 'WHATSAPP', label: 'WhatsApp' },
@@ -75,6 +75,12 @@ export default function LeadPage() {
       setActivityBody('');
       await load();
     } catch (err) { setError((err as Error).message); } finally { setLogging(false); }
+  };
+
+  // One-way on purpose: only the person (through the link in a message) can opt back in.
+  const markOptedOut = async () => {
+    setError('');
+    try { await api.post(`/admin/crm/leads/${leadId}/opt-out`, {}); await load(); } catch (err) { setError((err as Error).message); }
   };
 
   const remove = async () => {
@@ -221,6 +227,28 @@ export default function LeadPage() {
                 </div>
                 {canEdit && <LinkAccount lead={lead} onLinked={load} />}
               </>
+            )}
+          </Card>
+
+          <Card>
+            <SectionLabel>Messaging &amp; online presence</SectionLabel>
+            <div style={{ fontSize: 12, marginBottom: 10, color: lead.marketingOptOut ? T.error : T.textSec }}>
+              {lead.marketingOptOut
+                ? `Opted out${lead.optOutAt ? ` on ${fmtDateTime(lead.optOutAt)}` : ''}. No broadcast SMS or email will go to this lead.`
+                : 'Can receive broadcast SMS and email (each carries an opt-out link).'}
+            </div>
+            <ProspectLinks p={lead} />
+            {lead.whatsapp && (
+              <a href={`https://wa.me/${lead.whatsapp.replace(/\D/g, '').replace(/^0/, '234')}`} target="_blank" rel="noreferrer noopener"
+                style={{ display: 'inline-block', marginTop: 8, fontSize: 12, fontWeight: 700, color: T.primary, textDecoration: 'none' }}>WhatsApp {lead.whatsapp} ↗</a>
+            )}
+            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 8 }}>
+              Instagram, TikTok, X and the rest can&apos;t be messaged in bulk. Open the profile and message by hand, then log it as a note.
+            </div>
+            {canEdit && !lead.marketingOptOut && (
+              <button onClick={markOptedOut} style={{ ...field, marginTop: 10, fontWeight: 700, cursor: 'pointer', color: T.error, borderColor: T.error, background: 'transparent' }}>
+                They asked us to stop: mark opted out
+              </button>
             )}
           </Card>
 

@@ -13,7 +13,15 @@ export interface Lead {
   city: string | null; area: string | null; category: string | null; source: LeadSource; stage: LeadStage;
   lostReason: string | null; estimatedMonthlyGmv: number | null; stageChangedAt: string; createdAt: string;
   convertedUserId: string | null; owner: { id: string; name: string } | null; openTasks: number;
+  marketingOptOut?: boolean; optOutAt?: string | null;
+  whatsapp?: string | null; website?: string | null; instagram?: string | null; facebook?: string | null;
+  tiktok?: string | null; twitter?: string | null; youtube?: string | null;
 }
+
+export const SOCIAL_FIELDS = ['whatsapp', 'website', 'instagram', 'tiktok', 'facebook', 'twitter', 'youtube'] as const;
+export const SOCIAL_LABEL: Record<(typeof SOCIAL_FIELDS)[number], string> = {
+  whatsapp: 'WhatsApp number', website: 'Website', instagram: 'Instagram', tiktok: 'TikTok', facebook: 'Facebook', twitter: 'X (Twitter)', youtube: 'YouTube',
+};
 
 export const STAGES: LeadStage[] = ['NEW', 'CONTACTED', 'INTERESTED', 'ONBOARDING', 'LIVE', 'LOST'];
 
@@ -68,6 +76,8 @@ export function LeadFormModal({ lead, defaultType, onClose, onSaved }: {
     city: lead?.city ?? '', area: lead?.area ?? '', category: lead?.category ?? '', source: lead?.source ?? 'FIELD',
     estimatedMonthlyGmv: lead?.estimatedMonthlyGmv != null ? String(lead.estimatedMonthlyGmv) : '',
     ownerId: lead?.owner?.id ?? '', note: '',
+    whatsapp: lead?.whatsapp ?? '', website: lead?.website ?? '', instagram: lead?.instagram ?? '', tiktok: lead?.tiktok ?? '',
+    facebook: lead?.facebook ?? '', twitter: lead?.twitter ?? '', youtube: lead?.youtube ?? '',
   });
   const [duplicateWarning, setDuplicateWarning] = useState('');
   const [saving, setSaving] = useState(false);
@@ -88,6 +98,7 @@ export function LeadFormModal({ lead, defaultType, onClose, onSaved }: {
         type: form.type, name: form.name, contactName: form.contactName, phone: form.phone, email: form.email,
         city: form.city, area: form.area, category: isVendor ? (form.category || null) : null, source: form.source,
         estimatedMonthlyGmv: form.estimatedMonthlyGmv === '' ? null : Number(form.estimatedMonthlyGmv),
+        ...(isVendor ? Object.fromEntries(SOCIAL_FIELDS.map(k => [k, form[k]])) : {}),
         ...(form.ownerId ? { ownerId: form.ownerId } : lead ? { ownerId: null } : {}),
       };
       const res = lead
@@ -140,6 +151,19 @@ export function LeadFormModal({ lead, defaultType, onClose, onSaved }: {
             {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </label>
+        {isVendor && (
+          <>
+            <div style={{ gridColumn: '1 / -1', fontSize: 12, fontWeight: 800, color: T.text, marginTop: 4 }}>
+              Online presence <span style={{ fontWeight: 500, color: T.textMuted }}>(optional: links and @handles; these are opened and messaged by hand, never in bulk)</span>
+            </div>
+            {SOCIAL_FIELDS.map(k => (
+              <label key={k} style={label}>{SOCIAL_LABEL[k]}
+                <input value={form[k]} onChange={e => set(k, e.target.value)} style={field}
+                  placeholder={k === 'whatsapp' ? '0803…' : k === 'website' ? 'https://…' : k === 'instagram' || k === 'tiktok' || k === 'twitter' ? '@handle or link' : 'Profile link'} />
+              </label>
+            ))}
+          </>
+        )}
         {!lead && (
           <label style={{ ...label, gridColumn: '1 / -1' }}>First note (optional)
             <textarea value={form.note} onChange={e => set('note', e.target.value)} rows={2} maxLength={2000} placeholder="Met owner at shop, interested in delivery for lunch rush" style={{ ...field, resize: 'vertical' }} />

@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -141,6 +142,7 @@ export default function PipelinePage() {
         </div>
         {canEdit && (
           <div style={{ display: 'flex', gap: 8 }}>
+            <Link href="/crm/lead-broadcasts/new" style={{ ...field, fontWeight: 700, cursor: 'pointer', padding: '9px 14px', textDecoration: 'none' }}>Broadcast</Link>
             <button onClick={() => setImporting(true)} style={{ ...field, fontWeight: 700, cursor: 'pointer', padding: '9px 14px' }}>Import CSV</button>
             <button onClick={() => setAdding(true)} style={{ padding: '9px 16px', borderRadius: 4, border: 'none', background: T.primary, color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Add lead</button>
           </div>
