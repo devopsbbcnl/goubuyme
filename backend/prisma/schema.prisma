@@ -486,16 +486,16 @@ model OrderEvent {
 /// One row per order event announced to admins (in-app feed + Telegram). The unique orderEventId
 /// is what keeps a retry or a second poll from announcing the same event twice.
 model OrderAlert {
-  id              String    @id @default(uuid())
-  orderEventId    String    @unique
-  orderId         String
-  orderNumber     String
-  kind            String
-  urgent          Boolean   @default(false)
-  title           String
-  summary         String
-  telegramSentAt  DateTime?
-  createdAt       DateTime  @default(now())
+  id             String    @id @default(uuid())
+  orderEventId   String    @unique
+  orderId        String
+  orderNumber    String
+  kind           String
+  urgent         Boolean   @default(false)
+  title          String
+  summary        String
+  telegramSentAt DateTime?
+  createdAt      DateTime  @default(now())
 
   @@index([createdAt])
   @@index([orderId, createdAt])
@@ -718,21 +718,21 @@ model RiderDocument {
 }
 
 model VendorPromotion {
-  id            String   @id @default(uuid())
-  vendorId      String
-  title         String
-  imageUrl      String
-  imagePosition String?
-  code          String?
-  isActive      Boolean  @default(false)
+  id              String          @id @default(uuid())
+  vendorId        String
+  title           String
+  imageUrl        String
+  imagePosition   String?
+  code            String?
+  isActive        Boolean         @default(false)
   /// A card only reaches the customer carousel once an admin approves it.
   approvalStatus  PromotionStatus @default(PENDING)
   reviewedById    String?
   reviewedAt      DateTime?
   rejectionReason String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  vendor          Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([approvalStatus])
   @@map("vendor_promotions")
@@ -1208,6 +1208,8 @@ enum Role {
   SUPPORT_ADMIN
   /// Social media department staff (SMOIS). Admin console access limited to /admin/smois.
   SOCIAL_MEDIA
+  /// Employee self-service (PWM My HR). Admin console access limited to /my-hr.
+  STAFF
 }
 
 /// One row per user per onboarding transition (first occurrence wins, enforced
@@ -1712,7 +1714,7 @@ enum TaskPriority {
 
 /// A prospective vendor or rider being signed up by the ops/sales team.
 model Lead {
-  id                  String          @id @default(uuid())
+  id                  String                   @id @default(uuid())
   type                LeadType
   /// Business name for vendors, person's name for riders.
   name                String
@@ -1729,26 +1731,26 @@ model Lead {
   twitter             String?
   youtube             String?
   /// The person asked us to stop marketing messages. Staff can set it; only the person can clear it.
-  marketingOptOut     Boolean         @default(false)
+  marketingOptOut     Boolean                  @default(false)
   optOutAt            DateTime?
   /// Short random code used in the "stop" link of broadcast SMS/email. Created on first send.
-  optOutCode          String?         @unique
+  optOutCode          String?                  @unique
   city                String?
   area                String?
   category            VendorCategory?
-  source              LeadSource      @default(OTHER)
-  stage               LeadStage       @default(NEW)
+  source              LeadSource               @default(OTHER)
+  stage               LeadStage                @default(NEW)
   lostReason          String?
   estimatedMonthlyGmv Float?
   ownerId             String?
-  convertedUserId     String?         @unique
-  stageChangedAt      DateTime        @default(now())
+  convertedUserId     String?                  @unique
+  stageChangedAt      DateTime                 @default(now())
   liveAt              DateTime?
   lostAt              DateTime?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  owner               User?           @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  convertedUser       User?           @relation("LeadConvertedUser", fields: [convertedUserId], references: [id], onDelete: SetNull)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  owner               User?                    @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  convertedUser       User?                    @relation("LeadConvertedUser", fields: [convertedUserId], references: [id], onDelete: SetNull)
   activities          LeadActivity[]
   tasks               CrmTask[]
   prospect            Prospect?
@@ -2010,7 +2012,7 @@ model AgentSuggestion {
 /// when staff send it and never edited or deleted — it is the record of what the
 /// platform said and to how many people.
 model Broadcast {
-  id             String            @id @default(uuid())
+  id             String              @id @default(uuid())
   authorId       String
   audience       BroadcastAudience
   /// Set only when audience is USER: the one account the message was addressed to.
@@ -2022,17 +2024,17 @@ model Broadcast {
   /// Of those, how many had a push token or web subscription to be buzzed on.
   pushCount      Int
   /// Delivered as an in-app Notification row + push. False for an email-only broadcast.
-  sendInApp      Boolean           @default(true)
+  sendInApp      Boolean             @default(true)
   /// Also sent by email. SERVICE reaches every active account; PROMOTIONAL skips users who opted out of marketing.
-  sendEmail      Boolean           @default(false)
+  sendEmail      Boolean             @default(false)
   emailType      BroadcastEmailType?
   /// The longer email text; falls back to `body` when null.
   emailBody      String?
   /// Accounts the email was addressed to (each one a Resend message).
-  emailCount     Int               @default(0)
-  createdAt      DateTime          @default(now())
-  author         User              @relation("BroadcastAuthor", fields: [authorId], references: [id])
-  targetUser     User?             @relation("BroadcastTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  emailCount     Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  author         User                @relation("BroadcastAuthor", fields: [authorId], references: [id])
+  targetUser     User?               @relation("BroadcastTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([targetUserId])
@@ -3215,4 +3217,1586 @@ model LeadBroadcastRecipient {
   @@index([leadId, sentAt])
   @@index([channel, createdAt])
   @@map("lead_broadcast_recipients")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PWM: People & Workforce Management (Phase 1). Admin module under /pwm.
+// User ids are stored as plain strings (no FK) so staff data never blocks a user clean-up;
+// names are joined in the controllers. HR activity goes to AuditLog with entity "Pwm*" (append-only).
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum PwmRole {
+  HR_ADMIN
+  HR_OFFICER
+  DEPARTMENT_HEAD
+  EXECUTIVE
+  FINANCE
+  AUDITOR
+}
+
+enum PwmEmploymentStatus {
+  PENDING_ONBOARDING
+  PROBATION
+  ACTIVE
+  RENEWAL_PENDING
+  CONTRACT_ISSUED
+  ON_LEAVE
+  SUSPENDED
+  NOTICE_PERIOD
+  CONTRACT_EXPIRED
+  RESIGNED
+  TERMINATED
+  ARCHIVED
+}
+
+enum PwmContractStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ISSUED
+  SIGNED
+  ACTIVE
+  RENEWAL_PENDING
+  EXPIRED_ACTION_REQUIRED
+  EXPIRED
+  NOT_RENEWED
+  SUPERSEDED
+  TERMINATED_EARLY
+  DECLINED
+  CANCELLED
+  ARCHIVED
+}
+
+enum PwmApprovalStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PwmRenewalDecision {
+  RENEW_SAME_TERMS
+  RENEW_WITH_CHANGES
+  EXTEND
+  CONVERT_TO_PERMANENT
+  DO_NOT_RENEW
+  OTHER
+}
+
+enum PwmRenewalStep {
+  RECOMMENDATION
+  DECISION
+  PREPARATION
+  ISSUANCE
+  SIGNATURE
+  COMPLETED
+  CLOSED
+}
+
+enum PwmReminderStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum PwmChecklistKind {
+  ONBOARDING
+  OFFBOARDING
+}
+
+enum PwmTaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  SKIPPED
+}
+
+/// Who may use PWM besides super admins, and at what level.
+model PwmMember {
+  id                  String    @id @default(uuid())
+  userId              String    @unique
+  role                PwmRole
+  isActive            Boolean   @default(true)
+  jobTitle            String?
+  /// Receives the T-1 / T0 / T+n alerts meant for the Managing Director.
+  isMd                Boolean   @default(false)
+  /// HR administrators only see pay when this is switched on (PRD 13.2 note).
+  canViewCompensation Boolean   @default(false)
+  revokedAt           DateTime?
+  createdById         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([role, isActive])
+  @@map("pwm_members")
+}
+
+model PwmSettings {
+  id          String   @id @default("default")
+  config      Json     @default("{}")
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("pwm_settings")
+}
+
+model PwmCounter {
+  key   String @id
+  value Int    @default(0)
+
+  @@map("pwm_counters")
+}
+
+model PwmDepartment {
+  id             String    @id @default(uuid())
+  name           String    @unique
+  code           String?
+  parentId       String?
+  headEmployeeId String?
+  isActive       Boolean   @default(true)
+  archivedAt     DateTime?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  parent    PwmDepartment?  @relation("PwmDeptTree", fields: [parentId], references: [id])
+  children  PwmDepartment[] @relation("PwmDeptTree")
+  head      PwmEmployee?    @relation("PwmDeptHead", fields: [headEmployeeId], references: [id])
+  employees PwmEmployee[]   @relation("PwmEmployeeDept")
+
+  @@map("pwm_departments")
+}
+
+model PwmEmployee {
+  id                String              @id @default(uuid())
+  employeeNo        String              @unique
+  /// Link to a system login, when the person has one (needed to receive alerts).
+  userId            String?             @unique
+  title             String?
+  firstName         String
+  middleName        String?
+  lastName          String
+  knownAs           String?
+  photoUrl          String?
+  dateOfBirth       DateTime?           @db.Date
+  sex               String?
+  maritalStatus     String?
+  nationality       String?
+  stateOfOrigin     String?
+  workEmail         String?             @unique
+  personalEmail     String?
+  phone             String?
+  address           String?
+  emergencyContacts Json?
+  nextOfKin         Json?
+  guarantors        Json?
+  companyEntity     String              @default("Main")
+  departmentId      String?
+  jobTitle          String
+  grade             String?
+  managerId         String?
+  location          String?
+  workArrangement   String              @default("ON_SITE")
+  hireDate          DateTime            @db.Date
+  originalHireDate  DateTime?           @db.Date
+  employmentType    String
+  status            PwmEmploymentStatus @default(PENDING_ONBOARDING)
+  probationEndDate  DateTime?           @db.Date
+  confirmationDate  DateTime?           @db.Date
+  costCentre        String?
+  hrOfficerUserId   String?
+  /// Highly restricted: AES-256-GCM encrypted, never returned in lists, revealed only with a logged reason.
+  nin               String?
+  tin               String?
+  rsaPin            String?
+  pfaName           String?
+  nhfNo             String?
+  bankName          String?
+  bankAccountNo     String?
+  bankAccountName   String?
+  exitType          String?
+  exitDate          DateTime?           @db.Date
+  finalWorkingDay   DateTime?           @db.Date
+  exitReason        String?
+  rehireEligible    Boolean?
+  employmentEpisode Int                 @default(1)
+  archivedAt        DateTime?
+  createdById       String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  version           Int                 @default(1)
+
+  department       PwmDepartment?            @relation("PwmEmployeeDept", fields: [departmentId], references: [id])
+  headOf           PwmDepartment[]           @relation("PwmDeptHead")
+  manager          PwmEmployee?              @relation("PwmReporting", fields: [managerId], references: [id])
+  reports          PwmEmployee[]             @relation("PwmReporting")
+  contracts        PwmContract[]
+  renewals         PwmRenewal[]
+  statusLog        PwmStatusChange[]
+  documents        PwmDocument[]
+  checklists       PwmChecklist[]
+  compensation     PwmCompensation[]
+  scheduleId       String?
+  schedule         PwmSchedule?              @relation(fields: [scheduleId], references: [id])
+  leaveBalances    PwmLeaveBalance[]
+  leaveRequests    PwmLeaveRequest[]
+  attendance       PwmAttendance[]
+  corrections      PwmAttendanceCorrection[]
+  overtime         PwmOvertime[]
+  reviews          PwmReview[]
+  objectives       PwmObjective[]
+  enrolments       PwmEnrolment[]
+  devPlans         PwmDevelopmentPlan[]
+  skillAssessments PwmSkillAssessment[]
+  assetAssignments PwmAssetAssignment[]
+  cases            PwmCase[]
+  recognitions     PwmRecognition[]
+  expenseClaims    PwmExpenseClaim[]
+  travelRequests   PwmTravelRequest[]
+
+  @@index([status])
+  @@index([departmentId])
+  @@index([lastName, firstName])
+  @@map("pwm_employees")
+}
+
+model PwmStatusChange {
+  id             String              @id @default(uuid())
+  employeeId     String
+  fromStatus     PwmEmploymentStatus
+  toStatus       PwmEmploymentStatus
+  effectiveDate  DateTime            @db.Date
+  reason         String
+  requestedById  String?
+  /// True when the system itself made the change (only Renewal pending / Contract expired are allowed).
+  bySystem       Boolean             @default(false)
+  approvalStatus PwmApprovalStatus   @default(NOT_REQUIRED)
+  approvedById   String?
+  approvedAt     DateTime?
+  decisionNote   String?
+  appliedAt      DateTime?
+  createdAt      DateTime            @default(now())
+
+  employee PwmEmployee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, createdAt])
+  @@index([approvalStatus, appliedAt])
+  @@map("pwm_status_changes")
+}
+
+model PwmContract {
+  id                       String              @id @default(uuid())
+  reference                String              @unique
+  employeeId               String
+  departmentName           String?
+  jobTitle                 String?
+  contractType             String
+  status                   PwmContractStatus   @default(DRAFT)
+  commencementDate         DateTime            @db.Date
+  expiryDate               DateTime?           @db.Date
+  renewalEligibility       String              @default("SUBJECT_TO_REVIEW")
+  renewalEligibilityNote   String?
+  probationMonths          Int?
+  probationEndDate         DateTime?           @db.Date
+  noticeValue              Int?
+  noticeUnit               String?
+  workingPattern           String?
+  hoursPerWeek             Int?
+  approvalStatus           PwmApprovalStatus   @default(NOT_REQUIRED)
+  approvedById             String?
+  approvedAt               DateTime?
+  approvalNote             String?
+  issuedAt                 DateTime?
+  issuedById               String?
+  signedDate               DateTime?           @db.Date
+  countersignedDate        DateTime?           @db.Date
+  renewalDecision          PwmRenewalDecision?
+  decidedById              String?
+  /// Set when an authorised decision is recorded; stops the expiry reminders (PRD REM-05).
+  decisionRecordedAt       DateTime?
+  predecessorId            String?             @unique
+  templateName             String?
+  responsibleOfficerUserId String?
+  isImported               Boolean             @default(false)
+  notes                    String?
+  archivedAt               DateTime?
+  createdById              String?
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  version                  Int                 @default(1)
+
+  employee    PwmEmployee            @relation(fields: [employeeId], references: [id])
+  predecessor PwmContract?           @relation("PwmContractChain", fields: [predecessorId], references: [id])
+  successor   PwmContract?           @relation("PwmContractChain")
+  amendments  PwmContractAmendment[]
+  documents   PwmDocument[]
+  renewals    PwmRenewal[]
+  tiers       PwmReminderTier[]
+  reminders   PwmReminder[]
+
+  @@index([status, expiryDate])
+  @@index([employeeId])
+  @@map("pwm_contracts")
+}
+
+model PwmContractAmendment {
+  id               String    @id @default(uuid())
+  contractId       String
+  effectiveDate    DateTime  @db.Date
+  summary          String
+  newExpiryDate    DateTime? @db.Date
+  documentUrl      String?
+  documentChecksum String?
+  createdById      String?
+  createdAt        DateTime  @default(now())
+
+  contract PwmContract @relation(fields: [contractId], references: [id])
+
+  @@index([contractId])
+  @@map("pwm_contract_amendments")
+}
+
+/// Files and certifications. Contract PDFs are versions of the same category, none are overwritten.
+model PwmDocument {
+  id           String    @id @default(uuid())
+  employeeId   String
+  contractId   String?
+  /// DOCUMENT or CERTIFICATION
+  kind         String    @default("DOCUMENT")
+  category     String
+  name         String
+  issuer       String?
+  number       String?
+  issueDate    DateTime? @db.Date
+  expiryDate   DateTime? @db.Date
+  url          String
+  checksum     String?
+  restricted   Boolean   @default(false)
+  version      Int       @default(1)
+  uploadedById String?
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  employee PwmEmployee  @relation(fields: [employeeId], references: [id])
+  contract PwmContract? @relation(fields: [contractId], references: [id])
+
+  @@index([employeeId, kind])
+  @@index([expiryDate])
+  @@map("pwm_documents")
+}
+
+model PwmRenewal {
+  id                  String              @id @default(uuid())
+  contractId          String
+  employeeId          String
+  step                PwmRenewalStep      @default(RECOMMENDATION)
+  recommendation      PwmRenewalDecision?
+  recommendationNote  String?
+  recommendedById     String?
+  recommendedAt       DateTime?
+  decision            PwmRenewalDecision?
+  decisionNote        String?
+  decidedById         String?
+  decidedAt           DateTime?
+  newExpiryDate       DateTime?           @db.Date
+  successorContractId String?
+  dueRecommendation   DateTime            @db.Date
+  dueDecision         DateTime            @db.Date
+  duePreparation      DateTime            @db.Date
+  dueIssuance         DateTime            @db.Date
+  dueSignature        DateTime            @db.Date
+  completedAt         DateTime?
+  closedReason        String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  contract PwmContract       @relation(fields: [contractId], references: [id])
+  employee PwmEmployee       @relation(fields: [employeeId], references: [id])
+  events   PwmRenewalEvent[]
+
+  @@index([step])
+  @@index([contractId])
+  @@map("pwm_renewals")
+}
+
+/// Approval history kept permanently against the contract (PRD REN-09).
+model PwmRenewalEvent {
+  id        String   @id @default(uuid())
+  renewalId String
+  action    String
+  actorId   String?
+  note      String?
+  createdAt DateTime @default(now())
+
+  renewal PwmRenewal @relation(fields: [renewalId], references: [id])
+
+  @@index([renewalId, createdAt])
+  @@map("pwm_renewal_events")
+}
+
+/// One row per contract, tier and expiry date: the reminder engine remembers what it has already decided.
+model PwmReminderTier {
+  id         String   @id @default(uuid())
+  contractId String
+  tierKey    String
+  expiryDate DateTime @db.Date
+  /// DISPATCHED, SKIPPED_CATCHUP, SUPPRESSED_IMPORT
+  outcome    String
+  note       String?
+  createdAt  DateTime @default(now())
+
+  contract PwmContract @relation(fields: [contractId], references: [id])
+
+  @@unique([contractId, tierKey, expiryDate])
+  @@map("pwm_reminder_tiers")
+}
+
+model PwmReminder {
+  id              String            @id @default(uuid())
+  /// CONTRACT_EXPIRY, PROBATION, CERTIFICATION, RENEWAL_SLA, CONFIG_GAP
+  kind            String
+  contractId      String?
+  employeeId      String?
+  documentId      String?
+  renewalId       String?
+  tierKey         String
+  severity        String            @default("INFO")
+  expiryDate      DateTime?         @db.Date
+  recipientUserId String
+  recipientRole   String
+  channel         String
+  idempotencyKey  String            @unique
+  title           String
+  body            String
+  link            String?
+  requiresAck     Boolean           @default(false)
+  status          PwmReminderStatus @default(QUEUED)
+  scheduledFor    DateTime          @default(now())
+  sentAt          DateTime?
+  attempts        Int               @default(0)
+  nextAttemptAt   DateTime?
+  lastError       String?
+  readAt          DateTime?
+  acknowledgedAt  DateTime?
+  escalatedAt     DateTime?
+  cancelReason    String?
+  createdAt       DateTime          @default(now())
+
+  contract PwmContract? @relation(fields: [contractId], references: [id])
+
+  @@index([recipientUserId, status])
+  @@index([status, nextAttemptAt])
+  @@index([contractId])
+  @@map("pwm_reminders")
+}
+
+model PwmChecklist {
+  id            String           @id @default(uuid())
+  employeeId    String
+  kind          PwmChecklistKind
+  startDate     DateTime         @db.Date
+  /// OPEN, COMPLETED or CANCELLED
+  status        String           @default("OPEN")
+  completedAt   DateTime?
+  completedById String?
+  createdById   String?
+  createdAt     DateTime         @default(now())
+
+  employee PwmEmployee        @relation(fields: [employeeId], references: [id])
+  tasks    PwmChecklistTask[]
+
+  @@index([employeeId, kind])
+  @@index([status])
+  @@map("pwm_checklists")
+}
+
+model PwmChecklistTask {
+  id             String        @id @default(uuid())
+  checklistId    String
+  stage          String
+  title          String
+  /// HR_OFFICER, DEPARTMENT_HEAD, IT, ASSETS, FINANCE, EMPLOYEE, HR_ADMIN
+  ownerRole      String
+  assigneeUserId String?
+  dueDate        DateTime?     @db.Date
+  mandatory      Boolean       @default(true)
+  status         PwmTaskStatus @default(PENDING)
+  completedAt    DateTime?
+  completedById  String?
+  note           String?
+  sortOrder      Int           @default(0)
+
+  checklist PwmChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  @@index([checklistId])
+  @@index([assigneeUserId, status])
+  @@map("pwm_checklist_tasks")
+}
+
+/// Effective-dated pay. Prepared by one person and approved by another (segregation of duties).
+model PwmCompensation {
+  id             String            @id @default(uuid())
+  employeeId     String
+  effectiveFrom  DateTime          @db.Date
+  effectiveTo    DateTime?         @db.Date
+  baseSalary     Decimal           @db.Decimal(14, 2)
+  currency       String            @default("NGN")
+  /// [{ name, amount }] allowances, bonuses, deductions
+  components     Json?
+  reason         String
+  approvalStatus PwmApprovalStatus @default(PENDING)
+  preparedById   String?
+  approvedById   String?
+  approvedAt     DateTime?
+  decisionNote   String?
+  createdAt      DateTime          @default(now())
+
+  employee PwmEmployee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, effectiveFrom])
+  @@map("pwm_compensation")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PWM Phase 2: recruitment, policies, announcements, templates, exit, self-service, pre-boarding.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum PwmVacancyStatus {
+  DRAFT
+  PENDING_APPROVAL
+  OPEN
+  ON_HOLD
+  FILLED
+  CLOSED
+}
+
+enum PwmApplicationStage {
+  APPLIED
+  SCREENING
+  INTERVIEW
+  ASSESSMENT
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+model PwmVacancy {
+  id              String           @id @default(uuid())
+  reference       String           @unique
+  title           String
+  departmentId    String?
+  hiringManagerId String?
+  employmentType  String
+  location        String?
+  headcount       Int              @default(1)
+  description     String?
+  requirements    String?
+  status          PwmVacancyStatus @default(DRAFT)
+  /// Shown on the public careers page once open.
+  isPublic        Boolean          @default(false)
+  closingDate     DateTime?        @db.Date
+  openedAt        DateTime?
+  approvedById    String?
+  approvedAt      DateTime?
+  createdById     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  applications PwmApplication[]
+
+  @@index([status])
+  @@map("pwm_vacancies")
+}
+
+model PwmCandidate {
+  id           String    @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String    @unique
+  phone        String?
+  source       String?
+  cvUrl        String?
+  notes        String?
+  /// When the person agreed to us holding their details (NDPA). Public applicants tick this box.
+  consentAt    DateTime?
+  anonymisedAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  applications PwmApplication[]
+
+  @@map("pwm_candidates")
+}
+
+model PwmApplication {
+  id              String              @id @default(uuid())
+  vacancyId       String
+  candidateId     String
+  stage           PwmApplicationStage @default(APPLIED)
+  rating          Int?
+  notes           String?
+  coverNote       String?
+  rejectionReason String?
+  offerNotes      String?
+  offeredAt       DateTime?
+  hiredEmployeeId String?
+  stageChangedAt  DateTime            @default(now())
+  createdAt       DateTime            @default(now())
+
+  vacancy    PwmVacancy     @relation(fields: [vacancyId], references: [id])
+  candidate  PwmCandidate   @relation(fields: [candidateId], references: [id])
+  interviews PwmInterview[]
+
+  @@unique([vacancyId, candidateId])
+  @@index([vacancyId, stage])
+  @@map("pwm_applications")
+}
+
+model PwmInterview {
+  id            String   @id @default(uuid())
+  applicationId String
+  scheduledAt   DateTime
+  mode          String   @default("IN_PERSON")
+  location      String?
+  /// Login ids of the interviewers.
+  panelUserIds  Json?
+  /// SCHEDULED, COMPLETED or CANCELLED
+  status        String   @default("SCHEDULED")
+  /// [{ userId, score, notes }]
+  feedback      Json?
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  application PwmApplication @relation(fields: [applicationId], references: [id])
+
+  @@index([applicationId])
+  @@index([scheduledAt])
+  @@map("pwm_interviews")
+}
+
+model PwmPolicy {
+  id            String    @id @default(uuid())
+  /// Versions of one policy share a slug.
+  slug          String
+  title         String
+  category      String?
+  version       Int       @default(1)
+  body          String?
+  fileUrl       String?
+  /// DRAFT, PUBLISHED or ARCHIVED
+  status        String    @default("DRAFT")
+  requiresAck   Boolean   @default(true)
+  effectiveDate DateTime? @db.Date
+  publishedAt   DateTime?
+  createdById   String?
+  createdAt     DateTime  @default(now())
+
+  acks PwmPolicyAck[]
+
+  @@unique([slug, version])
+  @@index([status])
+  @@map("pwm_policies")
+}
+
+model PwmPolicyAck {
+  id         String   @id @default(uuid())
+  policyId   String
+  employeeId String
+  ackedAt    DateTime @default(now())
+  ip         String?
+
+  policy PwmPolicy @relation(fields: [policyId], references: [id])
+
+  @@unique([policyId, employeeId])
+  @@index([employeeId])
+  @@map("pwm_policy_acks")
+}
+
+model PwmAnnouncement {
+  id            String    @id @default(uuid())
+  title         String
+  body          String
+  /// null = everyone; otherwise department ids
+  departmentIds Json?
+  publishAt     DateTime  @default(now())
+  expiresAt     DateTime?
+  pinned        Boolean   @default(false)
+  createdById   String?
+  archivedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([publishAt])
+  @@map("pwm_announcements")
+}
+
+/// Contract and letter templates with {{merge.fields}}. Only approved templates can be used.
+model PwmTemplate {
+  id           String    @id @default(uuid())
+  slug         String
+  name         String
+  /// CONTRACT, LETTER or EXIT
+  kind         String
+  version      Int       @default(1)
+  body         String
+  /// DRAFT, APPROVED or ARCHIVED
+  status       String    @default("DRAFT")
+  approvedById String?
+  approvedAt   DateTime?
+  createdById  String?
+  createdAt    DateTime  @default(now())
+
+  @@unique([slug, version])
+  @@index([status, kind])
+  @@map("pwm_templates")
+}
+
+model PwmExitInterview {
+  id             String   @id @default(uuid())
+  employeeId     String
+  episode        Int      @default(1)
+  reasonCategory String?
+  wouldRecommend Boolean?
+  /// [{ question, answer }]
+  answers        Json?
+  /// Confidential interviews are visible to the HR administrator and the person who held them only.
+  confidential   Boolean  @default(true)
+  conductedById  String?
+  conductedAt    DateTime @default(now())
+
+  @@unique([employeeId, episode])
+  @@map("pwm_exit_interviews")
+}
+
+model PwmClearance {
+  id         String    @id @default(uuid())
+  employeeId String
+  episode    Int       @default(1)
+  /// DEPARTMENT, IT, FINANCE, ASSETS, HR
+  area       String
+  /// PENDING, CLEARED or BLOCKED
+  status     String    @default("PENDING")
+  note       String?
+  signedById String?
+  signedAt   DateTime?
+
+  @@unique([employeeId, episode, area])
+  @@map("pwm_clearances")
+}
+
+/// A change the employee asked for that HR must verify before it takes effect (bank details).
+model PwmChangeRequest {
+  id           String            @id @default(uuid())
+  employeeId   String
+  /// BANK
+  kind         String
+  /// Encrypted JSON of the requested values
+  payloadEnc   String
+  status       PwmApprovalStatus @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  note         String?
+  createdAt    DateTime          @default(now())
+
+  @@index([status])
+  @@index([employeeId])
+  @@map("pwm_change_requests")
+}
+
+/// A pre-boarding link for a new hire: expiring token plus an emailed one-time code.
+model PwmPreboarding {
+  id          String    @id @default(uuid())
+  employeeId  String
+  tokenHash   String    @unique
+  otpHash     String?
+  otpExpires  DateTime?
+  otpAttempts Int       @default(0)
+  verifiedAt  DateTime?
+  expiresAt   DateTime
+  submittedAt DateTime?
+  revokedAt   DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  @@index([employeeId])
+  @@map("pwm_preboarding")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PWM Phase 3: leave, attendance, performance, public holidays.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum PwmLeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model PwmHoliday {
+  id       String   @id @default(uuid())
+  date     DateTime @db.Date
+  name     String
+  location String?
+
+  @@unique([date, name])
+  @@map("pwm_holidays")
+}
+
+/// Leave policy as data (PRD LEV-01): entitlement, accrual, carry-over, approval chain.
+model PwmLeaveType {
+  id                 String  @id @default(uuid())
+  key                String  @unique
+  name               String
+  annualDays         Decimal @default(0) @db.Decimal(5, 1)
+  /// UPFRONT or MONTHLY
+  accrual            String  @default("UPFRONT")
+  afterProbationOnly Boolean @default(false)
+  minTenureMonths    Int     @default(0)
+  carryOverCap       Decimal @default(0) @db.Decimal(5, 1)
+  maxConsecutiveDays Int?
+  allowHalfDay       Boolean @default(true)
+  /// A document is needed once a request is longer than this many working days.
+  docAfterDays       Int?
+  paid               Boolean @default(true)
+  allowNegative      Boolean @default(false)
+  /// Ordered approval steps: SUPERVISOR, DEPT_HEAD, HR
+  approvalChain      Json
+  /// Long leave puts the employee on leave status for the period.
+  setsOnLeaveStatus  Boolean @default(false)
+  /// Calendar days (weekends count), for statutory leaves like maternity.
+  countsWeekends     Boolean @default(false)
+  active             Boolean @default(true)
+  sortOrder          Int     @default(0)
+
+  balances PwmLeaveBalance[]
+  requests PwmLeaveRequest[]
+
+  @@map("pwm_leave_types")
+}
+
+model PwmLeaveBalance {
+  id          String  @id @default(uuid())
+  employeeId  String
+  typeId      String
+  year        Int
+  entitled    Decimal @default(0) @db.Decimal(6, 1)
+  carriedOver Decimal @default(0) @db.Decimal(6, 1)
+  adjusted    Decimal @default(0) @db.Decimal(6, 1)
+  used        Decimal @default(0) @db.Decimal(6, 1)
+
+  employee PwmEmployee  @relation(fields: [employeeId], references: [id])
+  type     PwmLeaveType @relation(fields: [typeId], references: [id])
+
+  @@unique([employeeId, typeId, year])
+  @@map("pwm_leave_balances")
+}
+
+model PwmLeaveRequest {
+  id                 String         @id @default(uuid())
+  employeeId         String
+  typeId             String
+  startDate          DateTime       @db.Date
+  endDate            DateTime       @db.Date
+  startHalf          Boolean        @default(false)
+  endHalf            Boolean        @default(false)
+  /// Working days this request takes from the balance.
+  days               Decimal        @db.Decimal(5, 1)
+  reason             String?
+  docUrl             String?
+  handoverEmployeeId String?
+  status             PwmLeaveStatus @default(PENDING)
+  currentStep        Int            @default(0)
+  /// Login that submitted it (the employee, or HR on their behalf).
+  requestedById      String?
+  cancelReason       String?
+  decidedAt          DateTime?
+  createdAt          DateTime       @default(now())
+
+  employee  PwmEmployee        @relation(fields: [employeeId], references: [id])
+  type      PwmLeaveType       @relation(fields: [typeId], references: [id])
+  approvals PwmLeaveApproval[]
+
+  @@index([employeeId, startDate])
+  @@index([status])
+  @@map("pwm_leave_requests")
+}
+
+model PwmLeaveApproval {
+  id             String    @id @default(uuid())
+  requestId      String
+  step           Int
+  /// SUPERVISOR, DEPT_HEAD or HR
+  role           String
+  approverUserId String?
+  /// APPROVED or REJECTED once acted on
+  decision       String?
+  note           String?
+  actedById      String?
+  actedAt        DateTime?
+
+  request PwmLeaveRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([approverUserId])
+  @@map("pwm_leave_approvals")
+}
+
+model PwmLeaveAdjustment {
+  id         String   @id @default(uuid())
+  employeeId String
+  typeId     String
+  year       Int
+  delta      Decimal  @db.Decimal(6, 1)
+  reason     String
+  byUserId   String?
+  createdAt  DateTime @default(now())
+
+  @@index([employeeId])
+  @@map("pwm_leave_adjustments")
+}
+
+model PwmSchedule {
+  id           String  @id @default(uuid())
+  name         String  @unique
+  startTime    String
+  endTime      String
+  breakMinutes Int     @default(60)
+  /// ISO weekdays, Monday = 1
+  workDays     Json
+  graceMinutes Int     @default(15)
+  isDefault    Boolean @default(false)
+  active       Boolean @default(true)
+
+  employees PwmEmployee[]
+
+  @@map("pwm_schedules")
+}
+
+model PwmAttendance {
+  id            String    @id @default(uuid())
+  employeeId    String
+  date          DateTime  @db.Date
+  clockIn       DateTime?
+  clockOut      DateTime?
+  /// PRESENT, LATE, ABSENT, ON_LEAVE, HOLIDAY, REMOTE or EXCUSED
+  status        String
+  minutesLate   Int       @default(0)
+  minutesEarly  Int       @default(0)
+  minutesWorked Int       @default(0)
+  source        String    @default("WEB")
+  explanation   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  employee PwmEmployee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, date])
+  @@index([date, status])
+  @@map("pwm_attendance")
+}
+
+/// A change to a recorded day. The original values are kept on the request, so the history is never lost (ATT-07).
+model PwmAttendanceCorrection {
+  id             String            @id @default(uuid())
+  employeeId     String
+  date           DateTime          @db.Date
+  originalIn     DateTime?
+  originalOut    DateTime?
+  requestedIn    DateTime?
+  requestedOut   DateTime?
+  reason         String
+  status         PwmApprovalStatus @default(PENDING)
+  approverUserId String?
+  decidedById    String?
+  decidedAt      DateTime?
+  note           String?
+  createdAt      DateTime          @default(now())
+
+  employee PwmEmployee @relation(fields: [employeeId], references: [id])
+
+  @@index([status])
+  @@map("pwm_attendance_corrections")
+}
+
+model PwmOvertime {
+  id             String            @id @default(uuid())
+  employeeId     String
+  date           DateTime          @db.Date
+  hours          Decimal           @db.Decimal(4, 1)
+  reason         String
+  status         PwmApprovalStatus @default(PENDING)
+  approverUserId String?
+  decidedById    String?
+  decidedAt      DateTime?
+  note           String?
+  createdAt      DateTime          @default(now())
+
+  employee PwmEmployee @relation(fields: [employeeId], references: [id])
+
+  @@index([status])
+  @@map("pwm_overtime")
+}
+
+model PwmReviewCycle {
+  id          String   @id @default(uuid())
+  name        String
+  /// MONTHLY, QUARTERLY, ANNUAL, PROBATION, RENEWAL or ADHOC
+  type        String
+  periodStart DateTime @db.Date
+  periodEnd   DateTime @db.Date
+  dueDate     DateTime @db.Date
+  /// OPEN or CLOSED
+  status      String   @default("OPEN")
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  reviews PwmReview[]
+
+  @@map("pwm_review_cycles")
+}
+
+model PwmReview {
+  id             String    @id @default(uuid())
+  cycleId        String
+  employeeId     String
+  /// The manager who assesses (a login id)
+  reviewerUserId String?
+  /// SELF, MANAGER, DISCUSSION or ACKNOWLEDGED
+  status         String    @default("SELF")
+  selfRating     Int?
+  selfComment    String?
+  selfAt         DateTime?
+  managerRating  Int?
+  managerComment String?
+  strengths      String?
+  improvements   String?
+  summary        String?
+  managerAt      DateTime?
+  discussedAt    DateTime?
+  ackedAt        DateTime?
+  ackComment     String?
+  reopenedAt     DateTime?
+  reopenReason   String?
+  createdAt      DateTime  @default(now())
+
+  cycle    PwmReviewCycle @relation(fields: [cycleId], references: [id])
+  employee PwmEmployee    @relation(fields: [employeeId], references: [id])
+
+  @@unique([cycleId, employeeId])
+  @@index([status])
+  @@map("pwm_reviews")
+}
+
+model PwmObjective {
+  id           String    @id @default(uuid())
+  employeeId   String?
+  departmentId String?
+  /// Individual objectives can point at the department target they serve (cascade).
+  parentId     String?
+  title        String
+  description  String?
+  measure      String?
+  target       String?
+  weight       Int       @default(0)
+  dueDate      DateTime? @db.Date
+  progress     Int       @default(0)
+  /// ACTIVE, ACHIEVED, MISSED or CANCELLED
+  status       String    @default("ACTIVE")
+  createdById  String?
+  createdAt    DateTime  @default(now())
+
+  employee PwmEmployee? @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@index([departmentId])
+  @@map("pwm_objectives")
+}
+
+model PwmFeedbackNote {
+  id                 String   @id @default(uuid())
+  employeeId         String
+  authorUserId       String
+  /// PRAISE, IMPROVE or NOTE
+  kind               String
+  text               String
+  sharedWithEmployee Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  @@index([employeeId, createdAt])
+  @@map("pwm_feedback_notes")
+}
+
+model PwmImprovementPlan {
+  id          String    @id @default(uuid())
+  employeeId  String
+  reason      String
+  startDate   DateTime  @db.Date
+  reviewDate  DateTime  @db.Date
+  objectives  String
+  support     String?
+  /// [{ title, dueDate, done }]
+  milestones  Json?
+  /// ACTIVE, PASSED, EXTENDED or FAILED
+  status      String    @default("ACTIVE")
+  outcomeNote String?
+  createdById String?
+  closedAt    DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([employeeId])
+  @@map("pwm_improvement_plans")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PWM Phase 4: learning, skills, assets, employee relations, recognition, surveys, expenses, travel.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PwmCourse {
+  id               String   @id @default(uuid())
+  title            String
+  provider         String?
+  /// CLASSROOM, ONLINE, ON_THE_JOB or EXTERNAL
+  mode             String   @default("ONLINE")
+  cost             Decimal  @default(0) @db.Decimal(12, 2)
+  durationHours    Decimal  @default(0) @db.Decimal(6, 1)
+  /// Required of everyone (for example data protection awareness).
+  mandatory        Boolean  @default(false)
+  /// Mandatory courses must be repeated this often.
+  recurrenceMonths Int?
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  enrolments PwmEnrolment[]
+
+  @@map("pwm_courses")
+}
+
+model PwmEnrolment {
+  id             String    @id @default(uuid())
+  courseId       String
+  employeeId     String
+  /// REQUESTED, APPROVED, COMPLETED, REJECTED or CANCELLED
+  status         String    @default("REQUESTED")
+  /// Assigned by HR or a manager, not asked for by the employee.
+  assigned       Boolean   @default(false)
+  cost           Decimal   @default(0) @db.Decimal(12, 2)
+  requestedById  String?
+  approverUserId String?
+  decidedById    String?
+  decidedAt      DateTime?
+  note           String?
+  completedAt    DateTime?
+  certificateUrl String?
+  createdAt      DateTime  @default(now())
+
+  course   PwmCourse   @relation(fields: [courseId], references: [id])
+  employee PwmEmployee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@index([courseId, status])
+  @@map("pwm_enrolments")
+}
+
+/// departmentId null = a company-wide pool.
+model PwmTrainingBudget {
+  id           String  @id @default(uuid())
+  departmentId String?
+  year         Int
+  amount       Decimal @db.Decimal(14, 2)
+
+  @@unique([departmentId, year])
+  @@map("pwm_training_budgets")
+}
+
+model PwmDevelopmentPlan {
+  id          String    @id @default(uuid())
+  employeeId  String
+  goal        String
+  /// [{ title, dueDate, done }]
+  actions     Json?
+  reviewDate  DateTime? @db.Date
+  /// ACTIVE, ACHIEVED or DROPPED
+  status      String    @default("ACTIVE")
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  employee PwmEmployee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@map("pwm_development_plans")
+}
+
+model PwmSkill {
+  id       String  @id @default(uuid())
+  name     String  @unique
+  category String?
+
+  assessments  PwmSkillAssessment[]
+  requirements PwmPositionSkill[]
+
+  @@map("pwm_skills")
+}
+
+model PwmSkillAssessment {
+  id           String   @id @default(uuid())
+  employeeId   String
+  skillId      String
+  /// 1 (basic) to 5 (expert)
+  level        Int
+  assessedById String?
+  note         String?
+  assessedAt   DateTime @default(now())
+
+  employee PwmEmployee @relation(fields: [employeeId], references: [id])
+  skill    PwmSkill    @relation(fields: [skillId], references: [id])
+
+  @@index([employeeId, skillId, assessedAt])
+  @@map("pwm_skill_assessments")
+}
+
+/// What a job title needs, so gaps can be shown against it.
+model PwmPositionSkill {
+  id            String @id @default(uuid())
+  jobTitle      String
+  skillId       String
+  requiredLevel Int
+
+  skill PwmSkill @relation(fields: [skillId], references: [id])
+
+  @@unique([jobTitle, skillId])
+  @@map("pwm_position_skills")
+}
+
+model PwmAsset {
+  id             String    @id @default(uuid())
+  tag            String    @unique
+  /// LAPTOP, PHONE, ID_CARD, ACCESS_CARD, EQUIPMENT, VEHICLE, SOFTWARE, OTHER
+  category       String
+  name           String
+  serial         String?
+  purchaseDate   DateTime? @db.Date
+  cost           Decimal?  @db.Decimal(14, 2)
+  supplier       String?
+  warrantyExpiry DateTime? @db.Date
+  location       String?
+  /// NEW, GOOD, FAIR or POOR
+  condition      String    @default("GOOD")
+  /// IN_STOCK, ASSIGNED, IN_REPAIR, LOST or RETIRED
+  status         String    @default("IN_STOCK")
+  /// Software seats; vehicles can record insurance and roadworthiness dates.
+  seats          Int?
+  /// [{ label, date }] dates that need a reminder
+  expiries       Json?
+  notes          String?
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  assignments PwmAssetAssignment[]
+  events      PwmAssetEvent[]
+
+  @@index([status])
+  @@map("pwm_assets")
+}
+
+model PwmAssetAssignment {
+  id             String    @id @default(uuid())
+  assetId        String
+  employeeId     String
+  assignedAt     DateTime  @default(now())
+  assignedById   String?
+  conditionOut   String?
+  acknowledgedAt DateTime?
+  returnedAt     DateTime?
+  conditionIn    String?
+  receivedById   String?
+  /// ACTIVE, RETURNED, WRITTEN_OFF or CHARGED
+  status         String    @default("ACTIVE")
+  resolutionNote String?
+  resolvedById   String?
+
+  asset    PwmAsset    @relation(fields: [assetId], references: [id])
+  employee PwmEmployee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, status])
+  @@index([assetId])
+  @@map("pwm_asset_assignments")
+}
+
+model PwmAssetEvent {
+  id        String   @id @default(uuid())
+  assetId   String
+  /// MAINTENANCE, CONDITION, LOST, DAMAGED, FOUND, NOTE
+  kind      String
+  note      String
+  cost      Decimal? @db.Decimal(12, 2)
+  /// For lost or damaged items: who bears the cost
+  recovery  String?
+  byUserId  String?
+  createdAt DateTime @default(now())
+
+  asset PwmAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId, createdAt])
+  @@map("pwm_asset_events")
+}
+
+/// Grievances and disciplinary cases. Visible only to the people named on them.
+model PwmCase {
+  id               String    @id @default(uuid())
+  reference        String    @unique
+  /// GRIEVANCE or DISCIPLINARY
+  type             String
+  employeeId       String
+  category         String
+  /// LOW, MEDIUM, HIGH
+  severity         String    @default("MEDIUM")
+  summary          String
+  /// INTAKE, INVESTIGATION, HEARING, OUTCOME, APPEAL or CLOSED
+  stage            String    @default("INTAKE")
+  responseDue      DateTime? @db.Date
+  hearingAt        DateTime?
+  appealDue        DateTime? @db.Date
+  /// NO_ACTION, VERBAL_WARNING, WRITTEN_WARNING, FINAL_WARNING, SUSPENSION, TERMINATION, UPHELD, PARTLY_UPHELD, NOT_UPHELD
+  outcome          String?
+  outcomeNote      String?
+  warningExpiresAt DateTime? @db.Date
+  raisedByUserId   String?
+  closedAt         DateTime?
+  createdAt        DateTime  @default(now())
+
+  employee PwmEmployee      @relation(fields: [employeeId], references: [id])
+  handlers PwmCaseHandler[]
+  events   PwmCaseEvent[]
+
+  @@index([employeeId])
+  @@index([stage])
+  @@map("pwm_cases")
+}
+
+model PwmCaseHandler {
+  id            String    @id @default(uuid())
+  caseId        String
+  userId        String
+  /// HANDLER, INVESTIGATOR or PANEL
+  role          String    @default("HANDLER")
+  recusedAt     DateTime?
+  recusalReason String?
+  addedById     String?
+  createdAt     DateTime  @default(now())
+
+  case PwmCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+  @@index([userId])
+  @@map("pwm_case_handlers")
+}
+
+model PwmCaseEvent {
+  id        String   @id @default(uuid())
+  caseId    String
+  /// NOTE, QUERY, RESPONSE, EVIDENCE, HEARING, OUTCOME, APPEAL, LETTER, STAGE
+  kind      String
+  text      String
+  fileUrl   String?
+  byUserId  String?
+  createdAt DateTime @default(now())
+
+  case PwmCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, createdAt])
+  @@map("pwm_case_events")
+}
+
+model PwmRecognition {
+  id         String   @id @default(uuid())
+  employeeId String
+  /// AWARD, COMMENDATION or MILESTONE
+  kind       String
+  title      String
+  citation   String?
+  date       DateTime @db.Date
+  givenById  String?
+  announced  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  employee PwmEmployee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@map("pwm_recognitions")
+}
+
+model PwmSurvey {
+  id            String    @id @default(uuid())
+  title         String
+  description   String?
+  anonymous     Boolean   @default(true)
+  /// DRAFT, OPEN or CLOSED
+  status        String    @default("DRAFT")
+  /// [{ id, type: RATING|TEXT|CHOICE, text, options? }]
+  questions     Json
+  departmentIds Json?
+  opensAt       DateTime?
+  closesAt      DateTime?
+  createdById   String?
+  createdAt     DateTime  @default(now())
+
+  responses     PwmSurveyResponse[]
+  participation PwmSurveyParticipation[]
+
+  @@map("pwm_surveys")
+}
+
+/// employeeId is null on anonymous surveys; participation is kept separately so nobody answers twice.
+model PwmSurveyResponse {
+  id           String   @id @default(uuid())
+  surveyId     String
+  employeeId   String?
+  departmentId String?
+  answers      Json
+  createdAt    DateTime @default(now())
+
+  survey PwmSurvey @relation(fields: [surveyId], references: [id])
+
+  @@index([surveyId])
+  @@map("pwm_survey_responses")
+}
+
+model PwmSurveyParticipation {
+  id         String   @id @default(uuid())
+  surveyId   String
+  employeeId String
+  createdAt  DateTime @default(now())
+
+  survey PwmSurvey @relation(fields: [surveyId], references: [id])
+
+  @@unique([surveyId, employeeId])
+  @@map("pwm_survey_participation")
+}
+
+model PwmExpenseClaim {
+  id              String    @id @default(uuid())
+  reference       String    @unique
+  employeeId      String
+  title           String
+  travelRequestId String?
+  /// DRAFT, SUBMITTED, APPROVED, REJECTED or PAID
+  status          String    @default("DRAFT")
+  total           Decimal   @default(0) @db.Decimal(14, 2)
+  approverUserId  String?
+  decidedById     String?
+  decidedAt       DateTime?
+  decisionNote    String?
+  paidById        String?
+  paidAt          DateTime?
+  paymentRef      String?
+  submittedAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  employee PwmEmployee      @relation(fields: [employeeId], references: [id])
+  items    PwmExpenseItem[]
+
+  @@index([employeeId])
+  @@index([status])
+  @@map("pwm_expense_claims")
+}
+
+model PwmExpenseItem {
+  id          String   @id @default(uuid())
+  claimId     String
+  category    String
+  amount      Decimal  @db.Decimal(12, 2)
+  date        DateTime @db.Date
+  description String
+  receiptUrl  String?
+  /// Why an amount above the category limit is justified
+  exception   String?
+
+  claim PwmExpenseClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([claimId])
+  @@map("pwm_expense_items")
+}
+
+model PwmTravelRequest {
+  id             String    @id @default(uuid())
+  employeeId     String
+  purpose        String
+  destination    String
+  startDate      DateTime  @db.Date
+  endDate        DateTime  @db.Date
+  estimatedCost  Decimal   @default(0) @db.Decimal(12, 2)
+  advance        Decimal   @default(0) @db.Decimal(12, 2)
+  /// Calculated from the per-diem rate and the number of days
+  perDiem        Decimal   @default(0) @db.Decimal(12, 2)
+  /// PENDING, APPROVED, REJECTED, CANCELLED or COMPLETED
+  status         String    @default("PENDING")
+  approverUserId String?
+  decidedById    String?
+  decidedAt      DateTime?
+  decisionNote   String?
+  createdAt      DateTime  @default(now())
+
+  employee PwmEmployee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@index([status])
+  @@map("pwm_travel_requests")
+}
+
+// ── PWM Phase 5: workforce planning and succession ──────────────────────────
+
+model PwmHeadcountPlan {
+  id           String    @id @default(uuid())
+  year         Int
+  departmentId String
+  jobTitle     String
+  planned      Int
+  notes        String?
+  /// DRAFT, SUBMITTED, APPROVED or REJECTED
+  status       String    @default("DRAFT")
+  preparedById String?
+  decidedById  String?
+  decidedAt    DateTime?
+  decisionNote String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([year, departmentId, jobTitle])
+  @@index([year, status])
+  @@map("pwm_headcount_plans")
+}
+
+model PwmKeyPosition {
+  id           String    @id @default(uuid())
+  jobTitle     String
+  departmentId String?
+  incumbentId  String?
+  /// HIGH, MEDIUM or LOW: how badly the business is hurt if the seat is empty
+  criticality  String    @default("MEDIUM")
+  notes        String?
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  successors PwmSuccessor[]
+
+  @@index([archivedAt])
+  @@map("pwm_key_positions")
+}
+
+model PwmSuccessor {
+  id              String   @id @default(uuid())
+  positionId      String
+  employeeId      String
+  /// READY_NOW, ONE_TO_TWO_YEARS or THREE_PLUS_YEARS
+  readiness       String
+  developmentNote String?
+  addedById       String?
+  createdAt       DateTime @default(now())
+
+  position PwmKeyPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@unique([positionId, employeeId])
+  @@map("pwm_successors")
 }

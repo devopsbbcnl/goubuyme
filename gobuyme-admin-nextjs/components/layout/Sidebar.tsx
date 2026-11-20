@@ -112,6 +112,39 @@ const SMOIS_NAV: SmoisNavItem[] = [
   { href: '/smois/settings',   label: 'Social Settings', icon: '🎛️', cap: 'configure' },
 ];
 
+type PwmNavItem = { href: string; label: string; icon: string; cap?: string; badge?: 'approvals' | 'reminders'; exact?: boolean };
+const PWM_NAV: PwmNavItem[] = [
+  { href: '/pwm',            label: 'HR Overview',  icon: '🧭', exact: true },
+  { href: '/pwm/employees',  label: 'Employees',    icon: '🧑‍💼' },
+  { href: '/pwm/org-chart',  label: 'Org Chart',    icon: '🌳' },
+  { href: '/pwm/departments', label: 'Departments', icon: '🏢' },
+  { href: '/pwm/recruitment', label: 'Recruitment', icon: '🎯', cap: 'viewRecruitment' },
+  { href: '/pwm/leave',      label: 'Leave',        icon: '🏖️', cap: 'viewLeave' },
+  { href: '/pwm/attendance', label: 'Attendance',   icon: '⏱️', cap: 'viewAttendance' },
+  { href: '/pwm/performance', label: 'Performance', icon: '📈', cap: 'viewPerformance' },
+  { href: '/pwm/learning',   label: 'Learning',     icon: '🎓', cap: 'viewLearning' },
+  { href: '/pwm/assets',     label: 'Assets',       icon: '💻', cap: 'viewAssets' },
+  { href: '/pwm/cases',      label: 'Employee Relations', icon: '⚖️', cap: 'handleCases' },
+  { href: '/pwm/surveys',    label: 'Surveys',      icon: '📝', cap: 'manageSurveys' },
+  { href: '/pwm/expenses',   label: 'Expenses & Travel', icon: '🧾', cap: 'viewExpenses' },
+  { href: '/pwm/analytics',  label: 'HR Intelligence', icon: '📊', cap: 'viewAnalytics' },
+  { href: '/pwm/planning',   label: 'Workforce Plan', icon: '🧮', cap: 'viewPlanning' },
+  { href: '/pwm/succession', label: 'Succession',   icon: '🪜', cap: 'viewSuccession' },
+  { href: '/pwm/calendar',   label: 'HR Calendar',  icon: '🗓️' },
+  { href: '/pwm/contracts',  label: 'Contracts',    icon: '📄' },
+  { href: '/pwm/renewals',   label: 'Renewals',     icon: '🔁' },
+  { href: '/pwm/reminders',  label: 'Reminders',    icon: '⏰', badge: 'reminders' },
+  { href: '/pwm/approvals',  label: 'Approvals',    icon: '✔️', badge: 'approvals' },
+  { href: '/pwm/checklists', label: 'Onboarding & Exit', icon: '🧳' },
+  { href: '/pwm/policies',   label: 'Policies',     icon: '📜' },
+  { href: '/pwm/announcements', label: 'Announcements', icon: '📢', cap: 'manageAnnouncements' },
+  { href: '/pwm/templates',  label: 'Templates',    icon: '🗂️', cap: 'manageTemplates' },
+  { href: '/pwm/import',     label: 'Bulk Import',  icon: '📥', cap: 'import' },
+  { href: '/pwm/team',       label: 'HR Team',      icon: '🧑‍🤝‍🧑', cap: 'viewAudit' },
+  { href: '/pwm/activity',   label: 'HR Activity',  icon: '🕘', cap: 'viewAudit' },
+  { href: '/pwm/settings',   label: 'HR Settings',  icon: '🎛️', cap: 'configure' },
+];
+
 const ROLE_RANK: Record<string, number> = {
   SUPPORT_ADMIN: 0,
   OPERATIONS_ADMIN: 1,
@@ -130,6 +163,9 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
   const isMobile = useIsMobile();
   const [smois, setSmois] = useState<{ can: Record<string, boolean> } | null>(null);
   const [smoisCounts, setSmoisCounts] = useState({ approvals: 0, tasks: 0, inbox: 0 });
+  const [pwm, setPwm] = useState<{ can: Record<string, boolean>; unacknowledged: number } | null>(null);
+  const [pwmApprovals, setPwmApprovals] = useState(0);
+  const [myHr, setMyHr] = useState<{ openTasks: number; policiesToAcknowledge: number; approvals: number } | null>(null);
   const [pending, setPending] = useState<{ vendors: number; riders: number; errorLogs: number; tickets: number; tasks: number; agents: number; promotions: number }>({ vendors: 0, riders: 0, errorLogs: 0, tickets: 0, tasks: 0, agents: 0, promotions: 0 });
   // Sidebar only mounts after the client session is ready, so reading storage here cannot cause a hydration mismatch.
   const [openMap, setOpenMap] = useState<Record<string, boolean>>(() => readStorage(NAV_OPEN_KEY, {}));
@@ -160,8 +196,46 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
     return () => { live = false; clearInterval(t); window.removeEventListener('gbm:pending-counts-updated', load); };
   }, [user]);
 
+  // Same quiet probe for People & Workforce: a 403 just means this person has no access.
   useEffect(() => {
-    if (user?.role === 'SOCIAL_MEDIA') return; // social media staff can't read these admin lists
+    if (!user || user.role === 'SOCIAL_MEDIA' || user.role === 'STAFF') return;
+    let live = true;
+    const get = (p: string) => fetch('/api/proxy/admin/pwm' + p).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const load = async () => {
+      const me = await get('/me');
+      if (!live) return;
+      if (!me?.data) { setPwm(null); return; }
+      setPwm(me.data);
+      const d = await get('/dashboard');
+      if (live && d?.data) setPwmApprovals((d.data.waiting?.statusRequests ?? 0) + (d.data.waiting?.contractApprovals ?? 0) + (d.data.waiting?.payChanges ?? 0));
+    };
+    load();
+    const t = setInterval(load, 60_000);
+    window.addEventListener('gbm:pending-counts-updated', load);
+    return () => { live = false; clearInterval(t); window.removeEventListener('gbm:pending-counts-updated', load); };
+  }, [user]);
+
+  // My HR: shown to anyone whose login is linked to their own employee record.
+  useEffect(() => {
+    if (!user || user.role === 'SOCIAL_MEDIA') return;
+    let live = true;
+    const load = async () => {
+      const j = await fetch('/api/proxy/my-hr/me').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (!live) return;
+      if (!j?.data) { setMyHr(null); return; }
+      const a = await fetch('/api/proxy/my-hr/approvals').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      const b = await fetch('/api/proxy/my-hr/approvals/more').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      const n = (a?.data ? (a.data.leave?.length ?? 0) + (a.data.corrections?.length ?? 0) + (a.data.overtime?.length ?? 0) : 0) + (b?.data ? (b.data.enrolments?.length ?? 0) + (b.data.claims?.length ?? 0) + (b.data.travel?.length ?? 0) : 0);
+      if (live) setMyHr({ openTasks: j.data.openTasks, policiesToAcknowledge: j.data.policiesToAcknowledge, approvals: n });
+    };
+    load();
+    const t = setInterval(load, 120_000);
+    window.addEventListener('gbm:pending-counts-updated', load);
+    return () => { live = false; clearInterval(t); window.removeEventListener('gbm:pending-counts-updated', load); };
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.role === 'SOCIAL_MEDIA' || user?.role === 'STAFF') return; // these staff can't read these admin lists
     const loadPendingCounts = () => {
       Promise.allSettled([
         api.get<{ data: Array<{ approvalStatus: string }> }>('/admin/vendors?status=PENDING&limit=200'),
@@ -209,7 +283,7 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
   const rail = railPref && !isMobile;
 
   const sections: RenderSection[] = [];
-  if (userRole !== 'SOCIAL_MEDIA') {
+  if (userRole !== 'SOCIAL_MEDIA' && userRole !== 'STAFF') {
     for (const sec of NAV_SECTIONS) {
       const items = sec.items.filter(i => canSeeItem(userRole, i.minRole)).map((i): RenderItem => ({
         href: i.href, label: i.label, icon: i.icon,
@@ -227,6 +301,35 @@ export function Sidebar({ isOpen = false, onClose }: { isOpen?: boolean; onClose
       badge: i.badge ? smoisCounts[i.badge] : 0,
     }));
     if (items.length) sections.push({ key: 'social', title: 'Social Media', items });
+  }
+  if (myHr) {
+    const mine = [
+      { href: '/my-hr', label: 'My HR', icon: '🙋', exact: true, badge: myHr.openTasks },
+      { href: '/my-hr/leave', label: 'My Leave', icon: '🏖️', badge: 0 },
+      { href: '/my-hr/attendance', label: 'My Attendance', icon: '⏱️', badge: 0 },
+      { href: '/my-hr/approvals', label: 'Approvals', icon: '✔️', badge: myHr.approvals },
+      { href: '/my-hr/reviews', label: 'Reviews', icon: '📈', badge: 0 },
+      { href: '/my-hr/learning', label: 'Learning', icon: '🎓', badge: 0 },
+      { href: '/my-hr/assets', label: 'My Assets', icon: '💻', badge: 0 },
+      { href: '/my-hr/expenses', label: 'Expenses & Travel', icon: '🧾', badge: 0 },
+      { href: '/my-hr/surveys', label: 'Surveys', icon: '📝', badge: 0 },
+      { href: '/my-hr/cases', label: 'My Cases', icon: '⚖️', badge: 0 },
+      { href: '/my-hr/objectives', label: 'Objectives', icon: '🎯', badge: 0 },
+      { href: '/my-hr/calendar', label: 'Calendar', icon: '🗓️', badge: 0 },
+      { href: '/my-hr/profile', label: 'My Profile', icon: '🪪', badge: 0 },
+      { href: '/my-hr/documents', label: 'My Documents', icon: '📎', badge: 0 },
+      { href: '/my-hr/policies', label: 'Policies', icon: '📜', badge: myHr.policiesToAcknowledge },
+      { href: '/my-hr/directory', label: 'Staff Directory', icon: '📇', badge: 0 },
+    ].map((i): RenderItem => ({ href: i.href, label: i.label, icon: i.icon, active: i.exact ? pathname === i.href : pathname === i.href || pathname.startsWith(i.href + '/'), badge: i.badge }));
+    sections.push({ key: 'myhr', title: 'My HR', items: mine });
+  }
+  if (pwm) {
+    const items = PWM_NAV.filter(i => !i.cap || pwm.can[i.cap]).map((i): RenderItem => ({
+      href: i.href, label: i.label, icon: i.icon,
+      active: i.exact ? pathname === i.href : pathname === i.href || pathname.startsWith(i.href + '/'),
+      badge: i.badge === 'approvals' ? pwmApprovals : i.badge === 'reminders' ? pwm.unacknowledged : 0,
+    }));
+    if (items.length) sections.push({ key: 'people', title: 'People & Workforce', items });
   }
 
   // Landing on a page opens its section. Keyed on the section, not on every render,
