@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 import { useCommissionRates } from '@/hooks/useCommissionRates';
+import { normalizeVendorOrderStatus } from '@/services/orderStatus';
 
 type RawStatus =
 	| 'PENDING'
@@ -138,7 +139,7 @@ export default function VendorOrdersScreen() {
 					subtotal: o.subtotal ?? 0,
 					netAmount: o.netAmount ?? null,
 					commissionTier: o.commissionTier ?? 'TIER_2',
-					status: o.status as RawStatus,
+					status: normalizeVendorOrderStatus(o.status) as RawStatus,
 					createdAt: o.createdAt,
 				})),
 			);
@@ -338,7 +339,7 @@ export default function VendorOrdersScreen() {
 						</View>
 					) : (
 						filtered.map((order) => {
-							const meta = STATUS_META[order.status];
+							const meta = STATUS_META[order.status] ?? STATUS_META.PENDING;
 							const isNew = order.status === 'PENDING';
 							const isPreparing =
 								order.status === 'PREPARING' || order.status === 'ACCEPTED';

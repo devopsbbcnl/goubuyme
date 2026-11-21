@@ -10,6 +10,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 import { useCommissionRates } from '@/hooks/useCommissionRates';
+import { normalizeVendorOrderStatus } from '@/services/orderStatus';
 
 type RawStatus =
   | 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY'
@@ -70,7 +71,7 @@ export default function VendorOrderDetailScreen() {
   const fetchOrder = useCallback(async () => {
     try {
       const res = await api.get(`/vendors/me/orders/${orderId}`);
-      setOrder(res.data.data);
+      setOrder({ ...res.data.data, status: normalizeVendorOrderStatus(res.data.data.status) as RawStatus });
       // Tell the backend this order was actually opened — stops the escalation cron
       // from treating the vendor as unresponsive even before they accept/reject.
       api.patch(`/vendors/me/orders/${orderId}/view`).catch(() => {});
@@ -126,7 +127,7 @@ export default function VendorOrderDetailScreen() {
 
   if (!order) return null;
 
-  const meta = STATUS_META[order.status];
+  const meta = STATUS_META[order.status] ?? STATUS_META.PENDING;
   const isPending   = order.status === 'PENDING';
   const isPreparing = order.status === 'ACCEPTED' || order.status === 'PREPARING';
   const isTerminal  = order.status === 'DELIVERED' || order.status === 'CANCELLED';
