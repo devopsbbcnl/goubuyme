@@ -3,6 +3,8 @@ import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { isHiddenFromViewer } from '../services/reviewAccess';
+import { priceCartLine } from '../services/cartPricing';
 import { forwardGeocodeVendorAddress } from '../services/geocoding.service';
 import { getPlatformSettings } from '../services/settings.service';
 
@@ -93,11 +95,32 @@ export const addToCart = catchAsync(async (req: AuthRequest, res: Response) => {
 
   const menuItem = await prisma.menuItem.findUnique({
     where: { id: menuItemId },
-    select: { id: true, vendorId: true, isAvailable: true, stockQuantity: true },
+    select: {
+      id: true, vendorId: true, isAvailable: true, stockQuantity: true, price: true,
+      vendor: { select: { slug: true } },
+      drinkOptions: { where: { isAvailable: true }, select: { name: true, price: true } },
+      optionGroups: { select: { items: { where: { isAvailable: true }, select: { name: true, extraPrice: true } } } },
+    },
   });
   if (!menuItem || !menuItem.isAvailable || menuItem.stockQuantity <= 0) {
     return apiResponse.error(res, 'Item not available.', 400);
   }
+  if (await isHiddenFromViewer(menuItem.vendor.slug, req.user)) {
+    return apiResponse.error(res, 'Item not available.', 400);
+  }
+
+  // The price of this line is worked out here from the menu. The unitPrice and selection prices the
+  // app sends are never trusted (see services/cartPricing.ts).
+  const priced = priceCartLine(
+    {
+      price: menuItem.price,
+      drinkOptions: menuItem.drinkOptions,
+      optionItems: menuItem.optionGroups.flatMap((g) => g.items),
+    },
+    unitPrice,
+    selections,
+  );
+  if (!priced.ok) return apiResponse.error(res, priced.message, 400);
 
   // Two add-to-cart calls for the same vendor can arrive together (a double tap, or the app adding
   // several items at once) while no cart exists yet. Both try to create it and the loser hits the
@@ -126,13 +149,13 @@ export const addToCart = catchAsync(async (req: AuthRequest, res: Response) => {
       where: { id: existing.id },
       data: {
         quantity: nextQuantity,
-        ...(unitPrice != null ? { unitPrice } : {}),
-        ...(selections != null ? { selections } : {}),
+        unitPrice: priced.unitPrice,
+        ...(priced.selections ? { selections: priced.selections } : {}),
       },
     });
   } else {
     await prisma.cartItem.create({
-      data: { cartId: cart.id, menuItemId, quantity: requestedQty, note, unitPrice, selections },
+      data: { cartId: cart.id, menuItemId, quantity: requestedQty, note, unitPrice: priced.unitPrice, selections: priced.selections },
     });
   }
 

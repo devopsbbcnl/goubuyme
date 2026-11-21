@@ -7,6 +7,11 @@
  *   npm run seed:store-demo -- --close      stop customers ordering from the demo vendor
  *   npm run seed:store-demo -- --open       let customers order from it again
  *   npm run seed:store-demo -- --remove     delete the demo vendor, rider, their orders and menu
+ *   npm run seed:store-demo -- --prices=zero [--reviewer-credits=50]   every price 0.00 (reviewers are never charged)
+ *   npm run seed:store-demo -- --prices=catalog                        restore the real prices
+ *   npm run seed:store-demo -- --reviewer-credits=50                    free-delivery credits for REVIEWER_EMAILS customers
+ *
+ * To make the vendor reviewer-only set REVIEW_VENDOR_SLUGS=savour-naija-kitchen and REVIEWER_EMAILS on the API.
  *
  * Flags: --yes (skip confirmation) --password=<value> (or env STORE_DEMO_PASSWORD)
  *        --reset-password (reset an existing demo account's password)
@@ -36,7 +41,7 @@ const SLUG = 'savour-naija-kitchen';
 const args = process.argv.slice(2);
 const has = (f: string) => args.includes(f);
 const arg = (name: string) => args.find((a) => a.startsWith(`--${name}=`))?.split('=').slice(1).join('=');
-const MODE = has('--remove') ? 'remove' : has('--close') ? 'close' : has('--open') ? 'open' : 'seed';
+const MODE = has('--remove') ? 'remove' : has('--close') ? 'close' : has('--open') ? 'open' : arg('prices') ? 'prices' : arg('reviewer-credits') ? 'credits' : 'seed';
 
 const px = (id: number) =>
   `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&h=650&w=940`;
@@ -127,6 +132,47 @@ async function setOpen(open: boolean) {
   console.log(open
     ? '✓ Demo vendor is OPEN: customers can order from it.'
     : '✓ Demo vendor is CLOSED: customers cannot order from it (it is still visible).');
+}
+
+/** zero = every item, drink and option costs 0.00 (so a live-payment reviewer is never charged); catalog = the real prices. */
+async function setPrices(mode: string) {
+  if (mode !== 'zero' && mode !== 'catalog') throw new Error('--prices must be zero or catalog');
+  const v = await prisma.vendor.findUnique({ where: { slug: SLUG } });
+  if (!v) throw new Error('Demo vendor does not exist. Run the seed first.');
+  const zero = mode === 'zero';
+  const items = await prisma.menuItem.findMany({ where: { vendorId: v.id }, include: { drinkOptions: true, optionGroups: { include: { items: true } } } });
+  let n = 0;
+  for (const it of items) {
+    const def = MENU.find((m) => m.name === it.name);
+    await prisma.menuItem.update({ where: { id: it.id }, data: { price: zero ? 0 : def?.price ?? it.price } });
+    for (const d of it.drinkOptions) {
+      const dp = def?.drinks?.find((x) => x.name === d.name)?.extra ?? d.price;
+      await prisma.menuItemDrinkOption.update({ where: { id: d.id }, data: { price: zero ? 0 : dp } });
+    }
+    for (const g of it.optionGroups) {
+      const dg = def?.groups?.find((x) => x.name === g.name);
+      for (const o of g.items) {
+        const ep = dg?.items.find((x) => x.name === o.name)?.extra ?? o.extraPrice;
+        await prisma.menuItemOptionItem.update({ where: { id: o.id }, data: { extraPrice: zero ? 0 : ep } });
+      }
+    }
+    n++;
+  }
+  console.log(zero
+    ? `✓ ${n} item(s) now cost ₦0.00 (with their drinks and options).`
+    : `✓ ${n} item(s) restored to their catalog prices.`);
+}
+
+/** Free-delivery credits for the reviewer customer(s) in REVIEWER_EMAILS, so a zero-price order has nothing left to charge. */
+async function grantReviewerCredits(count: number) {
+  const emails = (process.env.REVIEWER_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  if (!emails.length) throw new Error('Set REVIEWER_EMAILS (comma-separated) first.');
+  const users = await prisma.user.findMany({ where: { email: { in: emails }, role: Role.CUSTOMER } });
+  for (const u of users) {
+    await prisma.user.update({ where: { id: u.id }, data: { freeDeliveryCredits: Math.max(u.freeDeliveryCredits, count) } });
+    console.log(`✓ ${u.email}: ${Math.max(u.freeDeliveryCredits, count)} free-delivery credits`);
+  }
+  if (!users.length) console.log('No customer accounts matched REVIEWER_EMAILS.');
 }
 
 async function remove() {
@@ -326,6 +372,8 @@ async function main() {
   }
   if (MODE === 'remove') return remove();
   if (MODE === 'close') return setOpen(false);
+  if (MODE === 'prices') { await setPrices(arg('prices')!); if (arg('reviewer-credits')) await grantReviewerCredits(Number(arg('reviewer-credits'))); return; }
+  if (MODE === 'credits') return grantReviewerCredits(Number(arg('reviewer-credits')));
   if (MODE === 'open') return setOpen(true);
   return seed();
 }

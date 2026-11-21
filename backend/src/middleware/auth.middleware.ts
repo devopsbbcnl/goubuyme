@@ -29,3 +29,23 @@ export const verifyToken: RequestHandler = (req, res, next) => {
     apiResponse.error(res, 'Invalid or expired token.', 401);
   }
 };
+
+/**
+ * Like verifyToken, but never rejects: a valid bearer token sets req.user, anything else just
+ * continues as a guest. For public routes that behave differently for known users (e.g. the
+ * review-only demo vendor).
+ */
+export const optionalAuth: RequestHandler = (req, _res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      (req as AuthRequest).user = jwt.verify(authHeader.split(' ')[1], process.env.JWT_ACCESS_SECRET as string) as {
+        userId: string;
+        role: string;
+      };
+    } catch {
+      /* invalid or expired: treat as a guest */
+    }
+  }
+  next();
+};

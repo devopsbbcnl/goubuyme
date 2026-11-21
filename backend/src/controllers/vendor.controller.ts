@@ -21,6 +21,10 @@ import {
   refreshVendorIsOpen,
   AvailabilityInput,
 } from '../services/availability.service';
+import { reviewVendorFilter } from '../services/reviewAccess';
+
+// Who is asking (set by optionalAuth on the public routes); used to hide the review-only demo vendor.
+const viewer = (req: Request) => (req as AuthRequest).user;
 import { parseTimeToMinutes } from '../services/storeHours.service';
 import { getVendorVocabulary } from '../config/vendorTerminology';
 import { actingVendorWhere } from '../middleware/vendorContext';
@@ -85,7 +89,7 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
   const limitNum = Math.min(100, parseInt(limit));
   const radiusKm = parseFloat(radius || String(DEFAULT_RADIUS));
 
-  const where: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
+  const where: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED, ...(await reviewVendorFilter(viewer(req))) };
   if (category && category !== 'ALL') where.category = category as VendorCategory;
   if (search) {
     where.OR = [
@@ -152,7 +156,7 @@ export const getVendors = catchAsync(async (req: Request, res: Response) => {
 
 export const getVendorById = catchAsync(async (req: Request, res: Response) => {
   const vendor = await prisma.vendor.findFirst({
-    where: { id: req.params.id, approvalStatus: ApprovalStatus.APPROVED },
+    where: { id: req.params.id, approvalStatus: ApprovalStatus.APPROVED, ...(await reviewVendorFilter(viewer(req))) },
     select: { ...vendorSelect, ...availabilityInclude, address: true, user: { select: { isPhoneVerified: true } } },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -181,7 +185,7 @@ export const getVendorById = catchAsync(async (req: Request, res: Response) => {
 
 export const getVendorMenu = catchAsync(async (req: Request, res: Response) => {
   const vendor = await prisma.vendor.findFirst({
-    where: { id: req.params.id, approvalStatus: ApprovalStatus.APPROVED },
+    where: { id: req.params.id, approvalStatus: ApprovalStatus.APPROVED, ...(await reviewVendorFilter(viewer(req))) },
     select: { id: true },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
@@ -1713,7 +1717,7 @@ export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
   const searchTerm = q.trim();
   const searchType = ['vendors', 'menu_items', 'all'].includes(type) ? type : 'all';
 
-  const vendorFilter: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
+  const vendorFilter: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED, ...(await reviewVendorFilter(viewer(req))) };
   if (city) vendorFilter.city = city;
   if (state) vendorFilter.AND = [vendorStateFilter(state)];
   if (category && category !== 'ALL') vendorFilter.category = category as VendorCategory;
@@ -1771,7 +1775,7 @@ export const searchMenuItems = catchAsync(async (req: Request, res: Response) =>
 
   if (!search?.trim()) return apiResponse.error(res, 'search query is required.', 400);
 
-  const vendorWhere: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
+  const vendorWhere: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED, ...(await reviewVendorFilter(viewer(req))) };
   if (city) vendorWhere.city = city;
   if (state) vendorWhere.AND = [vendorStateFilter(state)];
   if (category && category !== 'ALL') vendorWhere.category = category as VendorCategory;
@@ -1814,7 +1818,7 @@ export const searchMenuItems = catchAsync(async (req: Request, res: Response) =>
 // GET /vendors/menu-items/:id  (public — single menu item detail with vendor info)
 export const getMenuItemById = catchAsync(async (req: Request, res: Response) => {
   const item = await prisma.menuItem.findFirst({
-    where: { id: req.params.id, vendor: { approvalStatus: ApprovalStatus.APPROVED } },
+    where: { id: req.params.id, vendor: { approvalStatus: ApprovalStatus.APPROVED, ...(await reviewVendorFilter(viewer(req))) } },
     select: {
       id: true, name: true, description: true, price: true, image: true, imagePosition: true,
       category: true, isAvailable: true, stockQuantity: true, isFeatured: true,
@@ -1847,7 +1851,7 @@ export const getMenuItemById = catchAsync(async (req: Request, res: Response) =>
 // GET /vendors/menu-items/:id/similar  (public — featured vendors, same city, keyword-matched)
 export const getSimilarMenuItems = catchAsync(async (req: Request, res: Response) => {
   const source = await prisma.menuItem.findFirst({
-    where: { id: req.params.id, vendor: { approvalStatus: ApprovalStatus.APPROVED } },
+    where: { id: req.params.id, vendor: { approvalStatus: ApprovalStatus.APPROVED, ...(await reviewVendorFilter(viewer(req))) } },
     select: { id: true, name: true, description: true, category: true, vendor: { select: { id: true, city: true } } },
   });
   if (!source) return apiResponse.success(res, 'Similar items fetched.', []);
@@ -1877,6 +1881,7 @@ export const getSimilarMenuItems = catchAsync(async (req: Request, res: Response
       vendor: {
         id:             { not: source.vendor.id },
         approvalStatus: ApprovalStatus.APPROVED,
+        ...(await reviewVendorFilter(viewer(req))),
         city:           source.vendor.city,
         isFeatured:     true,
         featuredUntil:  { gte: now },
@@ -1904,7 +1909,7 @@ export const browseItems = catchAsync(async (req: Request, res: Response) => {
   const pageNum  = Math.max(1, parseInt(page));
   const limitNum = Math.min(60, parseInt(limit));
 
-  const vendorWhere: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED };
+  const vendorWhere: Prisma.VendorWhereInput = { approvalStatus: ApprovalStatus.APPROVED, ...(await reviewVendorFilter(viewer(req))) };
   if (vendorCategory && vendorCategory !== 'ALL') {
     vendorWhere.category = vendorCategory as VendorCategory;
   }
@@ -1948,7 +1953,7 @@ export const getActiveVendorPromotions = catchAsync(async (req: Request, res: Re
   const where: Prisma.VendorPromotionWhereInput = {
     isActive: true,
     approvalStatus: PromotionStatus.APPROVED,
-    vendor: { approvalStatus: ApprovalStatus.APPROVED, ...(city ? { city: { equals: city, mode: 'insensitive' } } : {}), ...(state ? { AND: [vendorStateFilter(state)] } : {}) },
+    vendor: { approvalStatus: ApprovalStatus.APPROVED, ...(await reviewVendorFilter(viewer(req))), ...(city ? { city: { equals: city, mode: 'insensitive' } } : {}), ...(state ? { AND: [vendorStateFilter(state)] } : {}) },
   };
 
   const promos = await prisma.vendorPromotion.findMany({

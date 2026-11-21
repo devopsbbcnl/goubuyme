@@ -3,6 +3,7 @@ import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { reviewVendorFilter } from '../services/reviewAccess';
 import { haversineDistance, estimateDeliveryMinutes } from '../services/distance.service';
 import { calcRiderEarning } from '../services/payout.service';
 import { OrderActorType, OrderEventType, OrderStatus } from '@prisma/client';
@@ -108,6 +109,7 @@ export const getRiderDashboardStats = catchAsync(async (req: AuthRequest, res: R
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
+  const reviewFilter = await reviewVendorFilter(req.user);
   const [todayDeliveries, todayEarningsAgg, nearbyJobs] = await Promise.all([
     prisma.order.count({
       where: { riderId: rider.id, status: OrderStatus.DELIVERED, updatedAt: { gte: today, lt: tomorrow } },
@@ -116,7 +118,7 @@ export const getRiderDashboardStats = catchAsync(async (req: AuthRequest, res: R
       where: { riderId: rider.id, createdAt: { gte: today, lt: tomorrow } },
       _sum: { netAmount: true },
     }),
-    prisma.order.count({ where: { status: OrderStatus.READY, riderId: null } }),
+    prisma.order.count({ where: { status: OrderStatus.READY, riderId: null, vendor: reviewFilter } }),
   ]);
 
   // Weekly earnings — last 7 days oldest first
@@ -158,7 +160,7 @@ export const getAvailableJobs = catchAsync(async (req: AuthRequest, res: Respons
       status: OrderStatus.READY, riderId: null,
       // One account can be customer / vendor / rider: never offer a rider their own order or their own store's.
       customer: { userId: { not: req.user!.userId } },
-      vendor: { userId: { not: req.user!.userId } },
+      vendor: { userId: { not: req.user!.userId }, ...(await reviewVendorFilter(req.user)) },
     },
     include: {
       vendor: { select: { businessName: true, address: true, coverImage: true, latitude: true, longitude: true } },
@@ -216,7 +218,7 @@ export const acceptJob = catchAsync(async (req: AuthRequest, res: Response) => {
   if (active) return apiResponse.error(res, 'You already have an active delivery.', 400);
 
   const order = await prisma.order.findFirst({
-    where: { id: orderId, status: OrderStatus.READY, riderId: null },
+    where: { id: orderId, status: OrderStatus.READY, riderId: null, vendor: await reviewVendorFilter(req.user) },
     include: {
       vendor: { select: { businessName: true, latitude: true, longitude: true, userId: true } },
       customer: { include: { user: { select: { id: true, name: true, phone: true } } } },
