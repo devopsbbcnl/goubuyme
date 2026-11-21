@@ -18,7 +18,8 @@
     "bulk:unseed": "ts-node prisma/unseed-bulk.ts",
     "bulk:backfill-hours": "ts-node prisma/backfill-bulk-business-hours.ts",
     "geocode:vendors": "ts-node scripts/geocode-vendors.ts",
-    "patch:images": "ts-node prisma/patch-images.ts"
+    "patch:images": "ts-node prisma/patch-images.ts",
+    "seed:store-demo": "ts-node prisma/seed-store-demo.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
