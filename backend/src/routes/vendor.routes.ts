@@ -21,7 +21,7 @@ import {
   listMyBranches, createBranch, updateBranch, deleteBranch,
   createBranchLogin, updateBranchLogin, resetBranchLoginPassword, revokeBranchLogin,
 } from '../controllers/branch.controller';
-import { verifyToken } from '../middleware/auth.middleware';
+import { verifyToken, optionalAuth } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import { requireMfa } from '../middleware/mfa.middleware';
 import { requireOwner, vendorContext } from '../middleware/vendorContext';
@@ -101,14 +101,14 @@ router.delete('/me/promotions/:id',            ...vendorAuth, deletePromotion);
 // Public routes
 router.get('/commission-rates',   getPublicCommissionRates);
 router.get('/support-contact',    getPublicSupportContact);
-router.get('/active-promotions',  getActiveVendorPromotions);
-router.get('/browse-items',       browseItems);
-router.get('/search',             unifiedSearch);
-router.get('/menu-items/search',  searchMenuItems);
-router.get('/menu-items/:id/similar', getSimilarMenuItems);
-router.get('/menu-items/:id',         getMenuItemById);
-router.get('/',                       getVendors);
-router.get('/:id',                getVendorById);
-router.get('/:id/menu',           getVendorMenu);
+router.get('/active-promotions',  optionalAuth, getActiveVendorPromotions);
+router.get('/browse-items',       optionalAuth, browseItems);
+router.get('/search',             optionalAuth, unifiedSearch);
+router.get('/menu-items/search',  optionalAuth, searchMenuItems);
+router.get('/menu-items/:id/similar', optionalAuth, getSimilarMenuItems);
+router.get('/menu-items/:id',         optionalAuth, getMenuItemById);
+router.get('/',                       optionalAuth, getVendors);
+router.get('/:id',                optionalAuth, getVendorById);
+router.get('/:id/menu',           optionalAuth, getVendorMenu);
 
 export default router;

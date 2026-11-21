@@ -8,6 +8,7 @@ import { calculateDeliveryFee } from '../services/pricing.service';
 import { calcVendorFee } from '../services/commission.service';
 import { applyFreeDelivery } from '../services/referral.service';
 import { issueCredit, applyCredit } from '../services/storeCredit.service';
+import { isHiddenFromViewer } from '../services/reviewAccess';
 import { evaluatePromo } from '../services/offer.service';
 import { getPlatformSettings } from '../services/settings.service';
 import { notifyUser } from '../services/notification.service';
@@ -191,12 +192,13 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
     where: { id: cart.vendorId! },
     select: {
       id: true, latitude: true, longitude: true, commissionTier: true, city: true, state: true,
-      businessName: true, managerUserId: true,
+      businessName: true, managerUserId: true, slug: true,
       user: { select: { id: true, phone: true, email: true } },
       ...availabilityInclude,
     },
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
+  if (await isHiddenFromViewer(vendor.slug, req.user)) return apiResponse.error(res, 'Vendor not found.', 404);
   // Delivery stays inside one state: the address must be in the vendor's state (ordering for someone else is fine).
   if (!sameState(vendor.state, deliveryAddress.state)) {
     return apiResponse.error(res, `This vendor is in ${vendor.state}. Delivery is only available within the same state, so choose a delivery address in ${vendor.state}.`, 400);

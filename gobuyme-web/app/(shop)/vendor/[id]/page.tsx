@@ -254,11 +254,25 @@ export default function VendorDetailPage() {
     }
     const displayName = labels.length ? `${drawerItem.name} (${labels.join(', ')})` : drawerItem.name;
 
+    // Same shape the mobile app sends ("Name ×2" with the line price) so the server can check and price it.
+    const selections: { label: string; price: number }[] = [];
+    Object.entries(drinkQtys).forEach(([did, q]) => {
+      const d = drawerItem.drinkOptions?.find(d => d.id === did);
+      if (d && q > 0) selections.push({ label: q > 1 ? `${d.name} ×${q}` : d.name, price: d.price * q });
+    });
+    for (const g of drawerItem.optionGroups ?? []) {
+      for (const [optId, q] of Object.entries(optionQtys[g.id] ?? {})) {
+        const opt = g.items.find(i => i.id === optId);
+        if (opt && q > 0) selections.push({ label: q > 1 ? `${opt.name} ×${q}` : opt.name, price: opt.extraPrice * q });
+      }
+    }
+
     addItem({
       menuItemId: drawerItem.id,
       compositeKey: compositeId,
       name: displayName,
       price: unitPrice,
+      selections,
       image: drawerItem.image,
       vendorId: vendor.id,
       vendorName: vendor.businessName,

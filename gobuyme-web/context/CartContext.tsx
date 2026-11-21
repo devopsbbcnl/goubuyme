@@ -15,6 +15,8 @@ export interface CartItem {
   vendorId: string;
   vendorName: string;
   compositeKey?: string; // local-only key distinguishing variant selections of the same menuItemId
+  // Chosen drinks/options, e.g. [{ label: 'Chilled Zobo ×2', price: 1600 }]. The server re-prices these from the menu.
+  selections?: { label: string; price: number }[];
 }
 
 export interface VendorCart {
@@ -117,6 +119,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       menuItemId: item.menuItemId,
       quantity: initialQty,
       unitPrice: item.price,
+      ...(item.selections ? { selections: item.selections } : {}),
       // Human-readable variant description (e.g. "Jollof Rice (2x Chicken, Coke)") when
       // this is a composite item — see the merge-by-menuItemId caveat above the class doc.
       ...(item.compositeKey ? { note: item.name } : {}),

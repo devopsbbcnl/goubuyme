@@ -3,6 +3,7 @@ import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { isReviewer, reviewVendorIds } from '../services/reviewAccess';
 
 const formatDiscount = (discount: number, isPercent: boolean): string => {
   if (discount === 0 && !isPercent) return 'Free Delivery';
@@ -17,12 +18,15 @@ const deriveType = (discount: number, isPercent: boolean): 'percent' | 'flat' | 
 };
 
 // GET /api/v1/offers
-export const getOffers = catchAsync(async (_req: Request, res: Response) => {
+export const getOffers = catchAsync(async (req: Request, res: Response) => {
   const now = new Date();
+  // Offers tied to a review-only vendor are only shown to the reviewer accounts.
+  const hiddenVendorIds = (await isReviewer((req as AuthRequest).user?.userId)) ? [] : await reviewVendorIds();
   const offers = await prisma.offer.findMany({
     where: {
       isActive: true,
       OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      ...(hiddenVendorIds.length ? { AND: [{ OR: [{ vendorId: null }, { vendorId: { notIn: hiddenVendorIds } }] }] } : {}),
     },
     select: {
       id: true, title: true, description: true, code: true,
