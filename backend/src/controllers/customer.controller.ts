@@ -99,11 +99,21 @@ export const addToCart = catchAsync(async (req: AuthRequest, res: Response) => {
     return apiResponse.error(res, 'Item not available.', 400);
   }
 
-  const cart = await prisma.cart.upsert({
-    where: { customerId_vendorId: { customerId, vendorId: menuItem.vendorId } },
-    update: {},
-    create: { customerId, vendorId: menuItem.vendorId },
-  });
+  // Two add-to-cart calls for the same vendor can arrive together (a double tap, or the app adding
+  // several items at once) while no cart exists yet. Both try to create it and the loser hits the
+  // (customerId, vendorId) unique constraint, so on that specific error read the winner's cart.
+  const cartKey = { customerId_vendorId: { customerId, vendorId: menuItem.vendorId } };
+  let cart;
+  try {
+    cart = await prisma.cart.upsert({
+      where: cartKey,
+      update: {},
+      create: { customerId, vendorId: menuItem.vendorId },
+    });
+  } catch (err) {
+    if ((err as { code?: string })?.code !== 'P2002') throw err;
+    cart = await prisma.cart.findUniqueOrThrow({ where: cartKey });
+  }
 
   const existing = await prisma.cartItem.findFirst({ where: { cartId: cart.id, menuItemId } });
   const nextQuantity = (existing?.quantity ?? 0) + requestedQty;
