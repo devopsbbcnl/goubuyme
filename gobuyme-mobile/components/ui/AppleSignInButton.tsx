@@ -22,7 +22,7 @@ export default function AppleSignInButton({ kind = 'CONTINUE' }: Props) {
     : AppleAuthenticationButtonType.CONTINUE;
 
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: 8, marginBottom: 14 }}>
       {!!appleError && (
         <Text style={{ color: '#E53E3E', textAlign: 'center', fontSize: 13 }}>{appleError}</Text>
       )}

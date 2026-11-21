@@ -6,3 +6,6 @@ expo-env.d.ts
 # @end expo-cli
 # Firebase service-account private key (never commit)
 *firebase-adminsdk*.json
+
+# App Store / Play marketing images (large, regenerated)
+store-listing/generated/

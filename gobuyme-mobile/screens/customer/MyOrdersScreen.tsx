@@ -91,6 +91,7 @@ function toUiStatus(raw: string): OrderStatus {
 		case 'CANCELLED':
 			return 'cancelled';
 		case 'PICKED_UP':
+		case 'IN_TRANSIT':
 			return 'on_the_way';
 		case 'READY':
 			return 'ready';
