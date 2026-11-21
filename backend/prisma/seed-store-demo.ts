@@ -122,6 +122,8 @@ async function setOpen(open: boolean) {
     where: { id: v.id },
     data: { availabilityOverride: open ? 'FORCE_OPEN' : 'FORCE_CLOSED', isOpen: open },
   });
+  // The demo offers follow the vendor: hidden from the Offers screen while it is closed.
+  await prisma.offer.updateMany({ where: { vendorId: v.id }, data: { isActive: open } });
   console.log(open
     ? '✓ Demo vendor is OPEN: customers can order from it.'
     : '✓ Demo vendor is CLOSED: customers cannot order from it (it is still visible).');
@@ -154,6 +156,12 @@ async function remove() {
     await prisma.favorite.deleteMany({ where: { vendorId: { in: vendorIds } } });
     await prisma.menuItem.deleteMany({ where: { vendorId: { in: vendorIds } } });
     await prisma.vendorPromotion.deleteMany({ where: { vendorId: { in: vendorIds } } });
+    // Redemptions cascade with their orders (deleted above); clear any left, then the offers.
+    const offerIds = (await prisma.offer.findMany({ where: { vendorId: { in: vendorIds } }, select: { id: true } })).map((o) => o.id);
+    if (offerIds.length) {
+      await prisma.offerRedemption.deleteMany({ where: { offerId: { in: offerIds } } });
+      await prisma.offer.deleteMany({ where: { id: { in: offerIds } } });
+    }
   }
   const ids = users.map((u) => u.id);
   if (ids.length) {
@@ -245,6 +253,22 @@ async function seed() {
     added++;
   }
   console.log(`✓ Menu: ${added} item(s) added, ${MENU.length - added} already there.`);
+
+  // Offers: every code is scoped to this vendor (Offer.vendorId), so none can discount an order from
+  // any real vendor. They expire in 60 days and each person can redeem a code once.
+  const expiresAt = new Date(Date.now() + 60 * 24 * 3600 * 1000);
+  const OFFERS = [
+    { code: 'SAVOUR15', title: '15% off your first feast', description: '15% off any order of ₦3,000 or more from Savour Naija Kitchen.', discount: 15, isPercent: true, minOrder: 3000 },
+    { code: 'SAVOUR500', title: '₦500 off big orders', description: 'Flat ₦500 off orders of ₦6,000 or more from Savour Naija Kitchen.', discount: 500, isPercent: false, minOrder: 6000 },
+    { code: 'SAVOURFREE', title: 'Free delivery on us', description: 'Free delivery on orders of ₦4,000 or more from Savour Naija Kitchen.', discount: 0, isPercent: false, minOrder: 4000 },
+  ];
+  let offersMade = 0;
+  for (const o of OFFERS) {
+    if (await prisma.offer.findUnique({ where: { code: o.code } })) continue;
+    await prisma.offer.create({ data: { ...o, vendorId: vendor.id, expiresAt, isActive: true } });
+    offersMade++;
+  }
+  console.log(`✓ Offers: ${offersMade} created (vendor-only codes: ${OFFERS.map((o) => o.code).join(', ')}).`);
 
   const promoCount = await prisma.vendorPromotion.count({ where: { vendorId: vendor.id } });
   if (!promoCount) {
