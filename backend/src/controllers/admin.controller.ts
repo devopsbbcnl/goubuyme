@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
+import { verifyUploads } from '../services/uploadVerification.service';
 import { encryptId, readId, maskId } from '../utils/crypto';
 import { canonicalKycUrl, signKycFields, deleteStoredImages, KYC_IMAGE_FIELDS } from '../services/kycStorage.service';
 import { eraseAccountData, hashForAudit, lastFour } from '../services/accountErasure.service';
@@ -434,7 +435,7 @@ export const getAdminRiderDetail = catchAsync(async (req: Request, res: Response
     ...rider,
     // The NIN is stored encrypted and shown masked; the full number needs a logged reveal (POST /admin/kyc/reveal).
     document: rider.document
-      ? { ...signKycFields(rider.document, KYC_IMAGE_FIELDS.riderDocument), ninNumber: maskId(readId(rider.document.ninNumber)) }
+      ? { ...(await signKycFields(rider.document, KYC_IMAGE_FIELDS.riderDocument)), ninNumber: maskId(readId(rider.document.ninNumber)) }
       : rider.document,
     otherRoles: riderAccount ? summarizeOtherRoles(riderAccount, 'RIDER') : [],
     totalDeliveries: rider._count.deliveries,
@@ -1361,11 +1362,11 @@ export const getVendorDetail = catchAsync(async (req: Request, res: Response) =>
     ...vendor,
     // Identity and verification images are private: staff get short-lived links, never the stored address.
     document: vendor.document
-      ? { ...signKycFields(vendor.document, KYC_IMAGE_FIELDS.vendorDocument), number: maskId(readId(vendor.document.number)) }
+      ? { ...(await signKycFields(vendor.document, KYC_IMAGE_FIELDS.vendorDocument)), number: maskId(readId(vendor.document.number)) }
       : vendor.document,
     businessVerification: vendor.businessVerification
-      ? signKycFields(vendor.businessVerification, KYC_IMAGE_FIELDS.vendorBusiness) : vendor.businessVerification,
-    licenses: vendor.licenses.map((l) => signKycFields(l, KYC_IMAGE_FIELDS.vendorLicense)),
+      ? await signKycFields(vendor.businessVerification, KYC_IMAGE_FIELDS.vendorBusiness) : vendor.businessVerification,
+    licenses: await Promise.all(vendor.licenses.map((l) => signKycFields(l, KYC_IMAGE_FIELDS.vendorLicense))),
     otherRoles: vendorAccount ? summarizeOtherRoles(vendorAccount, 'VENDOR') : [],
     payoutAccount,
     isBranch: vendor.parentVendorId !== null,
@@ -1651,6 +1652,7 @@ export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Respon
     return apiResponse.error(res, 'A document photo was not uploaded correctly. Please upload it again.', 400);
   }
 
+  { const bad = await verifyUploads([logo, coverImage, docFront, docBack, docSelfie]); if (bad) return apiResponse.error(res, bad, 400); }
   const hashed = await bcrypt.hash(password, 10);
   const referralCode = generateReferralCode();
   const slug = businessName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -1887,6 +1889,7 @@ export const adminCreateRider = catchAsync(async (req: AuthRequest, res: Respons
     return apiResponse.error(res, 'A document photo was not uploaded correctly. Please upload it again.', 400);
   }
 
+  { const bad = await verifyUploads([ninImg, riderSelfie, vehicleImg]); if (bad) return apiResponse.error(res, bad, 400); }
   const hashed = await bcrypt.hash(password, 10);
   const referralCode = generateReferralCode();
 

@@ -17,8 +17,6 @@ import { CenteredKeyboardModal } from '@/components/ui/CenteredKeyboardModal';
 // Recommended dimensions for graphic designers — matches the customer homescreen
 // carousel card at ~1.86:1 aspect ratio.
 const PROMO_DIMENSIONS = { width: 1080, height: 580 };
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
 interface Vendor {
   commissionTier: 'TIER_1' | 'TIER_2';
@@ -37,32 +35,7 @@ interface Promo {
   createdAt: string;
 }
 
-async function uploadToCloudinary(uri: string): Promise<string> {
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error('Cloudinary configuration is missing.');
-  }
-
-  const formData = new FormData();
-  formData.append('file', { uri, type: 'image/jpeg', name: 'promo.jpg' } as any);
-  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-  let res: Response;
-  try {
-    res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-  } catch (err: any) {
-    console.error('[uploadToCloudinary] network error', err);
-    throw new Error(`Network error while uploading: ${err?.message ?? 'unknown'}`);
-  }
-  const data = await res.json().catch(() => ({})) as { secure_url?: string; error?: { message?: string } };
-  if (!res.ok || !data.secure_url) {
-    const reason = data?.error?.message ?? `HTTP ${res.status}`;
-    console.error('[uploadToCloudinary] Cloudinary rejected upload:', reason);
-    throw new Error(`Image upload failed: ${reason}`);
-  }
-  return data.secure_url;
-}
+import { uploadImage as uploadToStorage } from '@/utils/upload';
 
 export default function VendorPromotionsScreen() {
   const { theme: T } = useTheme();
@@ -158,7 +131,7 @@ export default function VendorPromotionsScreen() {
       let imageUrl = imageUri;
       if (!imageUri.startsWith('http')) {
         setUploadingImage(true);
-        imageUrl = await uploadToCloudinary(imageUri);
+        imageUrl = await uploadToStorage(imageUri, 'promo');
         setUploadingImage(false);
       }
 

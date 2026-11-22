@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
+import { verifyUploads } from '../services/uploadVerification.service';
 import { nextImagePosition, parseImagePosition } from '../utils/imagePosition';
 import { catchAsync } from '../utils/catchAsync';
 import {
@@ -20,7 +21,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { Role, CommissionTier, VendorCategory, OrderStatus } from '@prisma/client';
 import { recordError } from '../utils/recordError';
 import { encryptSecret, decryptSecret } from '../utils/crypto';
-import { createUploadTicket, deleteStoredImages } from '../services/kycStorage.service';
+import { deleteStoredImages } from '../services/kycStorage.service';
 import { eraseAccountData, hashForAudit, lastFour, ErasureResult } from '../services/accountErasure.service';
 import { signupConsent } from '../config/policy';
 import {
@@ -736,15 +737,6 @@ export const socketTicket = catchAsync(async (req: AuthRequest, res: Response) =
   return apiResponse.success(res, 'Socket ticket issued.', { ticket: generateSocketTicket({ userId, role }) });
 });
 
-// POST /auth/kyc-upload-ticket — signed parameters for a private (authenticated) Cloudinary upload of an
-// identity or verification image. The folder is the caller's own, so one account cannot overwrite another's.
-const KYC_UPLOAD_ROLES = new Set(['VENDOR', 'RIDER', 'LOGISTICS_COMPANY', 'SUPER_ADMIN', 'OPERATIONS_ADMIN']);
-export const kycUploadTicket = catchAsync(async (req: AuthRequest, res: Response) => {
-  const { userId, role } = req.user!;
-  if (!KYC_UPLOAD_ROLES.has(role)) return apiResponse.error(res, 'Not allowed.', 403);
-  return apiResponse.success(res, 'Upload ticket issued.', createUploadTicket(userId));
-});
-
 export const getMe = catchAsync(async (req: AuthRequest, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user!.userId },
@@ -797,6 +789,7 @@ export const updateProfile = catchAsync(async (req: AuthRequest, res: Response) 
     name?: string; phone?: string; photoUrl?: string;
   };
 
+  { const bad = await verifyUploads([photoUrl]); if (bad) return apiResponse.error(res, bad, 400); }
   const data: Record<string, unknown> = {};
   if (name?.trim())    data.name   = name.trim();
   if (phone !== undefined) data.phone  = phone.trim() || null;

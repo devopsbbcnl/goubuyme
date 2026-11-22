@@ -20,8 +20,6 @@ import { useVendorTerminology } from '@/hooks/useVendorTerminology';
 import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 import { CenteredKeyboardModal } from '@/components/ui/CenteredKeyboardModal';
 
-const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
-const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
 type Tier = 'TIER_1' | 'TIER_2';
 
@@ -86,29 +84,7 @@ const planDetails = (rates: CommissionRates): Record<Tier, {
   },
 });
 
-async function uploadImage(uri: string): Promise<string> {
-  if (!CLOUD_NAME || !UPLOAD_PRESET) throw new Error('Image upload is not configured. Contact support.');
-  const form = new FormData();
-  form.append('file', { uri: await prepareForUpload(uri), type: 'image/jpeg', name: 'upload.jpg' } as any);
-  form.append('upload_preset', UPLOAD_PRESET);
-  let res: Response;
-  try {
-    res = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-      { method: 'POST', body: form },
-    );
-  } catch (err: any) {
-    console.error('[uploadImage] network error', err);
-    throw new Error(`Network error while uploading: ${err?.message ?? 'unknown'}`);
-  }
-  const data = (await res.json().catch(() => ({}))) as { secure_url?: string; error?: { message?: string } };
-  if (!res.ok || !data.secure_url) {
-    const reason = data?.error?.message ?? `HTTP ${res.status}`;
-    console.error('[uploadImage] Cloudinary rejected upload:', reason);
-    throw new Error(`Image upload failed: ${reason}`);
-  }
-  return data.secure_url;
-}
+import { uploadImage as uploadToStorage } from '@/utils/upload';
 
 function freshDraft(): MenuItemDraft {
   return { id: Date.now().toString(), name: '', price: '', stockQuantity: '', imageUri: '', imageUrl: '', optionGroups: [] };
@@ -196,7 +172,7 @@ export default function VendorCompleteProfileScreen() {
     if (!position) return;
     try {
       type === 'logo' ? setUploadingLogo(true) : setUploadingCover(true);
-      const url = await uploadImage(uri);
+      const url = await uploadToStorage(uri, type);
       if (type === 'logo') { setLogo(url); setLogoPosition(position); }
       else { setCoverImage(url); setCoverPosition(position); }
     } catch (err: any) {
@@ -752,7 +728,7 @@ function AddMenuItemModal({
     setDraft(prev => ({ ...prev, imageUri: uri }));
     setUploading(true);
     try {
-      const url = await uploadImage(uri);
+      const url = await uploadToStorage(uri, 'menu');
       setDraft(prev => ({ ...prev, imageUrl: url }));
     } catch {
       Alert.alert('Upload failed', 'Could not upload the image. Please try again.');

@@ -20,8 +20,6 @@ import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper
 import { PositionedImage } from '@/components/ui/PositionedImage';
 import { useImagePositioner } from '@/components/ui/ImagePositioner';
 
-const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
-const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
 function phoneToDisplay(phone: string): string {
 	if (phone.startsWith('+234')) return phone.slice(4);
@@ -37,31 +35,7 @@ function formatPhoneForApi(suffix: string): string {
 	return `+234${digits}`;
 }
 
-async function uploadToCloudinary(uri: string): Promise<string> {
-	const form = new FormData();
-	form.append('file', { uri, type: 'image/jpeg', name: 'profile.jpg' } as any);
-	form.append('upload_preset', UPLOAD_PRESET);
-	let res: Response;
-	try {
-		res = await fetch(
-			`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-			{
-				method: 'POST',
-				body: form,
-			},
-		);
-	} catch (err: any) {
-		console.error('[uploadToCloudinary] network error', err);
-		throw new Error(`Network error while uploading: ${err?.message ?? 'unknown'}`);
-	}
-	const data = await res.json().catch(() => ({})) as { secure_url?: string; error?: { message?: string } };
-	if (!res.ok || !data.secure_url) {
-		const reason = data?.error?.message ?? `HTTP ${res.status}`;
-		console.error('[uploadToCloudinary] Cloudinary rejected upload:', reason);
-		throw new Error(`Image upload failed: ${reason}`);
-	}
-	return data.secure_url as string;
-}
+import { uploadImage as uploadToStorage } from '@/utils/upload';
 
 export default function EditProfileScreen() {
 	const { theme: T } = useTheme();
@@ -81,15 +55,9 @@ export default function EditProfileScreen() {
 		if (!uri) return;
 		const position = await positioner.open({ uri, aspect: 1, round: true });
 		if (!position) return;
-		if (!CLOUD_NAME || CLOUD_NAME === 'your_cloud_name') {
-			// fallback: use local URI if Cloudinary not configured
-			setPhotoUrl(uri);
-			setPhotoPosition(position);
-			return;
-		}
 		try {
 			setUploading(true);
-			const url = await uploadToCloudinary(uri);
+			const url = await uploadToStorage(uri, 'avatar');
 			setPhotoUrl(url);
 			setPhotoPosition(position);
 		} catch (err: any) {

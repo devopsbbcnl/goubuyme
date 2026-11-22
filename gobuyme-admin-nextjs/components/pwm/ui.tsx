@@ -116,23 +116,34 @@ export async function downloadCsv(path: string, fallbackName: string) {
   URL.revokeObjectURL(a.href);
 }
 
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
-const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
+const HR_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
 
-/** Upload a PDF or image and return its link plus a SHA-256 checksum (stored so a changed file is detectable). */
-export async function uploadDocument(file: File): Promise<{ url: string; checksum: string }> {
-  if (!CLOUD_NAME || !UPLOAD_PRESET) throw new Error('File uploads are not configured on this site.');
+interface HrTicket { uploadUrl: string; method: 'PUT'; headers: Record<string, string>; reference: string }
+
+/**
+ * Upload a PDF or image to the private HR storage and return its reference plus a SHA-256 checksum (stored so a changed
+ * file is detectable). HR files are never public: the API shows them back only as short-lived signed links.
+ * `publicUpload` is for pages with no login (new-hire pre-boarding), which use the public ticket route.
+ */
+export async function uploadDocument(file: File, opts: { publicUpload?: boolean } = {}): Promise<{ url: string; checksum: string }> {
   if (file.size > 10 * 1024 * 1024) throw new Error('Files must be 10 MB or smaller.');
+  if (!HR_TYPES.includes(file.type)) throw new Error('Please choose a PDF, JPG, PNG or WebP file.');
   const buf = await file.arrayBuffer();
   const hash = await crypto.subtle.digest('SHA-256', buf);
   const checksum = Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
-  const form = new FormData();
-  form.append('file', file);
-  form.append('upload_preset', UPLOAD_PRESET);
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, { method: 'POST', body: form }).catch(() => null);
-  const data = (await res?.json().catch(() => ({}))) as { secure_url?: string; error?: { message?: string } } | undefined;
-  if (!res || !res.ok || !data?.secure_url) throw new Error(`Upload failed: ${data?.error?.message ?? 'network error'}`);
-  return { url: data.secure_url, checksum };
+
+  const ticketRes = await fetch(opts.publicUpload ? '/api/pwm-public/upload-ticket' : '/api/proxy/uploads/ticket', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(opts.publicUpload ? { contentType: file.type } : { purpose: 'hr', contentType: file.type }),
+  }).catch(() => null);
+  const ticketJson = (await ticketRes?.json().catch(() => ({}))) as { data?: HrTicket; message?: string } | undefined;
+  if (!ticketRes || !ticketRes.ok || !ticketJson?.data) throw new Error(ticketJson?.message ?? 'Could not start the upload. Please try again.');
+  const ticket = ticketJson.data;
+
+  const put = await fetch(ticket.uploadUrl, { method: ticket.method, headers: ticket.headers, body: file }).catch(() => null);
+  if (!put || !put.ok) throw new Error(`Upload failed${put ? ` (HTTP ${put.status})` : ': network error'}. Please try again.`);
+  return { url: ticket.reference, checksum };
 }
 
 /** A small form-row grid. */

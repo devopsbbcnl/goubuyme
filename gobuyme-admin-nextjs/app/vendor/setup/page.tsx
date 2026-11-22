@@ -1,11 +1,10 @@
 'use client';
+import { uploadImage } from '@/lib/upload';
 import { useState, useRef, useEffect, CSSProperties, FormEvent, ChangeEvent, ReactNode } from 'react';
 import Image from 'next/image';
 import { useTheme } from '@/context/ThemeContext';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
-const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
 type Tier = 'TIER_1' | 'TIER_2';
 type Step = 'login' | 'form' | 'done';
@@ -47,15 +46,6 @@ const planDetails = (rates: TierRates): Record<Tier, { title: string; bestFor: s
 });
 
 type MenuItem = { id: string; name: string; price: string };
-
-async function cloudinaryUpload(file: File): Promise<string> {
-  const form = new FormData();
-  form.append('file', file);
-  form.append('upload_preset', UPLOAD_PRESET);
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: 'POST', body: form });
-  if (!res.ok) throw new Error('Upload failed');
-  return ((await res.json()) as { secure_url: string }).secure_url;
-}
 
 async function apiCall(path: string, method: string, token: string, body?: unknown) {
   const res = await fetch(`${BASE}${path}`, {
@@ -155,11 +145,12 @@ export default function VendorSetupPage() {
     setPreview: (url: string) => void,
     setUrl: (url: string) => void,
     setUploading: (v: boolean) => void,
+    purpose: 'logo' | 'cover',
   ) => {
     setPreview(URL.createObjectURL(file));
     setUploading(true);
     try {
-      const url = await cloudinaryUpload(file);
+      const url = await uploadImage(file, purpose, async (p, contentType) => ((await apiCall('/uploads/ticket', 'POST', token, { purpose: p, contentType })) as { data: never }).data);
       setUrl(url);
     } catch {
       setPreview('');
@@ -301,7 +292,7 @@ export default function VendorSetupPage() {
           {coverPreview && !uploadingCover && <ChangeChip />}
         </div>
         <input ref={coverRef} type="file" accept="image/*" style={{ display: 'none' }}
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setCoverPreview, setCoverUrl, setUploadingCover); e.target.value = ''; }} />
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setCoverPreview, setCoverUrl, setUploadingCover, 'cover'); e.target.value = ''; }} />
 
         {/* ── STORE LOGO ── */}
         <SectionLabel label="STORE LOGO" T={T} mt={4} />
@@ -325,7 +316,7 @@ export default function VendorSetupPage() {
           </div>
         </div>
         <input ref={logoRef} type="file" accept="image/*" style={{ display: 'none' }}
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setLogoPreview, setLogoUrl, setUploadingLogo); e.target.value = ''; }} />
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, setLogoPreview, setLogoUrl, setUploadingLogo, 'logo'); e.target.value = ''; }} />
 
         {/* ── DESCRIPTION ── */}
         <SectionLabel label="ABOUT YOUR STORE *" T={T} />

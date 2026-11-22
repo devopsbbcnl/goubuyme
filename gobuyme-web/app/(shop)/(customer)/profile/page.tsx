@@ -11,6 +11,7 @@ import DeleteAccountModal from '@/components/ui/DeleteAccountModal';
 import RoleSwitcher from '@/components/ui/RoleSwitcher';
 import Image from 'next/image';
 import api from '@/services/api';
+import { uploadImage } from '@/services/upload';
 import { AnalyticsConsentRow } from '@/components/AnalyticsConsentRow';
 
 interface Order {
@@ -228,20 +229,9 @@ export default function ProfilePage() {
     if (!file) return;
     setUploadingAvatar(true);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
-      fd.append('folder', 'avatars');
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: 'POST', body: fd },
-      );
-      const data = await res.json().catch(() => ({})) as { secure_url?: string; error?: { message?: string } };
-      if (!res.ok || !data.secure_url) {
-        throw new Error(`Image upload failed: ${data?.error?.message ?? `HTTP ${res.status}`}`);
-      }
-      await api.patch('/auth/profile', { photoUrl: data.secure_url, avatarPosition: position });
-      updateUser({ avatar: data.secure_url, avatarPosition: position });
+      const url = await uploadImage(file, 'avatar');
+      await api.patch('/auth/profile', { photoUrl: url, avatarPosition: position });
+      updateUser({ avatar: url, avatarPosition: position });
       toast('Avatar updated!', 'success');
     } catch (err: any) { toast(err?.message || 'Could not upload image', 'error'); }
     finally { setUploadingAvatar(false); }

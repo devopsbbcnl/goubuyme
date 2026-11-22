@@ -2,6 +2,7 @@
 // Access is decided by pwmAuth (membership + capability), never by the admin role alone.
 import { Router } from 'express';
 import { pwmAuth } from '../middleware/pwm.middleware';
+import { hrFiles } from '../middleware/hrFiles.middleware';
 import * as core from '../controllers/pwm/core.controller';
 import * as emp from '../controllers/pwm/employee.controller';
 import * as con from '../controllers/pwm/contract.controller';
@@ -22,6 +23,8 @@ import * as ins from '../controllers/pwm/insights.controller';
 import * as pl from '../controllers/pwm/planning.controller';
 
 const router = Router();
+// HR files are private: stored as references, shown as short-lived signed links (see hrFiles.middleware).
+router.use(hrFiles);
 const any = pwmAuth();
 
 // Identity & pickers

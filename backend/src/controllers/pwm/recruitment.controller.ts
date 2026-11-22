@@ -8,6 +8,7 @@ import { getPwmConfig, nextEmployeeNo, nextNumber } from '../../services/pwm/set
 import { can, dateOnly, fromYmd, lagosYmd, normalisePhone } from '../../services/pwm/rules';
 import { approverUserIds, hrAdminUserIds, startChecklist } from '../../services/pwm/people';
 import { notifyPwm } from '../../services/pwm/notify';
+import { parseHrReference } from '../../services/objectStorage.service';
 import { access, email, fail, handle, int, nameMap, oneOf, reqStr, reqYmd, str, ymd } from './common';
 
 const STAGES: readonly PwmApplicationStage[] = ['APPLIED', 'SCREENING', 'INTERVIEW', 'ASSESSMENT', 'OFFER', 'HIRED', 'REJECTED', 'WITHDRAWN'];
@@ -310,7 +311,7 @@ export const publicApply = async (req: Request, res: Response) => {
     const first = reqStr(b.firstName, 'First name', 80); const last = reqStr(b.lastName, 'Last name', 80);
     if (!mail) return apiResponse.error(res, 'Email is required.', 400);
     const cv = str(b.cvUrl, 1000);
-    if (cv && !/^https:\/\/res\.cloudinary\.com\//i.test(cv)) return apiResponse.error(res, 'The CV link must come from the upload form.', 400);
+    if (cv && !(parseHrReference(cv) || /^https:\/\/res\.cloudinary\.com\//i.test(cv))) return apiResponse.error(res, 'The CV link must come from the upload form.', 400);
     const phoneRaw = str(b.phone, 40);
     const cand = await prisma.pwmCandidate.upsert({
       where: { email: mail },

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
+import { verifyUploads } from '../services/uploadVerification.service';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { isReviewer, reviewVendorIds } from '../services/reviewAccess';
@@ -54,6 +55,7 @@ export const getOffers = catchAsync(async (req: Request, res: Response) => {
 // POST /api/v1/admin/offers
 export const createOffer = catchAsync(async (req: AuthRequest, res: Response) => {
   const { title, description, imageUrl, code, discount, isPercent, minOrder, vendorId, expiresAt } = req.body;
+  { const bad = await verifyUploads([imageUrl]); if (bad) return apiResponse.error(res, bad, 400); }
 
   const offer = await prisma.offer.create({
     data: {
@@ -76,6 +78,7 @@ export const createOffer = catchAsync(async (req: AuthRequest, res: Response) =>
 export const updateOffer = catchAsync(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const { title, description, imageUrl, code, discount, isPercent, minOrder, vendorId, expiresAt, isActive } = req.body;
+  { const bad = await verifyUploads([imageUrl]); if (bad) return apiResponse.error(res, bad, 400); }
 
   const offer = await prisma.offer.update({
     where: { id },

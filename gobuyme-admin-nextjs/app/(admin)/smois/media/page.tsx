@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
-import { cloudinaryUpload } from '@/lib/cloudinaryUpload';
+import { uploadImage } from '@/lib/upload';
 import { Btn, Card, Empty, Thumb, Field, Input, Notice, PageHeader, Pager, Pill, Select, TextArea, fmtDate, pretty, toLocalInput, useAction, useLoad, useSmois } from '@/components/smois/ui';
 
 const CATEGORIES = ['LOGO', 'BRAND_GUIDELINES', 'COMPANY_PHOTO', 'EXECUTIVE_PHOTO', 'PRODUCT_PHOTO', 'MARKETING_DESIGN', 'VIDEO', 'TEMPLATE', 'CAMPAIGN_ASSET', 'EVENT_PHOTO', 'PRESS_MATERIAL', 'APPROVED_CAPTION', 'CORPORATE_DESCRIPTION', 'OTHER'];
@@ -70,7 +70,7 @@ function AssetForm({ onClose, onSaved, versionOf }: { onClose: () => void; onSav
   const upload = async (file?: File) => {
     if (!file) return;
     setUp(true); setError('');
-    try { const url = await cloudinaryUpload(file); setF((x) => ({ ...x, url, fileType: 'IMAGE', name: x.name || file.name.replace(/\.[^.]+$/, '') })); } catch (e) { setError((e as Error).message); } finally { setUp(false); }
+    try { const url = await uploadImage(file, 'media'); setF((x) => ({ ...x, url, fileType: 'IMAGE', name: x.name || file.name.replace(/\.[^.]+$/, '') })); } catch (e) { setError((e as Error).message); } finally { setUp(false); }
   };
   const save = () => run(async () => {
     if (versionOf) await api.post(`/admin/smois/assets/${versionOf.id}/version`, { url: f.url, note: f.note });

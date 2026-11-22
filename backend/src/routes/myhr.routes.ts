@@ -1,6 +1,7 @@
 // My HR: employee self-service. Mounted at /api/v1/my-hr. Everything here is about the signed-in person's own record.
 import { Router } from 'express';
 import { myHrAuth } from '../middleware/myhr.middleware';
+import { hrFiles } from '../middleware/hrFiles.middleware';
 import * as ss from '../controllers/pwm/selfservice.controller';
 import * as m3 from '../controllers/pwm/myhr3.controller';
 import * as m4 from '../controllers/pwm/myhr4.controller';
@@ -8,6 +9,8 @@ import * as ins from '../controllers/pwm/insights.controller';
 
 const router = Router();
 router.use(...myHrAuth);
+// HR files are private: stored as references, shown as short-lived signed links (see hrFiles.middleware).
+router.use(hrFiles);
 
 router.get('/me',                  ss.getMe);
 router.get('/announcements',       ss.announcements);

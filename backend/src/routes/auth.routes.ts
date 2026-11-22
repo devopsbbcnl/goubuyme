@@ -3,7 +3,7 @@ import {
   register, login, refresh, logout, googleAuth, appleAuth,
   getMe, updateProfile, forgotPassword, resetPassword, changePassword,
   verifyOtp, resendOtp, activationStatus, requestPasswordOtp, deleteAccount,
-  socketTicket, kycUploadTicket, getRoles, switchRole, addRole, sendPhoneVerificationCode, verifyPhoneCode,
+  socketTicket, getRoles, switchRole, addRole, sendPhoneVerificationCode, verifyPhoneCode,
 } from '../controllers/auth.controller';
 import { exportMyData } from '../controllers/dataRights.controller';
 import { validate } from '../middleware/validate.middleware';
@@ -31,7 +31,6 @@ router.post('/refresh', validate(refreshTokenSchema), refresh);
 router.post('/logout', verifyToken, logout);
 router.get('/me', verifyToken, getMe);
 router.post('/socket-ticket', verifyToken, socketTicket);
-router.post('/kyc-upload-ticket', verifyToken, kycUploadTicket);
 router.get('/my-data', verifyToken, authLimiter, exportMyData);
 router.get('/roles', verifyToken, getRoles);
 router.post('/switch-role', verifyToken, authLimiter, switchRole);
