@@ -4,7 +4,7 @@ import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
 import { useTheme } from '@/context/ThemeContext';
 
-import { cloudinaryUpload, kycUpload } from '@/lib/cloudinaryUpload';
+import { uploadImage } from '@/lib/upload';
 
 // NIN/BVN are deliberately not collected from vendors (NDPA data minimisation).
 type DocType = 'DRIVERS_LICENSE' | 'PASSPORT';
@@ -108,7 +108,7 @@ export function AddVendorModal({ open, onClose, onCreated }: Props) {
     setUploading(true);
     try {
       // Logo and cover are public store images; ID photos and selfies are uploaded privately.
-      setUrl(key === 'logo' || key === 'cover' ? await cloudinaryUpload(file) : await kycUpload(file));
+      setUrl(await uploadImage(file, key === 'logo' || key === 'cover' ? key : 'kyc'));
     } catch (err) {
       // Keep the thumbnail on screen, marked as failed, so it can't be mistaken for saved.
       const msg = err instanceof Error ? err.message : 'Image upload failed.';

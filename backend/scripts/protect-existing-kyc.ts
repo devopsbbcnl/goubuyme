@@ -5,8 +5,8 @@
  *   npx ts-node scripts/protect-existing-kyc.ts --apply    # does it
  *
  * 1. Encrypts any rider NIN / vendor ID number still saved as plain text.
- * 2. Moves identity photos that sit at public Cloudinary addresses to private storage
- *    (renames them into `kyc/legacy/...` with type "authenticated") and updates the record.
+ * 2. (Off by default.) Moving photos is now done by scripts/migrate-uploads-to-r2.ts, which copies them to the private
+ *    Cloudflare R2 bucket. Pass --photos only if you must keep using Cloudinary-private storage.
  *
  * Safe to run twice. Needs DATABASE_URL, MFA_ENCRYPTION_KEY and the CLOUDINARY_* variables.
  */
@@ -17,6 +17,7 @@ import { encryptId, isEncryptedField } from '../src/utils/crypto';
 import { isLegacyPublicUrl } from '../src/services/kycStorage.service';
 
 const APPLY = process.argv.includes('--apply');
+const PHOTOS = process.argv.includes('--photos');
 const CLOUD = process.env.CLOUDINARY_CLOUD_NAME ?? '';
 
 cloudinary.config({ cloud_name: CLOUD, api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_API_SECRET, secure: true });
@@ -27,7 +28,7 @@ let photosSkipped = 0;
 
 /** Moves one public image to private storage and returns its new stored URL (or null if it could not). */
 async function protect(url: string | null): Promise<string | null> {
-  if (!url || !isLegacyPublicUrl(url)) return null;
+  if (!PHOTOS || !url || !isLegacyPublicUrl(url)) return null;
   const m = /\/image\/upload\/(?:v\d+\/)?(.+)\.([A-Za-z0-9]+)$/.exec(url);
   if (!m || m[1].includes(',') || /^[a-z]_/.test(m[1])) { console.warn('  skipped (unusual URL shape):', url); photosSkipped++; return null; }
   const from = m[1];

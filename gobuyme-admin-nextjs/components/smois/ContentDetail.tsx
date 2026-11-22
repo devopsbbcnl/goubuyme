@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
-import { cloudinaryUpload } from '@/lib/cloudinaryUpload';
+import { uploadImage } from '@/lib/upload';
 import {
   Btn, Empty, Field, Input, Notice, Pill, PlatformTag, Select, StatusPill, Tabs, TextArea, Thumb,
   fmtDateTime, fromLocalInput, pretty, toLocalInput, useAction, useLoad, useSmois,
@@ -116,7 +116,7 @@ function VariantPanel({ v, detail, tab, setTab, onChanged }: { v: Variant; detai
   const upload = async (file?: File) => {
     if (!file) return;
     setUpErr('');
-    try { const url = await cloudinaryUpload(file); setMedia((m) => (m ? `${m}\n${url}` : url)); } catch (e) { setUpErr((e as Error).message); }
+    try { const url = await uploadImage(file, 'media'); setMedia((m) => (m ? `${m}\n${url}` : url)); } catch (e) { setUpErr((e as Error).message); }
   };
 
   const charCount = caption.length;

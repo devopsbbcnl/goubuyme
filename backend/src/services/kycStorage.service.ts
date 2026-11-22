@@ -1,16 +1,19 @@
 /**
- * Private storage for identity and verification images (NDPA register G3).
+ * Private storage for identity and verification images (NDPA register G2, G3).
  *
- * Identity documents, selfies, business certificates and licences are uploaded to Cloudinary with
- * `type=authenticated`, so the image URL alone shows nothing. The app asks the backend for a signed
- * upload ticket (the Cloudinary secret never leaves the server); the database stores a canonical
- * URL; and whenever an image is shown to its owner or an admin the backend swaps that URL for a
- * short-lived signed download link.
+ * New uploads go to the private Cloudflare R2 bucket (see objectStorage.service.ts) and are stored as
+ * `r2-kyc:kyc/<userId>/<id>.<ext>`. Whenever an image is shown to its owner or an admin, the API swaps that
+ * reference for a 15-minute signed link.
  *
- * Older records still hold public `/image/upload/` URLs. They keep working and are returned
- * unchanged until the file is replaced, at which point the new upload is private.
+ * Older records hold Cloudinary addresses: private `/image/authenticated/` ones from the first version of this
+ * flow and public `/image/upload/` ones from before that. They keep working until migrated
+ * (scripts/migrate-uploads-to-r2.ts) and are never written by new code.
  */
 import { v2 as cloudinary } from 'cloudinary';
+import {
+  parseKycReference, kycKeyFromSignedUrl, kycReference, signedViewUrl, deleteObject, mediaKeyFromUrl,
+  isConfigured,
+} from './objectStorage.service';
 
 const CLOUD = () => process.env.CLOUDINARY_CLOUD_NAME ?? '';
 const KYC_FOLDER = 'kyc';
@@ -24,34 +27,6 @@ function configure(): void {
     api_secret: process.env.CLOUDINARY_API_SECRET,
     secure: true,
   });
-}
-
-export interface UploadTicket {
-  cloudName: string;
-  apiKey: string;
-  timestamp: number;
-  signature: string;
-  folder: string;
-  type: 'authenticated';
-  uploadUrl: string;
-}
-
-/** Signed parameters the app must send, unchanged, with the file. Scoped to the caller's own folder. */
-export function createUploadTicket(userId: string, now: Date = new Date()): UploadTicket {
-  configure();
-  const timestamp = Math.floor(now.getTime() / 1000);
-  const folder = `${KYC_FOLDER}/${userId}`;
-  const type = 'authenticated' as const;
-  const signature = cloudinary.utils.api_sign_request({ folder, timestamp, type }, process.env.CLOUDINARY_API_SECRET ?? '');
-  return {
-    cloudName: CLOUD(),
-    apiKey: process.env.CLOUDINARY_API_KEY ?? '',
-    timestamp,
-    signature,
-    folder,
-    type,
-    uploadUrl: `https://api.cloudinary.com/v1_1/${CLOUD()}/image/upload`,
-  };
 }
 
 interface Parsed { publicId: string; format: string; }
@@ -90,14 +65,23 @@ export function isLegacyPublicUrl(url: string): boolean {
 }
 
 /**
- * What goes into the database: private images are stored without any signature or expiry,
- * legacy public images unchanged. Anything else (another site, another account, a link to a
- * different user's private file) returns null so the caller can reject it.
+ * What goes into the database for an identity image:
+ *  - a private R2 reference (`r2-kyc:kyc/<user>/<id>.jpg`), also recovered from a signed view link an app echoes back;
+ *  - an existing Cloudinary private image (signature stripped), or a legacy public Cloudinary image, unchanged.
+ * Anything else (another site, another account, a different user's private file) returns null so the caller can reject it.
+ * `ownerUserId` is the signed-in person; admins creating records for someone else pass nothing.
  */
 export function canonicalKycUrl(url: unknown, ownerUserId?: string): string | null | undefined {
   if (url === undefined) return undefined;
   if (url === null || url === '') return null;
   if (typeof url !== 'string') return null;
+
+  const r2Key = parseKycReference(url) ?? kycKeyFromSignedUrl(url);
+  if (r2Key) {
+    if (ownerUserId && !r2Key.startsWith(`${KYC_FOLDER}/${ownerUserId}/`)) return null;
+    return kycReference(r2Key);
+  }
+
   const p = parsePrivateUrl(url);
   if (p) {
     if (!p.publicId.startsWith(`${KYC_FOLDER}/`)) return null;
@@ -108,11 +92,8 @@ export function canonicalKycUrl(url: unknown, ownerUserId?: string): string | nu
   return null;
 }
 
-/** Turns a stored URL into something a browser can open right now. Public/legacy URLs pass through. */
-export function signKycUrl(url: string | null | undefined, now: Date = new Date()): string | null | undefined {
-  if (!url) return url;
-  const p = parsePrivateUrl(url);
-  if (!p) return url;
+/** Short-lived link for an old private Cloudinary image. */
+function signCloudinaryPrivate(p: Parsed, now: Date): string {
   configure();
   return cloudinary.utils.private_download_url(p.publicId, p.format, {
     type: 'authenticated',
@@ -122,14 +103,36 @@ export function signKycUrl(url: string | null | undefined, now: Date = new Date(
 }
 
 /**
- * Deletes stored images (private identity photos and legacy public ones) from Cloudinary.
- * Best effort: returns how many were removed and never throws, so a Cloudinary hiccup cannot undo an erasure.
+ * Turns a stored value into something a browser can open right now: a 15-minute signed link for private
+ * files (R2 or old Cloudinary-private), and the address itself for legacy public images.
+ */
+export async function signKycUrl(url: string | null | undefined, now: Date = new Date()): Promise<string | null | undefined> {
+  if (!url) return url;
+  const r2Key = parseKycReference(url);
+  if (r2Key) return isConfigured('kyc') ? signedViewUrl('kyc', r2Key) : null;
+  const p = parsePrivateUrl(url);
+  return p ? signCloudinaryPrivate(p, now) : url;
+}
+
+/**
+ * Deletes stored images wherever they live: private R2 files, public media files, and old Cloudinary images.
+ * Best effort: never throws, so a storage hiccup cannot undo an erasure. Returns how many were removed.
  */
 export async function deleteStoredImages(urls: string[]): Promise<number> {
   configure();
   let removed = 0;
   for (const url of urls) {
     try {
+      const kycKey = parseKycReference(url);
+      if (kycKey) {
+        if (isConfigured('kyc')) { await deleteObject('kyc', kycKey); removed++; }
+        continue;
+      }
+      const mediaKey = mediaKeyFromUrl(url);
+      if (mediaKey) {
+        if (isConfigured('media')) { await deleteObject('media', mediaKey); removed++; }
+        continue;
+      }
       const priv = parsePrivateUrl(url);
       if (priv) {
         const r = await cloudinary.uploader.destroy(priv.publicId, { type: 'authenticated', resource_type: 'image', invalidate: true });
@@ -142,20 +145,20 @@ export async function deleteStoredImages(urls: string[]): Promise<number> {
         if (r.result === 'ok') removed++;
       }
     } catch {
-      /* ignore: the record is already gone; a leftover file is cleaned up by the periodic sweep */
+      /* ignore: the record is already gone; a leftover file is picked up by a later sweep */
     }
   }
   return removed;
 }
 
 /** Copy of `row` with the named image fields replaced by short-lived links. */
-export function signKycFields<T extends Record<string, unknown>>(row: T, fields: readonly (keyof T)[]): T {
+export async function signKycFields<T extends Record<string, unknown>>(row: T, fields: readonly (keyof T)[]): Promise<T> {
   if (!row) return row;
   const out: Record<string, unknown> = { ...row };
-  for (const f of fields) {
+  await Promise.all(fields.map(async (f) => {
     const v = out[f as string];
-    if (typeof v === 'string') out[f as string] = signKycUrl(v);
-  }
+    if (typeof v === 'string') out[f as string] = await signKycUrl(v);
+  }));
   return out as T;
 }
 

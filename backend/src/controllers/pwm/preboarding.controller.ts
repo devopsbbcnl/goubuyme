@@ -7,6 +7,7 @@ import { Request, Response } from 'express';
 import prisma from '../../config/db';
 import { apiResponse } from '../../utils/apiResponse';
 import { encryptSecret } from '../../utils/crypto';
+import { parseHrReference } from '../../services/objectStorage.service';
 import { pwmAudit } from '../../services/pwm/audit';
 import { getPwmConfig } from '../../services/pwm/settings';
 import { fromYmd, fullName, isNin, normalisePhone } from '../../services/pwm/rules';
@@ -126,7 +127,7 @@ export const submit = wrap(async (req, res) => {
   for (const k of ['pfaName', 'bankName', 'bankAccountName'] as const) if (str(b[k], 120)) (data as Record<string, unknown>)[k] = str(b[k], 120);
 
   const docs = (Array.isArray(b.documents) ? b.documents : []).slice(0, 12) as { name?: string; category?: string; url?: string; checksum?: string }[];
-  for (const d of docs) if (!d.url || !/^https:\/\/res\.cloudinary\.com\//i.test(d.url) || !d.name) fail(400, 'Each document needs a name and must come from the upload box.');
+  for (const d of docs) if (!d.url || !(parseHrReference(d.url) || /^https:\/\/res\.cloudinary\.com\//i.test(d.url)) || !d.name) fail(400, 'Each document needs a name and must come from the upload box.');
 
   const emp = await prisma.pwmEmployee.update({ where: { id: link.employeeId }, data: { ...data, version: { increment: 1 } }, select: { id: true, firstName: true, lastName: true, employeeNo: true, hrOfficerUserId: true } });
   for (const d of docs) {

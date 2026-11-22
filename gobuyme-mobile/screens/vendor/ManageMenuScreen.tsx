@@ -87,8 +87,6 @@ const EMPTY_FORM: FormState = {
 	stockQuantity: '',
 };
 
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
 function formatPrice(n: number) {
 	return (
@@ -100,39 +98,7 @@ function formatPrice(n: number) {
 	);
 }
 
-async function uploadImage(uri: string): Promise<string> {
-	if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-		throw new Error('Image upload is not configured. Contact support.');
-	}
-
-	const formData = new FormData();
-	formData.append('file', {
-		uri: await prepareForUpload(uri),
-		type: 'image/jpeg',
-		name: 'menu-item.jpg',
-	} as any);
-	formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-	let res: Response;
-	try {
-		res = await fetch(
-			`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-			{
-				method: 'POST',
-				body: formData,
-			},
-		);
-	} catch (err: any) {
-		console.error('[uploadImage] network error', err);
-		throw new Error(`Network error while uploading: ${err?.message ?? 'unknown'}`);
-	}
-	const data = await res.json().catch(() => ({})) as { secure_url?: string; error?: { message?: string } };
-	if (!res.ok || !data.secure_url) {
-		const reason = data?.error?.message ?? `HTTP ${res.status}`;
-		console.error('[uploadImage] Cloudinary rejected upload:', reason);
-		throw new Error(`Image upload failed: ${reason}`);
-	}
-	return data.secure_url;
-}
+import { uploadImage as uploadToStorage } from '@/utils/upload';
 
 export default function ManageMenuScreen() {
 	const { theme: T } = useTheme();
@@ -263,7 +229,7 @@ export default function ManageMenuScreen() {
 		try {
 			let imageUrl = form.image;
 			if (imageUrl && imageUrl.startsWith('file://')) {
-				imageUrl = await uploadImage(imageUrl);
+				imageUrl = await uploadToStorage(imageUrl, 'menu');
 			}
 
 			const payload: Record<string, unknown> = {

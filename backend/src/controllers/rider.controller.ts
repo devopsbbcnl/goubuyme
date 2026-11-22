@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
+import { verifyUploads } from '../services/uploadVerification.service';
 import { encryptId, readId } from '../utils/crypto';
 import { canonicalKycUrl, signKycFields, KYC_IMAGE_FIELDS } from '../services/kycStorage.service';
 import { catchAsync } from '../utils/catchAsync';
@@ -597,7 +598,7 @@ export const getMyRiderDocument = catchAsync(async (req: AuthRequest, res: Respo
 
   const doc = await prisma.riderDocument.findUnique({ where: { riderId: rider.id } });
   // The owner sees their own number (to correct it); it is stored encrypted.
-  return apiResponse.success(res, 'OK', doc ? { ...signKycFields(doc, KYC_IMAGE_FIELDS.riderDocument), ninNumber: readId(doc.ninNumber) } : doc);
+  return apiResponse.success(res, 'OK', doc ? { ...(await signKycFields(doc, KYC_IMAGE_FIELDS.riderDocument)), ninNumber: readId(doc.ninNumber) } : doc);
 });
 
 // POST /riders/me/document
@@ -624,6 +625,7 @@ export const submitRiderDocument = catchAsync(async (req: AuthRequest, res: Resp
     return apiResponse.error(res, 'One of the photos was not uploaded correctly. Please upload it again.', 400);
   }
 
+  { const bad = await verifyUploads([ninImg, selfie, vehicleImg]); if (bad) return apiResponse.error(res, bad, 400); }
   const doc = await prisma.riderDocument.upsert({
     where: { riderId: rider.id },
     create: {

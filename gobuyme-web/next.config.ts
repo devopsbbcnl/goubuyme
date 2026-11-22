@@ -13,6 +13,17 @@ const apiOrigin = (() => {
 // socket.io client (live rider GPS) needs this explicitly or the browser blocks it.
 const apiWsOrigin = apiOrigin.replace(/^http/, 'ws');
 
+// Public images (logos, menu photos, avatars) are served from our own storage domain; private ID photos are opened
+// through short-lived signed links on Cloudflare R2's own hostname, and browsers upload to the same hostname.
+const mediaOrigin = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_MEDIA_URL ?? 'https://ifenkili.gobuyme.shop').origin;
+  } catch {
+    return 'https://ifenkili.gobuyme.shop';
+  }
+})();
+const r2Hosts = 'https://*.r2.cloudflarestorage.com https://*.eu.r2.cloudflarestorage.com';
+
 // Starter CSP: 'unsafe-inline' is kept for script-src/style-src because Next.js
 // hydration and this app's inline `style={{...}}` usage rely on it, and moving to
 // a nonce-based CSP is a larger follow-up, not a same-day change. Even so, this
@@ -27,9 +38,9 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://accounts.google.com`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
-  "img-src 'self' data: https://res.cloudinary.com https://images.pexels.com https://ui-avatars.com https://picsum.photos",
+  `img-src 'self' data: ${mediaOrigin} ${r2Hosts} https://res.cloudinary.com https://images.pexels.com https://ui-avatars.com https://picsum.photos`,
   "font-src 'self' data: https://fonts.gstatic.com",
-  `connect-src 'self' ${apiOrigin} ${apiWsOrigin} https://accounts.google.com https://api.cloudinary.com https://www.google-analytics.com https://tiles.openfreemap.org`,
+  `connect-src 'self' ${apiOrigin} ${apiWsOrigin} https://accounts.google.com ${r2Hosts} https://www.google-analytics.com https://tiles.openfreemap.org`,
   "frame-src 'self' https://accounts.google.com",
   // MapLibre GL parses vector tiles off the main thread via a Worker constructed
   // from a Blob URL — 'self' alone doesn't cover blob: workers.

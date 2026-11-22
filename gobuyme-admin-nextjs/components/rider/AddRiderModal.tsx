@@ -4,7 +4,7 @@ import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
 import { useTheme } from '@/context/ThemeContext';
 
-import { kycUpload } from '@/lib/cloudinaryUpload';
+import { uploadImage } from '@/lib/upload';
 
 type Step = 1 | 2;
 type ImageKey = 'nin' | 'selfie' | 'vehicle';
@@ -73,7 +73,7 @@ export function AddRiderModal({ open, onClose, onCreated }: Props) {
     setFailed(f => { const { [key]: _drop, ...rest } = f; return rest; });
     setUploading(true);
     try {
-      setUrl(await kycUpload(file));
+      setUrl(await uploadImage(file, 'kyc'));
     } catch (err) {
       // Keep the thumbnail on screen, marked as failed, so it can't be mistaken for saved.
       const msg = err instanceof Error ? err.message : 'Image upload failed.';

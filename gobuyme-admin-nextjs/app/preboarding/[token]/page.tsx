@@ -40,7 +40,7 @@ export default function Preboarding() {
   });
   const submit = () => run(async () => {
     const documents: { name: string; category: string; url: string; checksum: string }[] = [];
-    for (const d of files) if (d.file) { const up = await uploadDocument(d.file); documents.push({ name: d.name, category: d.category, url: up.url, checksum: up.checksum }); }
+    for (const d of files) if (d.file) { const up = await uploadDocument(d.file, { publicUpload: true }); documents.push({ name: d.name, category: d.category, url: up.url, checksum: up.checksum }); }
     await call('POST', 'preboarding/submit', { consent: f.consent, phone: f.phone, address: f.address, dateOfBirth: f.dateOfBirth || undefined, emergencyContacts: f.ecName ? [{ name: f.ecName, relationship: f.ecRel, phone: f.ecPhone }] : [], nin: f.nin, tin: f.tin, rsaPin: f.rsaPin, pfaName: f.pfaName, nhfNo: f.nhfNo, bankName: f.bankName, bankAccountNo: f.bankAccountNo, bankAccountName: f.bankAccountName, documents }, session);
     setStep('done');
   });

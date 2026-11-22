@@ -6,13 +6,25 @@ import type { NextConfig } from 'next';
 // blocks loading of any externally-hosted script/frame/connection that isn't one
 // of the origins this app actually uses — admin auth stays same-origin via
 // /api/proxy, so the only external destination is the direct-to-Cloudinary upload.
+// Public images come from our own storage domain; private ID photos open through short-lived signed links on
+// Cloudflare R2's own hostname, and browsers upload to that hostname too. Nothing is uploaded to Cloudinary any more;
+// its address stays allowed for viewing only, until the files that are still there have been moved.
+const mediaOrigin = (() => {
+	try {
+		return new URL(process.env.NEXT_PUBLIC_MEDIA_URL ?? 'https://ifenkili.gobuyme.shop').origin;
+	} catch {
+		return 'https://ifenkili.gobuyme.shop';
+	}
+})();
+const r2Hosts = 'https://*.r2.cloudflarestorage.com https://*.eu.r2.cloudflarestorage.com';
+
 const csp = [
 	"default-src 'self'",
 	"script-src 'self' 'unsafe-inline'",
 	"style-src 'self' 'unsafe-inline'",
-	"img-src 'self' data: https://res.cloudinary.com https://images.unsplash.com https://images.pexels.com https://ui-avatars.com https://picsum.photos",
+	`img-src 'self' data: ${mediaOrigin} ${r2Hosts} https://res.cloudinary.com https://images.unsplash.com https://images.pexels.com https://ui-avatars.com https://picsum.photos`,
 	"font-src 'self' data:",
-	"connect-src 'self' https://api.cloudinary.com",
+	`connect-src 'self' ${r2Hosts}`,
 	"object-src 'none'",
 	"base-uri 'self'",
 	"form-action 'self'",

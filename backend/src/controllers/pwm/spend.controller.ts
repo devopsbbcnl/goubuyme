@@ -9,6 +9,7 @@ import { csvCell, HttpError } from './common';
 import { can, dateOnly, daysBetween, fromYmd, fullName } from '../../services/pwm/rules';
 import { employeeScope, hrAdminUserIds } from '../../services/pwm/people';
 import { notifyPwm } from '../../services/pwm/notify';
+import { parseHrReference } from '../../services/objectStorage.service';
 import { access, fail, handle, nameMap, reqStr, str } from './common';
 
 const num = (d: Prisma.Decimal | number | null | undefined) => Number(d ?? 0);
@@ -33,7 +34,7 @@ export const submitClaim = async (employeeId: string, byUserId: string, title: s
     if (it.date > today) bad(400, `Item ${i + 1}: the date is in the future.`);
     if (cat!.limit > 0 && it.amount > cat!.limit && !it.exception?.trim()) bad(400, `Item ${i + 1}: ₦${it.amount.toLocaleString('en-NG')} is above the ${cat!.label} limit of ₦${cat!.limit.toLocaleString('en-NG')}. Explain why in the exception box.`);
     if (it.amount >= RECEIPT_FROM && !it.receiptUrl) bad(400, `Item ${i + 1}: attach the receipt (needed from ₦${RECEIPT_FROM.toLocaleString('en-NG')}).`);
-    if (it.receiptUrl && !/^https:\/\//i.test(it.receiptUrl)) bad(400, `Item ${i + 1}: upload the receipt first.`);
+    if (it.receiptUrl && !(parseHrReference(it.receiptUrl) || /^https:\/\//i.test(it.receiptUrl))) bad(400, `Item ${i + 1}: upload the receipt first.`);
   }
   if (travelRequestId) {
     const t = await prisma.pwmTravelRequest.findFirst({ where: { id: travelRequestId, employeeId, status: { in: ['APPROVED', 'COMPLETED'] } } });

@@ -6,12 +6,10 @@ import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/Confirm';
 import ImageRepositionModal from '@/components/ui/ImageRepositionModal';
 import { positionStyle } from '@/lib/imagePosition';
-import { resizeForUpload } from '@/lib/imageResize';
+import { uploadImage as uploadToStorage } from '@/services/upload';
 import api from '@/services/api';
 import { DEFAULT_CATEGORY_TAGS, DEFAULT_TERMINOLOGY, VendorTerminology } from '@/lib/vendorTerminology';
 
-const CLOUD_NAME   = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
 
 interface DrinkOption { id: string; name: string; price: number; isAvailable: boolean; }
 interface OptionItem  { id: string; name: string; extraPrice: number; isAvailable: boolean; }
@@ -273,17 +271,8 @@ export default function VendorMenuPage() {
   const uploadImage = async (file: File, position: string) => {
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append('file', await resizeForUpload(file));
-      fd.append('upload_preset', UPLOAD_PRESET);
-      fd.append('folder', 'menu-items');
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-        { method: 'POST', body: fd },
-      );
-      if (!res.ok) throw new Error();
-      const { secure_url } = await res.json();
-      setForm(f => ({ ...f, image: secure_url, imagePosition: position }));
+      const url = await uploadToStorage(file, 'menu');
+      setForm(f => ({ ...f, image: url, imagePosition: position }));
       toast('Image uploaded', 'success');
     } catch {
       toast('Image upload failed', 'error');

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
+import { verifyUploads } from '../services/uploadVerification.service';
 import { encryptId, readId } from '../utils/crypto';
 import { customerPhoneForVendor } from '../services/contactVisibility';
 import { canonicalKycUrl, signKycFields, KYC_IMAGE_FIELDS } from '../services/kycStorage.service';
@@ -267,6 +268,7 @@ export const updateMyVendorProfile = catchAsync(async (req: AuthRequest, res: Re
   if (businessName && req.isBranchManager) {
     return apiResponse.error(res, 'Only the business owner can rename a branch.', 403);
   }
+  { const bad = await verifyUploads([logo, coverImage]); if (bad) return apiResponse.error(res, bad, 400); }
   if (businessName) {
     const conflict = await prisma.vendor.findFirst({
       where: { businessName: { equals: businessName.trim(), mode: 'insensitive' }, NOT: actingVendorWhere(req) },
@@ -927,6 +929,7 @@ export const createMenuItem = catchAsync(async (req: AuthRequest, res: Response)
   const imagePosition = parseImagePosition(req.body.imagePosition);
   if (imagePosition === false) return apiResponse.error(res, 'Image position must look like "50% 30%".', 400);
 
+  { const bad = await verifyUploads([image]); if (bad) return apiResponse.error(res, bad, 400); }
   if (!name?.trim())                    return apiResponse.error(res, 'Item name is required.', 400);
   if (price === undefined || price <= 0) return apiResponse.error(res, 'Valid price is required.', 400);
   if (stockQuantity !== undefined && (!Number.isInteger(Number(stockQuantity)) || Number(stockQuantity) < 0)) {
@@ -988,6 +991,7 @@ export const updateMenuItem = catchAsync(async (req: AuthRequest, res: Response)
   }
   const imagePosition = parseImagePosition(req.body.imagePosition);
   if (imagePosition === false) return apiResponse.error(res, 'Image position must look like "50% 30%".', 400);
+  { const bad = await verifyUploads([image]); if (bad) return apiResponse.error(res, bad, 400); }
   const imagePos = nextImagePosition(imagePosition, image, exists.image);
 
   const item = await prisma.menuItem.update({
@@ -1352,7 +1356,7 @@ export const getMyDocument = catchAsync(async (req: AuthRequest, res: Response) 
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
   const doc = await prisma.vendorDocument.findUnique({ where: { vendorId: vendor.id } });
-  return apiResponse.success(res, 'OK', doc ? { ...signKycFields(doc, KYC_IMAGE_FIELDS.vendorDocument), number: readId(doc.number) } : doc);
+  return apiResponse.success(res, 'OK', doc ? { ...(await signKycFields(doc, KYC_IMAGE_FIELDS.vendorDocument)), number: readId(doc.number) } : doc);
 });
 
 // POST /vendors/me/document
@@ -1379,6 +1383,7 @@ export const submitDocument = catchAsync(async (req: AuthRequest, res: Response)
     return apiResponse.error(res, 'One of the photos was not uploaded correctly. Please upload it again.', 400);
   }
 
+  { const bad = await verifyUploads([imgFront, imgBack, selfie]); if (bad) return apiResponse.error(res, bad, 400); }
   const doc = await prisma.vendorDocument.upsert({
     where: { vendorId: vendor.id },
     create: {
@@ -1447,6 +1452,7 @@ export const createPromotion = catchAsync(async (req: AuthRequest, res: Response
   if (!title || !imageUrl) {
     return apiResponse.error(res, 'title and imageUrl are required.', 400);
   }
+  { const bad = await verifyUploads([imageUrl]); if (bad) return apiResponse.error(res, bad, 400); }
 
   const imagePosition = parseImagePosition(req.body.imagePosition);
   if (imagePosition === false) return apiResponse.error(res, 'Image position must look like "50% 30%".', 400);
@@ -1484,6 +1490,7 @@ export const updatePromotion = catchAsync(async (req: AuthRequest, res: Response
   if (req.body.imageUrl !== undefined) {
     const imageUrl = String(req.body.imageUrl).trim();
     if (!imageUrl) return apiResponse.error(res, 'imageUrl cannot be empty.', 400);
+    { const bad = await verifyUploads([imageUrl]); if (bad) return apiResponse.error(res, bad, 400); }
     if (imageUrl !== promo.imageUrl) { data.imageUrl = imageUrl; material = true; }
   }
   if (req.body.code !== undefined) {
@@ -1607,7 +1614,7 @@ export const getMyBusinessVerification = catchAsync(async (req: AuthRequest, res
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
   const biz = await prisma.vendorBusinessVerification.findUnique({ where: { vendorId: vendor.id } });
-  return apiResponse.success(res, 'OK', biz ? signKycFields(biz, KYC_IMAGE_FIELDS.vendorBusiness) : biz);
+  return apiResponse.success(res, 'OK', biz ? await signKycFields(biz, KYC_IMAGE_FIELDS.vendorBusiness) : biz);
 });
 
 // POST /vendors/me/business-verification
@@ -1629,6 +1636,7 @@ export const submitBusinessVerification = catchAsync(async (req: AuthRequest, re
     return apiResponse.error(res, 'The certificate photo was not uploaded correctly. Please upload it again.', 400);
   }
 
+  { const bad = await verifyUploads([cacImg]); if (bad) return apiResponse.error(res, bad, 400); }
   const biz = await prisma.vendorBusinessVerification.upsert({
     where: { vendorId: vendor.id },
     create: {
@@ -1669,7 +1677,7 @@ export const getMyLicenses = catchAsync(async (req: AuthRequest, res: Response) 
     where: { vendorId: vendor.id },
     orderBy: { createdAt: 'desc' },
   });
-  return apiResponse.success(res, 'OK', licenses.map((l) => signKycFields(l, KYC_IMAGE_FIELDS.vendorLicense)));
+  return apiResponse.success(res, 'OK', await Promise.all(licenses.map((l) => signKycFields(l, KYC_IMAGE_FIELDS.vendorLicense))));
 });
 
 // POST /vendors/me/licenses
@@ -1691,6 +1699,7 @@ export const submitLicense = catchAsync(async (req: AuthRequest, res: Response) 
   const licenseImg = canonicalKycUrl(imageUrl, req.user!.userId);
   if (!licenseImg) return apiResponse.error(res, 'The licence photo was not uploaded correctly. Please upload it again.', 400);
 
+  { const bad = await verifyUploads([licenseImg]); if (bad) return apiResponse.error(res, bad, 400); }
   const license = await prisma.vendorLicense.create({
     data: {
       vendorId: vendor.id,

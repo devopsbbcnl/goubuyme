@@ -133,6 +133,18 @@ export const authLimiter = rateLimit({
   handler: rateLimitHandler('Too many auth attempts. Please try again later.'),
 });
 
+/** Upload tickets: per signed-in person (falls back to IP), generous enough for a menu full of photos. */
+export const uploadLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: sharedStore('rl:upload:'),
+  skip: skipOutsideProduction,
+  keyGenerator: (req) => (req as unknown as { user?: { userId?: string } }).user?.userId ?? req.ip ?? 'unknown',
+  handler: rateLimitHandler('Too many uploads. Please wait a few minutes and try again.'),
+});
+
 export const locationLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 360,
