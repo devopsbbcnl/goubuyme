@@ -9,7 +9,19 @@ export type ConsentSource = 'register' | 'google' | 'apple' | 'settings' | 'unsu
 
 interface ConsentInput {
   acceptedTerms?: unknown;
+  confirmedAdult?: unknown;
   marketingOptIn?: unknown;
+}
+
+/** Minimum age to hold a GoBuyMe account. */
+export const MINIMUM_AGE = 18;
+
+/** Machine-readable code the apps look for to ask the person to make the declaration and try again. */
+export const AGE_CONFIRMATION_CODE = 'AGE_CONFIRMATION_REQUIRED';
+
+/** True only when the client says the person ticked "I am 18 or older". Anything else is "not declared". */
+export function hasAgeDeclaration(input: ConsentInput): boolean {
+  return input.confirmedAdult === true;
 }
 
 /**
@@ -22,6 +34,7 @@ export function signupConsent(input: ConsentInput, source: ConsentSource, now: D
   const marketing = input.marketingOptIn === true;
   return {
     ...(accepted ? { termsAcceptedAt: now, policyVersion: POLICY_VERSION } : {}),
+    ...(hasAgeDeclaration(input) ? { ageConfirmedAt: now } : {}),
     marketingOptIn: marketing,
     ...(marketing ? { marketingConsentAt: now, marketingConsentSource: source } : {}),
   };

@@ -4,6 +4,7 @@ import api from '@/services/api';
 import { useAuth, UserRole } from '@/context/AuthContext';
 import { routeAfterLogin } from '@/services/postLoginRoute';
 import { reportError } from '@/services/errorReporting';
+import { needsAgeDeclaration, askAgeAndTerms, AGE_AND_TERMS_FIELDS } from '@/services/ageDeclaration';
 
 // @react-native-google-signin/google-signin resolves its native TurboModule at import time,
 // which throws in Expo Go (no native module registered there — it only works in a dev-client
@@ -72,7 +73,15 @@ export function useGoogleSignIn() {
           return;
         }
 
-        const res = await api.post('/auth/google', { idToken });
+        let res;
+        try {
+          res = await api.post('/auth/google', { idToken });
+        } catch (err) {
+          // First-time sign-up: the server needs the age declaration + terms acceptance before creating the account.
+          if (!needsAgeDeclaration(err)) throw err;
+          if (!(await askAgeAndTerms())) return;
+          res = await api.post('/auth/google', { idToken, ...AGE_AND_TERMS_FIELDS });
+        }
         const { user, accessToken, refreshToken } = res.data.data;
 
         // The account's real role comes back from the server: a vendor who signs in

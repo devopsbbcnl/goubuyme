@@ -21,6 +21,7 @@ export const registerSchema = Joi.object({
   referralCode: Joi.string().optional(),
   // Proof of consent (NDPA): the sign-up form sends these; promotions stay off unless the person ticked them.
   acceptedTerms: Joi.boolean().optional(),
+  confirmedAdult: Joi.boolean().optional(),
   marketingOptIn: Joi.boolean().optional(),
   commissionTier: Joi.when('role', {
     is: 'VENDOR',
@@ -131,6 +132,7 @@ export const googleAuthSchema = Joi.object({
   idToken: Joi.string().required(),
   referralCode: Joi.string().optional(),
   acceptedTerms: Joi.boolean().optional(),
+  confirmedAdult: Joi.boolean().optional(),
   marketingOptIn: Joi.boolean().optional(),
 });
 
@@ -177,6 +179,7 @@ export const appleAuthSchema = Joi.object({
   fullName: Joi.string().trim().max(120).allow('').optional(),
   referralCode: Joi.string().optional(),
   acceptedTerms: Joi.boolean().optional(),
+  confirmedAdult: Joi.boolean().optional(),
   marketingOptIn: Joi.boolean().optional(),
 });
 

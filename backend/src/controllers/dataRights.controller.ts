@@ -20,7 +20,7 @@ export const exportMyData = catchAsync(async (req: AuthRequest, res: Response) =
       id: true, name: true, email: true, phone: true, role: true, avatar: true, createdAt: true,
       isEmailVerified: true, isPhoneVerified: true, preferredLocale: true,
       marketingOptIn: true, marketingConsentAt: true, marketingConsentSource: true, analyticsOptIn: true,
-      termsAcceptedAt: true, policyVersion: true, notificationPrefs: true,
+      termsAcceptedAt: true, policyVersion: true, ageConfirmedAt: true, notificationPrefs: true,
     },
   });
 

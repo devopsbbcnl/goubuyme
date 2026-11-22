@@ -54,17 +54,17 @@ export function useTierRates() {
 }
 
 const VENDOR_STEP_FIELDS: Record<number, string[]> = {
-  1: ["name", "email", "phone", "password", "confirmPassword", "terms"],
+  1: ["name", "email", "phone", "password", "confirmPassword", "adult", "terms"],
   2: ["businessName", "category", "address", "city", "state", "commissionTier"],
 };
 
 const RIDER_STEP_FIELDS: Record<number, string[]> = {
-  1: ["name", "email", "phone", "password", "confirmPassword", "terms"],
+  1: ["name", "email", "phone", "password", "confirmPassword", "adult", "terms"],
   2: ["vehicleType", "nin", "address", "city", "state"],
 };
 
 const COMPANY_STEP_FIELDS: Record<number, string[]> = {
-  1: ["name", "email", "phone", "password", "confirmPassword", "terms"],
+  1: ["name", "email", "phone", "password", "confirmPassword", "adult", "terms"],
   2: ["companyName", "registrationNumber", "address", "city", "state"],
 };
 
@@ -92,6 +92,9 @@ const accountBase = {
   password: passwordRule,
   confirmPassword: z.string().min(1, "Please confirm your password"),
   referralCode: z.string().optional(),
+  adult: z
+    .boolean()
+    .refine((v) => v === true, "You must be 18 or older to create an account"),
   terms: z
     .boolean()
     .refine((v) => v === true, "You must accept the terms to continue"),
@@ -178,8 +181,8 @@ async function registerUser(payload: object): Promise<void> {
     res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // Every form here requires the terms box before it can submit; this records that acceptance.
-      body: JSON.stringify({ ...payload, acceptedTerms: true }),
+      // Every form here requires the age and terms boxes before it can submit; this records both.
+      body: JSON.stringify({ ...payload, acceptedTerms: true, confirmedAdult: true }),
     });
   } catch {
     throw new Error("Cannot reach the server. Check your connection.");
@@ -359,6 +362,27 @@ function AccountStepFields<T extends VendorValues | RiderValues | CompanyValues>
       />
       <FormField
         control={form.control as never}
+        name={"adult" as never}
+        render={({ field }) => (
+          <FormItem className="flex items-start gap-3">
+            <FormControl>
+              <Checkbox
+                checked={field.value as boolean}
+                onCheckedChange={field.onChange}
+                className="mt-0.5 border-2 border-ink data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              />
+            </FormControl>
+            <div>
+              <FormLabel className="font-mono-pop text-[10px] uppercase tracking-wider leading-relaxed">
+                I confirm that I am 18 years of age or older
+              </FormLabel>
+              <FormMessage />
+            </div>
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control as never}
         name={"terms" as never}
         render={({ field }) => (
           <FormItem className="flex items-start gap-3">
@@ -371,7 +395,7 @@ function AccountStepFields<T extends VendorValues | RiderValues | CompanyValues>
             </FormControl>
             <div>
               <FormLabel className="font-mono-pop text-[10px] uppercase tracking-wider leading-relaxed">
-                I am 18 or older and I agree to the{" "}
+                I agree to the{" "}
                 <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline text-primary">
                   Terms of Service
                 </a>{" "}
@@ -406,6 +430,7 @@ function VendorForm({ onSuccess }: { onSuccess: () => void }) {
       password: "",
       confirmPassword: "",
       referralCode: "",
+      adult: false,
       terms: false,
       businessName: "",
       category: undefined,
@@ -652,6 +677,7 @@ function RiderForm({ onSuccess }: { onSuccess: () => void }) {
       password: "",
       confirmPassword: "",
       referralCode: "",
+      adult: false,
       terms: false,
       vehicleType: "",
       plateNumber: "",
@@ -920,6 +946,7 @@ function CompanyForm({ onSuccess }: { onSuccess: () => void }) {
       password: "",
       confirmPassword: "",
       referralCode: "",
+      adult: false,
       terms: false,
       companyName: "",
       registrationNumber: "",
