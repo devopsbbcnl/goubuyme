@@ -20,12 +20,15 @@ STAMP="$(date -u +%Y-%m-%d_%H-%M-%S)"
 DOW="$(date -u +%u)"   # 7 = Sunday
 DOM="$(date -u +%d)"
 
+# Prisma URLs often end in ?schema=public, which pg_dump rejects ("invalid URI query parameter"). Drop that one option.
+PG_URL="$(printf '%s' "$DATABASE_URL" | sed -E 's/([?&])schema=[^&]*&?/\1/; s/[?&]$//')"
+
 mkdir -p "$WORK_DIR"
 umask 077
 OUT="$WORK_DIR/gobuyme_${STAMP}.dump.age"
 
 echo "[backup] $(date -u +%FT%TZ) starting"
-pg_dump --format=custom --no-owner "$DATABASE_URL" | age -r "$AGE_RECIPIENT" -o "$OUT"
+pg_dump --format=custom --no-owner "$PG_URL" | age -r "$AGE_RECIPIENT" -o "$OUT"
 SIZE="$(stat -c%s "$OUT")"
 if [ "$SIZE" -lt 1024 ]; then echo "[backup] ERROR: dump is suspiciously small ($SIZE bytes)"; rm -f "$OUT"; exit 1; fi
 
