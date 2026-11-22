@@ -44,6 +44,7 @@ type RegisterErrors = {
 	plateNumber?: string;
 	referralCode?: string;
 	terms?: string;
+	age?: string;
 	general?: string;
 };
 
@@ -222,6 +223,7 @@ export default function RegisterScreen() {
 		clearError('branches');
 	};
 	const removeBranch = (index: number) => setBranches((prev) => prev.filter((_, i) => i !== index));
+	const [adultConfirmed, setAdultConfirmed] = useState(false);
 	const [termsAccepted, setTermsAccepted] = useState(false);
 	const [marketingAccepted, setMarketingAccepted] = useState(false);
 	const [busy, setBusy] = useState(false);
@@ -303,8 +305,12 @@ export default function RegisterScreen() {
 			if (!stateVal.trim()) next.state = 'Enter your state.';
 		}
 
+		if (!adultConfirmed) {
+			next.age = 'You must be 18 or older to create a GoBuyMe account.';
+		}
+
 		if (!termsAccepted) {
-			next.terms = 'You must accept the Terms of Service and Privacy Policy.';
+			next.terms ='You must accept the Terms of Service and Privacy Policy.';
 		}
 
 		setErrors(next);
@@ -328,6 +334,8 @@ export default function RegisterScreen() {
 				...(referral.trim() ? { referralCode: referral.trim() } : {}),
 				// Proof of consent: terms were ticked to get here; promotions only if the second box was ticked.
 				acceptedTerms: true,
+				// Age declaration (NDPA): the 18+ box is required to get here.
+				confirmedAdult: true,
 				marketingOptIn: marketingAccepted,
 			};
 
@@ -851,6 +859,38 @@ export default function RegisterScreen() {
 			<TouchableOpacity
 				activeOpacity={0.7}
 				onPress={() => {
+					setAdultConfirmed((v) => !v);
+					if (errors.age)
+						setErrors((prev) => ({ ...prev, age: undefined }));
+				}}
+				style={styles.termsRow}
+			>
+				<View
+					style={[
+						styles.checkbox,
+						{
+							backgroundColor: adultConfirmed ? T.primary : 'transparent',
+							borderColor: errors.age ? '#E53E3E' : adultConfirmed ? T.primary : T.border,
+						},
+					]}
+				>
+					{adultConfirmed && (
+						<Ionicons name="checkmark" size={13} color="#fff" />
+					)}
+				</View>
+				<Text style={[styles.termsText, { color: T.textSec }]}>
+					I confirm that I am 18 years of age or older.
+				</Text>
+			</TouchableOpacity>
+			{!!errors.age && (
+				<Text style={[styles.errorText, { color: '#E53E3E', marginTop: -4 }]}>
+					{errors.age}
+				</Text>
+			)}
+
+			<TouchableOpacity
+				activeOpacity={0.7}
+				onPress={() => {
 					setTermsAccepted((v) => !v);
 					if (errors.terms)
 						setErrors((prev) => ({ ...prev, terms: undefined }));
@@ -871,7 +911,7 @@ export default function RegisterScreen() {
 					)}
 				</View>
 				<Text style={[styles.termsText, { color: T.textSec }]}>
-					I am 18 or older and I agree to the{' '}
+					I agree to the{' '}
 					<Text
 						style={{ color: T.primary, fontWeight: '700' }}
 						onPress={() => router.push('/(customer)/terms-of-service' as never)}

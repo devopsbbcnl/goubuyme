@@ -5,6 +5,7 @@ import api from '@/services/api';
 import { useAuth, UserRole } from '@/context/AuthContext';
 import { routeAfterLogin } from '@/services/postLoginRoute';
 import { reportError } from '@/services/errorReporting';
+import { needsAgeDeclaration, askAgeAndTerms, AGE_AND_TERMS_FIELDS } from '@/services/ageDeclaration';
 
 // expo-apple-authentication needs a native build (not Expo Go) and only exists on iOS. Guard the
 // import the same way the Google hook does so opening a screen never crashes the app.
@@ -59,12 +60,21 @@ export function useAppleSignIn() {
 
       // Apple gives the name only the first time, and only to the app.
       const fullName = [cred.fullName?.givenName, cred.fullName?.familyName].filter(Boolean).join(' ');
-      const res = await api.post('/auth/apple', {
+      const body = {
         identityToken: cred.identityToken,
         authorizationCode: cred.authorizationCode ?? undefined,
         fullName: fullName || undefined,
         referralCode,
-      });
+      };
+      let res;
+      try {
+        res = await api.post('/auth/apple', body);
+      } catch (err) {
+        // First-time sign-up: the server needs the age declaration + terms acceptance before creating the account.
+        if (!needsAgeDeclaration(err)) throw err;
+        if (!(await askAgeAndTerms())) return;
+        res = await api.post('/auth/apple', { ...body, ...AGE_AND_TERMS_FIELDS });
+      }
       const { user, accessToken, refreshToken } = res.data.data;
 
       const role = (user.role as string).toLowerCase() as UserRole;

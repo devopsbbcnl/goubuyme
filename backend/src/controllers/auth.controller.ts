@@ -23,7 +23,11 @@ import { recordError } from '../utils/recordError';
 import { encryptSecret, decryptSecret } from '../utils/crypto';
 import { deleteStoredImages } from '../services/kycStorage.service';
 import { eraseAccountData, hashForAudit, lastFour, ErasureResult } from '../services/accountErasure.service';
-import { signupConsent } from '../config/policy';
+import { signupConsent, hasAgeDeclaration, AGE_CONFIRMATION_CODE } from '../config/policy';
+
+/** Sent when a new account would be created without the "I am 18 or older" declaration. */
+const ageDeclarationRequired = (res: Response) =>
+  apiResponse.error(res, 'Please confirm that you are 18 or older to create an account.', 400, [{ code: AGE_CONFIRMATION_CODE }]);
 import {
   AppleAuthError, verifyAppleIdentityToken, exchangeAppleAuthorizationCode, revokeAppleRefreshToken,
 } from '../services/appleAuth.service';
@@ -123,6 +127,8 @@ export const register = catchAsync(async (req: Request, res: Response) => {
     }
     return apiResponse.error(res, 'Email already registered.', 409);
   }
+
+  if (!hasAgeDeclaration(req.body)) return ageDeclarationRequired(res);
 
   if (phone?.trim()) {
     const phoneTaken = await prisma.user.findUnique({ where: { phone: phone.trim() }, select: { id: true } });
@@ -409,6 +415,7 @@ export const googleAuth = catchAsync(async (req: Request, res: Response) => {
       });
     }
   } else {
+    if (!hasAgeDeclaration(req.body)) return ageDeclarationRequired(res);
     let referredById: string | undefined;
     if (referralCode) {
       const referrer = await prisma.user.findUnique({ where: { referralCode } });
@@ -501,6 +508,7 @@ export const appleAuth = catchAsync(async (req: Request, res: Response) => {
         data: { appleId: identity.sub, isEmailVerified: true },
       });
     } else {
+      if (!hasAgeDeclaration(req.body)) return ageDeclarationRequired(res);
       let referredById: string | undefined;
       if (referralCode) {
         const referrer = await prisma.user.findUnique({ where: { referralCode } });

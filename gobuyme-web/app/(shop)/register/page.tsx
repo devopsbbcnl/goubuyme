@@ -83,6 +83,7 @@ function RegisterContent() {
   const [show, setShow] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [adult, setAdult] = useState(false);
   const [marketing, setMarketing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
@@ -168,6 +169,7 @@ function RegisterContent() {
     if (currentStep !== 'security') { goNext(); return; }
 
     if (form.password !== form.confirm) { setErr('Passwords do not match.'); return; }
+    if (!adult) { setErr('You must be 18 or older to create a GoBuyMe account.'); return; }
     if (!agreed) { setErr('You must agree to the Terms of Service and Privacy Policy.'); return; }
     setErr(''); setLoading(true);
     try {
@@ -175,6 +177,8 @@ function RegisterContent() {
         name: form.name, email: form.email, phone: form.phone, password: form.password, role: role.toUpperCase(),
         // Proof of consent: the terms box is required to submit; promotions only if the second box is ticked.
         acceptedTerms: true,
+        // Age declaration (NDPA): the 18+ box is required to submit.
+        confirmedAdult: true,
         marketingOptIn: marketing,
       };
       if (role === 'vendor') {
@@ -357,7 +361,20 @@ function RegisterContent() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, margin: '4px 0 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, margin: '4px 0 12px' }}>
+                <input
+                  type="checkbox"
+                  id="adult"
+                  checked={adult}
+                  onChange={e => setAdult(e.target.checked)}
+                  style={{ marginTop: 3, accentColor: 'var(--brand)', flexShrink: 0, width: 16, height: 16, cursor: 'pointer' }}
+                />
+                <label htmlFor="adult" style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5, cursor: 'pointer' }}>
+                  I confirm that I am 18 years of age or older.
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, margin: '0 0 20px' }}>
                 <input
                   type="checkbox"
                   id="agree"
@@ -366,7 +383,7 @@ function RegisterContent() {
                   style={{ marginTop: 3, accentColor: 'var(--brand)', flexShrink: 0, width: 16, height: 16, cursor: 'pointer' }}
                 />
                 <label htmlFor="agree" style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5, cursor: 'pointer' }}>
-                  I am 18 or older and I agree to the{' '}
+                  I agree to the{' '}
                   <Link href="/terms" target="_blank" style={{ color: 'var(--brand)', fontWeight: 700 }}>Terms of Service</Link>
                   {' '}and{' '}
                   <Link href="/privacy" target="_blank" style={{ color: 'var(--brand)', fontWeight: 700 }}>Privacy Policy</Link>
@@ -400,7 +417,7 @@ function RegisterContent() {
                 Next
               </button>
             ) : (
-              <button type="submit" className="btn btn-primary btn-lg" style={{ flex: 2 }} disabled={loading || !agreed}>
+              <button type="submit" className="btn btn-primary btn-lg" style={{ flex: 2 }} disabled={loading || !agreed || !adult}>
                 {loading ? <><span className="spin" />Creating account…</> : 'Create Account'}
               </button>
             )}

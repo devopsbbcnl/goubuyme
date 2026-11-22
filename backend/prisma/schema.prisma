@@ -86,6 +86,9 @@ model User {
   /// Proof of what was accepted at sign-up. `policyVersion` matches `POLICY_VERSION` in config/policy.ts.
   termsAcceptedAt        DateTime?
   policyVersion          String?
+  /// When the person declared they are 18 or older at sign-up (NDPA s.31, children). Null on accounts made
+  /// before 2026-11-23: we hold no declaration for them.
+  ageConfirmedAt         DateTime?
   /// Consent to product-usage analytics (AppEvent). When false, no events are stored for this user.
   analyticsOptIn         Boolean             @default(true)
   segmentsCreated        Segment[]
