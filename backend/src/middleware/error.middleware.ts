@@ -2,18 +2,22 @@ import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../config/db';
 import logger from '../utils/logger';
+import { redactText, redactUrl } from '../utils/redact';
 
 export const errorHandler = (err: Error, req: Request, res: Response, _next: NextFunction) => {
-  logger.error(err.message, { stack: err.stack });
+  const safeMessage = redactText(err.message) ?? '';
+  const safeStack = redactText(err.stack);
+  logger.error(safeMessage, { stack: safeStack });
 
   // Fire-and-forget: a failure to log the error must never mask the original error response.
+  // Personal data is stripped first (the query string can carry emails and tokens).
   void prisma.errorLog.create({
     data: {
       platform: 'BACKEND',
       source: 'express',
-      message: err.message,
-      stack: err.stack,
-      url: req.originalUrl,
+      message: safeMessage,
+      stack: safeStack,
+      url: redactUrl(req.originalUrl),
       method: req.method,
     },
   })

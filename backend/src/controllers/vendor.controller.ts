@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
+import { encryptId, readId } from '../utils/crypto';
+import { customerPhoneForVendor } from '../services/contactVisibility';
+import { canonicalKycUrl, signKycFields, KYC_IMAGE_FIELDS } from '../services/kycStorage.service';
 import { catchAsync } from '../utils/catchAsync';
 import { haversineDistance, estimateDeliveryMinutes } from '../services/distance.service';
 import { vendorVisibleOrders } from '../services/vendorOrderVisibility';
@@ -657,7 +660,7 @@ export const getMyOrders = catchAsync(async (req: AuthRequest, res: Response) =>
     id: o.id,
     orderNumber: o.orderNumber,
     customer: o.customer.user.name,
-    customerPhone: o.customer.user.phone,
+    customerPhone: customerPhoneForVendor(o.status, o.customer.user.phone),
     items: o.items.map(i => `${i.name} x${i.quantity}`),
     subtotal: o.subtotal,
     platformFee: o.platformFee,
@@ -699,7 +702,7 @@ export const getMyOrderById = catchAsync(async (req: AuthRequest, res: Response)
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
     customer: order.customer.user.name,
-    customerPhone: order.customer.user.phone,
+    customerPhone: customerPhoneForVendor(order.status, order.customer.user.phone),
     deliveryAddress: order.deliveryAddress,
     items: order.items.map(i => ({
       id: i.id,
@@ -1349,7 +1352,7 @@ export const getMyDocument = catchAsync(async (req: AuthRequest, res: Response) 
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
   const doc = await prisma.vendorDocument.findUnique({ where: { vendorId: vendor.id } });
-  return apiResponse.success(res, 'OK', doc);
+  return apiResponse.success(res, 'OK', doc ? { ...signKycFields(doc, KYC_IMAGE_FIELDS.vendorDocument), number: readId(doc.number) } : doc);
 });
 
 // POST /vendors/me/document
@@ -1368,22 +1371,30 @@ export const submitDocument = catchAsync(async (req: AuthRequest, res: Response)
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
+  const uid = req.user!.userId;
+  const imgFront = canonicalKycUrl(imageUrl, uid);
+  const imgBack = canonicalKycUrl(imageUrlBack, uid);
+  const selfie = canonicalKycUrl(selfieUrl, uid);
+  if (!imgFront || (imageUrlBack && !imgBack) || (selfieUrl && !selfie)) {
+    return apiResponse.error(res, 'One of the photos was not uploaded correctly. Please upload it again.', 400);
+  }
+
   const doc = await prisma.vendorDocument.upsert({
     where: { vendorId: vendor.id },
     create: {
       vendorId: vendor.id,
       type,
-      number: number.trim(),
-      imageUrl,
-      imageUrlBack: imageUrlBack || null,
-      selfieUrl: selfieUrl || null,
+      number: encryptId(number),
+      imageUrl: imgFront,
+      imageUrlBack: imgBack || null,
+      selfieUrl: selfie || null,
     },
     update: {
       type,
-      number: number.trim(),
-      imageUrl,
-      imageUrlBack: imageUrlBack || null,
-      selfieUrl: selfieUrl || null,
+      number: encryptId(number),
+      imageUrl: imgFront,
+      imageUrlBack: imgBack || null,
+      selfieUrl: selfie || null,
       status: 'PENDING',
       reviewNote: null,
     },
@@ -1596,7 +1607,7 @@ export const getMyBusinessVerification = catchAsync(async (req: AuthRequest, res
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
   const biz = await prisma.vendorBusinessVerification.findUnique({ where: { vendorId: vendor.id } });
-  return apiResponse.success(res, 'OK', biz);
+  return apiResponse.success(res, 'OK', biz ? signKycFields(biz, KYC_IMAGE_FIELDS.vendorBusiness) : biz);
 });
 
 // POST /vendors/me/business-verification
@@ -1613,17 +1624,22 @@ export const submitBusinessVerification = catchAsync(async (req: AuthRequest, re
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
+  const cacImg = canonicalKycUrl(cacImageUrl, req.user!.userId);
+  if (cacImageUrl && !cacImg) {
+    return apiResponse.error(res, 'The certificate photo was not uploaded correctly. Please upload it again.', 400);
+  }
+
   const biz = await prisma.vendorBusinessVerification.upsert({
     where: { vendorId: vendor.id },
     create: {
       vendorId: vendor.id,
       cacNumber: cacNumber?.trim() || null,
-      cacImageUrl: cacImageUrl || null,
+      cacImageUrl: cacImg || null,
       tin: tin?.trim() || null,
     },
     update: {
       cacNumber: cacNumber?.trim() || null,
-      cacImageUrl: cacImageUrl || null,
+      cacImageUrl: cacImg || null,
       tin: tin?.trim() || null,
       status: 'PENDING',
       reviewNote: null,
@@ -1653,7 +1669,7 @@ export const getMyLicenses = catchAsync(async (req: AuthRequest, res: Response) 
     where: { vendorId: vendor.id },
     orderBy: { createdAt: 'desc' },
   });
-  return apiResponse.success(res, 'OK', licenses);
+  return apiResponse.success(res, 'OK', licenses.map((l) => signKycFields(l, KYC_IMAGE_FIELDS.vendorLicense)));
 });
 
 // POST /vendors/me/licenses
@@ -1672,12 +1688,15 @@ export const submitLicense = catchAsync(async (req: AuthRequest, res: Response) 
   });
   if (!vendor) return apiResponse.error(res, 'Vendor not found.', 404);
 
+  const licenseImg = canonicalKycUrl(imageUrl, req.user!.userId);
+  if (!licenseImg) return apiResponse.error(res, 'The licence photo was not uploaded correctly. Please upload it again.', 400);
+
   const license = await prisma.vendorLicense.create({
     data: {
       vendorId: vendor.id,
       type,
       licenseNumber: licenseNumber.trim(),
-      imageUrl,
+      imageUrl: licenseImg,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
     },
   });

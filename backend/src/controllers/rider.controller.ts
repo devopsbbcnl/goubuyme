@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
+import { encryptId, readId } from '../utils/crypto';
+import { canonicalKycUrl, signKycFields, KYC_IMAGE_FIELDS } from '../services/kycStorage.service';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { reviewVendorFilter } from '../services/reviewAccess';
@@ -186,7 +188,8 @@ export const getAvailableJobs = catchAsync(async (req: AuthRequest, res: Respons
       vendorLat: o.vendor.latitude,
       vendorLng: o.vendor.longitude,
       customer: o.customer.user.name,
-      customerPhone: o.customer.user.phone,
+      // The customer's number is only shared once the rider has accepted the job.
+      customerPhone: null,
       customerAddress: o.deliveryAddress,
       customerLat: o.deliveryLatitude,
       customerLng: o.deliveryLongitude,
@@ -593,7 +596,8 @@ export const getMyRiderDocument = catchAsync(async (req: AuthRequest, res: Respo
   if (!rider) return apiResponse.error(res, 'Rider not found.', 404);
 
   const doc = await prisma.riderDocument.findUnique({ where: { riderId: rider.id } });
-  return apiResponse.success(res, 'OK', doc);
+  // The owner sees their own number (to correct it); it is stored encrypted.
+  return apiResponse.success(res, 'OK', doc ? { ...signKycFields(doc, KYC_IMAGE_FIELDS.riderDocument), ninNumber: readId(doc.ninNumber) } : doc);
 });
 
 // POST /riders/me/document
@@ -611,23 +615,32 @@ export const submitRiderDocument = catchAsync(async (req: AuthRequest, res: Resp
   const rider = await resolveRider(req.user!.userId);
   if (!rider) return apiResponse.error(res, 'Rider not found.', 404);
 
+  // Only our own private uploads (or already-stored legacy links) are accepted; signed links are stripped back to canonical.
+  const uid = req.user!.userId;
+  const ninImg = canonicalKycUrl(ninImageUrl, uid);
+  const selfie = canonicalKycUrl(selfieUrl, uid);
+  const vehicleImg = canonicalKycUrl(vehicleImageUrl, uid);
+  if ((ninImageUrl && !ninImg) || (selfieUrl && !selfie) || (vehicleImageUrl && !vehicleImg)) {
+    return apiResponse.error(res, 'One of the photos was not uploaded correctly. Please upload it again.', 400);
+  }
+
   const doc = await prisma.riderDocument.upsert({
     where: { riderId: rider.id },
     create: {
       riderId: rider.id,
-      ninNumber: ninNumber.trim(),
-      ninImageUrl: ninImageUrl || null,
-      selfieUrl: selfieUrl || null,
-      vehicleImageUrl: vehicleImageUrl || null,
+      ninNumber: encryptId(ninNumber),
+      ninImageUrl: ninImg || null,
+      selfieUrl: selfie || null,
+      vehicleImageUrl: vehicleImg || null,
       guarantorName: guarantorName?.trim() || null,
       guarantorPhone: guarantorPhone?.trim() || null,
       guarantorAddress: guarantorAddress?.trim() || null,
     },
     update: {
-      ninNumber: ninNumber.trim(),
-      ninImageUrl: ninImageUrl || null,
-      selfieUrl: selfieUrl || null,
-      vehicleImageUrl: vehicleImageUrl || null,
+      ninNumber: encryptId(ninNumber),
+      ninImageUrl: ninImg || null,
+      selfieUrl: selfie || null,
+      vehicleImageUrl: vehicleImg || null,
       guarantorName: guarantorName?.trim() || null,
       guarantorPhone: guarantorPhone?.trim() || null,
       guarantorAddress: guarantorAddress?.trim() || null,

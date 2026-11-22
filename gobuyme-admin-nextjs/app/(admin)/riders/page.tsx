@@ -1,4 +1,5 @@
 'use client';
+import RevealIdButton from '@/components/ui/RevealIdButton';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
@@ -416,6 +417,7 @@ export default function RidersPage() {
                     ...(detail.document.guarantorPhone ? [['Guarantor Phone', detail.document.guarantorPhone] as [string, string]] : []),
                     ...(detail.document.guarantorAddress ? [['Guarantor Address', detail.document.guarantorAddress] as [string, string]] : []),
                   ]} T={T} />
+                  <RevealIdButton kind="RIDER_NIN" id={detail.id} T={T} />
 
                   {/* Current status badge */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

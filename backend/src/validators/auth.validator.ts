@@ -19,6 +19,9 @@ export const registerSchema = Joi.object({
   password: strongPassword,
   role: Joi.string().valid('CUSTOMER', 'VENDOR', 'RIDER', 'LOGISTICS_COMPANY').required(),
   referralCode: Joi.string().optional(),
+  // Proof of consent (NDPA): the sign-up form sends these; promotions stay off unless the person ticked them.
+  acceptedTerms: Joi.boolean().optional(),
+  marketingOptIn: Joi.boolean().optional(),
   commissionTier: Joi.when('role', {
     is: 'VENDOR',
     then: Joi.string().valid('TIER_1', 'TIER_2').required(),
@@ -127,6 +130,8 @@ export const loginSchema = Joi.object({
 export const googleAuthSchema = Joi.object({
   idToken: Joi.string().required(),
   referralCode: Joi.string().optional(),
+  acceptedTerms: Joi.boolean().optional(),
+  marketingOptIn: Joi.boolean().optional(),
 });
 
 export const forgotPasswordSchema = Joi.object({
@@ -171,6 +176,8 @@ export const appleAuthSchema = Joi.object({
   // Apple only hands the name to the app, and only the first time.
   fullName: Joi.string().trim().max(120).allow('').optional(),
   referralCode: Joi.string().optional(),
+  acceptedTerms: Joi.boolean().optional(),
+  marketingOptIn: Joi.boolean().optional(),
 });
 
 export const sendPhoneOtpSchema = Joi.object({

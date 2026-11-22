@@ -6,6 +6,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import logger from '../utils/logger';
 import { analyzeErrorLog } from '../services/errorAnalysis.service';
 import { decodeOptionalUser } from '../utils/decodeOptionalUser';
+import { redactText, redactDeep, redactUrl } from '../utils/redact';
 
 // POST /api/v1/errors — public ingest from mobile/web/admin clients.
 // Error reports can arrive before login (e.g. Google Sign-In failures), so no token is
@@ -14,11 +15,19 @@ export const reportError = catchAsync(async (req: Request, res: Response) => {
   const { platform, source, message, stack, context, appVersion, deviceInfo, url, method } = req.body;
   const { userId, role } = decodeOptionalUser(req);
 
+  // Reports come from client apps and can contain whatever the person was doing: strip personal data first.
+  const safe = {
+    message: redactText(message) ?? '',
+    stack: redactText(stack),
+    context: context ? redactDeep(context) : context,
+    deviceInfo: deviceInfo ? redactDeep(deviceInfo) : deviceInfo,
+    url: redactUrl(url),
+  };
   const log = await prisma.errorLog.create({
-    data: { platform, source, message, stack, context, appVersion, deviceInfo, url, method, userId, role },
+    data: { platform, source, message: safe.message, stack: safe.stack, context: safe.context, appVersion, deviceInfo: safe.deviceInfo, url: safe.url, method, userId, role },
   });
 
-  logger.warn('Client error reported', { platform, source, message, userId });
+  logger.warn('Client error reported', { platform, source, message: safe.message, userId });
 
   // Fire-and-forget: classify + escalate without holding up the client's response.
   void analyzeErrorLog(log.id);

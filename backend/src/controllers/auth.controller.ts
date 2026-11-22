@@ -11,6 +11,8 @@ import {
   generateRefreshToken,
   generateReferralCode,
   generateSocketTicket,
+  hashRefreshToken,
+  refreshTokenMatches,
 } from '../utils/generateToken';
 import { sendPasswordResetEmail, sendWelcomeEmail } from '../services/email.service';
 import { recordOnboardingEvent } from '../services/onboarding.service';
@@ -18,6 +20,9 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { Role, CommissionTier, VendorCategory, OrderStatus } from '@prisma/client';
 import { recordError } from '../utils/recordError';
 import { encryptSecret, decryptSecret } from '../utils/crypto';
+import { createUploadTicket, deleteStoredImages } from '../services/kycStorage.service';
+import { eraseAccountData, hashForAudit, lastFour, ErasureResult } from '../services/accountErasure.service';
+import { signupConsent } from '../config/policy';
 import {
   AppleAuthError, verifyAppleIdentityToken, exchangeAppleAuthorizationCode, revokeAppleRefreshToken,
 } from '../services/appleAuth.service';
@@ -158,6 +163,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
         referralCode: newReferralCode,
         referredById,
         ...(phone?.trim() ? { phone: phone.trim() } : {}),
+        ...signupConsent(req.body, 'register'),
       },
     });
 
@@ -348,7 +354,7 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   const accessToken = generateAccessToken({ userId: user.id, role: activeRole });
   const refreshToken = generateRefreshToken({ userId: user.id, role: activeRole });
 
-  await prisma.user.update({ where: { id: user.id }, data: { refreshToken } });
+  await prisma.user.update({ where: { id: user.id }, data: { refreshToken: hashRefreshToken(refreshToken) } });
 
   if (user.role === 'RIDER') await claimFleetInvite({ id: user.id, email: user.email });
   const approvalStatus = await resolveApprovalStatus(user.id, activeRole);
@@ -419,6 +425,7 @@ export const googleAuth = catchAsync(async (req: Request, res: Response) => {
           avatar: payload.picture,
           referralCode: generateReferralCode(),
           referredById,
+          ...signupConsent(req.body, 'google'),
         },
       });
 
@@ -439,7 +446,7 @@ export const googleAuth = catchAsync(async (req: Request, res: Response) => {
   const activeRole = await resolveLoginRole(user);
   const accessToken = generateAccessToken({ userId: user.id, role: activeRole });
   const refreshToken = generateRefreshToken({ userId: user.id, role: activeRole });
-  await prisma.user.update({ where: { id: user.id }, data: { refreshToken } });
+  await prisma.user.update({ where: { id: user.id }, data: { refreshToken: hashRefreshToken(refreshToken) } });
 
   let approvalStatus: string | undefined;
   if (activeRole === 'VENDOR') {
@@ -511,6 +518,7 @@ export const appleAuth = catchAsync(async (req: Request, res: Response) => {
             isEmailVerified: true,
             referralCode: generateReferralCode(),
             referredById,
+            ...signupConsent(req.body, 'apple'),
           },
         });
         await tx.customer.create({ data: { userId: newUser.id } });
@@ -542,7 +550,7 @@ export const appleAuth = catchAsync(async (req: Request, res: Response) => {
   const activeRole = await resolveLoginRole(user);
   const accessToken = generateAccessToken({ userId: user.id, role: activeRole });
   const refreshToken = generateRefreshToken({ userId: user.id, role: activeRole });
-  await prisma.user.update({ where: { id: user.id }, data: { refreshToken } });
+  await prisma.user.update({ where: { id: user.id }, data: { refreshToken: hashRefreshToken(refreshToken) } });
 
   let approvalStatus: string | undefined;
   if (activeRole === 'VENDOR') {
@@ -587,7 +595,7 @@ export const refresh = catchAsync(async (req: Request, res: Response) => {
   }
 
   const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
-  if (!user || user.refreshToken !== refreshToken) {
+  if (!user || !refreshTokenMatches(user.refreshToken, refreshToken)) {
     return apiResponse.error(res, 'Refresh token revoked.', 401);
   }
 
@@ -601,7 +609,7 @@ export const refresh = catchAsync(async (req: Request, res: Response) => {
   const newAccessToken = generateAccessToken({ userId: user.id, role: activeRole });
   const newRefreshToken = generateRefreshToken({ userId: user.id, role: activeRole });
 
-  await prisma.user.update({ where: { id: user.id }, data: { refreshToken: newRefreshToken } });
+  await prisma.user.update({ where: { id: user.id }, data: { refreshToken: hashRefreshToken(newRefreshToken) } });
 
   return apiResponse.success(res, 'Token refreshed.', {
     accessToken: newAccessToken,
@@ -667,7 +675,7 @@ export const addRole = catchAsync(async (req: AuthRequest, res: Response) => {
   const target = role as Role;
   const accessToken = generateAccessToken({ userId: user.id, role: target });
   const refreshToken = generateRefreshToken({ userId: user.id, role: target });
-  await prisma.user.update({ where: { id: user.id }, data: { refreshToken, lastActiveRole: target } });
+  await prisma.user.update({ where: { id: user.id }, data: { refreshToken: hashRefreshToken(refreshToken), lastActiveRole: target } });
 
   // The new role's own funnel starts here; the email was already verified when the account was made.
   void recordOnboardingEvent(user.id, target, 'SIGNED_UP', { addedToExistingAccount: true });
@@ -701,7 +709,7 @@ export const switchRole = catchAsync(async (req: AuthRequest, res: Response) => 
   const accessToken = generateAccessToken({ userId: user.id, role: target });
   const refreshToken = generateRefreshToken({ userId: user.id, role: target });
   // Remember the choice so the next sign-in opens this experience.
-  await prisma.user.update({ where: { id: user.id }, data: { refreshToken, lastActiveRole: target } });
+  await prisma.user.update({ where: { id: user.id }, data: { refreshToken: hashRefreshToken(refreshToken), lastActiveRole: target } });
 
   const approvalStatus = await resolveApprovalStatus(user.id, target);
   return apiResponse.success(res, 'Role switched.', {
@@ -726,6 +734,15 @@ export const logout = catchAsync(async (req: AuthRequest, res: Response) => {
 export const socketTicket = catchAsync(async (req: AuthRequest, res: Response) => {
   const { userId, role } = req.user!;
   return apiResponse.success(res, 'Socket ticket issued.', { ticket: generateSocketTicket({ userId, role }) });
+});
+
+// POST /auth/kyc-upload-ticket — signed parameters for a private (authenticated) Cloudinary upload of an
+// identity or verification image. The folder is the caller's own, so one account cannot overwrite another's.
+const KYC_UPLOAD_ROLES = new Set(['VENDOR', 'RIDER', 'LOGISTICS_COMPANY', 'SUPER_ADMIN', 'OPERATIONS_ADMIN']);
+export const kycUploadTicket = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { userId, role } = req.user!;
+  if (!KYC_UPLOAD_ROLES.has(role)) return apiResponse.error(res, 'Not allowed.', 403);
+  return apiResponse.success(res, 'Upload ticket issued.', createUploadTicket(userId));
 });
 
 export const getMe = catchAsync(async (req: AuthRequest, res: Response) => {
@@ -962,6 +979,7 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
     }
   }
 
+  let erased: ErasureResult = { imageUrls: [] };
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: user.id },
@@ -980,6 +998,8 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
     });
     // Usage analytics are not needed for any legal/financial record — erase them outright.
     await tx.appEvent.deleteMany({ where: { userId: user.id } });
+    // Name, avatar, addresses, carts, notifications, chat text and every identity document (all roles).
+    erased = await eraseAccountData(tx, user.id);
 
     // Vendor/rider public-facing queries filter on approvalStatus === APPROVED,
     // so suspending here removes them from customer-facing discovery without
@@ -1009,10 +1029,15 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
         action: `${role}_SELF_DELETED`,
         entity: entity ?? 'User',
         entityId: domainId ?? user.id,
-        meta: { originalEmail: user.email, originalPhone: user.phone, ...(businessName ? { businessName } : {}) },
+        // The audit log cannot be edited later, so it never holds the email or phone itself: a hash lets us
+        // recognise the account if the person contacts support, and nothing more.
+        meta: { emailHash: hashForAudit(user.email), phoneLast4: lastFour(user.phone), ...(businessName ? { businessName } : {}) },
       },
     });
   });
+
+  // After the database change has committed: remove the stored photos (best effort).
+  void deleteStoredImages(erased.imageUrls);
 
   return apiResponse.success(res, 'Account deleted.');
 });

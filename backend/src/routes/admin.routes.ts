@@ -8,6 +8,7 @@ import {
   updateAdminSettings,
   getAdminVendors, updateVendorStatus, updateVendorTier, updateVendorCategory, adminCreateVendor,
   adminCreateRider,
+  revealKycNumber,
   getVendorDetail, updateVendorDocumentStatus,
   updateVendorBusinessVerifStatus, updateVendorLicenseStatus,
   deleteVendor, featureVendor, regeocodeVendor,
@@ -125,6 +126,7 @@ router.get('/companies',                     ...readAuth, getAdminCompanies);
 router.patch('/companies/:id/status',        ...opsAuth,  updateCompanyStatus);
 router.get('/riders',                        ...readAuth, getAdminRiders);
 router.post('/riders/create',                ...opsAuth,  adminCreateRider);
+router.post('/kyc/reveal',                   ...opsAuth,  revealKycNumber);
 router.get('/riders/:id',                    ...readAuth, getAdminRiderDetail);
 router.patch('/riders/:id/status',           ...opsAuth,  updateRiderStatus);
 router.patch('/riders/:id/document/status',  ...opsAuth,  updateRiderDocumentStatus);

@@ -252,7 +252,7 @@ export default function CheckoutScreen() {
 
       // 4. Open Paystack popup — amount is the backend-confirmed total minus any store credit
       popup.checkout({
-        email: user?.email ?? 'customer@gobuyme.ng',
+        email: user?.email ?? 'customer@gobuyme.shop',
         amount: amountToCharge, // naira — library multiplies by 100 internally
         reference,
         // The order id travels with the Paystack transaction so the backend webhook can still

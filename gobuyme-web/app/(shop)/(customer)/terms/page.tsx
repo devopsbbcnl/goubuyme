@@ -158,8 +158,8 @@ ${COMPANY}
 Email: ${EMAIL}
 Address: Lagos, Nigeria
 
-For order support: support@gobuyme.ng
-For vendor inquiries: vendors@gobuyme.ng`,
+For order support: support@gobuyme.shop
+For vendor inquiries: vendors@gobuyme.shop`,
   },
 ];
 

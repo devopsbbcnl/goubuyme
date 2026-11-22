@@ -83,6 +83,7 @@ function RegisterContent() {
   const [show, setShow] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [marketing, setMarketing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [backendOnline, setBackendOnline] = useState(false);
@@ -172,6 +173,9 @@ function RegisterContent() {
     try {
       const payload: Record<string, unknown> = {
         name: form.name, email: form.email, phone: form.phone, password: form.password, role: role.toUpperCase(),
+        // Proof of consent: the terms box is required to submit; promotions only if the second box is ticked.
+        acceptedTerms: true,
+        marketingOptIn: marketing,
       };
       if (role === 'vendor') {
         payload.businessName = vendorForm.businessName.trim();
@@ -362,10 +366,22 @@ function RegisterContent() {
                   style={{ marginTop: 3, accentColor: 'var(--brand)', flexShrink: 0, width: 16, height: 16, cursor: 'pointer' }}
                 />
                 <label htmlFor="agree" style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5, cursor: 'pointer' }}>
-                  I agree to the{' '}
+                  I am 18 or older and I agree to the{' '}
                   <Link href="/terms" target="_blank" style={{ color: 'var(--brand)', fontWeight: 700 }}>Terms of Service</Link>
                   {' '}and{' '}
                   <Link href="/privacy" target="_blank" style={{ color: 'var(--brand)', fontWeight: 700 }}>Privacy Policy</Link>
+                </label>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, margin: '-8px 0 20px' }}>
+                <input
+                  type="checkbox"
+                  id="marketing"
+                  checked={marketing}
+                  onChange={e => setMarketing(e.target.checked)}
+                  style={{ marginTop: 3, accentColor: 'var(--brand)', flexShrink: 0, width: 16, height: 16, cursor: 'pointer' }}
+                />
+                <label htmlFor="marketing" style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5, cursor: 'pointer' }}>
+                  Optional: send me offers and promotions by email. You can turn this off any time.
                 </label>
               </div>
             </>

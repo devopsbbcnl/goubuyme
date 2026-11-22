@@ -76,8 +76,16 @@ model User {
   ticketsAssigned        Ticket[]            @relation("TicketAssignee")
   ticketMessages         TicketMessage[]
   cannedReplies          CannedReply[]
-  /// Consent to promotional campaigns (NDPR). Transactional messages ignore this.
-  marketingOptIn         Boolean             @default(true)
+  /// Consent to promotional campaigns (NDPA). Transactional messages ignore this.
+  /// Defaults to false: consent must be a clear, unticked choice. Accounts created before 2026-11-22 carry the old
+  /// default (true) with no `marketingConsentAt`, i.e. consent we cannot prove.
+  marketingOptIn         Boolean             @default(false)
+  /// When and where the person said yes (null on a legacy opt-in, or when they have said no).
+  marketingConsentAt     DateTime?
+  marketingConsentSource String?
+  /// Proof of what was accepted at sign-up. `policyVersion` matches `POLICY_VERSION` in config/policy.ts.
+  termsAcceptedAt        DateTime?
+  policyVersion          String?
   /// Consent to product-usage analytics (AppEvent). When false, no events are stored for this user.
   analyticsOptIn         Boolean             @default(true)
   segmentsCreated        Segment[]

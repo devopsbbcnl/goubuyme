@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import api from '@/services/api';
-import { uploadToCloudinary } from '@/services/cloudinary';
+import { uploadKycImage } from '@/services/cloudinary';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -79,7 +79,7 @@ function UploadField({
     if (!file) return;
     setBusy(true);
     try {
-      const url = await uploadToCloudinary(file, folder);
+      const url = await uploadKycImage(file);
       onChange(url);
       toast('Image uploaded', 'success');
     } catch (err: any) { toast(err?.message || 'Upload failed', 'error'); }
