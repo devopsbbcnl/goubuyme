@@ -11,32 +11,8 @@ import { useTheme } from '@/context/ThemeContext';
 import api from '@/services/api';
 import { CenteredKeyboardModal } from '@/components/ui/CenteredKeyboardModal';
 
-const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
-const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
+import { uploadKycImage as uploadImage } from '@/utils/kycUpload';
 
-async function uploadImage(uri: string): Promise<string> {
-  if (!CLOUD_NAME || CLOUD_NAME === 'your_cloud_name') return uri;
-  const form = new FormData();
-  form.append('file', { uri, type: 'image/jpeg', name: 'upload.jpg' } as any);
-  form.append('upload_preset', UPLOAD_PRESET);
-  let res: Response;
-  try {
-    res = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-      { method: 'POST', body: form },
-    );
-  } catch (err: any) {
-    console.error('[uploadImage] network error', err);
-    throw new Error(`Network error while uploading: ${err?.message ?? 'unknown'}`);
-  }
-  const data = await res.json().catch(() => ({})) as { secure_url?: string; error?: { message?: string } };
-  if (!res.ok || !data.secure_url) {
-    const reason = data?.error?.message ?? `HTTP ${res.status}`;
-    console.error('[uploadImage] Cloudinary rejected upload:', reason);
-    throw new Error(`Image upload failed: ${reason}`);
-  }
-  return data.secure_url;
-}
 
 type LicenseType = 'NAFDAC' | 'PHARMACIST' | 'FOOD_HANDLER' | 'BUSINESS_PERMIT' | 'IMPORT_PERMIT';
 type LicenseStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'EXPIRED';

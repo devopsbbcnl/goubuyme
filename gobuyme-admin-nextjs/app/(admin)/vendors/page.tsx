@@ -1,4 +1,5 @@
 'use client';
+import RevealIdButton from '@/components/ui/RevealIdButton';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
@@ -650,6 +651,7 @@ export default function VendorsPage() {
                     ['Submitted', fmtDate(detail.document.createdAt)],
                     ['Last updated', fmtDate(detail.document.updatedAt)],
                   ]} T={T} />
+                  <RevealIdButton kind="VENDOR_ID" id={detail.id} T={T} />
 
                   {/* Current status badge */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

@@ -178,7 +178,8 @@ async function registerUser(payload: object): Promise<void> {
     res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      // Every form here requires the terms box before it can submit; this records that acceptance.
+      body: JSON.stringify({ ...payload, acceptedTerms: true }),
     });
   } catch {
     throw new Error("Cannot reach the server. Check your connection.");
@@ -370,7 +371,7 @@ function AccountStepFields<T extends VendorValues | RiderValues | CompanyValues>
             </FormControl>
             <div>
               <FormLabel className="font-mono-pop text-[10px] uppercase tracking-wider leading-relaxed">
-                I agree to the{" "}
+                I am 18 or older and I agree to the{" "}
                 <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline text-primary">
                   Terms of Service
                 </a>{" "}

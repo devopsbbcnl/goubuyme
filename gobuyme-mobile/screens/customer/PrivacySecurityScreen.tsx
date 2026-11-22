@@ -9,6 +9,7 @@ import {
 	Alert,
 	ActivityIndicator,
 	Switch,
+	Share,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -50,6 +51,20 @@ export default function PrivacySecurityScreen() {
 
 	// Delete account
 	const [deleteModal, setDeleteModal] = useState(false);
+
+	// Right of access: fetch a copy of the person's own data and hand it to the share sheet (save, email, files).
+	const [exporting, setExporting] = useState(false);
+	const downloadMyData = async () => {
+		setExporting(true);
+		try {
+			const res = await api.get('/auth/my-data', { responseType: 'text', transformResponse: (d) => d });
+			await Share.share({ title: 'My GoBuyMe data', message: String(res.data) });
+		} catch (err: any) {
+			Alert.alert('Could not get your data', err?.response?.data?.message ?? 'Please try again in a moment.');
+		} finally {
+			setExporting(false);
+		}
+	};
 
 	const fetchMfaStatus = useCallback(async () => {
 		try {
@@ -352,6 +367,28 @@ export default function PrivacySecurityScreen() {
 						</View>
 					</View>
 				))}
+
+				{/* Your data (NDPA right of access) */}
+				<View style={{ gap: 8 }}>
+					<Text style={[styles.sectionLabel, { color: T.textMuted }]}>
+						YOUR DATA
+					</Text>
+					<TouchableOpacity
+						onPress={downloadMyData}
+						disabled={exporting}
+						style={[styles.deleteBtn, { borderColor: T.border, backgroundColor: T.surface }]}
+						activeOpacity={0.75}
+					>
+						{exporting ? (
+							<ActivityIndicator size="small" color={T.text} />
+						) : (
+							<Ionicons name="download-outline" size={18} color={T.text} />
+						)}
+						<Text style={[styles.deleteBtnText, { color: T.text }]}>
+							Download a copy of my data
+						</Text>
+					</TouchableOpacity>
+				</View>
 
 				{/* Danger zone */}
 				<View style={{ gap: 8 }}>

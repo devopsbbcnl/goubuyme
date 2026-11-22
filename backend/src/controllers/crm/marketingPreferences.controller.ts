@@ -1,3 +1,4 @@
+import { marketingChoice } from '../../config/policy';
 import { Request, Response } from 'express';
 import prisma from '../../config/db';
 import { AuthRequest } from '../../middleware/auth.middleware';
@@ -26,10 +27,10 @@ export const getMarketingPreferences = catchAsync(async (req: AuthRequest, res: 
 // PATCH /notifications/preferences  { marketingOptIn?, analyticsOptIn?, categories?: { orders?, earnings?, account? } }
 export const updateMarketingPreferences = catchAsync(async (req: AuthRequest, res: Response) => {
   const { marketingOptIn, analyticsOptIn, categories } = req.body ?? {};
-  const data: { marketingOptIn?: boolean; analyticsOptIn?: boolean; notificationPrefs?: Record<string, boolean> } = {};
+  const data: Record<string, unknown> & { analyticsOptIn?: boolean; notificationPrefs?: Record<string, boolean> } = {};
   if (marketingOptIn !== undefined) {
     if (typeof marketingOptIn !== 'boolean') return apiResponse.error(res, 'marketingOptIn must be true or false.', 400);
-    data.marketingOptIn = marketingOptIn;
+    Object.assign(data, marketingChoice(marketingOptIn, 'settings'));
   }
   if (analyticsOptIn !== undefined) {
     if (typeof analyticsOptIn !== 'boolean') return apiResponse.error(res, 'analyticsOptIn must be true or false.', 400);
@@ -61,7 +62,7 @@ export const unsubscribeByToken = catchAsync(async (req: Request, res: Response)
   if (!userId) return apiResponse.error(res, 'This link is invalid.', 400);
 
   const subscribe = req.body?.subscribe === true;
-  const updated = await prisma.user.updateMany({ where: { id: userId, deletedAt: null }, data: { marketingOptIn: subscribe } });
+  const updated = await prisma.user.updateMany({ where: { id: userId, deletedAt: null }, data: marketingChoice(subscribe, 'unsubscribe-link') });
   if (updated.count === 0) return apiResponse.error(res, 'This link is invalid.', 400);
   return apiResponse.success(res, subscribe ? 'You\'re subscribed again.' : 'You\'ve been unsubscribed from promotions.', { marketingOptIn: subscribe });
 });

@@ -12,8 +12,7 @@ import { useTheme } from '@/context/ThemeContext';
 import api from '@/services/api';
 import { KeyboardAvoidingWrapper } from '@/components/ui/KeyboardAvoidingWrapper';
 
-const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
-const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
+import { uploadKycImage as uploadImage } from '@/utils/kycUpload';
 
 function phoneToDisplay(phone: string): string {
   if (phone.startsWith('+234')) return phone.slice(4);
@@ -29,29 +28,6 @@ function formatPhoneForApi(suffix: string): string {
   return `+234${digits}`;
 }
 
-async function uploadImage(uri: string): Promise<string> {
-  if (!CLOUD_NAME || !UPLOAD_PRESET) throw new Error('Image upload is not configured. Contact support.');
-  const form = new FormData();
-  form.append('file', { uri, type: 'image/jpeg', name: 'upload.jpg' } as any);
-  form.append('upload_preset', UPLOAD_PRESET);
-  let res: Response;
-  try {
-    res = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-      { method: 'POST', body: form },
-    );
-  } catch (err: any) {
-    console.error('[uploadImage] network error', err);
-    throw new Error(`Network error while uploading: ${err?.message ?? 'unknown'}`);
-  }
-  const data = (await res.json().catch(() => ({}))) as { secure_url?: string; error?: { message?: string } };
-  if (!res.ok || !data.secure_url) {
-    const reason = data?.error?.message ?? `HTTP ${res.status}`;
-    console.error('[uploadImage] Cloudinary rejected upload:', reason);
-    throw new Error(`Image upload failed: ${reason}`);
-  }
-  return data.secure_url;
-}
 
 const STATUS_META: Record<string, { color: string; icon: string; label: string }> = {
   PENDING:  { color: '#F5A623', icon: 'time-outline',     label: 'Under Review' },
@@ -313,6 +289,9 @@ export default function RiderDocumentScreen() {
 
             {/* Section: Guarantor */}
             <SectionLabel label="GUARANTOR" T={T} mt={24} />
+            <Text style={{ color: T.textSec, fontSize: 12, lineHeight: 18, marginTop: 6 }}>
+              Please tell your guarantor you are giving us their details. We use them only to check who delivers for GoBuyMe and to contact them if there is a serious problem. They can ask us what we hold at privacy@gobuyme.shop.
+            </Text>
 
             <View style={[styles.lockedBanner, { backgroundColor: T.surface2 ?? T.surface, borderColor: T.border }]}>
               <Ionicons name="lock-closed" size={14} color={T.textMuted} style={{ marginTop: 1 }} />

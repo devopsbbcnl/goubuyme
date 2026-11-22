@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import api from '@/services/api';
-import { uploadToCloudinary } from '@/services/cloudinary';
+import { uploadKycImage } from '@/services/cloudinary';
 
 interface RiderDoc {
   id: string;
@@ -47,7 +47,7 @@ function UploadField({
     if (!file) return;
     setBusy(true);
     try {
-      const url = await uploadToCloudinary(file, folder);
+      const url = await uploadKycImage(file);
       onChange(url);
       toast('Image uploaded', 'success');
     } catch (err: any) { toast(err?.message || 'Upload failed', 'error'); }
@@ -196,6 +196,9 @@ export default function RiderDocumentsPage() {
           <h2 style={{ fontSize: 17, fontWeight: 800 }}>Guarantor</h2>
           <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>
             {guarantorLocked ? 'Locked after submission — contact support to request a change.' : 'Required for first-time submission'}
+          </p>
+          <p className="muted" style={{ fontSize: 12, marginTop: 6, lineHeight: 1.5 }}>
+            Please tell your guarantor you are giving us their details. We use them only to check who delivers for GoBuyMe and to contact them if there is a serious problem. They can ask us what we hold at privacy@gobuyme.shop.
           </p>
         </div>
 

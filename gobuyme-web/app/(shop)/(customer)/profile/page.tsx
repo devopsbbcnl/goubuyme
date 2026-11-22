@@ -865,6 +865,29 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            {/* Your data (NDPA right of access) */}
+            <div className="card" style={{ padding: '20px 22px' }}>
+              <h3 style={{ fontWeight: 800, fontSize: 14, marginBottom: 6 }}>Your Data</h3>
+              <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.55 }}>
+                Download a copy of the personal data GoBuyMe holds about you. Passwords and sign-in tokens are never included.
+              </p>
+              <button
+                className="btn btn-ghost btn-block"
+                style={{ height: 40, fontSize: 13 }}
+                onClick={async () => {
+                  try {
+                    const res = await api.get('/auth/my-data', { responseType: 'blob' });
+                    const url = URL.createObjectURL(res.data as Blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = 'my-gobuyme-data.json'; a.click();
+                    URL.revokeObjectURL(url);
+                  } catch { toast('Could not get your data. Please try again.', 'error'); }
+                }}
+              >
+                Download my data
+              </button>
+            </div>
+
             {/* Danger zone */}
             <div className="card" style={{ padding: '20px 22px', borderColor: 'rgba(226,59,59,.25)' }}>
               <h3 style={{ fontWeight: 800, fontSize: 14, marginBottom: 6, color: 'var(--error)' }}>Danger Zone</h3>

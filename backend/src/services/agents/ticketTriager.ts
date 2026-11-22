@@ -1,3 +1,4 @@
+import { redactText } from '../../utils/redact';
 import Anthropic from '@anthropic-ai/sdk';
 import { AgentMode, AgentSuggestionStatus, Prisma, TicketCategory, TicketPriority, TicketStatus } from '@prisma/client';
 import prisma from '../../config/db';
@@ -37,7 +38,7 @@ const ticketInclude = {
       deliveryFee: true, totalAmount: true, creditIssued: true, cancelReason: true, createdAt: true, statusChangedAt: true,
       estimatedTime: true,
       items: { select: { name: true, quantity: true, price: true } },
-      vendor: { select: { businessName: true } },
+      vendor: { select: { businessName: true, isPharmacyFlagged: true } },
       rider: { select: { user: { select: { name: true } } } },
       events: { orderBy: { createdAt: 'asc' }, select: { type: true, fromStatus: true, toStatus: true, actorType: true, createdAt: true } },
     },
@@ -66,7 +67,7 @@ export function buildTriageContext(
     now: extra.now.toISOString(),
     ticket: {
       number: t.number,
-      subject: t.subject,
+      subject: redactText(t.subject) ?? '',
       currentCategory: t.category,
       currentPriority: t.priority,
       channel: t.channel,
@@ -74,7 +75,8 @@ export function buildTriageContext(
       messages: t.messages.map((m) => ({
         from: m.authorId === t.requesterId ? 'requester' : 'support',
         minutesAgo: minutes(m.createdAt, extra.now),
-        text: m.body.slice(0, 2000),
+        // Contact details people type into a message (phone numbers, emails, long ID numbers) are removed before it is sent.
+        text: redactText(m.body.slice(0, 2000)) ?? '',
       })),
     },
     requester: {
@@ -95,7 +97,8 @@ export function buildTriageContext(
       estimatedDeliveryMinutes: o.estimatedTime,
       vendor: o.vendor.businessName,
       riderFirstName: o.rider ? firstName(o.rider.user.name) : null,
-      items: o.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.price })),
+      // What someone bought at a pharmacy can reveal their health, so those item names never leave our systems.
+      items: o.items.map((i) => ({ name: o.vendor.isPharmacyFlagged ? 'Pharmacy item' : i.name, quantity: i.quantity, unitPrice: i.price })),
       timeline: o.events.map((e) => ({
         event: e.type, from: e.fromStatus, to: e.toStatus, by: e.actorType, minutesAfterPlaced: minutes(o.createdAt, e.createdAt),
       })),

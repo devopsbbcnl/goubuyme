@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../config/db';
 import { apiResponse } from '../utils/apiResponse';
+import { encryptId, readId, maskId } from '../utils/crypto';
+import { canonicalKycUrl, signKycFields, deleteStoredImages, KYC_IMAGE_FIELDS } from '../services/kycStorage.service';
+import { eraseAccountData, hashForAudit, lastFour } from '../services/accountErasure.service';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { holdsOtherLiveRole, REAL_CUSTOMER, OTHER_ROLES_SELECT, summarizeOtherRoles } from '../services/roles.service';
@@ -429,6 +432,10 @@ export const getAdminRiderDetail = catchAsync(async (req: Request, res: Response
 
   return apiResponse.success(res, 'Rider detail fetched.', {
     ...rider,
+    // The NIN is stored encrypted and shown masked; the full number needs a logged reveal (POST /admin/kyc/reveal).
+    document: rider.document
+      ? { ...signKycFields(rider.document, KYC_IMAGE_FIELDS.riderDocument), ninNumber: maskId(readId(rider.document.ninNumber)) }
+      : rider.document,
     otherRoles: riderAccount ? summarizeOtherRoles(riderAccount, 'RIDER') : [],
     totalDeliveries: rider._count.deliveries,
     totalEarnings: earningAgg._sum.netAmount ?? 0,
@@ -1352,6 +1359,13 @@ export const getVendorDetail = catchAsync(async (req: Request, res: Response) =>
 
   return apiResponse.success(res, 'Vendor detail fetched.', {
     ...vendor,
+    // Identity and verification images are private: staff get short-lived links, never the stored address.
+    document: vendor.document
+      ? { ...signKycFields(vendor.document, KYC_IMAGE_FIELDS.vendorDocument), number: maskId(readId(vendor.document.number)) }
+      : vendor.document,
+    businessVerification: vendor.businessVerification
+      ? signKycFields(vendor.businessVerification, KYC_IMAGE_FIELDS.vendorBusiness) : vendor.businessVerification,
+    licenses: vendor.licenses.map((l) => signKycFields(l, KYC_IMAGE_FIELDS.vendorLicense)),
     otherRoles: vendorAccount ? summarizeOtherRoles(vendorAccount, 'VENDOR') : [],
     payoutAccount,
     isBranch: vendor.parentVendorId !== null,
@@ -1630,6 +1644,13 @@ export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Respon
   });
   if (existingVendor) return apiResponse.error(res, 'A store with this business name already exists. Please choose a different name.', 409);
 
+  const docFront = canonicalKycUrl(docImageUrl);
+  const docBack = canonicalKycUrl(docImageUrlBack);
+  const docSelfie = canonicalKycUrl(selfieUrl);
+  if ((docImageUrl && !docFront) || (docImageUrlBack && !docBack) || (selfieUrl && !docSelfie)) {
+    return apiResponse.error(res, 'A document photo was not uploaded correctly. Please upload it again.', 400);
+  }
+
   const hashed = await bcrypt.hash(password, 10);
   const referralCode = generateReferralCode();
   const slug = businessName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -1675,10 +1696,10 @@ export const adminCreateVendor = catchAsync(async (req: AuthRequest, res: Respon
         data: {
           vendorId: newVendor.id,
           type: docType as DocumentType,
-          number: docNumber.trim(),
-          imageUrl: docImageUrl,
-          ...(docImageUrlBack ? { imageUrlBack: docImageUrlBack } : {}),
-          ...(selfieUrl ? { selfieUrl } : {}),
+          number: encryptId(docNumber),
+          imageUrl: docFront!,
+          ...(docBack ? { imageUrlBack: docBack } : {}),
+          ...(docSelfie ? { selfieUrl: docSelfie } : {}),
         },
       });
     }
@@ -1819,6 +1840,31 @@ export const deactivateAdminUser = catchAsync(async (req: AuthRequest, res: Resp
   return apiResponse.success(res, 'Admin user deactivated.');
 });
 
+// POST /admin/kyc/reveal { kind: 'RIDER_NIN' | 'VENDOR_ID', id, reason }
+// The full identity number is never listed. Revealing it needs a reason and is written to the audit log
+// (the number itself is not).
+export const revealKycNumber = catchAsync(async (req: AuthRequest, res: Response) => {
+  const { kind, id, reason } = req.body as { kind?: string; id?: string; reason?: string };
+  if ((kind !== 'RIDER_NIN' && kind !== 'VENDOR_ID') || !id) return apiResponse.error(res, 'kind and id are required.', 400);
+  if (!reason || reason.trim().length < 10) return apiResponse.error(res, 'Give a reason of at least 10 characters.', 400);
+
+  const stored = kind === 'RIDER_NIN'
+    ? (await prisma.riderDocument.findUnique({ where: { riderId: id }, select: { ninNumber: true } }))?.ninNumber
+    : (await prisma.vendorDocument.findUnique({ where: { vendorId: id }, select: { number: true } }))?.number;
+  if (!stored) return apiResponse.error(res, 'No identity number on file.', 404);
+
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user!.userId,
+      action: 'KYC_NUMBER_REVEALED',
+      entity: kind === 'RIDER_NIN' ? 'RiderDocument' : 'VendorDocument',
+      entityId: id,
+      meta: { kind, reason: reason.trim().slice(0, 300) },
+    },
+  });
+  return apiResponse.success(res, 'Revealed.', { value: readId(stored) });
+});
+
 // POST /admin/riders/create
 export const adminCreateRider = catchAsync(async (req: AuthRequest, res: Response) => {
   const {
@@ -1833,6 +1879,13 @@ export const adminCreateRider = catchAsync(async (req: AuthRequest, res: Respons
 
   const existing = await prisma.user.findFirst({ where: { email: { equals: email.trim(), mode: 'insensitive' } } });
   if (existing) return apiResponse.error(res, 'Email already registered.', 409);
+
+  const ninImg = canonicalKycUrl(ninImageUrl);
+  const riderSelfie = canonicalKycUrl(selfieUrl);
+  const vehicleImg = canonicalKycUrl(vehicleImageUrl);
+  if ((ninImageUrl && !ninImg) || (selfieUrl && !riderSelfie) || (vehicleImageUrl && !vehicleImg)) {
+    return apiResponse.error(res, 'A document photo was not uploaded correctly. Please upload it again.', 400);
+  }
 
   const hashed = await bcrypt.hash(password, 10);
   const referralCode = generateReferralCode();
@@ -1863,10 +1916,10 @@ export const adminCreateRider = catchAsync(async (req: AuthRequest, res: Respons
       await tx.riderDocument.create({
         data: {
           riderId: newRider.id,
-          ninNumber: ninNumber.trim(),
-          ...(ninImageUrl      ? { ninImageUrl }                              : {}),
-          ...(selfieUrl        ? { selfieUrl }                                : {}),
-          ...(vehicleImageUrl  ? { vehicleImageUrl }                          : {}),
+          ninNumber: encryptId(ninNumber),
+          ...(ninImg          ? { ninImageUrl: ninImg }                      : {}),
+          ...(riderSelfie      ? { selfieUrl: riderSelfie }                   : {}),
+          ...(vehicleImg       ? { vehicleImageUrl: vehicleImg }              : {}),
           ...(guarantorName?.trim()    ? { guarantorName: guarantorName.trim() }       : {}),
           ...(guarantorPhone?.trim()   ? { guarantorPhone: guarantorPhone.trim() }     : {}),
           ...(guarantorAddress?.trim() ? { guarantorAddress: guarantorAddress.trim() } : {}),
@@ -1901,7 +1954,7 @@ async function softDeleteUser(
   entityId: string,
   action: string,
   extraMeta: Record<string, unknown> = {},
-) {
+): Promise<string[]> {
   await tx.user.update({
     where: { id: target.userId },
     data: {
@@ -1918,6 +1971,8 @@ async function softDeleteUser(
     },
   });
   await tx.appEvent.deleteMany({ where: { userId: target.userId } });
+  // Same erasure as self-deletion: name, avatar, addresses, carts, notifications, chat text, identity documents.
+  const erased = await eraseAccountData(tx, target.userId);
 
   await tx.auditLog.create({
     data: {
@@ -1925,9 +1980,11 @@ async function softDeleteUser(
       action,
       entity,
       entityId,
-      meta: { originalEmail: target.email, originalPhone: target.phone, ...extraMeta },
+      // The audit log is permanent, so it keeps only a hash of the email and the last digits of the phone.
+      meta: { emailHash: hashForAudit(target.email), phoneLast4: lastFour(target.phone), ...extraMeta },
     },
   });
+  return erased.imageUrls;
 }
 
 // DELETE /admin/vendors/:id
@@ -1948,6 +2005,7 @@ export const deleteVendor = catchAsync(async (req: AuthRequest, res: Response) =
     return apiResponse.error(res, 'This vendor has an order in progress and cannot be deleted yet.', 409);
   }
 
+  let erasedImages: string[] = [];
   await prisma.$transaction(async (tx) => {
     if (await holdsOtherLiveRole(tx, vendor.userId, 'VENDOR')) {
       // The person is also a rider/customer: remove only the business, keep the account.
@@ -1955,7 +2013,7 @@ export const deleteVendor = catchAsync(async (req: AuthRequest, res: Response) =
         data: { userId: req.user!.userId, action: 'VENDOR_ADMIN_DELETED', entity: 'Vendor', entityId: id, meta: { businessName: vendor.businessName, accountKept: true } },
       });
     } else {
-      await softDeleteUser(
+      erasedImages = await softDeleteUser(
         tx, req.user!.userId,
         { userId: vendor.userId, email: vendor.user.email, phone: vendor.user.phone },
         'Vendor', id, 'VENDOR_ADMIN_DELETED', { businessName: vendor.businessName },
@@ -1967,6 +2025,7 @@ export const deleteVendor = catchAsync(async (req: AuthRequest, res: Response) =
     });
   });
 
+  void deleteStoredImages(erasedImages);
   return apiResponse.success(res, 'Vendor deleted successfully.', { id, businessName: vendor.businessName });
 });
 
@@ -1993,14 +2052,16 @@ export const deleteCustomer = catchAsync(async (req: AuthRequest, res: Response)
     return apiResponse.error(res, 'This account is also a vendor or rider. Delete that role first.', 409);
   }
 
+  let erasedImages: string[] = [];
   await prisma.$transaction(async (tx) => {
-    await softDeleteUser(
+    erasedImages = await softDeleteUser(
       tx, req.user!.userId,
       { userId: customer.userId, email: customer.user.email, phone: customer.user.phone },
       'Customer', id, 'CUSTOMER_ADMIN_DELETED', { customerName: customer.user.name },
     );
   });
 
+  void deleteStoredImages(erasedImages);
   return apiResponse.success(res, 'Customer deleted successfully.', { id, name: customer.user.name });
 });
 
@@ -2022,6 +2083,7 @@ export const deleteRider = catchAsync(async (req: AuthRequest, res: Response) =>
     return apiResponse.error(res, 'This rider has a delivery in progress and cannot be deleted yet.', 409);
   }
 
+  let erasedImages: string[] = [];
   await prisma.$transaction(async (tx) => {
     if (await holdsOtherLiveRole(tx, rider.userId, 'RIDER')) {
       // The person is also a vendor/customer: remove only the rider role, keep the account.
@@ -2029,7 +2091,7 @@ export const deleteRider = catchAsync(async (req: AuthRequest, res: Response) =>
         data: { userId: req.user!.userId, action: 'RIDER_ADMIN_DELETED', entity: 'Rider', entityId: id, meta: { riderName: rider.user.name, accountKept: true } },
       });
     } else {
-      await softDeleteUser(
+      erasedImages = await softDeleteUser(
         tx, req.user!.userId,
         { userId: rider.userId, email: rider.user.email, phone: rider.user.phone },
         'Rider', id, 'RIDER_ADMIN_DELETED', { riderName: rider.user.name },
@@ -2038,6 +2100,7 @@ export const deleteRider = catchAsync(async (req: AuthRequest, res: Response) =>
     await tx.rider.update({ where: { id: rider.id }, data: { approvalStatus: 'SUSPENDED' } });
   });
 
+  void deleteStoredImages(erasedImages);
   return apiResponse.success(res, 'Rider deleted successfully.', { id, name: rider.user.name });
 });
 

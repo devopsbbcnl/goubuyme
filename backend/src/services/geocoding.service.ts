@@ -10,6 +10,20 @@ const MAPTILER_BASE_URL = 'https://api.maptiler.com/geocoding';
 
 const nominatimHeaders = { 'User-Agent': NOMINATIM_USER_AGENT };
 
+/**
+ * Which provider is asked first (NDPA register G22). The public OpenStreetMap server has no contract with us and a
+ * strict usage policy, and every address a customer types goes to it. So when a MapTiler key is configured, MapTiler
+ * (a supplier we can contract with) is asked first and public Nominatim is only the fallback. A self-hosted Nominatim
+ * (NOMINATIM_BASE_URL pointing at our own server) keeps data in-house, so it stays first. Force either with
+ * GEOCODER_PRIMARY=nominatim|maptiler.
+ */
+export function nominatimFirst(env: NodeJS.ProcessEnv = process.env, baseUrl: string = NOMINATIM_BASE_URL): boolean {
+  if (env.GEOCODER_PRIMARY === 'nominatim') return true;
+  if (env.GEOCODER_PRIMARY === 'maptiler') return false;
+  const isPublic = /(^|\/\/)nominatim\.openstreetmap\.org/i.test(baseUrl);
+  return !isPublic || !env.MAPTILER_API_KEY;
+}
+
 // Nominatim's public instance allows at most 1 request/second. Calls are chained through
 // this promise so concurrent users (and the multi-candidate fallback below) can't burst.
 const NOMINATIM_MIN_GAP_MS = 1100;
@@ -253,6 +267,11 @@ async function searchAddressSuggestionsMapTiler(query: string): Promise<GeocodeS
 // app bundle. Nominatim (OpenStreetMap) is primary; falls back to MapTiler (already
 // used for the mobile maps) if Nominatim is rate-limited or resolves nothing.
 export async function searchAddressSuggestions(query: string): Promise<GeocodeSuggestion[]> {
+  if (!nominatimFirst()) {
+    const mapTilerResults = await searchAddressSuggestionsMapTiler(query);
+    if (mapTilerResults.length > 0) return mapTilerResults;
+    return searchAddressSuggestionsNominatim(query);
+  }
   const nominatimResults = await searchAddressSuggestionsNominatim(query);
   if (nominatimResults.length > 0) return nominatimResults;
 
@@ -299,6 +318,10 @@ export async function reverseGeocodeCoords(
   lat: number,
   lng: number,
 ): Promise<{ address: string; city: string; state: string } | null> {
+  if (!nominatimFirst()) {
+    const viaMapTiler = await reverseGeocodeMapTiler(lat, lng);
+    if (viaMapTiler) return viaMapTiler;
+  }
   try {
     const response = await throttleNominatim(() =>
       axios.get(`${NOMINATIM_BASE_URL}/reverse`, {
@@ -344,17 +367,15 @@ export async function forwardGeocodeVendorAddress(
     .filter(Boolean);
 
   const seen = new Set<string>();
-  for (const query of candidates) {
-    if (seen.has(query)) continue;
-    seen.add(query);
-    const coords = await queryNominatim(query);
-    if (coords) return { ...coords, query };
-  }
+  for (const query of candidates) seen.add(query);
 
-  // Nominatim found nothing for any candidate — try MapTiler before giving up.
-  for (const query of seen) {
-    const coords = await queryMapTiler(query);
-    if (coords) return { ...coords, query };
+  // The first provider is tried on every candidate, then the second (see nominatimFirst above).
+  const providers = nominatimFirst() ? [queryNominatim, queryMapTiler] : [queryMapTiler, queryNominatim];
+  for (const provider of providers) {
+    for (const query of seen) {
+      const coords = await provider(query);
+      if (coords) return { ...coords, query };
+    }
   }
 
   return null;

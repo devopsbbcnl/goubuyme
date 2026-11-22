@@ -2,7 +2,7 @@
 import { useState, useRef, CSSProperties, FormEvent, ReactNode } from 'react';
 import Image from 'next/image';
 import { useTheme } from '@/context/ThemeContext';
-import { cloudinaryUpload } from '@/lib/cloudinaryUpload';
+import { kycUpload } from '@/lib/cloudinaryUpload';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
 
@@ -95,7 +95,7 @@ export default function RiderSetupPage() {
     setFailed(f => { const { [key]: _drop, ...rest } = f; return rest; });
     setUploading(true);
     try {
-      setUrl(await cloudinaryUpload(file));
+      setUrl(await kycUpload(file, async () => ((await apiCall('/auth/kyc-upload-ticket', 'POST', token, {})) as { data: never }).data));
     } catch (err) {
       // Keep the thumbnail on screen, marked as failed, so it can't be mistaken for saved.
       const msg = err instanceof Error ? err.message : 'Image upload failed.';

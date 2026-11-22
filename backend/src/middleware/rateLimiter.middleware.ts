@@ -1,3 +1,4 @@
+import { redactUrl } from '../utils/redact';
 import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import Redis from 'ioredis';
@@ -94,12 +95,12 @@ const rateLimitHandler = (message: string) => async (req: Request, res: Response
           platform: 'BACKEND',
           source: 'rate-limit',
           message: isBlocked ? `${message} (IP auto-blocked due to repeated violations)` : message,
-          url: req.originalUrl,
+          url: redactUrl(req.originalUrl),
           method: req.method,
           context: {
+            // The IP is kept for abuse investigation; the email someone typed is not (data minimisation).
             ip: req.ip,
             userAgent: req.headers['user-agent'],
-            body: req.body?.email ? { email: req.body.email } : undefined,
             autoBlocked: isBlocked,
           },
         },

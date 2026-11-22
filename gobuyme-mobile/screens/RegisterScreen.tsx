@@ -223,6 +223,7 @@ export default function RegisterScreen() {
 	};
 	const removeBranch = (index: number) => setBranches((prev) => prev.filter((_, i) => i !== index));
 	const [termsAccepted, setTermsAccepted] = useState(false);
+	const [marketingAccepted, setMarketingAccepted] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [errors, setErrors] = useState<RegisterErrors>({});
 	const [pwGenerated, setPwGenerated] = useState(false);
@@ -325,6 +326,9 @@ export default function RegisterScreen() {
 				role: role.toUpperCase(),
 				...(formattedPhone ? { phone: formattedPhone } : {}),
 				...(referral.trim() ? { referralCode: referral.trim() } : {}),
+				// Proof of consent: terms were ticked to get here; promotions only if the second box was ticked.
+				acceptedTerms: true,
+				marketingOptIn: marketingAccepted,
 			};
 
 			if (role === 'vendor') {
@@ -867,7 +871,7 @@ export default function RegisterScreen() {
 					)}
 				</View>
 				<Text style={[styles.termsText, { color: T.textSec }]}>
-					I agree to the{' '}
+					I am 18 or older and I agree to the{' '}
 					<Text
 						style={{ color: T.primary, fontWeight: '700' }}
 						onPress={() => router.push('/(customer)/terms-of-service' as never)}
@@ -888,6 +892,29 @@ export default function RegisterScreen() {
 					{errors.terms}
 				</Text>
 			)}
+
+			<TouchableOpacity
+				activeOpacity={0.7}
+				onPress={() => setMarketingAccepted((v) => !v)}
+				style={styles.termsRow}
+			>
+				<View
+					style={[
+						styles.checkbox,
+						{
+							backgroundColor: marketingAccepted ? T.primary : 'transparent',
+							borderColor: marketingAccepted ? T.primary : T.border,
+						},
+					]}
+				>
+					{marketingAccepted && (
+						<Ionicons name="checkmark" size={13} color="#fff" />
+					)}
+				</View>
+				<Text style={[styles.termsText, { color: T.textSec }]}>
+					Optional: send me offers and promotions by email. You can turn this off any time in Settings.
+				</Text>
+			</TouchableOpacity>
 
 			{!!errors.general && (
 				<Text style={[styles.errorText, { color: '#E53E3E' }]}>

@@ -1,3 +1,4 @@
+import { redactText, redactDeep, redactUrl } from '../utils/redact';
 import crypto from 'crypto';
 import Redis from 'ioredis';
 import Anthropic from '@anthropic-ai/sdk';
@@ -234,15 +235,17 @@ Reply with the summary (one sentence, plain English) and a short concrete recomm
 
 async function classifyByLLM(log: ErrorLogRow): Promise<Classification | null> {
   try {
+    // Redacted again here: older rows were saved before logs were cleaned at write time, and nothing
+    // personal should leave for the AI service. User ids and names are never sent.
     const payload = {
-      message: log.message?.slice(0, 2000),
+      message: redactText(log.message?.slice(0, 2000)),
       source: log.source,
       platform: log.platform,
       method: log.method,
-      url: log.url,
+      url: redactUrl(log.url),
       role: log.role,
-      stack: log.stack?.slice(0, 1500),
-      context: log.context ? JSON.stringify(log.context).slice(0, 1200) : undefined,
+      stack: redactText(log.stack?.slice(0, 1500)),
+      context: log.context ? redactText(JSON.stringify(redactDeep(log.context)).slice(0, 1200)) : undefined,
     };
 
     const res = await getAnthropic().messages.create({

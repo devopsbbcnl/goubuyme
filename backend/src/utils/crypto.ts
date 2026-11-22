@@ -19,6 +19,31 @@ export function encryptSecret(plaintext: string): string {
   return `${iv.toString('hex')}:${encrypted.toString('hex')}:${tag.toString('hex')}`;
 }
 
+const ENCRYPTED_RE = /^[0-9a-f]{24}:[0-9a-f]+:[0-9a-f]{32}$/;
+
+/** True when the stored value is in the `iv:ciphertext:tag` form written by encryptSecret. */
+export function isEncryptedField(value: string | null | undefined): boolean {
+  return typeof value === 'string' && ENCRYPTED_RE.test(value);
+}
+
+/** Encrypts an identity number (NIN, licence or passport number) for storage. */
+export function encryptId(plain: string): string {
+  return encryptSecret(plain.trim());
+}
+
+/** Reads a stored identity number. Older rows saved before encryption was added are returned as they are. */
+export function readId(stored: string | null | undefined): string {
+  if (!stored) return '';
+  return isEncryptedField(stored) ? decryptSecret(stored) : stored;
+}
+
+/** `*******1234`: enough for staff to recognise a number, not to copy it. */
+export function maskId(plain: string | null | undefined): string {
+  if (!plain) return '';
+  const last = plain.slice(-4);
+  return `${'*'.repeat(Math.max(plain.length - 4, 3))}${last}`;
+}
+
 export function decryptSecret(ciphertext: string): string {
   const key = getKey();
   const parts = ciphertext.split(':');
