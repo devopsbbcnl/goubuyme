@@ -71,6 +71,15 @@ function LoginContent() {
       else if (role === 'logistics_company') router.replace('/company');
       else router.replace(next);
     } catch (e: any) {
+      const pending = e?.response?.data?.errors?.[0];
+      if (e?.response?.status === 403 && pending?.requiresVerification && pending.userId) {
+        // Unverified account: the backend just emailed a fresh code, so go enter it.
+        toast('Verify your email to continue. We sent you a new code.', 'success');
+        router.replace(
+          `/verify-otp?userId=${encodeURIComponent(pending.userId)}&email=${encodeURIComponent(pending.email ?? email)}&role=${encodeURIComponent(pending.role ?? 'customer')}`,
+        );
+        return;
+      }
       setErr(e?.response?.data?.message ?? 'Login failed. Check your credentials.');
     } finally {
       setLoading(false);
